@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+#
+# pytest-repeat doesn't work with unitTest so this script is a custom unittest runner that let's you run any or all tests repeatedly
+#
+# but there is also an alternative solution that works with pytest:
+#
+# pip install pytest-flakefinder
+# pytest --flake-finder --flake-runs=5 tests...
+
+
+# Usage:
+#
+# This script assumes that it will get invoked from the project's top-level dir,
+# and all the tests are under `./tests`
+#
+# run specific tests 5 times each
+# ./unittest-run-repeat 5 tests/test_something.py::MyTest::test_specific_thing tests/test_something.py::MyTest::test_another_specific_thing
+#
+# run specific test modules 5 times each
+# ./unittest-run-repeat 5 tests/test_something.py::MyTest
+#
+# run all tests in specific files 5 times each
+# ./unittest-run-repeat 5 tests/test_something.py
+#
+# run the whole test suite 5 times
+# ./unittest-run-repeat 5
+#
+#
+# note: the script taps into internals of the unittest.findTestCases() return object, so it
+# can break any time the internals change (there is no public API to
+# manipulate/access this object)
+#
+
+import fnmatch
+import os
+import sys
+import unittest
+
+from importlib.machinery import SourceFileLoader
+
+tests_dir_short = 'tests'
+
+root_dir = os.path.dirname(os.path.realpath(__file__))
+tests_dir = os.path.join(root_dir, tests_dir_short)
+
+def find_files():
+    matches = []
+    for root, dirnames, filenames in os.walk(tests_dir):
+        for filename in fnmatch.filter(filenames, "*.py"):
+            matches.append(os.path.join(root, filename))
+            return matches
+
+def module_from_path(path):
+    module = tests_dir_short + "." + os.path.splitext(os.path.basename(path))[0]
+    return SourceFileLoader(module, path).load_module()
+
+def add_repeat(suite, testcases, repeat_times):
+    for _ in range(repeat_times):
+        suite.addTest(testcases)
+
+def run_tests_in_paths(paths, repeat_times=5):
+    suite = unittest.TestSuite()
+    for path in paths:
+        fields = path.split('::')
+        file, module_name, test_name = fields[0], fields[1] if len(fields)>1 else None, fields[2] if len(fields)==3 else None
+        module_prefix = file.replace('/', '.').replace('.py', '')
+
+        s = unittest.findTestCases(module_from_path(file))
+        if not module_name:
+            add_repeat(suite, s, repeat_times)
+        else:
+            full_module_name = f"({module_prefix}.{module_name})"
+            for g in s._tests:
+                for t in g._tests:
+                    if not test_name:
+                        if str(t).endswith(full_module_name):
+                            add_repeat(suite, t, repeat_times)
+                    else:
+                        if str(t) == f"{test_name} {full_module_name}":
+                            add_repeat(suite, t, repeat_times)
+
+    if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
+        raise RuntimeError("Some tests failed")
+
+if __name__ == "__main__":
+    repeat_times = int(sys.argv[1])
+    if len(sys.argv) > 2:
+        run_tests_in_paths(sys.argv[2:], repeat_times=repeat_times)
+    else:
+        run_tests_in_paths(find_files(), repeat_times=repeat_times)
