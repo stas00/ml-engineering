@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+# from inside a dir with jpg or png files
+# makepdf
+#
+# or from outside a dir with jpg or png files
+# makepdf dir_with_jpg_files
+# will run all jpg or png files
+#
+# handle many book conversions:
+# feeder makepdf '*'
+
+use strict;
+use warnings;
+use Cwd;
+my $cwd = cwd;
+
+#use Sysadm::Install qw(qquote);
+
+my $dir = shift || ".";
+chdir $dir;
+my @img =  map { qq["$dir/$_"] } sort <*jpg>, <*jpeg>, <*png>, <*gif>, <*tiff>, <*tif>, <*JPG>, <*JPEG>, <*PNG>, <*GIF>, <*TIFF>, <*TIF>, <*/*jpg>, <*/*jpeg>, <*/*png>, <*/*gif>, <*/*tiff>, <*/*tif>, <*/*JPG>, <*/*JPEG>, <*/*PNG>, <*/*GIF>, <*/*TIFF>, <*/*TIF>;;
+chdir $cwd;
+
+#die join "  ",   $dir, @img;
+
+my $output = "output.pdf";
+$output = "$dir.pdf" if $dir ne ".";
+
+my @pdfs = ();
+my $c = 0;
+while (my @list = splice @img, 0, 10) {
+    $c++;
+
+    my $f = "$$-output$c.pdf";
+    my $cmd = qq[/usr/bin/nice -n 19 /usr/bin/ionice -n 0 convert -define pdf:use-trimbox=true @list "$f"];
+    print "$cmd\n";
+    system $cmd;
+
+    push @pdfs, $f;
+}
+
+my $cmd = qq[/usr/bin/nice -n 19 /usr/bin/ionice -n 0 pdftk @pdfs output "$output"];
+print "$cmd\n";
+system $cmd;
+system qq[rm @pdfs];
+
+
+
+__END__
+
+for (<$dir/*jpg>) {
+
+    for (1..10) {
+    }
+
+}
+
+
+
+
+convert -define pdf:use-trimbox=true *jpg output.pdf
+
+pdftk output1.pdf output2.pdf  output output.pdf

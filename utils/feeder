@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+# feed some program to work on each file at a time, e.g.:
+# feeder wma2mp3 '*mp3'
+# feeder does the globbing to handle the files with spaces
+
+use strict;
+use warnings;
+
+use Sysadm::Install qw(qquote);
+
+my $program = shift;
+my @args = map { glob($_) } @ARGV;
+
+for (@args) { 
+#    s/([ '])/\\$1/g;
+    $_ = qquote($_);
+    my $cmd = qq[$program $_];
+    print "$cmd\n";
+    system $cmd;
+}

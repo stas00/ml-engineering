@@ -3,6 +3,7 @@
 Various tools in my toolbox:
 
 - [python](./python)
+- [utils](./utils)
 - [Makefiles](./make)
 
 Continued on my other repos:
