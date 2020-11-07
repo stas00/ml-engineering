@@ -22,3 +22,4 @@ modified_only_fixup:
 		echo "No library .py files were modified"; \
 	fi
 ```
+also rewrote it in python due to some windows setup not being able to handle that [https://github.com/huggingface/transformers/blob/517eaf460b06936f41c0d3c5c92c2c7feaf61fc7/utils/get_modified_files.py](https://github.com/huggingface/transformers/blob/517eaf460b06936f41c0d3c5c92c2c7feaf61fc7/utils/get_modified_files.py).
