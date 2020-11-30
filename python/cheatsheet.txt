@@ -1,0 +1,2963 @@
+# -*- mode: python;-*-
+##############
+### Python ###
+##############
+
+
+##############
+### random ###
+##############
+
+# seed
+seed = 42
+#
+# python RNG
+import random
+random.seed(seed)
+
+# generate a random integer in a given range, including the upper limit
+from random import randint
+randint(0, 9)
+
+# select a random item from a list
+random.choice([0, 1, 2])
+
+
+#############
+### regex ###
+#############
+
+### debug ###
+
+https://regex101.com/
+https://www.debuggex.com/
+https://pythex.org/
+
+# Flags
+re.I	re.IGNORECASE	ignore case
+re.M	re.MULTILINE	make begin/end {^, $} consider each line
+re.S	re.DOTALL	make . match newline too
+re.U	re.UNICODE	make {\w, \W, \b, \B} follow Unicode rules
+re.L	re.LOCALE	make {\w, \W, \b, \B} follow locale
+re.X	re.VERBOSE	allow comments in regex, requires /s for spaces
+()?iLmsux)	        set flags within regex
+
+# Groups
+(...)	    capturing group
+(?P<Y>...)  capturing group named Y
+(?:...)	    non-capturing group
+\Y	    match the Yth captured group
+(?P=Y)	    match the named group Y
+(?#...)	    comment
+
+# Assertions
+^	 start of string
+\A	 start of string, ignores m flag
+$	 end of string
+\Z	 end of string, ignores m flag
+\b	 word boundary
+\B	 non-word boundary
+(?=...)	 positive lookahead
+(?!...)	 negative lookahead
+(?<=...) positive lookbehind
+(?<!...) negative lookbehind
+(?()|)	 conditional
+
+# Replacement
+\g<0>	Insert entire match
+\g<Y>	Insert match Y (name or number)
+\Y	Insert group numbered Y
+
+# identifiers
+isalnum()
+isalpha()
+isascii()
+isdecimal()
+isdigit()
+isidentifier()
+islower()
+isnumeric()
+isprintable()
+isspace()
+istitle()
+isupper()
+# e.g.:
+"1".isdigit() # True
+"a".isdigit() # False
+
+### regex ways in python ###
+
+# replace lowercase with upcase letter
+# perl: $text =~ s/(\w)/ucfirst($1)/e
+# pyth: text = re.sub(r'^(\w)', lambda x: x.group(0).upper(), text)
+# note that group(0) is the whole matched string,
+# use group(1) for \1, etc. for r'(\w)(\s)'
+
+# multiline replace, matching beginning of each line
+re.sub(r'^.*\r', '', buf, 0, re.M)
+# count=0 can be omitted to replace all occurrences
+
+# replacement function
+def my_replace(match):
+    match = match.group()
+    return match + str(match.index('e'))
+re.sub(r'@\w+', my_replace, 'quick @red fox @lame') # 'quick @red2 fox @lame4'
+#
+# or via lambda
+# e.g. to do a lookup, access the matched string via group() directly
+lookup = {'1': 'one', '2': 'two', '3': 'three'}
+s = "1 testing 2 3"
+re.sub(r'\d', lambda x: lookup[x.group()], s)
+
+# match and assign to variables (assumption - the match works) - e.g. url split
+match = re.findall(r'^(.*?//)([\w\.:]+)(.*)$', url)
+if match: prot, domain, path = match[0]
+
+# regex split with pattern
+# 1. split: foo=1 z>=5
+words = re.split(r'[>=<]+', text)
+# 2: split by comma with potential spaces
+e.split(r' *, *', text)
+
+# a complex split with a variable size delimeter (\b was the key to solving it)
+# convert: ["c<1.2.3",     "aa==1.3",     "bb>=2.4.1"]
+# to     : {'c': '<1.2.3', 'aa': '==1.3', 'bb': '>=2.4.1'}
+x = ["c<1.2.3","aa==1.3", "bb>=2.4.1"]; 
+y = {k:v for k,v in (re.split(r"(?=\b[=<>].+)", d, 2) for d in x) }
+# or: with findall
+ { k:v for k,v in list(re.findall(r"^([^=<>]+)([=<>]{,2}.*)", d, 2)[0] for d in x) }
+
+# replace characters
+s = s.replace('f', 'F')
+
+# remove trailing and leading spaces.
+s = s.strip()
+
+# remove a set of characters from the two sides only:
+'www.example.com'.strip('cmowz.') # 'example'
+'#... Section 3.2.1 Issue #32 ...'.strip('.#! ') # 'Section 3.2.1 Issue #32'
+#
+# The outermost leading and trailing chars argument values are stripped from the
+# string. Characters are removed from the leading end until reaching a string
+# character that is not contained in the set of characters in chars. A similar
+# action takes place on the trailing end
+#
+# use lstrip and rstrip to do same only on the left or only on the right of the string.
+
+
+# escape pattern:
+re.escape(pat)
+# e.g.:
+match = re.findall(rf'torch\s+: {re.escape(torch.__version__)}', buf)
+
+# remove punctuation
+#
+import string
+regex = re.compile(f'[{ re.escape(string.punctuation) }]')
+regex.sub('', s)
+
+# e.g. convert a string with punctuation, mixed cases, uneven whitespace into
+# clean lowercase words (far from being complete)
+regex = re.compile(f'[{ re.escape(string.punctuation) }]')
+def text2words(s):
+    return (regex.sub('', s)
+        .strip()
+        .lower()
+        .replace(r'\n', ' ')
+        .replace(r'\r', ' ')
+        .split(' ')
+    )
+
+# remove stop words (case insensitive)
+stop_words = ['the', 'a', 'in', 'to']
+stopwords_re = re.compile(fr'\b(?:{ "|".join(stop_words) })\b', re.I)
+s = "The main feature in a tank"
+s = re.sub(stopwords_re, '', s)
+s = re.sub(r'\s+',      ' ', s) # remove multiple spaces
+s = s.strip()                   # edges
+s # 'main feature tank'
+
+# given a string - lowercase, remove punctuation, remove stopwords, unescape
+# html encodings, remove http urls and convert to words
+import re, string, urllib, html
+stop_words = ['the', 'a', 'in', 'to', 'of', 'and', 'i', 'is', 'on', 'for', 'you', 'it',
+              'with', 'by', 'that', 'at', 'this', 'from', 'are', 'be', 'up']
+regex2remove = re.compile(f'[{ re.escape(string.punctuation) }]')
+regex2space  = re.compile('http\S+|\W+|[\n\r/#\|\?\-,]', re.I)
+regexstopwords = re.compile(fr'\b(?:{ "|".join(stop_words) })\b', re.I)
+def text2words(s):
+    s = s.lower()
+    s = urllib.parse.unquote(s)       # unescape %20, etc.
+    s = html.unescape(s)              # unescape &amp;, etc.
+    s = re.sub(regex2remove,   '', s) # remove
+    s = re.sub(regex2space,   ' ', s) # to space
+    s = re.sub(regexstopwords, '', s) # remove stopwords
+    s = re.sub(r'\s+',        ' ', s) # remove multiple spaces
+    return s.lower().strip().split(' ')
+text2words("foo%20bar http://x.to You and Me now!!!") #  ['foo', 'bar', 'me', 'now']
+
+# XXX? equivalent of:
+# cat file | perl -pe 's/OLD/NEW/'
+# cat file | python -c "import sys,re;[sys.stdout.write(re.sub('OLD', 'NEW', l)) for l in sys.stdin]"
+
+
+### string contains checks
+#
+# anywhere in the string
+if "the" in x
+#
+# case sensitive "ends with"
+x.endswith('csv')
+# case insensitive "ends with"
+x.lower().endswith('csv')
+#
+# starts with
+x.startswith('The')
+#
+# to search in a substring delimited by start/end indices
+x.startswith(search_string, start, end)
+x.endswith(  search_string, start, end)
+
+###########
+### env ###
+###########
+
+import os
+
+# set (always a string)
+os.environ['MYVAR'] = "foo"
+
+# returns str val for the env var. If not set None is returned, or the fallback value if provided
+# read and have a fallback value if it's not set, returns str val (None is returned w/o default)
+val = os.environ.get('MYVAR')
+val = os.environ.get('MYVAR', 'fallback val')
+
+# check if env var exists
+if 'HOME' in os.environ: ...
+
+# to pass custom env setting to a subprocess command:
+process = subprocess.Popen(['env', 'RSYNC_PASSWORD=foobar', 'rsync', 'rsync://username@foobar.com::'], stdout=subprocess.PIPE)
+# or platform-independent:
+env = {'RSYNC_PASSWORD':'foobar'}
+my_env = {**os.environ, **env}
+subprocess.Popen(cmd, env=my_env)
+# another way to expand PATH:
+my_env = os.environ.copy()
+my_env["PATH"] = "/usr/sbin:/sbin:" + my_env["PATH"]
+
+#############
+### paths ###
+#############
+
+# env variable PYTHONPATH
+PYTHONPATH="$PWD/code" python ...
+# dynamic solution and also include a possibly preset env var PYTHONPATH (and dump the paths)
+PYTHONPATH=`pwd`/src:$PYTHONPATH python -c 'import sys; print(sys.path)'
+
+# show:
+import os
+os.environ['PYTHONPATH']
+if "FOO" in os.environ:
+
+# get current file's directory - ala perl's FindBin
+import os
+bindir = os.path.abspath(os.path.dirname(__file__))
+# or
+import pathlib
+bindir = str(pathlib.Path(__file__).resolve().parent)
+#
+# which then can be added to python paths:
+import sys
+sys.path.insert(0, bindir) # take precedence
+sys.path.append(bindir)    # add at the end
+
+# to insert a bunch of paths towards the front at once 
+# here at 2nd position, pushing 3rd position and others out
+sys.path[1:1] = [path1, path2]
+
+# get parent.parent of the current file
+pathlib.Path(__file__).resolve().parents[1]
+
+# get the current directory's full path:
+import os
+os.path.realpath('.')
+# pathlib way:
+import pathlib, sys
+pathlib.Path.cwd()
+
+# split path into dirname and filename
+import os
+path = "/tmp/foo/bar.py"
+dirname, filename = os.path.split(path)
+# or:
+dirname  = os.path.dirname(path)  # /tmp/foo
+filename = os.path.basename(path) # bar.py
+
+# get the full path to the directory a Python file is contained in:
+import os
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+# get caller's __file__
+import inspect, os
+caller__file__ = inspect.stack()[1][1]
+# now can get the base dir of the caller's file
+def get_file_base_dir():
+    # returns the full path to the caller's file location
+    # this function caller's __file__
+    caller__file__ = inspect.stack()[1][1]
+    return os.path.abspath(os.path.dirname(caller__file__))
+
+# to import modules relative to the current jupyter notebook's parent dir:
+import os, sys
+nb_dir = os.path.split(os.getcwd())[0]
+if nb_dir not in sys.path: sys.path.append(nb_dir)
+
+# extract filename from path (crossplatform)
+import ntpath
+ntpath.basename("a/b/c.txt") # c.txt
+
+# copy files - including metadata, permissions, and can use
+# destination dir as the second argument
+from shutil import copy2
+copy2(f_in, f_out)
+copy2(file, dir)
+
+# find where a given module was imported from
+import sys
+print(sys.modules['fastai'])
+
+# find the path of the file where a class was defined
+import inspect
+inspect.getfile(self.__class__) # adjust to the desired class 
+
+# rename pathlib paths (e.g. change or add extension)
+# $path =~ 's|$|.bak|'
+fname = Path(...)
+fname_bak = fname.parent/f"{fname.name}.bak"
+
+# path exists
+import os.path
+# dir or file
+os.path.exists(file_path) 
+# check if file
+os.path.isfile(file_path)
+# same with pathlib
+from pathlib import Path
+path = Path(file_path)
+path.exists()
+path.is_file()
+path.is_dir()
+
+
+# check if one path is a subdir of another
+# https://stackoverflow.com/a/37095733/9201239
+import os
+def path_is_parent(parent_path, child_path):
+    # Smooth out relative path names, note: if you are concerned about symbolic
+    # links, you should use os.path.realpath too
+    parent_path = os.path.abspath(parent_path)
+    child_path = os.path.abspath(child_path)
+
+    # Compare the common path of the parent and child path with the common path
+    # of just the parent path. Using the commonpath method on just the parent
+    # path will regularise the path name in the same way as the comparison that
+    # deals with both paths, removing any trailing path separator
+    return parent_path == os.path.commonpath([parent_path, child_path])
+p = "/tmp/xx/"
+c1 = "/tmp/xx/yy"
+c2 = "/tmp/xx1/yy"
+path_is_parent(p, c1) # True
+path_is_parent(p, c2) # False
+
+# mkdir -p 
+from pathlib import Path
+path = "tmp/foobar"
+Path(path).mkdir(parents=True, exist_ok=True)
+# or
+import os
+os.makedirs(path, exist_ok=True)
+
+### tmp file/dir creation ###
+
+# create a named tmp file
+import tempfile
+f = tempfile.NamedTemporaryFile(delete=False)
+f.close()
+tmp_file = f.name
+#... use it and unlink it when done...
+os.unlink(tmp_file)
+# to create it at a specific path, instead of /tmp/ (or whatever default tmp dir is)
+f = tempfile.NamedTemporaryFile(delete=False, dir=path)
+
+# create a temporary file and write some data to it
+fp = tempfile.TemporaryFile()
+fp.write(b'Hello world!')
+fp.close() # close the file, it will be removed
+
+# create a temporary file using a context manager
+with tempfile.TemporaryFile() as fp:
+    fp.write(b'Hello world!')
+
+
+
+    
+
+
+####################
+### program flow ###
+####################
+
+# exit program (on error)
+import sys
+print("This is error message")
+sys.exit()
+# or (more messy but with trace)
+raise ValueError("This is error message")
+
+
+###################
+### arg parsing ###
+###################
+
+# fire
+# click https://click.palletsprojects.com/en/6.x/
+
+# crude
+if len(sys.argv) == 2 and os.path.exists(sys.argv[1]):
+    fn = sys.argv[1]
+else:
+   print("Usage error: expecting a csv file as the only argument")
+   print("Usage: python program.py input.csv")
+   sys.exit()
+
+# argparse (built-in)
+
+import argparse
+parser = argparse.ArgumentParser()
+# flag option (no value)
+parser.add_argument('-l', '--linestring',  action="store_true", help="connect dots")
+# flag option with value and default
+parser.add_argument('-n', '--name', default="My Grid", help="project name",)
+# required positional argument
+parser.add_argument('input', help='csv input file')
+# optional positional argument
+parser.add_argument('output', nargs='?', help='kml output file (optional)')
+args = parser.parse_args()
+# args.name, args.input, etc.
+
+# dump the Namespace object nicely formatted
+from pprint import pprint
+pprint(vars(args))
+
+#################
+### IO / file ###
+#################
+
+# write to file:
+with open("test.py", "w") as f: f.write("Hi")
+
+# append to file
+with open("test.py", "a") as f: f.write("Hi")
+
+# get file size in Bytes
+os.path.getsize(path)
+# in MBytes
+os.path.getsize(path) >> 20
+
+# run a command and slurp output into lines
+import subprocess
+cmd = f"ls -l /tmp".split()
+out = subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
+
+
+###########
+### csv ###
+###########
+
+# read csv file
+import csv
+with open('test.csv') as csv_file:
+    csv_reader = csv.reader(csv_file, delimiter=',')
+    line_count = 0
+    for row in csv_reader:
+        if line_count == 0:
+            print(f'Column names are {", ".join(row)}')
+            line_count += 1
+        else:
+            print(f'\t{row[0]} {row[1]} {row[2]}.')
+            line_count += 1
+    print(f'Processed {line_count} lines.')
+
+# if headers line is present could use DictReader instead:
+with open('test.csv', mode='r') as csv_file:
+    csv_reader = csv.DictReader(csv_file)
+    for row in csv_reader:
+        print(f'\t{row["name"]} works in the {row["department"]} department, and was born in {row["birthday month"]}.')
+
+# write csv
+with open('test.csv', mode='w') as csv_file:
+    writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['aa', 'bb', 1])
+    writer.writerow(['aa', 'cc', 2])
+
+
+############
+### math ###
+############
+import math
+
+math.floor(4.5) # 4
+math.ceil(4.5)  # 5
+
+round(5.1234)    # 5
+round(5.1234, 2) # 5.12
+round(5.5234)    # 6
+
+base = 8
+# round to a custom base
+base * round(x/base)     # 7 => 8, 9 =>  8, 15 => 16, 21 => 24
+# round up to a custom base
+import math
+base * math.ceil(x/base) # 7 => 8, 9 => 16, 15 => 16, 21 => 24
+
+
+# return the most common data point from discrete or nominal data
+# py3.7: if there is not exactly one most common value, StatisticsError is raised
+# py3.8: if there is not exactly one most common value, the first one encountered is returned
+# this is useful for majority vote for example
+from statistics import mode
+mode([1, 1, 2, 3, 3, 3, 3, 4]) # 3
+mode(["red", "blue", "blue", "red", "green", "red", "red"]) # red
+#
+# py3.8: also added multimode which will return multiple values if they are of the same size
+from statistics import multimode
+multimode('aabbbbccddddeeffffgg') # ['b', 'd', 'f'] each 4 times
+#
+# a more detailed mode-like solutions:
+from collections import Counter
+Counter([1, 1, 2, 3, 3, 3, 3, 4]).most_common(1) # (3, 4) 3 - 4 times
+# if there is more than one most_common it randomly picks one of them - not great!
+
+
+############
+### text ###
+############
+
+# plural nouns to singular
+plurals = ['caresses', 'flies', 'dies', 'geese', 'mice']
+#
+from pattern.text.en import singularize # pip install pattern
+[singularize(w) for w in plurals]        # 'caress', 'fly', 'dy', 'goose', 'mouse'
+#
+from textblob import Word # pip install textblob
+[Word(w).singularize() for w in plurals] # 'caress', 'fly', 'dy', 'goose', 'mouse'
+
+
+
+###############
+### classes ###
+###############
+
+### special methods
+
+# __call__() method allows direct object calling as functions
+class Foobar:
+    def __init__(self, a): self.a = a
+    def __call__(self, b): return self.a + b
+x = Foo("foo") # __init__
+y = x("bar")   # __call__, y == "foobar"
+
+# __str__ is called when a class instance needs to be converted to a string
+def __str__(self): return f'blah: {self.something}'
+
+# __repr__ - invoked when print is called
+def __repr__(self): return self.__str__()  # or return str(self)
+
+
+a.__add__(b)  # a + b
+a.__sub__(b)  # a - b
+a.__mul__(b)  # a * b
+a.__div__(b)  # a / b
+a.__pow__(b)  # a ** b
+a.__len__()   # the length of a, len(a)
+a.__abs__()   # the absolute value of a, abs(a)
+a.__eq__(b)   # a == b
+a.__gt__(b)   # a > b
+a.__ge__(b)   # a >= b
+a.__lt__(b)   # a < b
+a.__le__(b)   # a <= b
+a.__ne__(b)   # a != b
+a.__neg__()   # -a
+
+
+
+#################
+### functions ###
+#################
+
+### closures ###
+
+# examples from https://amzn.to/2R2oPgt A Primer on Scientific Programming with Python
+# a simple closure that remembers a bunch of local variables defined during its defintion
+def generate_y(v0):
+    g = 9.81
+    def y(t): return v0*t - 0.5*g*t**2
+    return y
+y1 = generate_y(v0=1)
+y2 = generate_y(v0=5)
+y1(1) # -3.9050000000000002
+y2(1) # 0.09499999999999975
+
+# for changing in a loop local vars to be remembered during closure function
+# definition, must explictly pass those vars as arguments to the closure function:
+def generate_broken(): return [lambda t:        (v0, t) for v0 in [0, 1, 5, 10]]
+def generate_good():   return [lambda t, v0=v0: (v0, t) for v0 in [0, 1, 5, 10]]
+funcs = generate_broken()
+for func in funcs: print(func(1)) # (10, 1) (10, 1) (10, 1) (10, 1)
+funcs = generate_good()
+for func in funcs: print(func(1)) # ( 0, 1) ( 1, 1) ( 5, 1) (10, 1)
+
+### partial ###
+
+# this is a special kind of closure that allows for one or more arguments to be preset
+from functools import partial
+def process1(a, b): print(a, b)
+part = partial(process1, b=10)
+print(part(0)) # not passing b
+#
+# it's very useful when a function callback is used w/o any arguments
+def process(row, col): row[col] = 5
+func = partial(process, col='Main')
+df.apply(func, axis=1)
+# but can also be done with lambda
+df.apply(lambda row: process(row, col='Main'), axis=1)
+
+### args by reference ###
+
+# getting functions to change the value of variables outside of their scope
+#
+# in Python the args are passed by assignment (== by object reference).
+# An assignment just creates references to objects, there’s no alias between an
+# argument name in the caller and callee, and so no call-by-reference per se.
+#
+# 1. mutable objects myobj.var1
+#
+# Objects, like strings, tuples, and numbers, are immutable. Altering them
+# inside a function/method will create a new instance and the original instance
+# outside the function/method is not changed.
+#
+# Other objects, like lists and dictionaries are mutable, which means you can
+# change the object in-place. Therefore, altering an object inside a
+# function/method will also change the original object outside.
+#
+# e.g., manipulating a list object passed as an argument:
+#
+# if we modify the contents of the object passed to the function, the change is
+# reflected outside
+def func_l1(a): a[0], a[1] = 10, 20 # modifies external object
+args = [1, 2]; func_l1(args)
+args # 10, 20
+#
+# but if we create a new object, the connection with the outside object is
+# broken, the modifications are no longer reflected in the outside object
+def func_l2(a): a = [10, 20] # disconnects from the external object
+args = [1, 2]; func_l2(args)
+args # 1, 2
+#
+# in this context it's good to mention:
+listA = [0]
+listB = listA # both now point to the same structure
+listB.append(1)
+print(listA) # [0, 1]
+#
+#
+# can't change immutable int
+def func_i1(a): a = 10
+args = 1; func_i1(args)
+args # 1
+#
+# e.g., can't manipulate immutable objects like strings or tuples
+#
+def func_s1(a): a[0] = 'A' # TypeError: 'str' object does not support item assignment
+args = 'ZZZ'; func_s1(args)
+#
+# tuple
+def func_t1(a): a[0] = 10  # TypeError: 'tuple' object does not support item assignment
+args = (1, 2); func_t1(args)
+#
+#
+# 2. globals - bad idea
+#
+# 3. function returns modified variables (not really by reference)
+def swap(a, b): return b, a
+a, b = 0, 1
+a, b = swap(a, b) # 1, 0
+
+
+####################
+### visual debug ###
+####################
+
+# q - quick code/function tracing; https://github.com/zestyping/q
+# it sends output into /tmp/q file, so watch this file:
+touch /tmp/q; tail -f /tmp/q
+# in code:
+import q
+# trace any code and its outputs
+q(1+2)
+# to trace function arguments and returns add @q before each function definition
+@q
+def myfunction()...
+
+# a neat function that dumps the object attributes and the corresponding values
+# modified from https://stackoverflow.com/a/57856158/9201239
+import json
+def get_info(obj):
+    print("\n\n-------------\n")
+    type_name = type(obj).__name__
+    print(f"Value is of type {type_name}")
+    prop_names = dir(obj)
+
+    for prop_name in prop_names:
+        prop_val = getattr(obj, prop_name)
+        prop_val_type_name = type(prop_val).__name__
+        print(f"{prop_name}: {prop_val_type_name}", end='')
+
+        try:
+            val_as_str = json.dumps(prop_val, indent=2)
+            print(f" = {val_as_str}")
+        except:
+            print("")
+            pass
+
+    print("-------------\n\n")
+
+# another function using inspect that dumps the object attributes and the type of an object it points to
+import inspect
+def get_info(obj):
+    for i in inspect.getmembers(obj):
+        # Ignores anything starting with underscore
+        # (that is, private and protected attributes)
+        if not i[0].startswith('_'):
+            # Ignores methods
+            if not inspect.ismethod(i[1]):
+                print(i)
+
+# dumps key/val for all entries of the object
+def dump(obj):
+  for attr in dir(obj): print("obj.%s = %r" % (attr, getattr(obj, attr)))
+
+### beeprint (structured improved pprint)
+# pip install beeprint
+from beeprint import pp
+pp(obj)
+
+### pprint
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+pp.pprint( vars( something ) )
+
+# to dump all variables contained in the global or local scope simply use:
+pprint(globals())
+pprint(locals())
+# same in a more vertical layout:
+import sys, pprint
+sys.displayhook = pprint.pprint
+locals()
+# in ipython:
+%whos
+
+# to reach locals() from the caller
+import sys
+def caller_locals():
+    caller = sys._getframe(1)
+    print(caller.f_locals)
+# or:
+import inspect
+def show_callers_locals():
+    """Print the local variables in the caller's frame."""
+    frame = inspect.currentframe()
+    try:
+        print(frame.f_back.f_locals)
+    finally:
+        del frame
+# to go another frame up: print(frame.f_back.f_back.f_locals)
+
+
+### lolviz https://github.com/parrt/lolviz (somewhat similar to Data::Dumper)
+from lolviz import objviz, listviz, lolviz, callviz, callsviz, treeviz, strviz
+d = dict([(c,chr(c)) for c in range(ord('a'),ord('f'))])
+objviz(d)
+
+### IPython.display
+from IPython.display import display, HTML
+
+display(df)
+#or
+print df.to_html()
+
+### pretty
+from IPython.lib.pretty import pretty
+print(pretty( something ))
+
+### yaml
+import yaml
+print(yaml.dump( something ))
+
+### ppretty
+from ppretty import ppretty
+print(ppretty(A(), indent='    ', depth=2, width=30, seq_length=6,
+              show_protected=True, show_private=False, show_static=True,
+              show_properties=True, show_address=True))
+
+### https://pypi.org/project/Dumper/
+from dumper import dump
+dump.max_depth = 10 # default is 5 dumper.dump (really_deep_object)
+dump( something )
+
+# print address of an object
+print(f"obj: {hex(id(obj))}")
+
+### internal object introspection methods
+object.__dict__
+type()
+dir()
+id()
+getattr()
+hasattr()
+globals()
+locals()
+callable()
+vars()
+dirs()
+
+### https://pypi.python.org/pypi/objbrowser
+# GUI for looking inside objects
+
+# inspect - built in module to get information about live objects such
+# as modules, classes, methods, functions, tracebacks, frame objects,
+# and code objects
+
+### https://www.linux.org.ru/forum/development/11913051
+def obj2dict(obj,maxdepth):
+    obj_type = type(obj).__name__
+    result = {}
+
+    if maxdepth <= 0:
+        return obj
+    maxdepth -= 1
+
+    if ( obj_type == 'instance' ) :
+        for field, value in obj.__dict__.items():
+            result[field] = obj2dict(value, maxdepth)
+    elif ( obj_type == 'dict' ):
+        for field in obj.keys():
+            result[field] = obj2dict( obj[field], maxdepth )
+    elif ( obj_type == 'list' ):
+        result = [];
+        for item in obj:
+            result.append( obj2dict( item, maxdepth))
+    elif ( obj_type in [ 'NoneType', 'bool', 'str', 'int' ] ) :
+        result = obj
+    elif ( obj_type in ['classobj'] ):
+        result = str(obj)
+    else:
+        result = {
+            'type' : obj_type,
+            'str' : str(obj),
+            'addr' : hex(id(obj)),
+        }
+    return result
+
+### GPU and RAM memory diagnostics
+sys.path.append('/home/stas/fast.ai')
+from myutils.memory_diag import printm
+printm()
+
+# watch nvidia-smi output like top(1)
+watch -n 1 nvidia-smi
+
+
+
+#####################
+### serialization ###
+#####################
+
+# pickle
+import pickle
+test = "aaa" # usually an object
+p = pickle.dumps(test)
+test = pickle.loads(p)
+# unpickle
+fn = "test.pickle"
+with open(fn, 'wb') as pickle_file: pickle.dump(test, pickle_file)
+with open(fn, 'rb') as pickle_file: test = pickle.load(pickle_file)
+
+# serialization presentation and dump via json or yaml:
+import jsonpickle # pip install jsonpickle
+import json
+import yaml # pip install pyyaml
+serialized = jsonpickle.encode(obj, max_depth=2) # max_depth is optional
+print(json.dumps(json.loads(serialized), indent=4))
+print(yaml.dump(yaml.load(serialized), indent=4))
+
+
+############################
+### bytecode disassembly ###
+############################
+
+# disassembly explained:
+def f(num):
+    if num == 42:
+        return True
+    return False
+
+import dis
+dis.dis(f)
+
+# https://stackoverflow.com/a/47529318/9201239
+# This may be disassembled into (Python 3.6):
+#
+# (1)|(2)|(3)|(4)|          (5)         |(6)|  (7)
+# ---|---|---|---|----------------------|---|-------
+#   2|   |   |  0|LOAD_FAST             |  0|(num)
+#    |-->|   |  2|LOAD_CONST            |  1|(42)
+#    |   |   |  4|COMPARE_OP            |  2|(==)
+#    |   |   |  6|POP_JUMP_IF_FALSE     | 12|
+#    |   |   |   |                      |   |
+#   3|   |   |  8|LOAD_CONST            |  2|(True)
+#    |   |   | 10|RETURN_VALUE          |   |
+#    |   |   |   |                      |   |
+#   4|   |>> | 12|LOAD_CONST            |  3|(False)
+#    |   |   | 14|RETURN_VALUE          |   |
+#
+# Each column has a specific purpose:
+#
+# 1. The corresponding line number in the source code
+# 2. Optionally indicates the current instruction executed (when the bytecode
+# comes from a frame object for example)
+# 3. A label which denotes a possible JUMP from an earlier instruction to this one
+# 4. The address in the bytecode which corresponds to the byte index (those are
+# multiples of 2 because Python 3.6 use 2 bytes for each instruction, while it
+# could vary in previous versions)
+# 5. The instruction name (also called opname), each one is briefly explained in
+# the dis module and their implementation can be found in ceval.c (the core loop of CPython)
+# 6. The argument (if any) of the instruction which is used internally by Python to
+# fetch some constants or variables, manage the stack, jump to a specific instruction, etc.
+# 7. The human-friendly interpretation of the instruction argument
+
+
+######################
+### memory leakage ###
+######################
+
+# Normal objects get freed up as soon as they are destroyed, but if there is a circular reference one needs to call gc.collect(), which normally runs automatically, with time frequency or event-based, depending on how gc is configured (gc.get_threshold()). (python 3.4+ handles __del__ destructors w/ circular references too)
+
+# objgraph - find memory leaks: https://mg.pov.lt/objgraph/
+# In order to figure out circular references use the visual representation of the object and its references, after running: pip install objgraph xdot
+import objgraph
+x = []
+y = [x, [x], dict(x=x)]
+objgraph.show_refs([y])
+
+# to find out which objects weren't freed after calling gc.collect:
+gc.collect()
+print(gc.garbage)
+# gc.garbage contains a list of objects which the collector found to be unreachable but could not be freed (uncollectable objects). objects with a __del__() method don’t end up in gc.garbage https://docs.python.org/3/library/gc.html
+
+# the tracemalloc package
+# https://docs.python.org/3/library/tracemalloc.html
+# https://willnewton.name/2016/12/28/debugging-memory-leaks-in-python/
+
+# reference count: 2 ways:
+# 1. via sys
+sys.getrefcount(learn.loss_func)
+#
+# 2. via gc
+gc.collect()
+len(gc.get_referrers(learn.loss_func))
+
+
+########################
+### memory profiling ###
+########################
+
+# tracemalloc - reports the exact allocation and peak memory, regardless of python
+# internal caching process. Detailed examples with utils:
+# https://stackoverflow.com/a/45679009/9201239
+import tracemalloc
+tracemalloc.start()
+a = consume_cpu(2**12) # code to trace
+# show how much RAM the above code allocated (convert to MBs)
+current, peak = list(map(lambda x: x/2**20, tracemalloc.get_traced_memory()))
+print(f"{current:0.2f}, {peak:0.2f}")
+tracemalloc.stop() (rerun start() after this to make another measurement)
+
+# total peak memory usage for the calling process
+import resource
+x = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(int(x/2**20))
+
+# get amount of memory used by the object non-recursively, measured in bytes
+# - works for built-in objects.
+# - for 3rd party extensions only if __sizeof__() is implemented (and correctly)
+import sys
+obj = 5**2
+print(sys.getsizeof(obj))
+# but if the objects are immutable (e.g. integer), they will consume memory only once!
+
+# https://github.com/fonaro/objsize
+# pip install objsize
+import objsize
+objsize.get_deep_size(dict(arg1='hello', arg2='world'))
+
+
+# pympler - development tool to measure, monitor and analyze the memory behavior of
+# Python objects in a running Python application.
+# https://github.com/pympler/pympler
+# https://pythonhosted.org/Pympler/index.html
+# similar to getsizeof, but tried to do it recursively
+from pympler import asizeof
+obj = [1, 2, (3, 4), 'text']
+asizeof.asizeof(obj)
+# also has functions to track memory usage and memory leaks
+
+# guppy/heapy
+# http://guppy-pe.sourceforge.net/#Heapy
+# http://smira.ru/wp-content/uploads/2011/08/heapy.html
+from guppy import hpy
+h = hpy()
+print(h.heap())
+
+# line by line profiler (install via conda)
+https://github.com/rkern/line_profiler
+
+# IPython tool to report memory usage deltas for every command you type
+# https://github.com/ianozsvald/ipython_memory_usage
+import ipython_memory_usage.ipython_memory_usage as imu
+import numpy as np
+imu.start_watching_memory()
+    In [3] used 0.0469 MiB RAM in 7.32s, peaked 0.00 MiB above current, total RAM usage 56.88 MiB
+a = np.ones(int(1e7))
+    In [4] used 76.3750 MiB RAM in 0.14s, peaked 0.00 MiB above current, total RAM  usage 133.25 MiB
+del a
+    In [5] used -76.2031 MiB RAM in 0.10s, total RAM usage 57.05 MiB
+
+
+# utility for watching the memory consumption and time spent on each IPython input cell - it can't measure true usage, when process cached memory is involved.
+https://github.com/ianozsvald/ipython_memory_usage
+https://github.com/FrancescAlted/ipython_memwatcher
+
+# memory-profiler  https://github.com/pythonprofilers/memory_profiler
+
+# memprof https://github.com/jmdana/memprof
+# A memory profiler for Python. As easy as adding a decorator
+
+
+#############
+### Debug ###
+#############
+
+### Jupyter
+
+## pixiedust framework comes with a GUI debugger - automatically shows local vars too
+#
+# inside jupyter
+import pixiedust
+# then in new cell
+%%pixie_debugger
+some_function_call()
+# can also preset breakpoints, either via line number or function name or filename:line_number
+%%pixie_debugger -b /mnt/nvme1/code/github/00nlp/fairseq/fairseq/data/dictionary.py:21
+
+### GUI
+
+## pudb - full-screen, console-based visual debugger https://documen.tician.de/pudb/index.html
+python -m pudb.run my-script.py
+
+### CLI
+
+import ipdb; ipdb.set_trace()
+
+## pdb
+python -m pdb script.py
+# or from inside at a given point in code:
+import pdb; pdb.set_trace()
+
+# useful aliases that go into ~/.pdbrc
+# ------------------->8--------------->8--------------->8-----------
+# Print a dictionary, sorted. %1 is the dict, %2 is the prefix for the names.
+alias p_ for k in sorted(%1.keys()): print "%s%-15s= %-80.80s" % ("%2",k,repr(%1[k]))
+
+# Print the instance variables of a thing.
+alias pi p_ %1.__dict__ %1.
+
+# Print the instance variables of self.
+alias ps pi self
+
+# Print the locals.
+alias pl p_ locals() local:
+
+# Next and list, and step and list.
+alias nl n;;l
+alias sl s;;l
+
+# Short cuts for walking up and down the stack
+alias uu u;;u
+alias uuu u;;u;;u
+alias uuuu u;;u;;u;;u
+alias uuuuu u;;u;;u;;u;;u
+alias dd d;;d
+alias ddd d;;d;;d
+alias dddd d;;d;;d;;d
+alias ddddd d;;d;;d;;d;;d
+# ------------------->8--------------->8--------------->8-----------
+
+## advanced pdb https://pypi.python.org/pypi/pdbpp/
+
+
+### strace for python https://github.com/rixx/lptrace/tree/python3
+python lptrace.py -p PID (PID is the ID of the running python program)
+
+# get current process id (PID)
+import os
+os.getpid()
+
+### stack trace ###
+
+# print stack trace, limits sets how much up to go
+import traceback
+traceback.print_stack(limit=6)
+# to send to a different output
+traceback.print_stack(limit=6, file=sys.stdout)
+# it also has a f= (frame to start argument), defaults to a current frame
+# (default), which can also be retrieved as:
+inspect.currentframe().f_back
+
+# or to have a detailed access to each line of stack
+for line in traceback.format_stack(): print(line.strip())
+
+# similar:
+import inspect
+print(inspect.stack())
+
+# get variable name (doesn't work for everything)
+# https://stackoverflow.com/a/40536047/9201239
+import inspect
+def retrieve_name(var): # search from the outmost frame inwards
+    for fi in reversed(inspect.stack()):
+        names = [var_name for var_name, var_val in fi.frame.f_locals.items() if var_val is var]
+        if len(names) > 0: return names[0]
+    return "Unknown" # fallback
+
+
+###############
+### Profile ###
+###############
+
+# https://github.com/joerick/pyinstrument
+
+
+
+##################
+### Formatting ###
+##################
+
+f'{"string":format} or {:format}.format("string")
+format: [[fill]align][sign][#][0][width][grouping_option][.precision][type]
+To run examples use |print("FORMAT".format(NUMBER));|
+
+type conversions
+---------------------------------------
+d 	Decimal integer
+c 	Corresponding Unicode character
+b 	Binary format
+o 	Octal format
+x 	Hexadecimal format (lower case)
+X 	Hexadecimal format (upper case)
+n 	Same as 'd'. Except it uses current locale setting for number separator
+e 	Exponential notation. (lowercase e)
+E 	Exponential notation (uppercase E)
+f 	Displays fixed point number (Default: 6)
+F 	Same as 'f'. Except displays 'inf' as 'INF' and 'nan' as 'NAN'
+g 	General format. Rounds number to p significant digits. (Default precision: 6)
+G 	Same as 'g'. Except switches to 'E' if the number is large.
+% 	Percentage. Multiples by 100 and puts % at the end.
+
+Input     Format    Output     Description
+---------------------------------------------------------------------------
+3.14159   {:.2f}    3.14       2 decimal places
+3.14159   {:6.2f}     3.14     2 decimal places and left pad to width 6
+3.14159   {:+.2f}   +3.14      2 decimal places with sign
+-1        {:+.2f}   -1.00      2 decimal places with sign
+2.71828   {:.0f}    3          no decimal places and rounding to int
+5         {:0>2d}   05         pad number with zeros (left padding, width 2)
+5         {:x<4d}   5xxx       pad number with x’s (right padding, width 4)
+10        {:x<4d}   10xx       pad number with x’s (right padding, width 4)
+1000000   {:,}      1,000,000  number format with comma separator
+0.25      {:.2%}    25.00%     format percentage
+1000000   {:.2e}    1.00e+06   exponent notation
+13        {:9d}            13  align right (default)
+13        {:<9d}    13         align left
+13        {:^9d}        13     align center
+13        {:_^9d}   ____13___  align center w/ '_' char padding
+---------------------------------------------------------------------------
+sentence  {:.5}    sente       truncate to x chars
+sentence  {:>10}     sentence  align right
+sentence  {:>10.5}      sente  truncate and align right
+---------------------------------------------------------------------------
+string    {!r}     string      call `repr` on arguments (! instead of :)
+1.5343    {!s}     1.5343      call `str`  on arguments (! instead of :)
+---------------------------------------------------------------------------
+
+# named vars
+"I {verb} the {object} off the {place}".format(verb="took", object="cheese", place="table")
+
+# reuse same variable multiple times
+"Oh {0}, {0}! wherefore art thou {0}?".format("Romeo")
+
+# convert values to different bases
+"{0:d} - {0:x} - {0:o} - {0:b} ".format(21)
+
+# format floats, as integers w/o trailing zeros if there is no floating part
+# otherwise format them as floats with precision of 2 points:
+print('{0:g}'.format(round(num, 2)))
+
+# good examples: https://pyformat.info/
+
+# string.format: https://wiki.python.org/moin/FormatReference
+       "{" [field_name] ["!" conversion] [":" format_spec] "}"
+          /                  "r"|"s"                   \
+         /               (r)epr   (s)tr                 \
+arg_name                                                 \
+| ("." attribute_name | "[" element_index "]")*           \
+|        |                       |                         \
+|     identifier         integer | index_string            |
+|                                   (quotes                |
+[identifier                          not required)         |
+ |integer]                                                 |
+                                                           |
+ _________________________________________________________/ \________
+/                                                                    \
+      ":"
+         [[fill]align][sign][#][0][width][,][.precision][type]
+  [default]--> < left    +   |  |  (int)       (int)    b base 2
+  [default --> > right  [-]  |  |                       c character
+   for         ^ center " "  |  \                       d base 10
+   numbers]    =             |   `zero padding          e exponent (e)
+                             |                          E exponent (E)
+                            use 0b,0o,0x                f fixed point
+                             for 2  8 16                F ^^(same)^^
+  b base 2     c character                 [default]--> g general (???)
+  o base 8     s string                                 G general 2 (?)
+  d base 10                                             n number (general 3)
+  x base 16                                             o base 8
+  X base 16                                             s string
+  e, E    exponent                         (lower case) x base 16
+  f, F, % fixed point                      (upper case) X base 16
+  g, G, n (general numbers)                   (x100, f) % percentage
+
+# to escape { and } inside f" " - double those {{ }}
+name = "me"
+print(f"{{this}} is {name}") # {this} is me
+
+# backslash characters (e.g. \n) inside f-strings
+# 1. use chr(10) for \n, e.g.: instead of "\n".join(mylist)
+f"List is :\n{chr(10).join(mylist)}"
+# 2. or join outside of f-string
+# 3. pass unpacked vars to print (but doesn't work with warn)
+names = ['Adam', 'Bob', 'Cyril']
+print("Winners are:", *names, sep="\n")
+
+
+### datetime format ###
+import datetime
+datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+datetime.datetime.now().strftime('%Y-%m-%d-%H')
+
+%a   abbreviated weekday
+%A   full weekday
+%b   abbreviated month
+%B   full month
+%c   appropriate date and time representation
+%d   day [01,31]
+%H   hour [00,23]
+%I   hour [01,12]
+%j   day [001,366]
+%m   month [01,12]
+%M   minute [00,59]
+%p   AM or PM
+%S   second [00,61]
+%s   seconds since 1970-01-01 00:00:00 UTC (*nix only?)
+%U   week (Sunday as the first day of the week) [00,53]
+%W   week (Monday as the first day of the week) [00,53]
+%w   weekday [0(Sunday),6]
+%x   date representation
+%X   time representation
+%y   year without century [00,99]
+%Y   year
+%Z   time zone name
+%%   '%' character
+
+# templating
+from string import Template
+t = Template('Hey, $name!')
+t.substitute(name="Peter")
+'Hey, Peter!'
+
+
+
+###############
+### logging ###
+###############
+
+# built-in logging
+# https://realpython.com/python-logging/
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# in ipython/jupyter, the following is required:
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+logging.debug('This is a debug message')
+logging.info('This is an info message')
+logging.warning('This is a warning message')
+logging.error('This is an error message')
+logging.critical('This is a critical message')
+
+# A lightweight console printing and formatting toolkit
+# https://github.com/ines/wasabi
+pip install wasabi
+# https://github.com/ines/wasabi
+from wasabi import Printer
+msg = Printer()
+msg.good("Success")
+msg.fail("Error")
+msg.warn("Warning")
+msg.info("Info")
+# prints in color:
+✔ Success
+✘ Error
+⚠ Warning
+ℹ Info
+
+# To control logging level for various modules used in the application:
+import logging
+import re
+def set_global_logging_level(level=logging.ERROR, prefices=[""]):
+    """
+    Override logging levels of different modules based on their name as a prefix.
+    It needs to be invoked after the modules have been loaded so that their loggers have been initialized.
+
+    Args:
+        - level: desired level. e.g. logging.INFO. Optional. Default is logging.ERROR
+        - prefices: list of one or more str prefices to match (e.g. ["transformers", "torch"]). Optional.
+          Default is `[""]` to match all active loggers.
+          The match is a case-sensitive `module_name.startswith(prefix)`
+    """
+    prefix_re = re.compile(fr'^(?:{ "|".join(prefices) })')
+    for name in logging.root.manager.loggerDict:
+        if re.match(prefix_re, name):
+            logging.getLogger(name).setLevel(level)
+# override all module-specific loggers to a desired level (except whatever got logged during modules importing)
+set_global_logging_level(logging.ERROR)
+# override only modules starting with specific prefices
+set_global_logging_level(logging.ERROR, ["transformers", "nlp", "torch", "tensorflow", "tensorboard", "wandb"])
+
+
+# To disable logging globally - place at the beginning of the script
+import logging
+logging.disable(logging.INFO) # disable INFO and DEBUG logging everywhere
+logging.disable(logging.WARNING) # disable WARNING, INFO and DEBUG logging everywhere
+
+# logging's output capture requires a special handling
+from io import StringIO
+import logging
+class CaptureLogger:
+    """Context manager to capture `logging` streams
+
+    Args:
+    - logger: 'logging` logger object
+
+    Results:
+        The captured output is available via `self.out`
+
+    Example:
+
+    logger = logging.getLogger()
+    msg = "Testing 1, 2, 3"
+    with CaptureLogger(logger) as cl:
+        logger.error(msg)
+    assert cl.out, msg+"\n"
+    """
+
+    def __init__(self, logger):
+        self.logger = logger
+        self.io = StringIO()
+        self.sh = logging.StreamHandler(self.io)
+        self.out = ''
+
+    def __enter__(self):
+        self.logger.addHandler(self.sh)
+        return self
+
+    def __exit__(self, *exc):
+        self.logger.removeHandler(self.sh)
+        self.out = self.io.getvalue()
+
+    def __repr__(self):
+        return f"captured: {self.out}\n"
+
+
+### warn ###
+
+# direct to stderr
+sys.stderr.write( '%s records read' % n )
+# or:
+print("your message", file=sys.stderr)
+
+# warn w/o traceback
+from warnings import warn
+warn('Your message here', Warning)
+
+# warn w/o traceback
+import logging
+# CRITICAL ERROR WARNING INFO DEBUG
+logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, filename='debug.log')
+logging.basicConfig(level=logging.DEBUG, filename='debug.log',
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
+# and then use it as:
+logging.warn("this is a warning!")
+logging.debug('This is a debug message.')
+
+# ignore a category of warnings - here FutureWarning
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+# to make warnings act like errors (with backtrace)
+import warnings
+warnings.filterwarnings("error")
+# or via a command line in either of these 2 ways:
+PYTHONWARNINGS=error python program.py
+python -W error program.py
+
+# to make only some groups of warning act like error
+import warnings
+warnings.simplefilter(action='error', category=FutureWarning)
+
+
+# make built-in warnings produce a traceback
+import traceback, warnings, sys
+def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+    log = file if hasattr(file, 'write') else sys.stderr
+    traceback.print_stack(file=log)
+    log.write(warnings.formatwarning(message, category, filename, lineno, line))
+warnings.showwarning = warn_with_traceback
+# to report the same warning more than once
+warnings.simplefilter("always")
+# now any warning will print a traceback
+
+
+
+# disable warnings
+
+use PYTHONWARNINGS=opt or python -W opt
+
+PYTHONWARNINGS=default  # Warn once per call location
+PYTHONWARNINGS=error    # Convert to exceptions
+PYTHONWARNINGS=always   # Warn every time
+PYTHONWARNINGS=module   # Warn once per calling module
+PYTHONWARNINGS=once     # Warn once per Python process
+PYTHONWARNINGS=ignore   # Never warn
+
+
+########################
+### general cookbook ###
+########################
+
+### weak references ###
+# needed when objects have circular references
+# the shorter living object is usually the one weak-refencing the longer living one
+
+class Foo():
+    def show(self): pass
+a = Foo()
+b = weakref.ref(a)    # create weakref
+b().show              # have to call b() before accessing a's methods
+c = weakref.proxy(a)  # create a weakref proxy
+c.show()              # call it directly, without c(), also checks if a is still alive
+
+
+### send stdout to /dev/null ###
+
+import os
+import sys
+f = open(os.devnull, 'w')
+sys.stdout = f
+
+### unbuffered output ###
+
+# only for write() (print) calls
+from sys import stdout, stderr
+def stdout_write_flush(args, w=stdout.write): w(args); stdout.flush()
+def stderr_write_flush(args, w=stderr.write): w(args); stderr.flush()
+stdout.write = stdout_write_flush
+stderr.write = stderr_write_flush
+
+# a more complete version
+class Unbuffered(object):
+   def __init__(self, stream):
+       self.stream = stream
+   def write(self, data):
+       self.stream.write(data)
+       self.stream.flush()
+   def writelines(self, datas):
+       self.stream.writelines(datas)
+       self.stream.flush()
+   def __getattr__(self, attr):
+       return getattr(self.stream, attr)
+import sys
+sys.stdout = Unbuffered(sys.stdout)
+
+### variable existence ###
+
+# to check the existence of a local variable:
+if 'myVar' in locals():
+
+# to check the existence of a global variable:
+if 'myVar' in globals():
+
+# check if a variable is defined and define+set it if it is not:
+try: myvar
+except NameError: myvar = 1
+# or
+if not ('myvar' in vars() or 'myvar' in globals()): myvar = 1
+
+# to check if an object has an attribute:
+if hasattr(obj, 'attr_name'):
+
+
+############
+### sort ###
+############
+
+# sort by value
+result = {'a': 1, {'b': 2} }
+l = sorted(result, key = lambda x: result[x])
+
+# sort list of lists by multiple keys in ascending order
+import operator
+result = [['a', 5, "whoah"], ['z', 54, "awhoah"]]
+l = sorted(result, key=operator.itemgetter(0, 1, 2))
+
+# sort list of dicts by multiple keys in ascending order
+import operator
+l = [ {'a': 1, 'b': 2, 'c': 7},  {'a': 1, 'b': 1, 'c': 7}, {'a': 3, 'b': 3, 'c': 7}, ]
+print(*sorted(l, key=operator.itemgetter("a", "b")), sep="\n")
+
+# for lists of objects, to call a wanted attribute as a key
+sorted(student_objects, key=attrgetter('age'))
+
+# case-insensitive string comparison
+sorted("This is a test String".split(), key=str.lower) # ['a', is', 'String', 'test', 'This']
+
+# list sort only (in-place) (faster than 'sorted' as it doesn't copy)
+l.sort()
+
+# reversed
+sorted(...., reversed=True)
+
+
+###############
+### strings ###
+###############
+
+# case change
+x.lower()
+x.upper()
+x.capitalize() # capitalizes the first letter in a string ==ucfirst(perl)
+x.title()      # capitalizes each word in a string.
+# case checks
+x.isupper()
+x.islower()
+
+# convert a comma-separated key=val string to dict
+s = "fname:John,lname:doe,mname:dunno,city:Florida"
+sd = dict(x.split(":") for x in s.split(","))
+
+# replace .any extension with another extension (.py)
+import os.path
+fname = os.path.splitext(fname)[0]+'.py'
+
+# decode binary string
+b'a string'.decode('utf-8')
+
+# remove broken utf encoding
+s = "LOS ANGELES ÛÒ SAFETY"
+s.encode('ascii', 'ignore').decode('utf-8', 'ignore') # 'LOS ANGELES  SAFETY'
+#
+# similar but forces clean ascii
+# remove non-ASCII chars from data
+s = ''.join(i for i in s if ord(i) < 128)
+
+# compare strings with diff and context
+import difflib
+def str_compare(a, b):
+    """ 
+    If strings are mismatched, print the diff with context
+    Returns true if strings match, false otherwise
+    adapted from https://stackoverflow.com/a/17904977/9201239
+    """
+    
+    match = True
+    if len(a) != len(b):
+        print(f"length mismatch: a={len(a)}, b={len(b)}")
+        
+    def context(s, i):
+        start = i-10
+        end   = i+10
+        if start < 0: start = 0
+        if end > len(s)-1: end = len(s)-1
+        return s[start:end]
+        
+    for i, s in enumerate(difflib.ndiff(a, b)):
+        if s[0] == ' ': 
+            continue          
+        elif s[0] == '-':
+            match = False
+            print(f'Delete "{s[-1]}" from position {i}, ctx=[{context(a, i)}]')
+        elif s[0] == '+':
+            match = False
+            print(f'Add "{s[-1]}" to position {i}, ctx=[{context(a, i)}')
+            
+    return match
+
+
+
+################
+### datetime ###
+################
+
+# parse dates:
+#
+# 1. built-in parser requires the input format:
+from datetime import datetime
+datestr = "2013-02-01 05:00:00"
+dt = datetime.strptime(datestr, "%Y-%m-%d %H:%M:%S")
+#
+# 2. dateutil.parser deduces format automatically
+import dateutil.parser
+dt = dateutil.parser.parse("2013-02-01 05:00:00")
+
+# time difference between two datetime objects:
+#
+# 1.
+import datetime
+diff = dt2 - dt1
+diff_in_minutes = (int(diff.days) * 24 * 60) + int((diff.seconds) / 60)
+print(diff_in_minutes)
+#
+# 2. also using: divmod to avoid (a // b, a % b)
+diff = datetime(2015, 9, 12, 13, 9, 45) - datetime(2015, 9, 11, 21, 10, 12)
+mins, secs = divmod(diff.days * 86400 + diff.seconds, 60)
+print(f"{mins}:{secs}")
+
+# elapsed time
+import time
+start_time = time.time()
+time.sleep(3) # some code here
+elapsed_time = time.time() - start_time
+time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+# or using time.perf_counter()
+import time
+start_time = time.perf_counter()
+time.sleep(3) # some code here
+elapsed_time = time.perf_counter() - start_time
+time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+# convert seconds to hours, minutes and seconds
+import datetime
+print(str(datetime.timedelta(seconds=666))) # '0:11:06'
+
+# a more precise way to measure elapsed time
+from timeit import default_timer as timer
+start = timer()
+my_code()
+print(f"{timer() - start:0.3f}")
+
+# context manager version of the same:
+from contextlib import contextmanager
+from timeit import default_timer as timer
+@contextmanager
+def elapsed_timer():
+    start = timer()
+    elapser = lambda: timer() - start
+    yield lambda: elapser()
+    end = timer() # fix the final time at the end of the scope
+    elapser = lambda: end - start
+with elapsed_timer() as elapsed:
+    1+1
+    print(elapsed())
+
+# another context manager that prints the timed output automatically:
+from timeit import default_timer as timer
+class benchmark(object):
+    def __init__(self, msg, fmt="%0.3g"):
+        self.msg = msg
+        self.fmt = fmt
+    def __enter__(self):
+        self.start = timer()
+        return self
+    def __exit__(self, *args):
+        t = timer() - self.start
+        print(("%s : " + self.fmt + " seconds") % (self.msg, t))
+        self.time = t
+with benchmark("Test 1+1"):
+    1+1
+with benchmark("Test 1+1") as b:
+    1+1
+print(b.time)
+
+# the Python Performance Tuner (PPT)
+# https://pypi.org/project/ppt/
+
+# sleep 5 sec
+import time
+time.sleep(5)
+
+# graphical performance comparison of different implementations of the same functionality
+# https://stackoverflow.com/a/45323085/9201239
+# pip install perfplot
+import functools, operator, perfplot
+def forfor(a):
+    return [item for sublist in a for item in sublist]
+def functools_reduce(a):
+    return functools.reduce(operator.concat, a)
+def functools_reduce_iconcat(a):
+    return functools.reduce(operator.iconcat, a, [])
+perfplot.show(
+    setup=lambda n: [list(range(10))] * n,
+    kernels=[forfor, functools_reduce, functools_reduce_iconcat],
+    n_range=[2**k for k in range(16)],
+    xlabel='num lists'
+    )
+
+
+
+#############
+### lists ###
+#############
+
+# construct
+l = [1, 2, 3]
+
+### add/remove
+
+# list prepend
+s = [0, 1]
+s.insert(0, 5) # [5, 0, 1]
+s = [5] + s # same but slow due to copy
+
+# for large lists it can be much faster to use:
+from collections import deque
+d = deque('1234')    # deque(['1', '2', '3', '4'])
+d.appendleft('0')    # deque(['0', '1', '2', '3', '4'])
+#
+# for multiple extension on the left faster version
+from collections import deque
+d2 = deque('def')    # deque(['d', 'e', 'f'])
+d2.extendleft('cba') # deque(['a', 'b', 'c', 'd', 'e', 'f'])
+
+# append/extend
+s.append('a')        # single value
+s.extend(['a', 'b']) # multiple values
+['a'] + ['a', 'b']   # concatenation (slower due to copy)
+s.append(['a', 'b']) # doesn't do what you want - appends a sub-list instead
+
+# prepend list to another list
+s1 = [0, 1]
+s2 = [3, 4]
+s1[0:0] = s2
+s1 = s2 + s1
+
+# stacks
+# - LIFO
+stack.append('e')
+stack.pop()
+# - FIFO
+stack.append('e')
+stack.pop(0)
+
+
+### copy
+
+# shallow copy (nest data copied as a reference)
+l2 = list(l)
+l2 = l[:]
+import copy
+l2 = copy.copy(l)
+# l2 = l # copies a reference to a list
+
+# deep copy
+import copy
+l2 = copy.deepcopy(l)
+
+
+### list comprehension
+
+# list comprehension converts a nested loop into a much more efficient and simpler code
+l = []
+for y in x:
+    for z in y:
+        l.append(int(z))
+# can write it in two ways:
+# fully reversed:
+l = [int(z) for z in y for y in x]
+#
+# half-reversed (same order as the normal loop, except the last statement that moves forward)
+l = [int(z) for y in x for z in y]
+#
+# to make an array of arrays have to use the fully-reversed method
+l = [[int(z) for z in y] for y in x]
+#
+# and 'foo' in 'in foo' can have it own operation:
+# e.g. to convert multiline strings into nested array of numbers:
+# "\n".join(["1, 2, 3", "4, 5, 6", "7, 8, 9"])
+# to:
+# [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+#
+l = [[int(z) for z in y.split(', ')] for y in x.strip().split('\n')]
+
+# more complicated nesting/generators
+l = ["--a 1", "--b 2"]
+{k:v for k,v in (x.replace("--", "").split() for x in l)}
+# {'a': '1', 'b': '2'}
+
+# get a Cartesian product of input iterables
+#
+# itertools.product as an equivalent of a generator expression for-loop
+# (but it does not build up intermediate results in memory)
+l1 = (1, 2)
+l2 = (3, 4)
+import itertools
+list(itertools.product(l1, l2)) # [(1, 3), (1, 4), (2, 3), (2, 4)]
+# returns the same with:
+[(x,y) for x in l1 for y in l2]
+#
+# a similar functionality can be done with one list to get every permutation in
+# pairs of 2, including pairs of the same item
+l = (1, 2, 3)
+for x, y in itertools.product(l, repeat=2): x, y # (1, 1), (1, 2), ..., (3, 2) (3, 3)
+# returns the same with:
+[list((x,y) for x in l for y in l)]
+
+# multiply items of the list
+from functools import reduce
+from operator import mul
+reduce(mul, [12, 4, 4])
+# or
+from functools import reduce
+reduce(lambda x,y: x*y, [12, 4, 4])
+# or
+np.prod([12, 4, 4]))
+
+# flatten nested lists
+#
+# depending on the type of elements of the list, not all solutions work
+l1 = [ [1,2,3], [4,5], [6], [7], [8,9]] # numbers all level 2
+l2 = [ [1,2,3], [4,5], 6, 7, [8,9]    ] # numbers mixed level 1 and 2
+l3 = [ [1,2,3], [4,5], 6, [7,[8],[9]] ] # numbers mixed level 1, 2 and 3
+s1 = ['aaa', 'bb', 'c', ['xx', 'yyy'] ] # strings
+#
+# 1. reduce+iconcat (fastest)
+import functools, operator
+functools.reduce(operator.iconcat, l, []) # works only for l1
+#
+# 2. chain
+from itertools import chain
+list(chain.from_iterable(l))              # works only for l1
+# or
+list(chain(*l))                           # works only for l1
+#
+# 3. cytoolz+concat
+from cytoolz import concat
+list(concat(l))                           # works for l1
+#
+# 4. list comprehension
+[i for sl in l for i in sl]               # works for l1, l2
+#
+# 5. iteration_utilities (not built-in!): pip install iteration_utilities
+from iteration_utilities import deepflatten
+list(deepflatten(l))                      # works for l1, l2, l3
+#
+# 6. reduce
+import functools
+functools.reduce(lambda x,y: x+y, l)      # works only for l1
+# and a faster version w/ built-in operator
+import functools, operator
+functools.reduce(operator.add, l)         # works only for l1
+#
+# 7: works for any case (numbers, strings, no matter the mixture of levels), but it's slower
+from collections.abc import Iterable
+def flatten(items):
+    """Yield items from any nested iterable; see Reference."""
+    for x in items:
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            yield from flatten(x)
+        else:
+            yield x
+list(flatten(l))                          # works for l1, l2, l3, s1
+#
+# 8. matplotlib.cbook.flatten works for any case
+import matplotlib
+list(matplotlib.cbook.flatten(l))         # works for l1, l2, l3, s1
+
+
+# reverse list
+mylist[::-1]
+reversed(mylist)
+
+# filter
+# - filter out empty values from the list, e.g. [1, '', 5] => [1, 5]
+mylist = sort(filter(None, mylist))
+# - remove any entries that are bigger than 0
+less_than_list = list(filter(lambda x: x < 0, mylist))
+
+# check all zero vector
+x = [0, 0 , 0]
+all(v == 0 for v in x)
+not any(x) # same but less readable
+
+# combine
+#
+# extend one list with another
+x,y = [1, 3, 8], [2, 4, 9]
+x.extend(y)
+# gives:
+# [1, 3, 8, 2, 4, 9]
+# note that x.append(y), will give:
+# [1, 3, 8, [2, 4, 9]]
+
+# generate a new list out of 2
+z = x+y
+#
+# more memory-efficient approach (no copying)
+import itertools
+z = itertools.chain(x, y)
+# but z is an iterator now, so to get back the list (copying)
+list(z)
+
+# zip 2 lists together
+x,y = [1, 3, 8], [2, 4, 9]
+for x,y in zip(x, y): print(x, y)
+# gives:
+# 1 2
+# 3 4
+# 8 9
+
+# unzip 2 zipped lists to original (see above)
+zipped_list = [(1,2), (3,4), (8,9)]
+list(zip(*zipped_list))
+# gives a list of tuples: [(1, 3, 8), (2, 4, 9)]
+#
+# or to get it as list of lists: [[1, 3, 8], [2, 4, 9]]
+[list(t) for t in zip(*zipped_list)]
+
+# splice
+l = [0, 10, 20, 30, 40]
+# replace in the middle
+l[2:4] = [200, 300, 400]  # [0, 10, 200, 300, 400, 40]
+# delete from the middle
+l[1:2] = []               # [0, 200, 300, 400, 40]
+# inject in the middle
+l[3:3] = [999]            # [0, 200, 300, 999, 400, 40]
+
+# slice - isn't possible with plain python lists - have to use list comprehension or numpy
+# l = [[1,2,3,4,5], [1,2,3,4,5], [1,2,3,4,5]]
+# can't do l[:, 2:3] to get a slice of 3rd to 4th elements of each list
+# have to do: [x[2:3] for x in l]
+
+
+# argmax - find an index of the element with the highest value
+l = [1, 3, 75, 4, 9]; # should be 2
+np.argmax(l)    # numpy
+l.index(max(l)) # python
+
+# find position of element X in list
+# e.g. find position of first 0
+l = [ [1, 2, 3, 4, 0, 0],  [1, 2, 3, 0, 0, 0], [1, 2, 3, 4, 5, 0], ]
+[x.index(0) for x in l] # [4, 3, 5]
+
+# find intersection (overlap) between two lists
+set(list1).intersection(list2)
+
+# find the longest item on the list (strings, or lists of lists)
+l = [list(range(3)), list(range(7)), list(range(4))]
+max([len(x) for x in l])
+len(max(l))              # works for lists of lists
+len(max(l, key=len))     # works for strings or lists of lists
+
+# range
+# - integers
+range(1, 10, 2)
+# - floats
+np.arange(0.0, 1.0, 0.1)
+# automatically split into X points
+np.linspace(0,1,11)
+
+
+# compare equality
+from numpy.testing import assert_array_equal
+assert_array_equal(arr1, arr2, "some msg")
+
+
+
+
+##############
+### tuples ###
+##############
+
+* faster than lists
+* protect the data, which is immutable
+* tuples can be used as keys on dictionaries
+
+# construct
+t = (1, 2, 3, 1)
+t = 1, 2
+singleton = (1, )
+
+# tuple generator
+(x for x in range(10))
+
+# tuple comprehension
+tuple([x for x in range(10)]) # tuple from list comprehension (fastest)
+tuple( x for x in range(10))  # tuple from generator (slower)
+    *( x for x in range(10)), # tuple from unpacking, terminus comma is a must (slower)
+
+# methods
+t.count(1) # count the number of occurrences of a value
+t.index(2) # find occurrence of a value
+
+# unpack
+a, b, c, d = t
+
+# copy
+t2 = t # works because a tuple is immutable
+
+# combine
+t = (1,2)
+t += (3,) # (1, 2, 3)
+
+
+
+############
+### sets ###
+############
+
+* unordered
+* mutable
+
+# construct
+a = set([1, 2, 3, 4])
+b = set([3, 4, 5, 6])
+
+# set comprehension - same as dict comprehension, but there are just keys
+{s**2 for s in [1, 2, 1, 0]} # set([0, 1, 4])
+{s**2 for s in range(10)}    # set([0, 1, 4, 9, 16, 25, 36, 49, 64, 81])
+
+# copy
+a.copy()
+
+# logical ops
+a | b # union                {1, 2, 3, 4, 5, 6}
+a & b # intersection         {3, 4}
+a < b # subset               False
+a - b # difference           {1, 2}
+a ^ b # symmetric difference {1, 2, 5, 6}
+
+# operators               # equivalent to:
+a.union(b)                # a | b
+a.intersection(b)         # a & b
+c.issubset(a)             # c <= a
+c.issuperset(a)           # c >= a
+a.difference(b)           # a - b
+a.symmetric_difference(b) # a ^ b
+
+
+# for sets of sets use frozenset type, which represents immutable (and, therefore, hashable) sets.
+a = set([1, 2, 3])
+b = set([2, 3, 4])
+a.add(frozenset(b))
+
+
+
+####################
+### dictionaries ###
+####################
+
+* ordered by insertion order (v3.7). before v3.7 it was unordered by default
+* no key duplicates
+
+# construct
+d = {'a': 'abcd', 'b': [1, 2], 'c': 777 }
+d2 = d.copy()               # dict copy
+d2 = d.fromkeys(['a', 'b']) # create a dictionary given a set of keys
+
+# dict comprehension - same as set comprehension, but there are keys and values
+{s:s**2 for s in range(5)} # {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}
+
+# delete
+d2.clear()     # remove all items
+v = d.pop('a') # remove key/value, returns removed value
+del d['a']     # remove key/value
+
+# combine
+d1.update(d2) # add d2 to d1, overwrite values for existing keys
+
+# keys
+k = d.keys()
+
+# check if key exists
+if k in d: ...
+
+# values
+l = d.values()
+v = d.get('a')
+v = d.get('a', 0) # fallback if no key 'a'
+# get multiple keys/vals at once
+v_a, v_b = list(map(d.get, ['key_a', 'key_b']))
+# alternative:
+from operator import itemgetter
+itemgetter(*['key_a', 'key_b'])(d)
+
+# iterate
+[k for k in d.iterkeys()]   #
+[v for v in d.itervalues()] #
+for k, v in d.items(): k, v
+
+# default dict, allows adding to/ or reading from slots that haven't been initialized
+# int returns 0 by default and list returns an empty list
+from collections import defaultdict
+# dict of int:
+things = defaultdict(int)
+print(things[3]) # print int(), thus 0
+# dict of lists:
+things = defaultdict(list)
+things["foo"].append("bar")
+
+# Counter: a special case of defaultdict, with extra helper methods
+from collections import Counter
+# count occurrence of words
+c = Counter()
+words = ['red', 'blue', 'red', 'green', 'blue', 'blue']
+for word in words: c[word] += 1 # Counter({'blue': 3, 'red': 2, 'green': 1})
+#
+c.most_common(2)                # [('blue', 3), ('red', 2)]
+#
+# restore to the original list (in a different order though)
+list(c.elements())              # ['red', 'red', 'blue', 'blue', 'blue', 'green']
+#
+# other common use patterns
+sum(c.values())                 # total of all counts
+c.clear()                       # reset all counts
+list(c)                         # list unique elements
+set(c)                          # convert to a set
+dict(c)                         # convert to a regular dictionary
+c.items()                       # convert to a list of (elem, cnt) pairs
+c.most_common()[:-n-1:-1]       # n least common elements
++c                              # remove zero and negative counts
+c = Counter(dict(list_of_pairs))         # convert from a list of (elem, cnt) pairs
+c = Counter(dict(c.most_common(10_000))) # reduce to 10K keys (purge the rest)
+
+# OrderedDict rename of the keys
+
+def rename_dict_keys(x, old_key, new_key): return OrderedDict((new_key if k == old_key else k, v) for k, v in x.items())
+old_wgts  = torch.load(path/'pretrained'/'pretrained.pth')
+old_wgts = rename_dict_keys(old_wgts, "0.encoder.weight",        "0.emb.weight")
+torch.save(old_wgts, path/'pretrained'/'pretrained.pth')
+
+# invert/reverse dict
+inv_map = {v: k for k, v in my_map.items()}
+
+# merge dicts
+#
+# merge keys, adding up values
+dicts = [{ 'a':1, 'b':2, 'c':3 },
+         { 'a':1, 'd':2, 'c':5 },
+         { 'e':5,        'c':7 }
+        ]
+import collections
+super_dict = collections.defaultdict(int)
+# add up values
+for d in dicts:
+    for k, v in d.items(): super_dict[k] += v
+# defaultdict(int, {'a': 2, 'b': 2, 'c': 15, 'd': 2, 'e': 5})
+#
+# to merge values into lists (values can be strings, etc.)
+super_dict = collections.defaultdict(list)
+for d in dicts:
+    for k, v in d.items(): super_dict[k].append(v)
+# defaultdict(list, {'a': [1, 1], 'b': [2], 'c': [3, 5, 7], 'd': [2], 'e': [5]})
+#
+# to merge entries avoiding duplicates use set - the first entry to have the key wins
+# notice the values get merged into sub-sets if they are different!
+super_dict = collections.defaultdict(set)
+for d in dicts:
+    for k, v in d.items(): super_dict[k].add(v)
+#defaultdict(set, {'a': {1}, 'b': {2}, 'c': {3, 5, 7}, 'd': {2}, 'e': {5}})
+#
+# to have the "earlier in the list" dict entries override the "later"
+dict(collections.ChainMap(*dicts))
+# {'e': 5, 'c': 3, 'a': 1, 'd': 2, 'b': 2}
+#
+# override defaults dict with custom overrides dict
+merged = { **defaults, **custom }
+
+# make dict out of function arguments
+d = dict(aa=1, bc=2)
+# or update
+d.update(ddddd=7)
+
+# sorting
+#
+# sort dict into an array
+sorted(x.items(), key=lambda item: item[1])
+# same in reverse
+sorted(x.items(), key=lambda item: item[1], reverse=True)
+# then can expand back into dict if need be
+{k: v for k, v in sorted(x.items(), key=lambda item: item[1])}
+
+# a simple way to create a lookup table from a list
+classes = ['a', 'b', 'c']
+dict(zip(classes, range(len(classes)))) # {'a': 0, 'b': 1, 'c': 2}
+# alt solution
+{o:i for i,o in enumerate(classes)}     # {'a': 0, 'b': 1, 'c': 2}
+
+# to turn a dict into an automatic dataclass-like object, so that the keys can
+# be accessed via a subscription obj["key1"] and also as an accessor obj.key1
+class DictAttr:
+    def __init__(self, args):
+        for k in args: setattr(self, k, args[k])
+    def __getitem__(self, item):
+        return getattr(self, item)
+data = { "a": 1, "b": 2, }
+obj = DictAttr(data)
+print(obj["a"]) # 1
+print(obj.a)    # 1
+
+# compare 2 dicts
+# simple:
+dict1 == dict2
+# nested
+# 1 approach
+# pip install deepdiff
+import deepdiff, json
+dict_1 = { "a": 1, "nested": { "b": 1, } }
+dict_2 = { "a": 2, "nested": { "b": 2, } }
+diff = deepdiff.DeepDiff(dict_1, dict_2)
+print(json.dumps(diff, indent=4))
+
+
+###############
+### objects ###
+###############
+
+### variables ###
+
+# compare any 2 variables (mutable and immutable)
+if x is y: print("same objects")
+# for immutable objects, such as integers, floats, strings or tuples, `is` is equivalent to `==`
+
+### types ###
+type(obj) # set, int, list, etc.
+if isinstance(obj, int):
+if isinstance(obj, str):
+if isinstance(obj, tuple):
+
+# dynamically get an attribute of an object
+getattr(obj, attrname)              # throws exception if not set
+getattr(obj, attrname, default_val) # returns default_val if not set
+setattr(obj, attrname, value)
+hasattr(obj, attrname) # True/False
+#
+# instead of doing:
+obj = MyObject()
+obj.foo()
+obj.bar()
+# do it dynamically
+for x in ['foo', 'bar']:
+    getattr(obj, x)() # no need to pass obj as the first argument
+
+# get all attributes of an object (w/o methods, and built-ins)
+attrs = [k for k in self.__dict__.keys() if not k.startswith("__")]
+#
+# get all object methods (w/o attributes)
+import inspect
+methods = [k for k in dir(self) if inspect.isroutine(getattr(self, k))]
+# same, but to skip special __methods:
+methods = [k for k in dir(self) if not k.startswith("__") and inspect.isroutine(getattr(self, k))]
+# inspect.ismethod is very similar, but doesn't work for all objects' methods.
+#
+# a less precise way w/o inspect
+methods = [k for k in dir(self) if callable(getattr(self, k))]
+methods = [k for k in dir(self) if not k.startswith("__") and callable(getattr(self, k))]
+#
+# get actual methods
+import inspect
+methods = [m for m in [getattr(self, attr) for attr in dir(self)] if inspect.ismethod(m)]
+
+
+for name in list(vars(self)):
+    if name.startswith("test_") and callable(getattr(cls, name)):
+        delattr(self, name)
+
+# chain a bunch of method calls over multiple lines
+(s.strip()
+ .lower()
+ .replace('\n', ' ')
+ .split(' ')
+)
+
+
+######################################
+### mapping operators to functions ###
+######################################
+
+import operator
+operator.add(a,b)
+| Operation             | Syntax            | Function                          |
+| ---                   | ---               | ---                               |
+| Addition              | a + b             | add(a, b)                         |
+| Concatenation         | seq1 + seq2       | concat(seq1, seq2)                |
+| Containment Test      | obj in seq        | contains(seq, obj)                |
+| Division              | a / b             | truediv(a, b)                     |
+| Division              | a // b            | floordiv(a, b)                    |
+| Bitwise And           | a & b             | and_(a, b)                        |
+| Bitwise Exclusive Or  | a ^ b             | xor(a, b)                         |
+| Bitwise Inversion     | ~ a               | invert(a)                         |
+| Bitwise Or            | a | b             | or_(a, b)                         |
+| Exponentiation        | a ** b            | pow(a, b)                         |
+| Identity              | a is b            | is_(a, b)                         |
+| Identity              | a is not b        | is_not(a, b)                      |
+| Indexed Assignment    | obj[k] = v        | setitem(obj, k, v)                |
+| Indexed Deletion      | del obj[k]        | delitem(obj, k)                   |
+| Indexing              | obj[k]            | getitem(obj, k)                   |
+| Left Shift            | a << b            | lshift(a, b)                      |
+| Modulo                | a % b             | mod(a, b)                         |
+| Multiplication        | a * b             | mul(a, b)                         |
+| Matrix Multiplication | a @ b             | matmul(a, b)                      |
+| Negation (Arithmetic) | - a               | neg(a)                            |
+| Negation (Logical)    | not a             | not_(a)                           |
+| Positive              | + a               | pos(a)                            |
+| Right Shift           | a >> b            | rshift(a, b)                      |
+| Slice Assignment      | seq[i:j] = values | setitem(seq, slice(i, j), values) |
+| Slice Deletion        | del seq[i:j]      | delitem(seq, slice(i, j))         |
+| Slicing               | seq[i:j]          | getitem(seq, slice(i, j))         |
+| String Formatting     | s % obj           | mod(s, obj)                       |
+| Subtraction           | a - b             | sub(a, b)                         |
+| Truth Test            | obj               | truth(obj)                        |
+| Ordering              | a < b             | lt(a, b)                          |
+| Ordering              | a <= b            | le(a, b)                          |
+| Equality              | a == b            | eq(a, b)                          |
+| Difference            | a != b            | ne(a, b)                          |
+| Ordering              | a >= b            | ge(a, b)                          |
+| Ordering              | a > b             | gt(a, b)                          |
+
+# to convert these into the lookup table, like:
+ops = {
+  "<"  : operator.lt,
+  "<=" : operator.le,
+  "==" : operator.eq,
+  "!=" : operator.ne,
+}
+# feed the table above into:
+perl -ne 'm#a (.+?) b +\| (\w\w)# && print qq[  "$1" : operator.$2,\n]' /tmp/xx
+
+
+###########
+### xml ###
+###########
+
+# extract Article.'ArticleTitle and Article.AbstractText only if Article.Language == eng
+# from a gzip'ed xml file
+#
+# https://stackoverflow.com/a/26435241/9201239 efficient RAM usage
+def parse_articles(f, tag):
+    """Yield *tag* elements from *f* xml (fn or fh) incrementaly."""
+    context = iter(etree.iterparse(f, events=('start', 'end')))
+    _, root = next(context) # get root element
+    for event, elem in context:
+        if event == 'end' and elem.tag == tag:
+            yield elem
+            root.clear() # free memory
+
+def extract(f):
+    for e in parse_articles(f, 'Article'):
+        lang = e.find('Language')
+        if lang is not None and lang.text == 'eng':
+            title    = e.find('ArticleTitle').text
+            abstract = e.find('Abstract').find('AbstractText').text
+            print(title, abstract)
+
+with gzip.open(path/"foo.xml.gz", 'rb') as f: extract(f)
+
+
+
+############
+### gzip ###
+############
+
+# read from gzip file
+with gzip.open(fn_, "rb") as f: f.read()
+
+# write to gzip file
+#
+# - text:  mode='wt' - text mode - can write strings
+with gzip.open('file.gz', 'wt') as f: f.write('Hello world!')
+#
+# - normal: mode='wb' - binary mode must write bytes, by encoding strings
+with gzip.open('file.gz', 'wb') as f: f.write('Hello world!'.encode())
+
+
+
+
+############
+### json ###
+############
+
+import io, json
+
+# file to json
+with io.open(filename, 'r', encoding='utf-8') as f: s = json.load(f)
+
+# string to json
+x = '{"name": "Bob", "languages": ["English", "Fench"]}'
+s = json.loads(x)
+
+# json to file
+with open(filename, 'w') as f: json.dump(s, f)
+
+# json to string
+x = json.dumps(s, sort_keys=True, indent=1, ensure_ascii=False)
+# to file with optional "\n"
+with io.open(filename, 'w', encoding='utf-8') as f:
+    f.write(x)
+    f.write("\n") # optional
+
+
+# to load a json-like file, but with trailing commas and other things that json doesn't support 
+import yaml
+s = '{ "key1": "value1", "key2": "value2", }'
+yaml.load(s)
+
+# to debug json format (loading fails)
+https://jsonlint.com/
+https://jsonformatter.curiousconcept.com/
+
+
+###########
+### web ###
+###########
+
+import requests
+# time.sleep(random.randint(1, 5))
+headers = {'headers':'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:51.0) Gecko/20100101 Firefox/51.0'}
+try:
+    r = requests.get(url, headers=headers, timeout=10) # 10sec timeout
+except:
+    return ''
+r.url # last url if redirected
+if r.status_code in [403, 404, 500]: return ''
+content_type = r.headers.get('content-type')
+#print(r.headers.get('content-type'))
+if content_type is None: return ''
+if 'text/html' not in content_type: return ''
+r.status_code             # 200
+r.headers['content-type'] # 'application/json; charset=utf8'
+r.encoding                # 'utf-8'
+r.text                    # u'{"type":"User"...'
+#  if the content-type was application/json, can access it directly
+r.json()                  # {u'private_gists': 419, u'total_private_repos': 77, ...}
+#
+# process the response text:
+# e.g. extract html title
+al = r.text
+t = al[al.find('<title>') + 7 : al.find('</title>')]
+if not len(t): return ''
+
+# if redirects happened can trace them with:
+if r.history:
+    print("Request was redirected")
+    for rh in r.history: print(rh.status_code, rh.url)
+
+# to handle multi-request sessions, like cookies
+import requests
+sess = requests.Session()
+sess.get('http://httpbin.org/cookies/set/cookieone/111')
+r = sess.get('http://httpbin.org/cookies')
+print(r.text) # 111
+sess.get('http://httpbin.org/cookies/set/cookieone/222')
+r = sess.get('http://httpbin.org/cookies')
+print(r.text) # 222
+
+# extract scheme://domain.com/ from url
+from urllib.parse import urlsplit
+url = "http://stackoverflow.com/questions/9626535/get-domain-name-from-url"
+base_url = "{0.scheme}://{0.netloc}/".format(urlsplit(url)) # http://stackoverflow.com/
+
+
+###############################
+# full functions
+
+# resolve url w/o fetching the body
+from urllib.parse import urlsplit
+import requests
+headers = {'headers':'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:51.0) Gecko/20100101 Firefox/51.0'}
+def resolve_url_req(url):
+    """ if `url` is redirected returns the new url, otherwise None is returned """
+    try:
+        r = requests.head(url, headers=headers, allow_redirects=False, timeout=10)
+        if r.status_code in [301, 302]:
+            location = r.headers.get('Location', None)
+            # handle the special case of local redirect
+            if location is not None and location.startswith('/'):
+                base = "{0.scheme}://{0.netloc}".format(urlsplit(r.url))
+                location = base + location
+            return location
+    except: pass
+    return None
+#
+def resolve_url(url):
+    """ given a `url` traverse the chain of redirects and return the last url it was resolved to, even if it responds with error. This is useful for discovering where url shortners point to, even if the destination no longer exists
+    return: last resolved url (which could be the original url)
+    """
+    redirect_url = resolve_url_req(url)
+    if redirect_url is not None: return resolve_url(redirect_url)
+    return url
+
+
+
+################
+### big data ###
+################
+
+
+- https://github.com/modin-project/modin
+it speeds up pandas, and just requires one line of code:
+import modin.pandas as pd
+
+- https://docs.dask.org/en/latest/
+Dask is a flexible library for parallel computing in Python:
+1. Dynamic task scheduling optimized for computation. This is similar to Airflow, Luigi, Celery, or Make, but optimized for interactive computational workloads.
+2. “Big Data” collections like parallel arrays, dataframes, and lists that extend common interfaces like NumPy, Pandas, or Python iterators to larger-than-memory or distributed environments. These parallel collections run on top of dynamic task schedulers.
+
+- https://github.com/vaexio/vaex
+Out-of-Core DataFrames for Python, visualize and explore big tabular data at a billion rows per second. https://vaex.io
+
+- ray https://ray.readthedocs.io/en/latest/
+A fast and simple framework for building and running distributed applications. built on top of apache arrow
+https://towardsdatascience.com/10x-faster-parallel-python-without-python-multiprocessing-e5017c93cce1
+
+- apache arrow
+
+
+################
+### versions ###
+################
+
+# require a specific version of a module in the code (not in package dependencies):
+import pkg_resources
+pkg_resources.require("fastprogress>=0.1.18")
+import fastprogress
+# it will look in the installed package first (current dir last)
+# but it also will fail if the version is matching, but its dependencies are wrong!
+
+# another way:
+import pkg_resources
+pkg_resources.get_distribution("fastprogress").version
+# XXX: And then check the version
+# The problem with that is that pkg_resources.get_distribution() will always prefer an installed package than the package in current directory.
+
+# full example:
+# this one checks the min_ver but also that the dependencies are correct
+try:
+    pkg = "pytorch_lightning"
+    min_ver = "1.0.6"
+    pkg_resources.require(f"{pkg}>={min_ver}")
+except pkg_resources.VersionConflict:
+    logger.warning(f"{pkg}>={min_ver} is required for a normal functioning of this module, but found {pkg}=={pkg_resources.get_distribution(pkg).version}.")
+
+# this one checks the min_ver but it does not check that the dependencies are correct
+# - pkg_resources comes with setuptools
+# - packaging is installed by setuptools
+import pkg_resources
+from packaging import version
+pkg = "pytorch_lightning"
+min_ver = "1.0.4"
+got_ver = pkg_resources.get_distribution("pytorch_lightning").version
+if version.parse(got_ver) < version.parse(min_ver):
+    raise pkg_resources.VersionConflict(f"{pkg}>={min_ver} is needed, but found {pkg}=={got_ver}")
+
+# require a minimal python version
+import sys
+MIN_PYTHON = (3,6)
+if sys.version_info < MIN_PYTHON: sys.exit("Python %s.%s or later is required.\n" % MIN_PYTHON)
+# or
+sys.hexversion < 0x03060000
+
+# compare module versions:
+# 1. packaging (module, but is used by setuptools, so probably is already installed)
+# it handles correctly .alpha5, .post1, .dev0
+from packaging import version
+version.parse("2.3.1.dev0")  < version.parse("2.3.1")
+version.parse("2.3.1.post1") > version.parse("2.3.1")
+#
+# 2. distutils.version (built-in)
+from distutils.version import LooseVersion
+LooseVersion("5.4.0.post1") >= LooseVersion("5.4.0")
+# but it doesn't deal with pre-release/post release labels
+LooseVersion("5.4.0.dev0") >= LooseVersion("5.4.0")
+Out[2]: True # wrong!
+
+# caches/memoization (uses side-effect of memo being initialized only once to {})
+def calculate(a, b, c, memo={}):
+    try:
+        value = memo[a, b, c] # return already calculated value
+    except KeyError:
+        value = heavy_calculation(a, b, c)
+        memo[a, b, c] = value # update the memo dictionary
+    return value
+
+
+##################
+### exceptions ###
+##################
+
+# when raising exceptions try to find the closest subclass of the exception, full list is here:
+# https://docs.python.org/3/library/exceptions.html#exception-hierarchy
+#
+# e.g. for wrong arguments to a function
+raise ValueError('args are wrong...')
+raise ValueError('args are wrong...', 'foo', 'bar') # can pass multiple args
+
+
+# to re-raise err so caller can do its own handling
+try: func1()
+except Exception as e:
+    if "CUDA out of memory" in str(e):
+        e_str = str(e)
+    else:
+        raise # re-raises the exact last exception
+
+# catch an exception in one place, and raise it again in another.
+try: func1()
+except:
+    exc_info = sys.exc_info()
+# do something
+# later in the code, we get the bt using exc_info stored above
+raise exc_info[0].with_traceback(exc_info[1], exc_info[2])
+#
+# except this has a problem of creating a circular reference as it keeps all the globals+local from being gc.collected(), so the proper solution is:
+
+# but if an explicit raise is called from the exception handler you will end up
+# with a double backtrace and a message "During handling of the above exception,
+# another exception occurred", so adding 'from None' will fix it
+#  or if `except Exception as e` is used, could also use 'from e'
+try: func1()
+except:
+    type, val, tb = sys.exc_info()
+    traceback.clear_frames(tb)
+    raise type(val).with_traceback(tb) from None
+
+
+###########################################
+### stuck python processes or segfaults ###
+###########################################
+
+# segfault w/o trace
+python3 -c "import ctypes; ctypes.string_at(0)"
+# segfault w/ trace
+python3 -q -X faulthandler -c "import ctypes; ctypes.string_at(0)"
+
+# get python trace w/o any special code:
+  #
+  # setup:
+sudo apt-get install gdb python3-dbg
+pip install pyrasite
+echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+  #
+  # get python trace  to stdout/stderr of the python program PID
+  # dump_stacks.py is part of pyrasite, all you need is PID
+pyrasite PID dump_stacks.py
+# note: couldn't get it to work with a stuck multithreading - there was no output
+
+# register and then kill the process w/ stack trace
+import faulthandler, signal
+faulthandler.register(signal.SIGUSR1)
+# kill the stuck process
+kill -USR1 PID
+
+# if stderr gets closed, use a specific log file, e.g.:
+fn = "/trash/file1"
+f = open(fn, "w")
+faulthandler.register(signal.SIGUSR1, file=f)
+
+# alternative that drops to debugger on kill -USR1
+# setup:
+def debug(sig, frame):
+    """Interrupt running process, and provide a python prompt for
+    interactive debugging."""
+    d={'_frame':frame}         # Allow access to frame object.
+    d.update(frame.f_globals)  # Unless shadowed by global
+    d.update(frame.f_locals)
+
+    i = code.InteractiveConsole(d)
+    message  = "Signal received : entering python shell.\nTraceback:\n"
+    message += ''.join(traceback.format_stack(frame))
+    i.interact(message)
+def listen():
+    signal.signal(signal.SIGUSR1, debug)  # Register handler
+# and then in the code:
+listen()
+
+# run a pytest via gdb (when getting a segfault)
+gdb -ex r --args python -m pytest -sv tests/test_failing.py
+then when it segfaults hit `c`+Enter, then run `bt` and `c`+Enter
+# more info and tricks here:
+https://wiki.python.org/moin/DebuggingWithGdb
+
+
+#########################
+### resource warnings ###
+#########################
+
+# Use python3 -X dev (Python 3.7 and newer) or python3 -Wd (Python 3.6 and older) to display ResourceWarning:
+$ python3 -Wd filebug.py
+filebug.py:3: ResourceWarning: unclosed file <_io.TextIOWrapper name='filebug.py' mode='r' encoding='UTF-8'>
+  f = None
+
+# enabling tracemalloc shows where the resource (file in this example) has been created:
+$ python3 -Wd -X tracemalloc=5 filebug.py
+filebug.py:3: ResourceWarning: unclosed file <_io.TextIOWrapper name='filebug.py' mode='r' encoding='UTF-8'>
+  f = None
+Object allocated at (most recent call first):
+  File "filebug.py", lineno 2
+    f = open(__file__)
+  File "filebug.py", lineno 5
+    func()
+
+
+
+
+##########################
+###  Tracing Execution ###
+##########################
+
+# generate call graph (image or gephi dump)
+pip install pycallgraph
+
+# using trace function:
+
+import re
+import os.path
+# adjust to match the wanted sub-dirs in the path of the executed modules
+# set to:
+#   match_only = re.compile(r'.')
+# to print all calls
+match_only = re.compile(r'fastai')
+def tracefunc(frame, event, arg, indent=[0]):
+    if re.search(match_only, frame.f_code.co_filename):
+          if event == "call":
+              indent[0] += 2
+              print("-" * indent[0] + "> call", frame.f_code.co_name, f'({os.path.basename(frame.f_code.co_filename)})')
+          elif event == "return":
+              print("<" + "-" * indent[0], "exit", frame.f_code.co_name, f'({os.path.basename(frame.f_code.co_filename)})')
+              indent[0] -= 2
+    return tracefunc
+
+import sys
+sys.settrace(tracefunc)
+
+
+
+###############
+### modules ###
+###############
+
+# fs location of a module
+import sys
+import mymodule
+print(sys.modules['mymodule'])
+
+# check if module has been loaded already:
+if "numpy" in sys.modules: print("numpy has been loaded")
+# note that this check doesn't ensure that the symbol `numpy` is in the current
+# namespace, and will still require:
+import numpy
+# if it's to be used next.
+# also aliases don't appear in sys.modules, but only real module names, thus
+import numpy as np
+"np"    in sys.modules # False
+"numpy" in sys.modules # True
+
+# dynamically import a module
+?
+
+# reload module
+from importlib import reload
+import foo
+foo = reload(foo)
+# all instances of objects created with the first import will reference the old class:
+# `import foo; bar = foo.Bar(); reload(foo); assert isinstance(bar, foo.Bar)` - will fail
+# You have to reconstruct Bar objects if the Bar class resides in the foo module.
+
+
+##################
+### custom env ###
+##################
+
+# activate and work in my envs
+bash
+source ~/anaconda3/bin/activate pytorch-dev
+bash
+source ~/anaconda3/bin/activate pytorch-0.3
+
+
+
+### usage ###
+
+# venv
+see pip.txt
+
+###################
+### requirement ###
+###################
+
+# given a source code folder find all the requirements for it and
+# generate a requirements.txt file
+
+# 1. pipreqs
+pip install pipreqs
+pipreqs /path/to/project
+
+# 2. pigar https://github.com/Damnever/pigar
+# not sure if it does it recursively
+pip install pigar
+cd /path/to/project; pigar
+
+##############
+### pytest ###
+##############
+
+# trace what pytest does with:
+PYTEST_DEBUG=1 pytest ...
+
+# normal run:
+pytest tests/test_fastai.py
+
+# use all CPUs but 1 (after: pip install pytest-xdist)
+pytest --numprocesses=$(python -c "print(__import__('xdist.plugin').plugin.auto_detect_cpus() - 1)")
+
+# show print() outputs on failure:
+-s
+# show print() outputs on success
+-rP
+# show print() outputs always (and no -s flag!)
+-rA
+#
+# detailed summary report: https://docs.pytest.org/en/latest/usage.html#detailed-summary-report
+-rXXX # flags -rf, -rfE, etc.
+f - failed
+E - error
+s - skipped
+x - xfailed
+X - xpassed
+p - passed
+P - passed with output
+a - all except pP
+A - all # -rA will show outputs for success and failure
+N - none, this can be used to display nothing (since fE is the default)
+
+# no color (yellow is not readable)
+--color=no
+
+# no warnings noise
+--disable-warnings
+
+### pytest-xdist
+# group tests
+--dist=loadscope to group all the tests in the same test class
+--dist=loadfile: tests will be grouped by file name
+
+# exclude tests
+# by pattern (e.g. all tests including _tf_)
+--ignore-glob="*_tf_*"
+# by test name (e.g. exclude sub-tests test_foo and test_bar)
+-k 'not test_foo and not test_bar'
+
+
+# tests/conftest.py
+
+# continually save failures to a log file - as soon as they happened - notice the append mode
+# useful for running the test suite in a loop to detect some hard to catch occasional errors
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # execute all other hooks to obtain the report object
+    outcome = yield
+    report = outcome.get_result()
+
+    # failing tests
+    if report.when == "call" and report.failed:
+        with open(report_files["failures"], "a") as f:
+            # f.write(report.shortreprtext + "\n")
+            f.write(report.longreprtext + "\n")
+
+# add a new pytest clarg
+
+            
+
+################
+### setup.py ###
+################
+
+# add custom meta info:
+self.distribution.meta[key] = value
+
+###########################
+### C-library interface ###
+###########################
+
+- ctypes
+- CFFI
+
+##################
+### auto-spell ###
+##################
+
+https://github.com/mammothb/symspellpy
+
+# social media spelling correction
+https://github.com/cbaziotis/ekphrasis
+
+
+###########################
+### elpy - email python ###
+###########################
+
+# find the definition of a function and go back
+M-. ;; elpy-goto-definition - find the definition of a function
+M-* ;; pop-tag-mark - go back
+
+
+###################
+### indentation ###
+###################
+
+# fix indentation to 4-chars
+# pip install reindent
+reindent program.py
