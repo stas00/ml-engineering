@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+# this program takes as its input another command set starting with a program name and followed by
+# its arguments. It will normalize them to replace = with space, and print that cmd set sorted and
+# ready to be either used again or compared to another set.
+#
+# usage:
+# 1. clean the mess:
+# cmd-reformat program --arg4 --arg5 tar --arg1=bar --arg3 --arg2 tar
+#
+# 2. compare 2 sets of cmd and find what's different in them:
+# cmd-reformat program --arg4 --arg5 tar --arg1=bar --arg3 --arg2 tar > good
+# cmd-reformat program --arg4 --arg5 tar --arg1=car --arg3 --arg2 tar > bad
+# diff good bad
+#
+
+$_=join " ", @ARGV; 
+s/$/ /; 
+s/=/ /g; 
+s/ +/ /g; 
+($s,@a)=split /(?=--)/, $_; 
+print join "\\\n", ($s, sort @a)
