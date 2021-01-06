@@ -77,3 +77,15 @@ python -m torch.distributed.launch \
 --val_max_target_length 128 \
 --warmup_steps 500
 ```
+Which was generated from:
+```
+```
+python -m torch.distributed.launch --nproc_per_node=2 --master_port=9910  ./finetune_trainer.py \
+--model_name_or_path sshleifer/distill-mbart-en-ro-12-4 --output_dir output_dir --adam_eps 1e-06 \
+--data_dir wmt_en_ro --do_train --freeze_embeds --label_smoothing 0.1 --learning_rate 3e-5 \
+--logging_first_step --logging_steps 1000 --max_source_length 128 --fp16 --max_target_length 128 \
+--num_train_epochs 1 --overwrite_output_dir --per_device_train_batch_size $BS --sortish_sampler \
+--src_lang en_XX --task translation --tgt_lang ro_RO --val_max_target_length 128 --warmup_steps 500 \
+--n_train 500 --sharded_ddp 
+```
+```
