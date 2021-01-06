@@ -53,7 +53,10 @@ $ diff bad good
 
 voila - the difference is `--fp16`
 
-What's inside:
+## What's inside
+
+So what was inside the generated files?
+
 ```
 $ cat bad
 python -m torch.distributed.launch \
@@ -96,3 +99,4 @@ python -m torch.distributed.launch --nproc_per_node=2 --master_port=9910  ./fine
 --n_train 500 --sharded_ddp 
 ```
 
+Note, that you can also have a mix of `--arg1=bar` and `--arg2 tar` types of arguments and it will consistently normalize them to using the space instead of `=` as a value separator. So if you cmd set becomes too inconsistent, run it through this script to give it a new neat shape.
