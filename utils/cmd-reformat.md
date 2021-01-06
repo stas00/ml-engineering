@@ -138,4 +138,4 @@ And you can immediately use it by copy-n-pasting it.
 
 Note, that it expects a program name as the first argument, and the rest are the arguments to that program name. So you don't need to think - just paste the whole thing as its inputs. Most of the time you don't need any quotes as in the example above, but perhaps at times you may need them.
 
-
+And here it is ready as a script that you can save [cmd-reformat](./cmd-reformat), just remember to make it executable and put it somewhere in your `PATH`.
