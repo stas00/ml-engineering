@@ -1,5 +1,20 @@
 #!/usr/bin/env python
 
+# profile different implementations of the same function using 3 different profilers:
+# `cProfile`, `line_profiler` and `timeit`
+# to get a better indication of the actual speed. 3-ways as sometimes some of them may quite disagree.
+#
+# usage: call each of the following:
+#
+# ./speed_profile_3_ways.py -c
+#
+# ./speed_profile_3_ways.py -t
+#
+# pip install line_profiler
+# kernprof -l speed_profile_3_ways.py -l; python -m line_profiler speed_profile_3_ways.py.lprof
+#
+# NB: I tried cProfile together with timeit and the latter was getting invalid results, so run each separately
+
 import argparse
 
 import math
