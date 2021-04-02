@@ -22,7 +22,11 @@ import math
 # first always check that the various ways produce the same result
 assert 2**2 == math.pow(2, 2)
 
-# if randomness is used make sure to set the seed
+# if randomness is used make sure to set the same seed before each test and that it depends on the RNG engine used (python vs. torch vs. numpy, etc.)
+
+# if using cuda make sure to run
+# gc.collect(); torch.cuda.empty_cache()
+# after each test to reset things
 
 # the ways being tested
 def way1():
