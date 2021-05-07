@@ -11,8 +11,6 @@
 # usage:
 # makehostfile > hostfile
 function makehostfile() {
-perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST"};
-if (/^(.*?)\[(\d)+-(\d+)\]/) { print map { "$1$_ slots=$slots\n" } $2..$3} 
-elsif (/,/) { print map { "$1$_ slots=$slots\n" } split /,/ } '
+perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST"}; if (/^(.*?)\[(\d+)-(\d+)\]/) { print map { "$1$_ slots=$slots\n" } $2..$3} elsif (/,/) { print map { "$1$_ slots=$slots\n" } split /,/ } '
 }
 ```
