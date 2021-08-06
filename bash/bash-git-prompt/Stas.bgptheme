@@ -1,0 +1,53 @@
+# This theme for gitprompt.sh is optimized for the "Solarized Dark" and "Solarized Light" color schemes
+# based on "Solarized Extravagant", with various tweaks
+
+function override_git_prompt_colors() {
+  GIT_PROMPT_THEME_NAME="Stas"
+
+  ## These are the color definitions used by gitprompt.sh
+  GIT_PROMPT_PREFIX="[${Blue}_USERNAME_REPO_|" # start of the git info string
+  GIT_PROMPT_SUFFIX="]"                 # the end of the git info string
+  GIT_PROMPT_SEPARATOR="${Cyan}|"              # separates each item
+
+  # symbols: https://unicodelookup.com/#circle/1
+  GIT_PROMPT_BRANCH="${Blue}"        # the git branch that is active in the current directory
+  GIT_PROMPT_MASTER_BRANCH="${Green}" # used if the git branch that is active in the current directory is $GIT_PROMPT_MASTER_BRANCHES
+  GIT_PROMPT_STAGED="${Blue}⊕"          # the number of staged files/directories
+  GIT_PROMPT_CONFLICTS="${Red}✖"       # the number of files in conflict
+  GIT_PROMPT_CHANGED="${Cyan}+"        # the number of changed files
+
+  #GIT_PROMPT_UNTRACKED="${Cyan}⁘"       # the number of untracked files/dirs
+  GIT_PROMPT_UNTRACKED="${Cyan}?"       # the number of untracked files/dirs
+
+  #GIT_PROMPT_STASHED="${Cyan}⚐"    # the number of stashed files/dir
+  #GIT_PROMPT_STASHED="${Cyan}⊙"    # the number of stashed files/dir
+  GIT_PROMPT_STASHED="${Cyan}·"    # the number of stashed files/dir
+  GIT_PROMPT_CLEAN=""      # a colored flag indicating a "clean" repo
+
+
+  # GIT_PROMPT_REMOTE=" "                 # the remote branch name (if any) and the symbols for ahead and behind
+
+  GIT_PROMPT_VIRTUALENV="(${Blue}_VIRTUALENV_${ResetColor}) "
+  GIT_PROMPT_UPSTREAM=" {${Blue}_UPSTREAM_${ResetColor}}"
+
+  GIT_PROMPT_COMMAND_OK=""
+  GIT_PROMPT_COMMAND_FAIL="${Red}✘${ResetColor} "
+  GIT_PROMPT_START_USER="_LAST_COMMAND_INDICATOR_${PathShort}"
+  GIT_PROMPT_END_USER="> "
+
+  ## Please do not add colors to these symbols
+  GIT_PROMPT_SYMBOLS_AHEAD="↑"             # The symbol for "n versions ahead of origin"
+  GIT_PROMPT_SYMBOLS_BEHIND="↓"            # The symbol for "n versions behind of origin"
+  GIT_PROMPT_SYMBOLS_PREHASH=":"            # Written before hash of commit, if no name could be found
+  GIT_PROMPT_SYMBOLS_NO_REMOTE_TRACKING="L" # This symbol is written after the branch, if the branch is not tracked
+
+  # branch name(s) that will use $GIT_PROMPT_MASTER_BRANCH color
+  # To specify multiple branches, use
+  #   shopt -s extglob
+  #   GIT_PROMPT_MASTER_BRANCHES='@(master|production)'
+  GIT_PROMPT_MASTER_BRANCHES="master"
+
+
+}
+
+reload_git_prompt_colors "Stas"
