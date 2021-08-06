@@ -28,7 +28,7 @@ function override_git_prompt_colors() {
 
   if [ ! -z "$SLURM_NNODES" ]
   then
-      HINT=:${SLURM_NNODES}-${SLURM_CPUS_PER_TASK}
+      HINT=${SLURM_NNODES}-${SLURM_CPUS_PER_TASK}
   else
       HINT=0-1
   fi
