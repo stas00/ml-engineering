@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
 # printflock allows one to print in a non-interleaved fashion when printing from multiple procesess.
-# Typically this only the issue within a single node. When processes from different node print their
-# output doesn't get interleaved.
+# Typically this only the issue within a single node. When processes from different nodes print their
+# output it doesn't get interleaved.
 #
-# this file includes a full example
+# This file includes the wrapper and a full example on how to use it.
 #
-# if you have 2 gpus run it as:
+# e.g., if you have 2 gpus run it as:
 #
-# python -m torch.distributed.run --nproc_per_node=2 multi-gpu-non-interleaved-print.py
-
+# python -m torch.distributed.run --nproc_per_node 2 multi-gpu-non-interleaved-print.py
+#
 
 import fcntl
 def printflock(*args, **kwargs):
