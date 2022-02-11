@@ -43,7 +43,7 @@ import torch
 import torch.distributed as dist
 
 def printflock(*msgs):
-    """ solves multi-process print interleaving  """
+    """ solves multi-process interleaved print problem """
     with open(__file__, "r") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
