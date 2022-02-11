@@ -4,7 +4,7 @@
 # This a torch.distributed test script that checks that all gpus in the cluster can talk to each
 # other and allocate gpu memory.
 #
-# To run first adjust the number of procs and nodes:
+# To run first adjust the number of processes and nodes:
 #
 # python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 #
@@ -31,11 +31,10 @@
 # MASTER_PORT=6000
 #
 # srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
-# --nproc_per_node 2 --nnodes 1 --node_rank $SLURM_PROCID \
+# --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 # --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
 # torch-distributed-gpu-test.py'
 #
-
 
 import fcntl
 import os
