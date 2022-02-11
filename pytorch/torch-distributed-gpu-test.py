@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 #
-# This a torch.distributed test script that checks that all gpus in the cluster can talk to each
-# other and allocate gpu memory.
+# This a `torch.distributed` diagnostics script that checks that all GPUs in the cluster (one or
+# many nodes) can talk to each other and allocate gpu memory.
 #
 # To run first adjust the number of processes and nodes:
 #
