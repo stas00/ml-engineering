@@ -2,7 +2,7 @@
 
 #
 # This a `torch.distributed` diagnostics script that checks that all GPUs in the cluster (one or
-# many nodes) can talk to each other and allocate gpu memory.
+# many nodes) can talk to each other via nccl and allocate gpu memory.
 #
 # To run first adjust the number of processes and nodes:
 #
@@ -13,6 +13,12 @@
 # You can also use the rdzv API: --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT --rdzv_backend c10d
 #
 # use torch.distributed.launch instead of torch.distributed.run for torch < 1.9
+#
+# If you get a hanging in `barrier` calls you have some network issues, you may try to debug this with:
+#
+# NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+#
+# which should tell you what's going on behind the scenes.
 #
 #
 # This script can be run via `srun` in the SLURM environment as well. Here is a SLURM script that
