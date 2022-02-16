@@ -32,9 +32,9 @@
 # #SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
 # #SBATCH --output=%x-%j.out           # output file name
 #
-# GPUS_PER_NODE=4
-# MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-# MASTER_PORT=6000
+# export GPUS_PER_NODE=4
+# export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+# export MASTER_PORT=6000
 #
 # srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
 # --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
@@ -83,7 +83,9 @@ try:
     dist.barrier()
     if rank == 0:
         printflock(f"pt={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
+        printflock(f"device compute capabilities={torch.cuda.get_device_capability()}")
+        printflock(f"pytorch compute capabilities={torch.cuda.get_arch_list()}")
 
-except:
+except Exception:
     printflock(f"{gpu} is broken")
     raise
