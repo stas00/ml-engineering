@@ -7,10 +7,10 @@
 # Examples:
 #
 # 1. All files in the checkpoint
-# ./pt-checkpoint-shrink.py --checkpoint_dir ./checkpoints/global_step10
+# ./torch-checkpoint-shrink.py --checkpoint_dir ./checkpoints/global_step10
 #
 # 2. Only select files in the checkpoint that match several patterns
-# ./pt-checkpoint-shrink.py --checkpoint_dir ./checkpoints/global_step10 --patterns 'layer*pt' 'zero*pt'
+# ./torch-checkpoint-shrink.py --checkpoint_dir ./checkpoints/global_step10 --patterns 'layer*pt' 'zero*pt'
 
 import argparse
 import torch
