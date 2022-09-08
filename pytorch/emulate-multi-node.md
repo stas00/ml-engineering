@@ -26,7 +26,7 @@ Host worker-1
 ```
 
 3. As your local setup is probably password protected ensure to add your public key to `~/.ssh/authorized_keys`
-```
+
 
 4. Create a test script to check both gpus are used.
 
