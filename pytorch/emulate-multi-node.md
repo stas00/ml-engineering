@@ -2,7 +2,9 @@
 
 The goal is to emulate a 2-node environment using a single node with 2 gpus (for testing purposes).
 
-We use the `deepspeed` launcher here. There is no need to actually use any of the deepspeed code.
+We use the `deepspeed` launcher here. There is no need to actually use any of the deepspeed code, it's just easier to use its more advanced capabilities. You will just need to install `pip install deepspeed`.
+
+The full setup instructions follow:
 
 1. Create a `hostfile`:
 ```
@@ -16,7 +18,6 @@ worker-1 slots=1
 $ cat ~/.ssh/config
 [...]
 
-# add to ~/.ssh/config, adapt the port if it's not 22
 Host worker-0
     HostName localhost
     Port 22
@@ -25,8 +26,16 @@ Host worker-1
     Port 22
 ```
 
+Adapt the port if it's not 22 and the hostname if `localhost` isn't it.
+
+
 3. As your local setup is probably password protected ensure to add your public key to `~/.ssh/authorized_keys`
 
+The `deepspeed` launcher explicitly uses no-password connection, e.g. on worker0 it'd run: `ssh -o PasswordAuthentication=no worker-0 hostname`, so you can always debug ssh setup using:
+
+```
+$ ssh -vvv -o PasswordAuthentication=no worker-0 hostname
+```
 
 4. Create a test script to check both gpus are used.
 
@@ -73,7 +82,7 @@ worker-0: tensor([1., 1., 1.,  ..., 1., 1., 1.], device='cuda:0')
 
 If the ssh set up works you can run `nvidia-smi` in parallel and observe that both GPUs allocated ~4GB of memory from `torch.ones` call.
 
-Note that the script hacks in `CUDA_VISIBLE_DEVICES` to tell the 2nd process to use gpu1, but it'll be seen as `local_rank==0` in both cases
+Note that the script hacks in `CUDA_VISIBLE_DEVICES` to tell the 2nd process to use gpu1, but it'll be seen as `local_rank==0` in both cases.
 
 5. Finally, let's test that NCCL collectives work as well
 
