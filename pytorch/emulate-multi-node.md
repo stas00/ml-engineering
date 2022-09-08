@@ -197,6 +197,30 @@ if os.environ["RANK"] in ["2", "3"]:
 
 Everything else should be the same.
 
+
+## Automating the process
+
+If you want an automatic approach to handle any shape of topology, you could use something like this:
+```
+def set_cuda_visible_devices():
+    """
+    automatically assign the correct groups of gpus for each emulated node by tweaking the
+    CUDA_VISIBLE_DEVICES env var
+    """
+
+    global_rank = int(os.environ["RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    emulated_node_size = int(os.environ["LOCAL_SIZE"])
+    emulated_node_rank = int(global_rank // emulated_node_size)
+    gpus = list(map(str, range(world_size)))
+    emulated_node_gpus = ",".join(gpus[emulated_node_rank*emulated_node_size:(emulated_node_rank+1)*emulated_node_size])
+    print(f"Setting CUDA_VISIBLE_DEVICES={emulated_node_gpus}")
+    os.environ["CUDA_VISIBLE_DEVICES"] = emulated_node_gpus
+
+set_cuda_visible_devices()
+```
+
+
 ## Emulating multiple gpus with a single GPU
 
 The following is an orthogonal need to the one discussed in this document, but it's related so I thought it'd be useful to share some insights here:
