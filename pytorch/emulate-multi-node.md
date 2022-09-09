@@ -1,6 +1,6 @@
 # Emulate a multi-node setup using just a single node
 
-The goal is to emulate a 2-node environment using a single node with 2 gpus (for testing purposes). This, of course, can be further expanded to [larger set ups](#larger-set-ups).
+The goal is to emulate a 2-node environment using a single node with 2 GPUs (for testing purposes). This, of course, can be further expanded to [larger set ups](#larger-set-ups).
 
 We use the `deepspeed` launcher here. There is no need to actually use any of the deepspeed code, it's just easier to use its more advanced capabilities. You will just need to install `pip install deepspeed`.
 
@@ -37,7 +37,7 @@ The `deepspeed` launcher explicitly uses no-password connection, e.g. on worker0
 $ ssh -vvv -o PasswordAuthentication=no worker-0 hostname
 ```
 
-4. Create a test script to check both gpus are used.
+4. Create a test script to check both GPUs are used.
 
 ```
 $ cat test1.py
@@ -98,7 +98,7 @@ import time
 import torch
 import torch.distributed as dist
 
-# a critical hack to use the 2nd gpu by the 2nd process (otherwise both processes will use gpu0)
+# a critical hack to use the 2nd GPU by the 2nd process (otherwise both processes will use gpu0)
 if os.environ["RANK"] == "1":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -181,7 +181,7 @@ We tested that the NCCL collectives work, but they use local NVLink/PCIe and not
 
 ## Larger set ups
 
-Now, let's say you have 4 gpus and you want to emulate 2x2 nodes. Then simply change the `hostfile` to be:
+Now, let's say you have 4 GPUs and you want to emulate 2x2 nodes. Then simply change the `hostfile` to be:
 
 ```
 $ cat hostfile
@@ -221,11 +221,11 @@ set_cuda_visible_devices()
 ```
 
 
-## Emulating multiple gpus with a single GPU
+## Emulating multiple GPUs with a single GPU
 
 The following is an orthogonal need to the one discussed in this document, but it's related so I thought it'd be useful to share some insights here:
 
-With NVIDIA A100 you can use [MIG](https://www.nvidia.com/en-us/technologies/multi-instance-gpu/) to emulate up to 7 instances of gpus on just one real GPU, but alas you can't use those instances for anything but standalone use - e.g. you can't do DDP or any NCCL comms over those gpus. I hoped I could use my A100 to emulate 7 instances and add one more real gpu and to have 8x gpus to do development with - but nope it doesn't work. Asking NVIDIA engineers about it, there are no plans to have this use-case supported.
+With NVIDIA A100 you can use [MIG](https://www.nvidia.com/en-us/technologies/multi-instance-gpu/) to emulate up to 7 instances of GPUs on just one real GPU, but alas you can't use those instances for anything but standalone use - e.g. you can't do DDP or any NCCL comms over those GPUs. I hoped I could use my A100 to emulate 7 instances and add one more real GPU and to have 8x GPUs to do development with - but nope it doesn't work. Asking NVIDIA engineers about it, there are no plans to have this use-case supported.
 
 
 # Acknowlegements
