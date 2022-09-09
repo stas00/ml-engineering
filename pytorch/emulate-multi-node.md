@@ -1,6 +1,6 @@
 # Emulate a multi-node setup using just a single node
 
-The goal is to emulate a 2-node environment using a single node with 2 gpus (for testing purposes). This of course can be further expanded to larger set ups.
+The goal is to emulate a 2-node environment using a single node with 2 gpus (for testing purposes). This, of course, can be further expanded to [larger set ups](#larger-set-ups).
 
 We use the `deepspeed` launcher here. There is no need to actually use any of the deepspeed code, it's just easier to use its more advanced capabilities. You will just need to install `pip install deepspeed`.
 
