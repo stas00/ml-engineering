@@ -8,3 +8,5 @@
   script that checks that all GPUs in the cluster (one or many nodes) can talk to each other and allocate gpu memory. And the accompanying solutions to `torch.distributed` hanging: [torch-distributed-hanging-solutions.md](./torch-distributed-hanging-solutions.md).
 
 - [emulate-multi-node.md](./emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
+
+- [all_gather_object_vs_all_reduce.py](./all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the group. e.g. some sort of all-done-flag. This technique is usually used for synchronizing gpus.
