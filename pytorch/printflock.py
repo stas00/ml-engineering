@@ -22,7 +22,7 @@ import fcntl
 
 def printflock(*args, **kwargs):
     """
-    This is a wrapper around the built-in Python `print` which calls `flock`s before calling
+    This is a wrapper around the built-in Python `print` which calls `flock` before calling
     `print` and unlocks it immediately after. This wrapper is useful for when each rank needs to
     print a message without getting it interleaved with prints from other ranks.
     The lock file is the file this wrapper is defined in.
