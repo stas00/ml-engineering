@@ -42,18 +42,19 @@
 # torch-distributed-gpu-test.py'
 #
 
+import builtins
 import fcntl
 import os
 import socket
 import torch
 import torch.distributed as dist
 
-def printflock(*msgs):
+def print(*args, **kwargs):
     """ solves multi-process interleaved print problem """
     with open(__file__, "r") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         try:
-            print(*msgs)
+            builtins.print(*args, **kwargs)
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
 
@@ -78,14 +79,14 @@ try:
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
-    printflock(f"{gpu} is OK (global rank: {rank}/{world_size})")
+    print(f"{gpu} is OK (global rank: {rank}/{world_size})")
 
     dist.barrier()
     if rank == 0:
-        printflock(f"pt={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
-        printflock(f"device compute capabilities={torch.cuda.get_device_capability()}")
-        printflock(f"pytorch compute capabilities={torch.cuda.get_arch_list()}")
+        print(f"pt={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
+        print(f"device compute capabilities={torch.cuda.get_device_capability()}")
+        print(f"pytorch compute capabilities={torch.cuda.get_arch_list()}")
 
 except Exception:
-    printflock(f"{gpu} is broken")
+    print(f"{gpu} is broken")
     raise
