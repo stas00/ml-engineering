@@ -7,14 +7,13 @@
 #
 # from printflock import printflock
 # import torch.distributed as dist
-# printflock(f"{dist.get_rank()} my long debug message")
+# printflock(f"{dist.get_rank()}: my long debug message")
 #
-# or can even override `print` with a better version
-#
+# or you can override `print` with a better one:
 #
 # from printflock import printflock as print
 # import torch.distributed as dist
-# printflock(f"{dist.get_rank()} my long debug message")
+# print(f"{dist.get_rank()}: my long debug message")
 #
 
 import builtins
