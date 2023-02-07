@@ -40,7 +40,7 @@ def printflock(*args, **kwargs):
 
     It can also be used to override normal `print`:
 
-    from m4.training.debug_utils import printflock as print
+    from printflock import printflock as print
 
     and then you don't need to change anything in your code.
     """
