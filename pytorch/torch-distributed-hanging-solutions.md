@@ -1,4 +1,6 @@
-# Solutions to torch.distributed Hanging
+# Diagnosing Multi-Node Multi-GPU Python Program Hanging
+
+While these methodologies found in this article were developed while working with multi-node multi-gpu pytorch-based training, they of course can help with any multi-process multi-node Python programs.
 
 ## Helper tools
 
@@ -238,7 +240,56 @@ Of course, you don't have to start tracing from `main` - if you suspect a specif
 I wish I could tell `trace` which packages to follow, but alas it only supports dirs to ignore, which is much more difficult to set, and thus you end up with a lot more data than needrf. But still this is a super useful tool for debugging hanging processes.
 
 
+### good old `print`
 
-### Hardware-specific issues
+Now once you discovered where the hanging happens to further understand why this is happening, a debugger would ideally be used, but more often than not debugging multi-process (multi-node) issues can be very difficult.
+
+In such situations a good old `print` works. You just need to add some debug prints before the calls where things hang, things that would help understand what lead to the deadlock. For example, some `barrier` was missing and one or a few processes skipped some code and while the rest of processes are still blocking waiting for everybody to send some data (for example in NCCL collective functions like `gather` or `reduce`).
+
+You of course, want to prefix each print with the rank of the process so that you could tell which is which. For example:
+
+```
+import torch.distributed as dist
+print(f"{dist.get_rank()}: passed stage 0")
+```
+
+What you will quickly discover is that if you have multiple GPUs these prints will be badly interleaved and you will have a hard time making sense of the debug data. So let's fix this. We are going to override `print` with a custom version of the same, but which uses `flock` to ensure that only one process can write to stdout at the same time.
+
+The helper module `printflock.py` is included [here](./printflock.py). To activate it just run this at the top of the module you're debugging:
+
+```
+from printflock import printflock as print
+```
+
+and now all your `print` calls in that module will magically be non-iterleaved. You can of course, just use `printflock` directly:
+
+```
+from printflock import printflock
+import torch.distributed as dist
+printflock(f"{dist.get_rank()}: passed stage 0")
+```
+
+
+### Code loops
+
+Code loops can be tricky to debug in hanging scenarios. If you have code like the following:
+
+```
+for i, d in enumerate(data):
+    some_hanging_call(d)
+```
+
+it's possible that one process hangs in the first iteration, and another process in the second iteration, which makes things very confusing. But the stack trace won't give such indication, as the line numbers would be the same, even though the processes aren't in the same place code progression-wise.
+
+In such situations unroll the loop to be:
+```
+d_iter = iter(data)
+some_hanging_call(next(d_iter)
+some_hanging_call(next(d_iter)
+```
+and now when you run `py-spy` the line numbers will be correct. The processes hanging in the first iteration will report the first `some_hanging_call` and those in the second iteration in the second call - as each now has its own line.
+
+
+## Hardware-specific issues
 
 Some AMD users may need to [Disable IOMMU](https://github.com/stas00/toolbox/issues/1#issuecomment-1076830400)
