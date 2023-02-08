@@ -1,6 +1,6 @@
 # Diagnosing Hangings and Deadlocks in Multi-Node Multi-GPU Python Programs
 
-While these methodologies found in this article were developed while working with multi-node multi-gpu pytorch-based training, they of course can help with any multi-process multi-node Python programs.
+While the methodologies found in this article were developed while working with multi-node multi-gpu pytorch-based training, they, of course, can help with any multi-process multi-node Python programs.
 
 ## Helper tools
 
