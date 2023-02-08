@@ -1,8 +1,14 @@
 # Solutions to torch.distributed Hanging
 
+## Helper tools
+
 Try to use the following script [torch-distributed-gpu-test.py](torch-distributed-gpu-test.py) to diagnose the situation.
 
-## Approaches to resolve multi-gpu hanging / deadlocks
+This will help primarily with discovering network-related issues. And also to quickly understand how multi-gpu communications work.
+
+For code-related issues read the rest of this document.
+
+## Approaches to diagnosing multi-gpu hanging / deadlocks
 
 ### py-spy
 
