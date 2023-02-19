@@ -96,7 +96,12 @@ Now use the following `srun` command after adjusting jobid with `SLURM_JOBID` fr
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'ps aux | grep python | egrep -v "grep|srun" | grep `whoami` | awk "{print \$2}" | xargs -I {} py-spy dump --native --pid {}' || echo "failed"
 ```
 
-Note: one must use `--gres=gpu:0` for the monitor `srun` or otherwise it will block until the main `srun` (the one running the training) exits.
+Notes:
+- one must use `--gres=gpu:0` for the monitor `srun` or otherwise it will block until the main `srun` (the one running the training) exits.
+- In some SLURM versions you may also need to add `--overlap`
+- In some SLURM versions the jobid might not match that of reported in `squeue`, so you have to get the correct `SLURM_JOB_ID` from the logs of the job you're trying to "attach" to - i.e. your `srun` job that allocated the GPUs.
+- sometimes `bash` doesn't work, but `sh` does. I think it has to do with what dot files get `source`d
+
 
 The following notes require `pip install deepspeed`.
 
