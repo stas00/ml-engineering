@@ -97,11 +97,39 @@ srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%
 ```
 
 Notes:
-- one must use `--gres=gpu:0` for the monitor `srun` or otherwise it will block until the main `srun` (the one running the training) exits.
+- One must use `--gres=gpu:0` for the monitor `srun` or otherwise it will block until the main `srun` (the one running the training) exits.
+- Each node will generate its unique log file named `trace-nodename.out` - so this would help to identify which node(s) are problematic. You can remove `--output=trace-%N.out` if you want it all being dumped to stdout
 - In some SLURM versions you may also need to add `--overlap`
 - In some SLURM versions the jobid might not match that of reported in `squeue`, so you have to get the correct `SLURM_JOB_ID` from the logs of the job you're trying to "attach" to - i.e. your `srun` job that allocated the GPUs.
-- sometimes `bash` doesn't work, but `sh` does. I think it has to do with what dot files get `source`d
+- Sometimes `bash` doesn't work, but `sh` does. I think it has to do with what dot files get `source`d
+- You might need to also activate a custom python environment, which you can do like so:
+```
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'conda activate myenvname; ps auxc | ... ' || echo "failed"
+```
+or you can do it inside `~/.bashrc` or whatever shell's rc file you decide to use.
 
+As mentioned before if you want just the main processes you'd use this instead:
+```
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}' || echo "failed"
+```
+Adjust `python` if need be as explained in the multi-gpu section above.
+
+The previous longer command will deliver traces for all python processes.
+
+If you're not getting anything, start with the basic debug like:
+
+```
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'date'
+```
+once you know you're talking to all the nodes, then you can progressively unravel the depth of calls, as in:
+
+```
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'date'
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -o python'
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -P $(pgrep -o python) '
+srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}'
+```
+and at each stage check that the output makes sense - e.g. the 2nd and 3rd call you should be getting the PIDs of the processes.
 
 The following notes require `pip install deepspeed`.
 
@@ -117,6 +145,7 @@ print map { "$b$_ slots=$slots\n" } @nodes'
 }
 makehostfile > hostfile
 ```
+Adapt `$slots` to the number of gpus per node. You may have to adapt this script if your `scontrol` produces a different output.
 
 Now run the `py-spy` extraction command over all participating nodes:
 ```
