@@ -1,10 +1,10 @@
 # this version has been derived from @jeffra's gist: https://gist.github.com/jeffra/b5e80466b4c86be00ea3b6f130fb7a36
-# and is derived from https://github.com/NVIDIA/nccl-tests
+# which in turn is derived from https://github.com/NVIDIA/nccl-tests
 #
 # to run for 2 nodes:
 # python -m torch.distributed.run --nproc_per_node=2 all_reduce_bench.py
 #
-# the printed results are already n_gpu agnostic (i.e. averaged for the world size)
+# the printed results are already n_gpu-agnostic (i.e. averaged for the world size)
 
 import argparse
 import fcntl
