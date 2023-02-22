@@ -14,8 +14,6 @@ import time
 import torch
 import torch.distributed as dist
 
-# note: this benchmark doesn't care how many gpus per node one has
-
 TRIALS = 5
 
 N = 500000
