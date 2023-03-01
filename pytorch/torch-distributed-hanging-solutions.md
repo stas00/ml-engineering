@@ -256,7 +256,6 @@ if __name__ == "__main__":
             count=1,
             timing=True,
         )
-        #    outfile=trace_output_file)
 
         # run the new command using the given tracer
         sys.stdout = Tee(trace_output_file)
