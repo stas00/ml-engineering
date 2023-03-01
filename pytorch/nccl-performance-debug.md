@@ -50,6 +50,21 @@ NCCL_DEBUG_FILE=/path/to/nccl-log.%h.%p.txt
 - `%h` is replaced with the hostname
 - `%p` is replaced with the process PID.
 
+If you then need to analyse hundreds of these at once, here are some useful shortcuts:
+
+- grep for a specific match and also print the file and line number where it was found:
+
+```
+grep -n "Init COMPLETE" nccl-log*
+```
+
+- show `tail -1` of all nccl log files followed by the name of each file
+
+```
+find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
+```
+
+
 
 #### `NCCL_DEBUG_SUBSYS`
 

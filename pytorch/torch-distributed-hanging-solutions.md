@@ -274,6 +274,33 @@ Of course, you don't have to start tracing from `main` - if you suspect a specif
 
 I wish I could tell `trace` which packages to follow, but alas it only supports dirs to ignore, which is much more difficult to set, and thus you end up with a lot more data than needrf. But still this is a super useful tool for debugging hanging processes.
 
+When the per-node-rank trace files has been generated the following might be helpful to quickly analyse the situation:
+
+
+- grep for a specific match and also print the file and line number where it was found:
+
+```
+grep -n "backward" trace*
+```
+
+- show `tail -1` of all trace files followed by the name of each file:
+
+```
+find . -name "trace*" -exec sh -c 'echo "$1: $(tail -3 "$1")"' _ {} \;
+```
+
+- or similar to the above, but print 5 last lines with the leading filename and some vertical white space for an easier reading:
+
+```
+find . -name "trace*" -exec sh -c 'echo; echo $1; echo "$(tail -5 "$1")"' _ {} \;
+```
+
+- count how many times grep matched a given pattern in each ifle and print the matched file (in this example matching the pattern `backward`):
+
+```
+find . -name "trace*" -exec sh -c 'echo "$1: $(grep "backward" $1 | wc -l)"' _ {} \;
+```
+
 
 ### good old `print`
 
