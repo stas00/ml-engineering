@@ -1,5 +1,18 @@
 # Debugging PyTorch programs
 
+## Prefixing logs with node:rank, interleaved asserts
+
+When you have warnings and asserts (or debug prints), it helps a lot to prefix each log with its hostname:rank
+
+```
+python -m torch.distributed.run --role `hostname -s`: --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+```
+
+This is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+
+XXX: add examples and how to properly set `--role` in multi-node env with SLURM.
+
+
 ## Dealing with Async CUDA bugs
 
 
@@ -47,7 +60,10 @@ In theory enabling this variable should make everything run really slow, but in 
 
 So, yes, when you switch from async to sync nature, often it can hide some subtle race conditions, so there are times that a hanging disappears as in the example I shared above. So measure your throughput with and without this flag and sometimes it might actual not only help with getting an in-context traceback but actually solve your problem altogether.
 
-Note: [NCCL==2.14.3 coming with `pytorch==1.13` hangs](https://github.com/NVIDIA/nccl/issues/750) when `CUDA_LAUNCH_BLOCKING=1` is used. So don't use it with that version of pytorch.
+Note: [NCCL==2.14.3 coming with `pytorch==1.13` hangs](https://github.com/NVIDIA/nccl/issues/750) when `CUDA_LAUNCH_BLOCKING=1` is used. So don't use it with that version of pytorch. The issue has been fixed in `nccl>=2.17` which should be included in `pytorch==2.0`.
+
+
+
 
 ## segfaults and getting a backtrace from a core file
 
