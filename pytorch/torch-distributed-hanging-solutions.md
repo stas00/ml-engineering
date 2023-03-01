@@ -254,6 +254,7 @@ if __name__ == "__main__":
             ignoredirs=[sys.prefix, sys.exec_prefix],
             trace=1,
             count=1,
+            timing=True,
         )
         #    outfile=trace_output_file)
 
