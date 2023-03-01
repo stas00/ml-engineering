@@ -118,11 +118,11 @@ But fear not - most of the time you won't need to understand the traceback. Idea
 
 I didn't promise it'll be easy, I just showed you where to start.
 
-Now another useful details is that many programs these days run multiple threads. And `bt` only shows the main thread of the process. But, often, it can be helpful to see where other threads in the process were when segfault has happened. For that you simply do:
+Now another useful details is that many programs these days run multiple threads. And `bt` only shows the main thread of the process. But, often, it can be helpful to see where other threads in the process were when segfault has happened. For that you simply type 2 commands at the `(gdb)` prompt:
 
 ```
-thread apply all bt
-bt
+(gdb) thread apply all bt
+(gdb) bt
 ```
 
 and this time around you typically will get a massive report, one backtrace per thread.
