@@ -267,11 +267,49 @@ if __name__ == "__main__":
 
 This code doesn't require any special handing other than enabling the trace by changing `if 0` to `if 1`.
 
-Of course, this will now dump all python calls. Which means expect a lot of GBs of data logged, especially if you have hundreds of GPUs.
+If you don't set `ignoredirs`, this will now dump all python calls. Which means expect a lot of GBs of data logged, especially if you have hundreds of GPUs.
 
 Of course, you don't have to start tracing from `main` - if you suspect a specific are you can start tracing there instead and it'll be much faster and less data to save.
 
 I wish I could tell `trace` which packages to follow, but alas it only supports dirs to ignore, which is much more difficult to set, and thus you end up with a lot more data than needrf. But still this is a super useful tool for debugging hanging processes.
+
+Also, your code will now run, much much slower and the more packages you trace the slower it will become.
+
+#### NicerTrace
+
+As `Trace` proved to provide very limited usability when debugging a complex multi-node multi-hour run crash, I have started on working on a better version of the `trace`
+
+You can find it here: [NicerTrace](./trace/NicerTrace.py)
+
+I added multiple additional flags to the constructor and made the output much more useful. You fill find a full working example in that same file, just run:
+
+```
+python trace/NicerTrace.py
+```
+and you should see:
+
+```
+        trace/NicerTrace.py:1 <module>
+0:00:00 <string>:     1:         trace/NicerTrace.py:185 main
+0:00:00 NicerTrace.py:   186:     img = Image.new("RGB", (4, 4))
+        PIL.Image:2896 new
+0:00:00 Image.py:  2912:     _check_size(size)
+        PIL.Image:2875 _check_size
+0:00:00 Image.py:  2883:     if not isinstance(size, (list, tuple)):
+0:00:00 Image.py:  2886:     if len(size) != 2:
+0:00:00 Image.py:  2889:     if size[0] < 0 or size[1] < 0:
+```
+as you will see in the example I set:
+
+```
+            packages_to_include=["PIL"],
+```
+so it'll trace `PIL` plus anything that is not under `site-packages`. If you need to trace another package, just add it to that list.
+
+This is a very fresh work-in-progress package, so it's evolving as we are trying to make it help us resolve a very complex crashing situation.
+
+
+#### Working with generated trace files
 
 When the per-node-rank trace files has been generated the following might be helpful to quickly analyse the situation:
 
