@@ -273,7 +273,7 @@ Of course, you don't have to start tracing from `main` - if you suspect a specif
 
 I wish I could tell `trace` which packages to follow, but alas it only supports dirs to ignore, which is much more difficult to set, and thus you end up with a lot more data than needrf. But still this is a super useful tool for debugging hanging processes.
 
-Also, your code will now run, much much slower and the more packages you trace the slower it will become.
+Also, your code will now run much much slower and the more packages you trace the slower it will become.
 
 #### NicerTrace
 

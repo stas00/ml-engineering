@@ -1,6 +1,6 @@
 # Debugging PyTorch programs
 
-## Prefixing logs with node:rank, interleaved asserts
+## Prefixing logs with `node:rank`, interleaved asserts
 
 When you have warnings and asserts (or debug prints), it helps a lot to prefix each log with its hostname:rank
 
@@ -8,13 +8,70 @@ When you have warnings and asserts (or debug prints), it helps a lot to prefix e
 python -m torch.distributed.run --role `hostname -s`: --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
-This is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+Now each log line will be prefixed with `[hostname:rank]`
 
-XXX: add examples and how to properly set `--role` in multi-node env with SLURM.
+If you're in a SLURM environment the above command line becomes:
+
+```
+srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role `hostname -s`: --tee 3 \
+torch-distributed-gpu-test.py'
+```
+
+This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+
+For example, if you get a traceback that looks like:
+
+```
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+    if self.dataset_proba.sum() != 1:
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+```
+
+and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` will generate:
+
+```
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:1]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+[host1:1]    if self.dataset_proba.sum() != 1:
+[host1:2]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]    if self.dataset_proba.sum() != 1:
+[host1:2]    if self.dataset_proba.sum() != 1:
+[host1:1]AttributeError: 'list' object has no attribute 'sum'
+[host1:2]AttributeError: 'list' object has no attribute 'sum'
+[host1:3]AttributeError: 'list' object has no attribute 'sum'
+```
+and you can `grep` this output for just one `host:rank` prefix, which gives us:
+
+```
+$ grep "[host1:0]" log.txt
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+```
+
+and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a few hundred interleaved assert lines there. I was demo'ing a small example.
+
+And of course if you're doing debug prints, then to solve this exact issue you can use [`printflock`](./torch-distributed-hanging-solutions.md#good-old-print).
+
+
 
 
 ## Dealing with Async CUDA bugs
-
 
 When using CUDA, failing pytorch programs very often produce a python traceback that makes no sense or can't be acted upon. This is because due to CUDA's async nature - when a CUDA kernel is executed, the program has already moved on and when the error happened the context of the program isn't there. The async functionality is there to make things faster, so that while the GPU is churning some `matmul` the program on CPU could already start doing something else.
 

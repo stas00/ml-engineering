@@ -23,7 +23,8 @@
 #
 # This script can be run via `srun` in the SLURM environment as well. Here is a SLURM script that
 # runs on 2 nodes of 4 gpus per node:
-#
+
+# #!/bin/bash
 # #SBATCH --job-name=test-nodes        # name
 # #SBATCH --nodes=2                    # nodes
 # #SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
@@ -40,6 +41,9 @@
 # --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 # --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
 # torch-distributed-gpu-test.py'
+#
+# can also add this for automatic prefixing of all logs with [hostname:rank] (in addition to `--master_addr` etc)
+# --role `hostname -s`: --tee 3 \
 #
 
 import builtins
