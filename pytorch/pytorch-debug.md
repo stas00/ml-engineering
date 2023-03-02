@@ -155,4 +155,119 @@ You will find an exhaustive coverage of this tool [here](./torch-distributed-han
 
 ## strace
 
-TODO
+Similar to [py-spy](./torch-distributed-hanging-solutions.md#py-spy), `strace` is a super-useful tool which traces any running application at the low-level system calls - e.g. `libC` and alike.
+
+For example, run:
+```
+strace python -c "print('strace')"
+```
+and you will see everything that is done at the system call level as the above program runs.
+
+But usually it's more useful when you have a stuck program that spins all CPU cores at 100% but nothing happens and you want to see what's it doing. In this situation you simply attached to the running program like so:
+
+```
+strace --pid PID
+```
+where you get the PID for example from the output of `top` or `ps`. Typically I just copy-n-paste the PID of the program that consumes the most CPU - `top` usually shows it at the very top of its listing.
+
+Same as `py-spy` you may need `sudo` perms to attached to an already running process - it all depends on your system setup. But you can always start a program with `strace` as I have shown in the original example.
+
+Let's look at a small sub-snippet of the output of `strace python -c "print('strace')"`
+
+```
+write(1, "strace\n", 7strace
+)                 = 7
+```
+Here we can see that a write call was executed on filedescriptor `1`, which almost always is `stdout` (`stdin` being 0, and `stderr` being 2).
+
+If you're not sure what a filedescriptor is pointing to, normally you can tell from `strace`'s output itself. But you can also do:
+
+```
+ls -l /proc/PID/fd
+```
+where PID is the pid of the currently running program you're trying to investigate.
+
+For example, when I run the above while running a pytest test with gpus, I got (partial output):
+```
+l-wx------ 1 stas stas 64 Mar  1 17:22 5 -> /dev/null
+lr-x------ 1 stas stas 64 Mar  1 17:22 6 -> /dev/urandom
+lrwx------ 1 stas stas 64 Mar  1 17:22 7 -> /dev/nvidiactl
+lrwx------ 1 stas stas 64 Mar  1 17:22 8 -> /dev/nvidia0
+lr-x------ 1 stas stas 64 Mar  1 17:22 9 -> /dev/nvidia-caps/nvidia-cap2
+```
+so you can see that a device `/dev/null` is open as FD (file descriptor) 5, `/dev/urandom` as FD 6, etc.
+
+Now let's go look at another snippet from our `strace` run.
+
+```
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+```
+Here it tried to see if file `/etc/ld.so.preload` exists, but as we can see it doesn't - this can be useful if some shared library is missing - you can see where it's trying to load it from.
+
+Let's try another one:
+```
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libpthread.so.0", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0\0\0\0\0\0\0\0\0"..., 832) = 832
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=21448, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 16424, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f8028807000
+mmap(0x7f8028808000, 4096, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1000) = 0x7f8028808000
+mmap(0x7f8028809000, 4096, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f8028809000
+mmap(0x7f802880a000, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x2000) = 0x7f802880a000
+close(3)
+```
+here we can see that it opens `/lib/x86_64-linux-gnu/libpthread.so.0` and assigns it FD 3, it then reads 832 chars from FD 3, (we can also see that the first chars are ELF - which stands for a shared library format), then memory maps it and closes that file.
+
+In this following example, we see a python cached file is opened, its filepointer is moved to 0, and then it's read and closed.
+```
+openat(AT_FDCWD, "/home/stas/anaconda3/envs/py38-pt113/lib/python3.8/__pycache__/abc.cpython-38.pyc", O_RDONLY|O_CLOEXEC) = 3
+fstat(3, {st_mode=S_IFREG|0664, st_size=5329, ...}) = 0
+lseek(3, 0, SEEK_CUR)                   = 0
+lseek(3, 0, SEEK_CUR)                   = 0
+fstat(3, {st_mode=S_IFREG|0664, st_size=5329, ...}) = 0
+brk(0x23bf000)                          = 0x23bf000
+read(3, "U\r\r\n\0\0\0\0\24\216\177c\211\21\0\0\343\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 5330) = 5329
+read(3, "", 1)                          = 0
+close(3)
+```
+It's important to notice that file descriptors are re-used, so we have seen the same FD 3 twice, but each time it was open to a different file.
+
+If your program is for example trying to reach to the Internet, you can also tell these calls from `strace` as the program would be reading from a socket file descriptor.
+
+So let's run an example on a program that downloads files from the HF hub:
+```
+strace python -c 'import sys; from transformers import AutoConfig; AutoConfig.from_pretrained(sys.argv[1])' t5-small
+```
+
+here is some relevant to this discussion snippet:
+```
+socket(AF_INET6, SOCK_STREAM|SOCK_CLOEXEC, IPPROTO_TCP) = 3
+setsockopt(3, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+ioctl(3, FIONBIO, [1])                  = 0
+connect(3, {sa_family=AF_INET6, sin6_port=htons(443), sin6_flowinfo=htonl(0), inet_pton(AF_INET6, "2600:1f18:147f:e850:e203:c458:10cd:fc3c
+", &sin6_addr), sin6_scope_id=0}, 28) = -1 EINPROGRESS (Operation now in progress)
+poll([{fd=3, events=POLLOUT|POLLERR}], 1, 10000) = 1 ([{fd=3, revents=POLLOUT}])
+getsockopt(3, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
+[...]
+write(3, "\26\3\3\0F\20\0\0BA\4\373m\244\16\354/\334\205\361j\225\356\202m*\305\332\275\251\17J"..., 126) = 126
+read(3, 0x2f05c13, 5)                   = -1 EAGAIN (Resource temporarily unavailable)
+poll([{fd=3, events=POLLIN}], 1, 9903)  = 1 ([{fd=3, revents=POLLIN}])
+read(3, "\24\3\3\0\1", 5)               = 5
+read(3, "\1", 1)                        = 1
+read(3, "\26\3\3\0(", 5)                = 5
+read(3, "\0\0\0\0\0\0\0\0\344\v\273\225`\4\24m\234~\371\332%l\364\254\34\3472<\0356s\313"..., 40) = 40
+ioctl(3, FIONBIO, [1])                  = 0
+poll([{fd=3, events=POLLOUT}], 1, 10000) = 1 ([{fd=3, revents=POLLOUT}])
+write(3, "\27\3\3\1.\0\374$\361\217\337\377\264g\215\364\345\256\260\211$\326pkR\345\276,\321\221`-"..., 307) = 307
+ioctl(3, FIONBIO, [1])                  = 0
+read(3, 0x2ef7283, 5)                   = -1 EAGAIN (Resource temporarily unavailable)
+poll([{fd=3, events=POLLIN}], 1, 10000) = 1 ([{fd=3, revents=POLLIN}])
+```
+
+You can see where that again it uses FD 3 but this time it opens a INET6 socket instead of a file. You can see that it then connects to that socket, polls, reads and writes from it.
+
+There are many other super useful understandings one can derive from using this tool.
+
+BTW, if you don't want to scroll up-down, you can also save the output to a file:
+```
+strace -o strace.txt python -c "print('strace')"
+```
