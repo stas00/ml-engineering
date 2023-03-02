@@ -1,5 +1,10 @@
-
 """ NicerTrace - an improved Trace package """
+
+"""
+To try it in action and to get a sense of how it can help you just run:
+python trace/NicerTrace.py
+"""
+
 
 import datetime
 import os
