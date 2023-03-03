@@ -5,10 +5,12 @@
 When you have warnings and asserts (or debug prints), it helps a lot to prefix each log with its hostname:rank
 
 ```
-python -m torch.distributed.run --role `hostname -s`: --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 Now each log line will be prefixed with `[hostname:rank]`
+
+Note that the colon is important.
 
 If you're in a SLURM environment the above command line becomes:
 
@@ -16,13 +18,24 @@ If you're in a SLURM environment the above command line becomes:
 srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
---role `hostname -s`: --tee 3 \
+--role $(hostname -s): --tee 3 \
 torch-distributed-gpu-test.py'
 ```
 
 Of course adjust your environment variables to match, this was just an example.
 
-Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags.
+Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
+
+
+```
+srun --jobid $SLURM_JOBID bash -c "python -m torch.distributed.run \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role \$(hostname -s): --tee 3 \
+torch-distributed-gpu-test.py"
+```
+
+`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the code.
 
 This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
 
