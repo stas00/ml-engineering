@@ -20,6 +20,10 @@ srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
 torch-distributed-gpu-test.py'
 ```
 
+Of course adjust your environment variables to match, this was just an example.
+
+Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags.
+
 This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
 
 For example, if you get a traceback that looks like:
@@ -65,6 +69,8 @@ $ grep "[host1:0]" log.txt
 ```
 
 and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a few hundred interleaved assert lines there. I was demo'ing a small example.
+
+Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
 
 And of course if you're doing debug prints, then to solve this exact issue you can use [`printflock`](./torch-distributed-hanging-solutions.md#good-old-print).
 
