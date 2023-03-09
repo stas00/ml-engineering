@@ -1,15 +1,15 @@
-# guides to training models
+# Guides to training models
 
-- [torch-distributed-hanging-solutions.md](./torch-distributed-hanging-solutions.md) solutions to `torch.distributed` hanging
+- [solutions to hanging problems during training](./torch-distributed-hanging-solutions.md).
 
-- [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program.
+- [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program when it breaks.
 
-- [hardware performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
+- [Tuning hardware for best performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
 
-- [nccl-performance-debug](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
+- [Debugging nccl issues and performance](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
 
 
-# pytorch tools for training models
+# Tools for debugging pytorch-based training
 
 - [printflock.py](./printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.
 
