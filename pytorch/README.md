@@ -24,4 +24,4 @@
 
 - [emulate-multi-node.md](./emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
 
-- [all_gather_object_vs_all_reduce.py](./all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the group. e.g. some sort of all-done-flag. This technique is usually used for synchronizing gpus.
+- [all_gather_object_vs_all_reduce.py](./all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the group. e.g. some sort of all-done-flag. This technique is usually used for synchronizing gpus. See also [all_gather_object_vs_all_gather.py](./all_gather_object_vs_all_gather.py).
