@@ -1,12 +1,12 @@
 # Guides to training models
 
-- [solutions to hanging problems during training](./torch-distributed-hanging-solutions.md).
+- [Solutions to hanging problems during training](./torch-distributed-hanging-solutions.md)
 
-- [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program when it breaks.
+- [Debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program when it breaks.
 
-- [Tuning hardware for best performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
+- [Tuning ML hardware for best performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
 
-- [Debugging nccl issues and performance](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
+- [Debugging NCCL issues and performance](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
 
 
 # Tools for debugging pytorch-based training
