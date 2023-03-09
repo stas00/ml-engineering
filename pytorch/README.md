@@ -1,5 +1,6 @@
-# guides to training models 
+# guides to training models
 
+- [torch-distributed-hanging-solutions.md](./torch-distributed-hanging-solutions.md) solutions to `torch.distributed` hanging
 
 - [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program.
 
@@ -19,7 +20,7 @@
 - [multi-gpu-non-interleaved-print.py](./multi-gpu-non-interleaved-print.py) - a `flock`-based wrapper around `print` that prevents messages from getting interleaved when multiple processes print at the same time - which is the case with `torch.distributed` used with multiple-gpus.
 
 - [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) - this a `torch.distributed` diagnostics
-  script that checks that all GPUs in the cluster (one or many nodes) can talk to each other and allocate gpu memory. And the accompanying solutions to `torch.distributed` hanging: [torch-distributed-hanging-solutions.md](./torch-distributed-hanging-solutions.md).
+  script that checks that all GPUs in the cluster (one or many nodes) can talk to each other and allocate gpu memory.
 
 - [emulate-multi-node.md](./emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
 
