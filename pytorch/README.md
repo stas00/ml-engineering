@@ -8,7 +8,7 @@
 - [nccl-performance-debug](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
 
 
-# pytorch tools
+# pytorch tools for training models
 
 - [printflock.py](./printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.
 
