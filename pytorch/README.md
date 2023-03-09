@@ -1,3 +1,13 @@
+# guides to training models 
+
+
+- [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program.
+
+- [hardware performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
+
+- [nccl-performance-debug](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
+
+
 # pytorch tools
 
 - [printflock.py](./printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.
@@ -14,9 +24,3 @@
 - [emulate-multi-node.md](./emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
 
 - [all_gather_object_vs_all_reduce.py](./all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the group. e.g. some sort of all-done-flag. This technique is usually used for synchronizing gpus.
-
-- [debugging pytorch](./pytorch-debug.md) - this document goes into what you can do when you don't get an obvious traceback that you can act on and fix your program.
-
-- [hardware performance](./hardware-performance.md) - choosing and configuring machine learning hardware for best performance.
-
-- [nccl-performance-debug](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
