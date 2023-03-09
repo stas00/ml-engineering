@@ -5,8 +5,10 @@
 #
 # python -m torch.distributed.run --nproc_per_node 2 all_gather_object_vs_all_gather.py
 #
-# in this case the benchmark isn't the best since there is almost no data, so the overhead of code
-# is huge, shouldn't be as. But I wanted to compare all_gather to all_gather_object
+# XXX: in this case the benchmark isn't the most representative since there is almost no data, so
+# the overhead of code is huge, shouldn't be as big for bigger data. But I wanted to compare
+# all_gather to all_gather_object and used the same setup as all_gather_object_vs_all_reduce.py as
+# the base for the benchmark. Probably need to rework it.
 #
 # all_gather_object=0.2697904680026113
 # all_gather_object=0.26981512399652274
