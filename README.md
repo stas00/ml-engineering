@@ -4,7 +4,7 @@ I have a mix of guides and tools here.
 
 ## Guides
 
-A substantial part of this repository is dedicated to a brain dump of my know-how experiences training NLP Large Language Models (LLM). e.g. a lot of it came from training the first open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model. Currently I'm working on a largish multi-modal training.
+A substantial part of this repository is dedicated to a brain dump of my experiences training Large Language Models (LLM). e.g., a lot of the know-how I acquired while training the first open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022. Currently I'm working on a largish multi-modal training so gradually I've been expanding my knowledge.
 
 [Jump to the guides](./pytorch#guides-to-training-models)
 
