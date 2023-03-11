@@ -1,6 +1,6 @@
 # Stas' Machine Learning/Programming Toolbox and Guides
 
-I have a mix of guides and tools here.
+I have a mix of machine learning guides and tools here.
 
 ## Guides
 
