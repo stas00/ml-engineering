@@ -1,6 +1,16 @@
-# Stas' Programming Toolbox
+# Stas' Machine Learning/Programming Toolbox and Guides
 
-In this repo you will find various very useful tools in my toolbox. You're welcome to use them in your work.
+I have a mix of guides and tools here.
+
+## Guides
+
+A substantial part of this repository is dedicated to a brain dump of my know-how experiences training NLP Large Language Models (LLM). e.g. a lot of it came from training the first open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model. Currently I'm working on a largish multi-modal training.
+
+[Jump to the guides](./pytorch#guides-to-training-models)
+
+## Tools
+
+In this repo you will find various very useful tools in my toolbox (mainly Machine Learning). You're welcome to use them in your work.
 
 Every tool comes with either its own instructional `.md` file with or the usage is documented at the top of the script.
 
