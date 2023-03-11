@@ -155,3 +155,4 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 - There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/TimDettmers/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
 
 For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
+Speed-wise:`apex`'s Adam optimizer is so far the fastest implementation of Adam.
