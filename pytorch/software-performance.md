@@ -129,7 +129,7 @@ The most common situation with mixed precision training the math is:
  18: total (18 bytes per parameter)
 ```
 
-So if you have an 11B model, you need at least 198GB of GPU memory to train the model regardless of batch size and sequence length. The latter belong into the activation memory allocations.
+So if you have an 11B model, you need at least (`18*11`) 198GB of GPU memory to train the model regardless of batch size and sequence length. The latter belong into the activation memory allocations.
 
 See the section above for various other situations.
 
