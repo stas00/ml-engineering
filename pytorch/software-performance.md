@@ -96,9 +96,9 @@ To be able to avoid OOM-situations and be able to use the largest batch size it 
 
 1. Preloaded cuda kernels size
 
-When PyTorch uses CUDA for the first time, it may use up 1-2GB of GPU memory, making your available memory smaller.
+When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, reducing the GPU's total available memory.
 
-The size varies from GPU to GPU, and also can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
+The size of allocated memory for cuda kernels varies between different GPUs, and also it can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
 
 With `pytorch==1.10.2`:
 ```
