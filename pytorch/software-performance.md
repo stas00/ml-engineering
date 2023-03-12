@@ -21,7 +21,7 @@ The more GPU memory you have for your batch size (BS) the more efficient the GPU
 Of course, this section is crucial for when you get GPU OOM with even BS=1 and you don't want to rent/buy more hardware.
 
 
-## Anatomy of Model's Operations
+### Anatomy of Model's Operations
 
 Transformers architecture includes 3 main groups of operations grouped below by compute-intensity.
 
@@ -42,7 +42,7 @@ This knowledge can be helpful to know when analyzing performance bottlenecks.
 This summary is derived from [Data Movement Is All You Need: A Case Study on Optimizing Transformers 2020](https://arxiv.org/abs/2007.00072)
 
 
-## Anatomy of Model's Memory
+### Anatomy of Model's Memory
 
 We've seen that training the model uses much more memory than just putting the model on the GPU. This is because there are many components during training that use GPU memory. The components on GPU memory are the following:
 
@@ -90,7 +90,7 @@ Additionally there are all kinds of temporary variables which get released once 
 Then your software could have special memory needs. For example, when generating text using beam search, the software needs to maintain multiple copies of inputs and outputs.
 
 
-## Memory allocation breakdown
+### GPU memory allocation breakdown
 
 To be able to avoid OOM-situations and be able to use the largest batch size it helps to understand how GPU memory is used
 
@@ -140,19 +140,13 @@ See the section above for various breakdowns
 These are hard to calculate but they shouldn't be too large. It's basically the extra memory that is used for intermediary results.
 
 
-## Model execution speed
-
-`forward` vs `backward` Execution Speed
-
-For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, gradOutput and output of the forward, and writes once, gradInput).
 
 
 
 
 
 
-
-## Batch sizes
+### Batch sizes
 
 One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
 
@@ -166,7 +160,7 @@ For parameters that are small, there is also [Dimension Quantization Effects](ht
 
 
 
-## Gradient Accumulation
+### Gradient Accumulation
 
 The idea behind gradient accumulation is to instead of calculating the gradients for the whole batch at once to do it in smaller steps. The way we do that is to calculate the gradients iteratively in smaller batches by doing a forward and backward pass through the model and accumulating the gradients in the process. When enough gradients are accumulated we run the model's optimization step. This way we can easily increase the overall batch size to numbers that would never fit into the GPU's memory. In turn, however, the added forward and backward passes can slow down the training a bit.
 
@@ -210,3 +204,13 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 
 For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
 Speed-wise:`apex`'s Adam optimizer is so far the fastest implementation of Adam.
+
+
+
+
+
+## Model execution speed
+
+### `forward` vs `backward` Execution Speed
+
+For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, `gradOutput` and output of the forward, and writes once, `gradInput`).
