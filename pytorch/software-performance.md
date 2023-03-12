@@ -102,20 +102,21 @@ The size of allocated memory for cuda kernels varies between different GPUs, and
 
 With `pytorch==1.10.2`:
 ```
-$ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
+$ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
 pt=1.10.2: used=1.78GB, free=77.43GB, total=79.21GB
 ```
 
 With `pytorch==1.13.1`:
 ```
-$ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
+$ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=1.13.1: used=0.58GB, free=78.63GB, total=79.21GB
+pt=1.13.1: used=0.90GB, free=78.31GB, total=79.21GB
 ```
 
-The older pytorch "wasted" 1.78GB of A100, the newer only 0.58GB, thus saving a whooping 1.2GB, which can be the saving grace for the OOM situations.
+The older pytorch "wasted" 1.78GB of A100, the newer only 0.9GB, thus saving a whooping 0.9GB, which can be the saving grace for the OOM situations.
 
+`CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand.
 
 2. Model weights, optimizer states and gradients
 
