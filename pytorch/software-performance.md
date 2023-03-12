@@ -141,7 +141,7 @@ See the section above for various other situations.
 
 4. Temp memory
 
-These are hard to calculate but they shouldn't be too large. It's basically the extra memory that is used for intermediary results.
+This one is hard to calculate but it shouldn't be significantly large. It's basically the extra memory that is used for intermediary calculations.
 
 
 
