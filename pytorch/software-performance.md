@@ -121,15 +121,17 @@ The older pytorch "wasted" 1.78GB of A100, the newer only 0.58GB, thus saving a 
 
 The most common situation with mixed precision training the math is:
 
-a. 2*4 optim states (2x fp32)
-b. 4+2 weights (fp32 master and bf16/fp16 half)
-c. 4 grads (fp32)
-total: 18 bytes per parameter
+```
+2*4: optim states (2x fp32)
+4+2: weights (1x fp32 master weights and 1x bf16/fp16 half)
+  4: grads (1x fp32)
+----------------------------------
+ 18: total (18 bytes per parameter)
+```
 
-So if you have an 11B model, you need at least 198GB of GPU memory.
+So if you have an 11B model, you need at least 198GB of GPU memory to train the model regardless of batch size and sequence length. The latter belong into the activation memory allocations.
 
-
-See the section above for various breakdowns
+See the section above for various other situations.
 
 
 3. Activation memory
