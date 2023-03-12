@@ -89,11 +89,65 @@ Additionally there are all kinds of temporary variables which get released once 
 
 Then your software could have special memory needs. For example, when generating text using beam search, the software needs to maintain multiple copies of inputs and outputs.
 
-**`forward` vs `backward` Execution Speed**
+
+## Memory allocation breakdown
+
+To be able to avoid OOM-situations and be able to use the largest batch size it helps to understand how GPU memory is used
+
+1. Preloaded cuda kernels size
+
+When PyTorch uses CUDA for the first time, it may use up 1-2GB of GPU memory, making your available memory smaller.
+
+The size varies from GPU to GPU, and also can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
+
+With `pytorch==1.10.2`:
+```
+$ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
+pt=1.10.2: used=1.78GB, free=77.43GB, total=79.21GB
+```
+
+With `pytorch==1.13.1`:
+```
+$ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
+pt=1.13.1: used=0.58GB, free=78.63GB, total=79.21GB
+```
+
+The older pytorch "wasted" 1.78GB of A100, the newer only 0.58GB, thus saving a whooping 1.2GB, which can be the saving grace for the OOM situations.
+
+
+2. Model weights, optimizer states and gradients
+
+The most common situation with mixed precision training the math is:
+
+a. 2*4 optim states (2x fp32)
+b. 4+2 weights (fp32 master and bf16/fp16 half)
+c. 4 grads (fp32)
+total: 18 bytes per parameter
+
+So if you have an 11B model, you need at least 198GB of GPU memory.
+
+
+See the section above for various breakdowns
+
+
+3. Activation memory
+
+- coming soon
+
+
+4. Temp memory
+
+These are hard to calculate but they shouldn't be too large. It's basically the extra memory that is used for intermediary results.
+
+
+## Model execution speed
+
+`forward` vs `backward` Execution Speed
 
 For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, gradOutput and output of the forward, and writes once, gradInput).
 
-So there are potentially a few places where we could save GPU memory or speed up operations. Let's start with a simple optimization: choosing the right batch size.
+
+
 
 
 
