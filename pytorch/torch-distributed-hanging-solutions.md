@@ -27,8 +27,13 @@ and it will tell you where the process hangs (very often it's a nccl collective 
 - `-n` is useful if you want to see strack traces from python extensions written in C, C++, etc., as the program may hang in one of the extensions
 - you may need to add `sudo` before the command - for more details see [this note](https://github.com/benfred/py-spy#when-do-you-need-to-run-as-sudo).
 
+If you have no `sudo` access your sysadmin might be able to perform this for you:
+```
+sudo echo 0 > /proc/sys/kernel/yama/ptrace_scope
+```
+which will allow you running `py-spy` (and `strace`) without needing `sudo`. Beware of the possible [security implications](https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace_Protection) - but typically if your compute node is inaccessible from the Internet it's less likely to be a risk.
 
-Here is an example of such a stack trace:
+Here is an example of `py-spy dump` python stack trace:
 ```
 Thread 835995 (active): "MainThread"
     broadcast (torch/distributed/distributed_c10d.py:1191)
