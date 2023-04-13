@@ -33,6 +33,11 @@ sudo echo 0 > /proc/sys/kernel/yama/ptrace_scope
 ```
 which will allow you running `py-spy` (and `strace`) without needing `sudo`. Beware of the possible [security implications](https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace_Protection) - but typically if your compute node is inaccessible from the Internet it's less likely to be a risk.
 
+To make this change survive a reboot ask the sysadmin to edit `/etc/sysctl.d/10-ptrace.conf` and set:
+```
+kernel.yama.ptrace_scope = 0
+```
+
 Here is an example of `py-spy dump` python stack trace:
 ```
 Thread 835995 (active): "MainThread"

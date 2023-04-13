@@ -347,3 +347,18 @@ BTW, if you don't want to scroll up-down, you can also save the output to a file
 ```
 strace -o strace.txt python -c "print('strace')"
 ```
+
+Now, since you're might want to strace the program from the very beginning, for example to sort out some race condition on a distributed filesystem, you will want to tell it to follow any forked processes. This what the `-f` flag is for:
+
+
+```
+strace -o log.txt -f python -m torch.distributed.run --nproc_per_node=4 --nnodes=1 --tee 3 test.py
+```
+
+So here we launch 4 processes and will end up running `strace` on at least 5 of them - the launcher plus 4 processes (each of which may spawn further child processes).
+
+It will conveniently prefix each line with the pid of the program so it should be easy to tell which system was made by which process.
+
+But if you want separate logs per process, then use `-ff` instead of `-f`.
+
+The `strace` manpage has a ton of other useful options.
