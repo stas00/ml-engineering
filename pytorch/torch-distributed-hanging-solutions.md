@@ -33,7 +33,7 @@ sudo echo 0 > /proc/sys/kernel/yama/ptrace_scope
 ```
 which will allow you running `py-spy` (and `strace`) without needing `sudo`. Beware of the possible [security implications](https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace_Protection) - but typically if your compute node is inaccessible from the Internet it's less likely to be a risk.
 
-To make this change survive a reboot ask the sysadmin to edit `/etc/sysctl.d/10-ptrace.conf` and set:
+To make this change permanent edit `/etc/sysctl.d/10-ptrace.conf` and set:
 ```
 kernel.yama.ptrace_scope = 0
 ```
@@ -401,4 +401,12 @@ and now when you run `py-spy` the line numbers will be correct. The processes ha
 
 ## Hardware-specific issues
 
-Some AMD users may need to [Disable IOMMU](https://github.com/stas00/toolbox/issues/1#issuecomment-1076830400)
+### AMD/ROCm hangs or slow with IOMMU enabled
+
+AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/toolbox/issues/1#issuecomment-1076830400) or set it to:
+```
+GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
+```
+in `/etc/default/grub` (the grub config file could be elsewhere depending on the OS).
+
+Disabling is `GRUB_CMDLINE_LINUX="amd_iommu=off"`
