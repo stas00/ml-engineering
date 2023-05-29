@@ -138,3 +138,40 @@ Values accepted:
 As it's often not easy to benchmark hundreds of nodes, often we try to benchmark interconnect performance using, say, 4 nodes. I wasn't sure whether this would give the correct indication for when 40 or 400 nodes will be used so I asked about it [here](https://github.com/NVIDIA/nccl/issues/790) and the answer was:
 
 > Extrapolating at scale is not that hard for ring and tree (we have a function in `tuning.cc` predicting it, based on the ring linear latency and the tree log latency with reduced BW). Now as you scale, there are many factors which may cause your real performance to be very far off the prediction, like routing. Also note on an IB network you'll be able to use SHARP; that way your latency stays mostly constant as you scale, your bandwidth doesn't degrade much either, and you're always better than both ring and tree.
+
+
+### Counting NCCL calls
+
+Enable NCCL debug logging for subsystems - collectives:
+```
+export NCCL_DEBUG=INFO
+export NCCL_DEBUG_SUBSYS=COLL
+```
+
+if you're working in a slurm environment with many nodes you probably want to perform this only on rank 0, like so:
+```
+if [[ $SLURM_PROCID == "0" ]]; then
+  export NCCL_DEBUG=INFO
+  export NCCL_DEBUG_SUBSYS=COLL
+fi
+```
+
+Assuming your logs were all sent to `main_log.txt`, you can then count how many of each collective call were performed with:
+```
+grep -a "NCCL INFO Broadcast" main_log.txt     | wc -l
+2590
+grep -a "NCCL INFO AllReduce" main_log.txt     | wc -l
+5207
+grep -a "NCCL INFO AllGather" main_log.txt     | wc -l
+1849749
+grep -a "NCCL INFO ReduceScatter" main_log.txt | wc -l
+82850
+```
+
+It might be a good idea to first isolate a specific stage of the training, as loading and saving will have a very different pattern from training iterations.
+
+So I typically first slice out one iteration. e.g. if each iteration log starts with: `iteration: ...` then I'd first do:
+```
+csplit main_log.txt '/iteration: /' "{*}"
+```
+and then analyse one of the resulting files that correspond to the iterations. By default it will be named something like `xx02`.

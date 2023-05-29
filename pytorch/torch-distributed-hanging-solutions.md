@@ -51,6 +51,8 @@ Thread 835995 (active): "MainThread"
 ```
 The very first line is where the program is stuck.
 
+If the hanging happens inside a CPP extension, add `--native` `py-spy` and it'll show the non-python code if any.
+
 #### multi-process py-spy
 
 Now, how do you do it for multiple processes. Doing it one-by-one is too slow. So let's do it at once.
@@ -98,7 +100,7 @@ If you're using the SLURM environment you can use `srun` to do it on all nodes f
 
 Now in another console get the `SLURM_JOBID` (or get it from `salloc` log):
 ```
-squeue -u `whoami` -o "%.16i %.9P %.26j %.8T %.10M %.8l %.6D %.20S %R"
+squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"
 ```
 
 Now use the following `srun` command after adjusting jobid with `SLURM_JOBID` from the outcome of the command above this sentence:
@@ -377,6 +379,51 @@ from printflock import printflock
 import torch.distributed as dist
 printflock(f"{dist.get_rank()}: passed stage 0")
 ```
+
+### core files
+
+If the hanging happens inside non-python code, and `py-spy --native` isn't enough for some reason you can make the hanging program dump a core file, which is done with one of these approaches:
+
+```
+gcore <pid>
+kill -ABRT <pid>
+```
+
+and then you can introspect the core file as explained [here](pytorch-debug.md#segfaults-and-getting-a-backtrace-from-a-core-file).
+
+If you don't get the core file dumped you need to configure your system to allow so and also specify where the core files should be saved to.
+
+To ensure the file is dumped in bash run (other shells may use a different command):
+```
+ulimit -c unlimited
+```
+To make this persistent run:
+```
+echo '* soft core unlimited' >> /etc/security/limits.conf
+```
+
+
+On some systems like Ubuntu the core files are hijacked by `apport`, check the contents of `/proc/sys/kernel/core_pattern` to see where they are sent. You can override where they are sent with:
+
+```
+sudo sysctl -w kernel.core_pattern=/tmp/core-%e.%p.%h.%t
+```
+
+Change the directory if you want to, but make sure that the user the program is running under can write to that directory.
+To make this change permanent edit `/etc/sysctl.conf` and add `kernel.core_pattern=/tmp/core-%e.%p.%h.%t` (or modify if it's already there).
+
+footnote: see `man core` for all the different templates available
+
+If on Ubuntu by default it sends core files to `apport`, which may save the core to `/var/lib/apport/coredump` or
+`/var/crash`. But you can change it explained above.
+
+A quick way to test if your setup can generate a core file is:
+```
+sleep 10 &
+killall -SIGSEGV sleep
+```
+
+Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hanging program, because `SIGSEGV` is likely to launch a sighandler, but for this test it's good enough.
 
 
 ### Code loops

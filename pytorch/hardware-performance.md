@@ -40,6 +40,8 @@ It's hard to tell the exact best temperature to strive for when a GPU is heavily
 ## Intra-connects and Inter-connects
 
 
+
+
 ### Multi-GPU Connectivity
 
 If you use multiple GPUs the way cards are inter-connected can have a huge impact on the total training time. If the GPUs are on the same physical node, you can run:
@@ -151,3 +153,9 @@ Software: `pytorch-1.8-to-be` + `cuda-11.0` / `transformers==4.3.0.dev0`
 ### EFA
 
 AWS-based hardware
+
+
+### Performance measurements
+
+- [all_reduce_bench.py](./all_reduce_bench.py)
+- `all_gather_perf` from [nccl-tests](https://github.com/NVIDIA/nccl-tests)
