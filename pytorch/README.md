@@ -10,6 +10,7 @@
 
 - [Debugging NCCL issues and performance](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
 
+- [Hardware Troubleshooting](./hardware-troubleshooting.md) - what to do when one runs into hardware problems
 
 # Tools for debugging pytorch-based training
 
