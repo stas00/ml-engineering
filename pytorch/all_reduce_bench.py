@@ -1,5 +1,9 @@
+
+#!/usr/bin/env python
+
 # this version has been derived from @jeffra's gist: https://gist.github.com/jeffra/b5e80466b4c86be00ea3b6f130fb7a36
 # which in turn is derived from https://github.com/NVIDIA/nccl-tests
+# with contributions from Indu Thangakrishnan (AWS) to handle timing correctly
 #
 # to run for 2 nodes:
 # python -m torch.distributed.run --nproc_per_node=2 all_reduce_bench.py
@@ -28,11 +32,14 @@ def printflock(*msgs):
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
 
-def timed_allreduce(mat, id):
-    pre = time.perf_counter()
+def timed_allreduce(mat, id, start_event, end_event):
+    start_event.record()
     dist.all_reduce(mat)
-    printflock(f"ignore me {int(mat[0][0])}")  # required due to lazy evaluation
-    duration = time.perf_counter() - pre
+    end_event.record()
+
+    torch.cuda.synchronize()
+    duration = start_event.elapsed_time(end_event) / 1000
+
     tput = ((M*N*4*2)/duration)*8 # *2 is for send + receive, *8 for gigabits/second
     size = M * N * 4 # 4 is fp32
     n = dist.get_world_size()
@@ -51,11 +58,13 @@ def run(local_rank):
     printflock(f"{id} data size: {M*N*4/1e9} GB")
     mat = torch.rand(N, M, dtype=torch.float32).cuda(local_rank)
 
+    start_event = torch.cuda.Event(enable_timing=True)
+    end_event = torch.cuda.Event(enable_timing=True)
     for i in range(TRIALS):
         dist.barrier()
         if global_rank == 0:
             print(f"\n\n\n-----------trial-{i}----------------")
-        timed_allreduce(mat, id)
+        timed_allreduce(mat, id, start_event, end_event)
 
 def init_processes(local_rank, fn, backend='nccl'):
     torch.cuda.set_device(local_rank)
