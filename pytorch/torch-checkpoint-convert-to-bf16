@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # this script converts torch's *bin and safetensor *safetensor files to bf16 creating a new checkpoint under a sub-dir bf16
+#
 # usage:
 # cd checkpoint
-# ./convert-to-bf16
+# bash torch-checkpoint-convert-to-bf16
 
 # set destination dir
 target_dir=bf16
@@ -23,8 +24,10 @@ if compgen -G "*.safetensors" > /dev/null; then
     echo "converting *safetensors files"
     cd $target_dir
     python -c "import re, sys, torch; from safetensors.torch import save_file; [save_file(torch.load(f), re.sub(r'.*?(model.*?)\.bin',r'\1.safetensors',f), metadata={'format': 'pt'}) for f in sys.argv[1:]]" *bin
-    cp pytorch_model.bin.index.json model.safetensors.index.json
-    perl -pi -e 's|pytorch_||; s|\.bin|.safetensors|' model.safetensors.index.json
+    if test -e "pytorch_model.bin.index.json"; then
+        cp pytorch_model.bin.index.json model.safetensors.index.json
+        perl -pi -e 's|pytorch_||; s|\.bin|.safetensors|' model.safetensors.index.json
+    fi
     cd - > /dev/null
 fi
 
