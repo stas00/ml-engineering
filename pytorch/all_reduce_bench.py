@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 # this version has been derived from @jeffra's gist: https://gist.github.com/jeffra/b5e80466b4c86be00ea3b6f130fb7a36
