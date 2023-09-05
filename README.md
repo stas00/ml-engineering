@@ -12,6 +12,8 @@ This repo is to a brain dump of my experiences training Large Language Models (L
 
 ## [Performance](./performance/)
 
+## [Multi-Node networking](./multi-node)
+
 ## [Model parallelism](./parallelism/)
 
 ## [Tensor precision / Data types](./dtype/)
