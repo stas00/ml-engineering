@@ -1,35 +1,37 @@
-# Stas' Machine Learning/Programming Toolbox and Guides
+# Machine Learning Engineering Guide and Tools
 
-I have a mix of machine learning guides and tools here.
+An open collection of methodologies to help with successful training of large language models and multi-modal models.
 
-## Guides
+This is technical material suitable for LLM/VLM training engineers and operators. That is the content here contains lots of scripts and copy-n-paste commands to enable you to quickly address your needs.
 
-A substantial part of this repository is dedicated to a brain dump of my experiences training Large Language Models (LLM). e.g., a lot of the know-how I acquired while training the first open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022. Currently I'm working on a largish multi-modal training so gradually I've been expanding my knowledge.
+This repo is to a brain dump of my experiences training Large Language Models (LLM). e.g., a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and
+[IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) model in 2023. Currently, I'm working on developing/training a open-source Retrieval model at [Contextual.AI](https://contextual.ai/).
 
-[Jump to the guides](./pytorch#guides-to-training-models)
 
-## Tools
+## [Debugging software and hardware failures](./debug/)
 
-In this repo you will find various very useful tools in my toolbox (mainly Machine Learning). You're welcome to use them in your work.
+## [Performance](./performance/)
 
-Every tool comes with either its own instructional `.md` file with or the usage is documented at the top of the script.
+## [Model parallelism](./parallelism/)
 
-- [python](./python)
-- [pytorch](./pytorch)
-- [utils](./utils)
-- [bash](./bash)
-- [Makefiles](./make)
+## [Tensor precision / Data types](./dtype/)
 
-Continued on my other repos:
+## [Training hyper-parameters and model initializations](./hparams/)
 
-- [git tools](https://github.com/stas00/git-tools)
-- [conda tools](https://github.com/stas00/conda-tools)
-- [jupyter notebook tools](https://github.com/stas00/jupyter-notebook-tools)
+## [Instabilities](./instabilities/)
+
+## [SLURM](./slurm/)
+
+## [Resources](./resources/)
+
+## [HF Transformers notes](./transformers/)
+
 
 # Contributing
 
 If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](/Issue) or contribute a PR.
 
-# License
 
-[Apache 2.0 License](./LICENSE)
+## License
+
+The content of this site is distributed under [Attribution-ShareAlike 4.0 International](./LICENSE-CC-BY-SA).
