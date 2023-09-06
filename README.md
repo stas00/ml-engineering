@@ -1,4 +1,4 @@
-# Machine Learning Engineering Guide and Tools
+# Machine Learning Engineering Guides and Tools
 
 An open collection of methodologies to help with successful training of large language models and multi-modal models.
 

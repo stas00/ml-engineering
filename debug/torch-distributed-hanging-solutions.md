@@ -153,7 +153,7 @@ function makehostfile() {
 perl -e '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"};
 $slots=8 if $slots==0; # workaround 8 gpu machines
 @nodes = split /\n/, qx[scontrol show hostnames $ENV{"SLURM_JOB_NODELIST"}];
-print map { "$b$_ slots=$slots\n" } @nodes'
+print map { "$_ slots=$slots\n" } @nodes'
 }
 makehostfile > hostfile
 ```
@@ -164,6 +164,20 @@ Now run the `py-spy` extraction command over all participating nodes:
 ds_ssh -f hostfile "source ~/.pdshrc; ps aux | grep python | grep -v grep | grep `whoami` | awk '{print \$2}' | xargs -I {} sudo py-spy dump --pid {} "
 ```
 
+Notes:
+- Put inside `~/.pdshrc` whatever init code that you may need to run. If you don't need any you can remove `source ~/.pdshrc;` from the command line.
+- If you don't have it already `ds_ssh` is installed when you do `pip install deepspeed`.
+- you might need to `export PDSH_RCMD_TYPE=ssh` if you get `rcmd: socket: Permission denied` error
+
+Additionally, to avoid being prompted with:
+```
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+for every new node you haven't logged into yet, you can disable this check with:
+```
+echo "Host *" >> ~/.ssh/config
+echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+```
 
 
 ### Network-level hanging
