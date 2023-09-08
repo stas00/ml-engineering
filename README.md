@@ -5,7 +5,7 @@ An open collection of methodologies to help with successful training of large la
 This is technical material suitable for LLM/VLM training engineers and operators. That is the content here contains lots of scripts and copy-n-paste commands to enable you to quickly address your needs.
 
 This repo is an ongoing brain dump of my experiences training Large Language Models (LLM). e.g., a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and
-[IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) model in 2023. Currently, I'm working on developing/training a open-source Retrieval model at [Contextual.AI](https://contextual.ai/).
+[IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) model in 2023. Currently, I'm working on developing/training open-source Retrieval models at [Contextual.AI](https://contextual.ai/).
 
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
