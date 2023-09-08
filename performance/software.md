@@ -292,6 +292,7 @@ Activation checkpointing and gradient checkpointing are 2 terms for the same met
 
 For example, in HF Transformers models you do `model.gradient_checkpointing_enable()` to activate it in your trainer or if you HF Trainer then you'd activate it with `--gradient_checkpointing 1`.
 
+XXX: expand on new tech from the paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) which found a way to avoid most activation recomputations and thus save both memory and compute.
 
 ### Memory-efficient optimizers
 

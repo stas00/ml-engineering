@@ -23,7 +23,8 @@ The following is the brief description of the main concepts that will be describ
 5. Sharded DDP - is another name for the foundational ZeRO concept as used by various other implementations of ZeRO.
 
 
-XXX: add Sequence Parallelism
+XXX: add Sequence Parallelism notes from the paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198)
+
 
 ## Data Parallelism
 
