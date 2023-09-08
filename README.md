@@ -16,7 +16,7 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [Multi-Node networking](./multi-node)
 
-## [Model parallelism](./parallelism/)
+## [Model parallelism](./model-parallelism/)
 
 ## [Tensor precision / Data types](./dtype/)
 
