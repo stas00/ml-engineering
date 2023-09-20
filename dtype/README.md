@@ -1,6 +1,6 @@
 # Tensor precision / Data types
 
-## Half and Mixed Precision
+## Quarter, Half and Mixed Precision
 
 fp16
 
@@ -9,6 +9,8 @@ bf16
 mixed fp16
 
 mixed bf16
+
+fp8
 
 
 ### General OPs
@@ -44,3 +46,10 @@ usually fails
 ## Using bf16-pretrained model in fp16 regime
 
 will lose some performance on conversion, but should work - best to finetune a bit
+
+
+
+
+## FP8
+
+Main paper: [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433)
