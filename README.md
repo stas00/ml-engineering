@@ -22,6 +22,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [Training hyper-parameters and model initializations](./hparams/)
 
+## [Reproducibility](./reproducibility/)
+
 ## [Instabilities](./instabilities/)
 
 ## [SLURM](./slurm/)
