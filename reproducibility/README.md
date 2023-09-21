@@ -41,7 +41,15 @@ However, you can call this instead to use in production:
 ```
 enforce_reproducibility()
 ```
-i.e. w/o the explicit seed. And then it'll pick a random seed and log it! So if something happens in production you can now reproduce the same RNGs the issue was observed in. And no performance penalty this time, as the `torch.backends.cudnn` flags are only set if you provided the seed explicitly.
+i.e. w/o the explicit seed. And then it'll pick a random seed and log it! So if something happens in production you can now reproduce the same RNGs the issue was observed in. And no performance penalty this time, as the `torch.backends.cudnn` flags are only set if you provided the seed explicitly. Say it logged:
+```
+Using seed: 1234
+```
+you then just need to change the code to:
+```
+enforce_reproducibility(1234)
+```
+and you will get the same RNGs setup.
 
 As mentioned in the first paragraphs there could be many other RNGs involved in a system, for example, if you want the data to be fed in the same order for a `DataLoader` you need [to have its seed set as well](https://pytorch.org/docs/stable/notes/randomness.html#dataloader).
 
