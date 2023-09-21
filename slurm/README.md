@@ -12,14 +12,14 @@ Simply copy this [example.slurm](./example.slurm) and adapt it to your needs.
 
 In this doc we will use an example setup with these 2 cluster names:
 
-- `dev-cluster`
-- `prod-cluster`
+- `dev`
+- `prod`
 
 To find out the hostname of the nodes and their availability, use:
 
 ```
-sinfo -p dev-cluster
-sinfo -p prod-cluster
+sinfo -p dev
+sinfo -p prod
 ```
 
 Slurm configuration is at `/opt/slurm/etc/slurm.conf`.
@@ -75,7 +75,7 @@ This is very useful for running repetitive interactive experiments - so one does
 
 set `--time` to the desired window (e.g. 6h):
 ```
-salloc --partition=dev-cluster --nodes=1 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time=6:00:00 bash
+salloc --partition=dev --nodes=1 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time=6:00:00 bash
 salloc: Pending job allocation 1732778
 salloc: job 1732778 queued and waiting for resources
 salloc: job 1732778 has been allocated resources
@@ -99,7 +99,7 @@ This reserved node will be counted towards hours usage the whole time it's alloc
 
 Actually, if this is just one node, then it's even easier to not use `salloc` but to use `srun` in the first place, which will both allocate and give you the shell to use:
 ```
-srun --pty --partition=dev-cluster --nodes=1 --ntasks=1 --cpus-per-task=96 --gres=gpu:8 --time=60 bash
+srun --pty --partition=dev --nodes=1 --ntasks=1 --cpus-per-task=96 --gres=gpu:8 --time=60 bash
 ```
 
 ## Hyper-Threads
@@ -132,7 +132,7 @@ e.g. when wanting to run various jobs on identical node allocation.
 
 In one shell:
 ```
-salloc --partition=prod-cluster --nodes=16 --ntasks=16 --cpus-per-task=96 --gres=gpu:8 --time=3:00:00 bash
+salloc --partition=prod --nodes=16 --ntasks=16 --cpus-per-task=96 --gres=gpu:8 --time=3:00:00 bash
 echo $SLURM_JOBID
 ```
 
@@ -194,28 +194,28 @@ sacct -j JOBID
 
 e.g. with more details, depending on the partition:
 ```
-sacct -u `whoami` --partition=dev-cluster  -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
-sacct -u `whoami` --partition=prod-cluster -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
 ```
 
 
 
-## show my jobs
+## show jobs
 
+
+Show only my jobs:
 ```
 squeue -u `whoami`
 ```
 
-
-by job id:
+Show jobs by job id:
 ```
 squeue -j JOBID
 ```
 
-group's jobs, including all users is probably better
-
+Show jobs of a specific partition:
 ```
-squeue --partition=dev-cluster
+squeue --partition=dev
 ```
 
 
@@ -227,7 +227,7 @@ Handy aliases
 alias myjobs='squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"'
 alias groupjobs='squeue -u foo,bar,tar -o "%.16i %u %9P %26j %.8T %.10M %.8l %.6D %.20S %R"'
 alias myjobs-pending="squeue -u `whoami` --start"
-alias idle-nodes="sinfo -p prod-cluster -o '%A'"
+alias idle-nodes="sinfo -p prod -o '%A'"
 ```
 
 
@@ -250,7 +250,7 @@ So this is a great tool for analysing past events.
 For example, to see which nodes were used to run recent gpu jobs:
 
 ```
-sacct -u `whoami` --partition=dev-cluster -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=dev -ojobid,start,end,state,exitcode --format nodelist%300
 ```
 
 `%300` here tells it to use a 300 char width for the output, so that it's not truncated.
@@ -391,7 +391,7 @@ Here is toy slurm script, which can be used to see how it works:
 #SBATCH --time 00:02:00              # maximum execution time (HH:MM:SS)
 #SBATCH --output=%x-%j.out           # output file name
 #SBATCH --error=%x-%j.out            # error file name (same to watch just one file)
-#SBATCH --partition=dev-cluster
+#SBATCH --partition=dev
 
 echo $SLURM_JOB_ID
 echo "I am job ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
@@ -406,7 +406,7 @@ To see the jobs running:
 ```
 $ squeue -u `whoami` -o "%.10i %9P %26j %.8T %.10M %.6D %.20S %R"
      JOBID PARTITION                       NAME    STATE       TIME  NODES           START_TIME NODELIST(REASON)
-591970_[2-   dev-cluster             array-test  PENDING       0:00      1  2021-07-28T20:01:06 (JobArrayTaskLimit)
+591970_[2-   dev             array-test  PENDING       0:00      1  2021-07-28T20:01:06 (JobArrayTaskLimit)
 ```
 now job 2 is running.
 
@@ -465,7 +465,7 @@ $ cat train-64n.slurm
 #SBATCH --gres=gpu:8                 # number of gpus
 #SBATCH --time 20:00:00              # maximum execution time (HH:MM:SS)
 #SBATCH --output=%x-%j.out           # output file name
-#SBATCH --partition=dev-cluster
+#SBATCH --partition=dev
 
 source tr8-104B-64.slurm
 ```
@@ -654,7 +654,7 @@ You can add a sanity check to your script:
 #SBATCH --gres=gpu:8                 # number of gpus
 #SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
 #SBATCH --output=%x-%j.out           # output file name
-#SBATCH --partition=prod-cluster
+#SBATCH --partition=prod
 
 [...]
 
@@ -732,7 +732,7 @@ Now let's create a driver slurm script. Use a few minutes time for this test so 
 #SBATCH --gres=gpu:8                 # number of gpus
 #SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
 #SBATCH --output=%x-%j.out           # output file name
-#SBATCH --partition=prod-cluster
+#SBATCH --partition=prod
 
 source $six_ALL_CCFRWORK/start-prod
 srun --jobid $SLURM_JOBID ./test-nodes.py
@@ -745,7 +745,7 @@ sbatch --exclude=hostname1,hostname2 ...
 ```
 and `sbatch` will exclude the bad nodes from the allocation.
 
-Additionally please report the faulty nodes to `#science-cluster-support` so that they get replaced
+Additionally please report the faulty nodes to `#science-support` so that they get replaced
 
 Here are a few more situations and how to find the bad nodes in those cases:
 
@@ -762,7 +762,7 @@ If you're testing something that requires distributed setup, it's a bit more com
 #SBATCH --gres=gpu:8                 # number of gpus
 #SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
 #SBATCH --output=%x-%j.out           # output file name
-#SBATCH --partition=prod-cluster
+#SBATCH --partition=prod
 
 source $six_ALL_CCFRWORK/start-prod
 
@@ -887,7 +887,7 @@ Of course, this same process can be used to run some command for all nodes of a 
 ```
 cd ~/prod/code/tr8b-104B/bigscience/train/tr11-200B-ml/
 
-salloc --partition=prod-cluster --nodes=40 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time 20:00:00
+salloc --partition=prod --nodes=40 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time 20:00:00
 
 bash 200B-n40-bf16-mono.slurm
 ```
