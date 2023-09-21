@@ -495,26 +495,6 @@ scontrol release <jobid>
 
 
 
-## SLURM Administration
-
-
-
-
-If no jobs are currently running on the node:
-
-```
-scontrol update nodename=nodeX state=idle
-```
-
-If jobs are running on the node:
-
-```
-scontrol update nodename=nodeX state=resume
-```
-
-
-
-
 
 
 
@@ -926,3 +906,23 @@ rm $WORK/tmp/training17-kill-switch
 ```
 
 Now, this doesn't always work. If the job is hanging, it'll never come to the point of checking for kill-switch and the only solution here is to contact the sysadmins to kill the job for you. Sometimes if the hanging is a simple case pytorch's distributed setup will typically auto-exit after 30min of preset timeout time, but it doesn't always work.
+
+
+
+## SLURM Administration
+
+
+XXX: fill out
+
+
+If no jobs are currently running on the node:
+
+```
+scontrol update nodename=nodeX state=idle
+```
+
+If jobs are running on the node:
+
+```
+scontrol update nodename=nodeX state=resume
+```
