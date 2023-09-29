@@ -86,7 +86,20 @@ and voila, you can now tell what really happened. And as I mentioned earlier the
 
 Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
 
-And of course if you're doing debug prints, then to solve this exact issue you can use [`printflock`](./torch-distributed-hanging-solutions.md#good-old-print).
+If `hostname -s` is too long, but you have each host with its own sequence number like:
+```
+[really-really-really-long-hostname-5:0]
+[really-really-really-long-hostname-5:1]
+[really-really-really-long-hostname-5:2]
+```
+you can of course make it shorter by replacing `hostname -s` with `hostname -s | tr -dc '0-9'`, which would lead to much shorter prefixes:
+```
+[5:0]
+[5:1]
+[5:2]
+```
+
+And, of course, if you're doing debug prints, then to solve this exact issue you can use [`printflock`](./torch-distributed-hanging-solutions.md#good-old-print).
 
 Here is how you accomplish the same feat with other launchers:
 
