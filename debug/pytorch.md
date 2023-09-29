@@ -2,7 +2,9 @@
 
 ## Prefixing logs with `node:rank`, interleaved asserts
 
-When you have warnings and asserts (or debug prints), it helps a lot to prefix each log with its hostname:rank
+In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
+
+When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
 
 ```
 python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
@@ -26,7 +28,6 @@ Of course adjust your environment variables to match, this was just an example.
 
 Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
 
-
 ```
 srun --jobid $SLURM_JOBID bash -c "python -m torch.distributed.run \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
@@ -35,9 +36,9 @@ srun --jobid $SLURM_JOBID bash -c "python -m torch.distributed.run \
 torch-distributed-gpu-test.py"
 ```
 
-`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the code.
+`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the command.
 
-This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved assert messages that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved tracebacks that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
 
 For example, if you get a traceback that looks like:
 
@@ -56,7 +57,7 @@ AttributeError: 'list' object has no attribute 'sum'
 AttributeError: 'list' object has no attribute 'sum'
 ```
 
-and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` will generate:
+and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` addition will generate:
 
 ```
 [host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
@@ -81,12 +82,16 @@ $ grep "[host1:0]" log.txt
 [host1:0]AttributeError: 'list' object has no attribute 'sum'
 ```
 
-and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a few hundred interleaved assert lines there. I was demo'ing a small example.
+and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a hundred to thousands of interleaved traceback lines there.
 
 Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
 
 And of course if you're doing debug prints, then to solve this exact issue you can use [`printflock`](./torch-distributed-hanging-solutions.md#good-old-print).
 
+Here is how you accomplish the same feat with other launchers:
+
+- `srun` in SLURM: add `--label`
+- `openmpi` add `--tag-output`
 
 
 
