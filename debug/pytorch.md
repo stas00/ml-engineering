@@ -91,8 +91,8 @@ And of course if you're doing debug prints, then to solve this exact issue you c
 Here is how you accomplish the same feat with other launchers:
 
 - `srun` in SLURM: add `--label`
-- `openmpi` add `--tag-output`
-
+- `openmpi`: add `--tag-output`
+- `accelerate`: you can just pass the same `-tee` + `--role` flags as in `torchrun`
 
 
 ## Dealing with Async CUDA bugs
