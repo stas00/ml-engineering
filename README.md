@@ -33,9 +33,9 @@ I've been compiling this information mostly for myself so that I could quickly f
 ## [HF Transformers notes](./transformers/)
 
 
-# Contributing
+## Contributing
 
-If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](/Issue) or contribute a PR.
+If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](https://github.com/stas00/ml-engineering/issues) or contribute a PR.
 
 
 ## License
