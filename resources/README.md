@@ -26,9 +26,9 @@ The listing is in no particular order other than the year.
 [3](https://github.com/stas00/bigscience-backup/blob/master/train/tr11-176B-ml/))
 
 - Meta OPT-175B (2022):
- [logbook](https://github.com/facebookresearch/metaseq/tree/main/projects/OPT/chronicles) | [Video](https://www.youtube.com/watch?v=p9IxoSkvZ-M) [backup: [1](https://github.com/stas00/metaseq-backup/tree/main/projects/OPT/chronicles))
+ [logbook](https://github.com/facebookresearch/metaseq/tree/main/projects/OPT/chronicles) | [Video](https://www.youtube.com/watch?v=p9IxoSkvZ-M) (backup: [1](https://github.com/stas00/metaseq-backup/tree/main/projects/OPT/chronicles))
 
-- THUDM GLM-130B (2022): [en logbook](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log-en.md) | [Mandarin version](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log.md) (backup:  [1](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log-en.md) | [2](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log.md)
+- THUDM GLM-130B (2022): [en logbook](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log-en.md) | [Mandarin version](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log.md) (backup:  [1](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log-en.md) | [2](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log.md))
 
 
 
