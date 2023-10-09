@@ -51,8 +51,8 @@ So if your launched job looked like this:
 
 ```
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
-  JOBID    PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-    87    prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
+     JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
+       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
 ```
 You will not that the current's `JOBID=87` and now you can use it in:
 ```
@@ -173,7 +173,7 @@ and the current status report shows:
 ```
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
   JOBID    PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-    87    prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
+    87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-63]
 ```
 then all is good. But if `my-training-10b` job doesn't show the alert will be sent.
 
@@ -213,7 +213,8 @@ Of course, ideally one would analyze their software and fix the leak, but at tim
 When it comes to GPU memory, there is the possible issue of memory fragmentation, where over time more and more tiny unused memory segments add up and make the GPU appear to have a good amount of free memory, but when the program tries to allocate a large tensor from this memory it fails with the OOM error like:
 
 ```
-RuntimeError: CUDA out of memory. Tried to allocate 304.00 MiB (GPU 0; 8.00 GiB total capacity; 142.76 MiB already allocated; 6.32 GiB free; 158.00 MiB reserved in total by PyTorch)
+RuntimeError: CUDA out of memory. Tried to allocate 304.00 MiB (GPU 0; 8.00 GiB total capacity;
+142.76 MiB already allocated; 6.32 GiB free; 158.00 MiB reserved in total by PyTorch)
 ```
 In this example if there are 6.32GB free, how comes that 304MB couldn't be allocated.
 
