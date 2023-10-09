@@ -232,6 +232,8 @@ for batch in iterator:
         print(f"Exiting early since the cpu memory is almost full: ({total_used_percent}%)")
         save_checkpoint()
         sys.exit()
+
+    train_step(batch)
 ```
 
 Similar heuristics could be used for setting a threshold for GPU memory usage, except one needs to be aware of cuda tensor caching and python garbage collection scheduling, so to get the actual memory usage you'd need to do first run the garbage collector then empty the cuda cache and only then you will get real memory usage stats and then gracefully exit the training if the GPU is too close to being full.
@@ -250,6 +252,8 @@ for batch in iterator:
         print(f"Exiting early since the GPU memory is almost full: ({free}GB remain)")
         save_checkpoint()
         sys.exit()
+
+    train_step(batch)
 ```
 
 footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up [`max_split_size_mb`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) that controls how memory is allocated.
