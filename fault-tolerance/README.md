@@ -139,22 +139,105 @@ To setup a crontab, execute `crontab -e` and check which jobs are scheduled `cro
 
 The reason I don't go into many details is because many SLURM environments don't provide access to the `crontab` facility. And therefore one needs to use other approaches to scheduling jobs.
 
-The section on [Crontab Emulation](../slurm#crontab-emulation) discusses crontab-like slurm emulation and also
+The section on [Crontab Emulation](../slurm#crontab-emulation) discusses how to implement crontab-like slurm emulation and also
+[Self-perpetuating SLURM jobs](../slurm#self-perpetuating-slurm-jobs).
 
 
-### Self-replicating Slurm Job
+### Notification facility
 
-### Slurm crontab emulation
+Then you need to have one or more notification facilities.
 
+The simplest one is to use an email where the alerts will be sent. To make this one work you need to ensure that you have a way to send an email from the slurm job. If it isn't already available you can contact your sysadmin or alternatively you might be able to use an external SMTP server provider.
 
+In addition to email you could probably also setup a pager-like SMS alerting and if you use Slack to send slack-notifications to a channel of your choice.
 
-### Job is not running
+Once you understand how to schedule watchdogs and you have a notification facility working let's next discuss the critical watchdogs.
 
+### Job running watchdog
+
+The most obvious watchdog is one which checks that there is a training SLURM job running and optionally that there is queue of jobs scheduled to run.
+
+Here is an example [slurm-status.py](./slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also pushing its checks into the main training's log file. As we used [Crontab Emulation](../slurm#crontab-emulation), we simply needed to drop  [slurm-status.slurm](./slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would run it approximately once an hour.
+
+The key part of the slurm job is:
+```
+tools/slurm-status.py --job-name $WATCH_SLURM_NAME 2>&1 | tee -a $MAIN_LOG_FILE
+```
+which tells the script which job name to watch for, and you can also see that it logs into a log file.
+
+You can now adapt these scripts to your needs with minimal changes of editing the path and email addresses.
 
 ### Low Disc Space Alerts
 
+The next biggest issue is running out of disc space. If your checkpoints are large and are saved frequently and aren't offloaded elsewhere it's easy to quickly run out of space. Moreover, typically multiple team members share the same cluster and it could be that your colleagues could quickly consume a lot of disc space. Ideally, you'd have a storage partition that is dedicated to your training only, but often this is difficult to accomplish. In either case you need to know when disc space is low and space making action is to be performed.
+
+Now what should be the threshold at which the alerts are made. They need to be made not too soon as people will start ignoring your alerts if you start sending those at 50% usage. But also the percentage isn't always applicable, because if you have a huge disc space shared with others, 5% of that disc space could amount in many TBs of free disc space. Therefore really you should know how often you write your checkpoints and know how many TBs of disc space you need daily.
+
+Use case: During BLOOM training we were writing 329GB checkpoints every 3 hours, therefore we were consuming 2.6TB a day!
+
+Moreover, often there will be multiple partitions - faster IO partitions dedicated to checkpoint writing, and slower partitions dedicated to code and libraries, and possibly various other partitions that could be in use and all of those need to be monitored if their availability is required for the training not crashing.
+
+Here is another gotcha - when it comes to distributed file systems not all filesystems can reliably give you a 100% of disc space you rented or purchased. In fact with some of those types you can only reliably use about 80% of the allocated storage space. The problem is that these systems use physical discs that they re-balance at the scheduled periods or triggered events, and thus any of these discs could reach 100% of capacity and lead to a failed write, which would crash a training process, even though `df` would report only 80% space usage on the partition. We didn't have this problem while training BLOOM-176B, but we had it when we trained IDEFICS-80B - 80% there was the new 100%. How do you know if you have this issue - well, usually you discover it while you prepare for the training.
+
+And this is not all. There is another issue of inodes availability and some storage partitions don't have very large quotas. Python packages are notorious for having hundreds to thousands of small files, which take little space, but add up to tens of thousands and suddenly you have TBs of free disc space available, but no free inodes and that would lead to training crashing.
+
+Finally, many distributed partitions don't show you the usage stats in real time and could take up to 30min to update.
+
+footnote: Use `df -ih` to see the inodes quota and the current usage.
+
+So here is [fs-watchdog.py](./fs-watchdog.py) that was used during BLOOM-176B training. This watchdog was sending an email if any of the storage requirements thresholds haven't been met and here is the corresponding [fs-watchdog.slurm](./fs-watchdog.slurm) that was driving it.
+
+If you study the watchdog code you can see that for each partition we were monitoring both the disc usage and inodes. We used special quota tools provided by the HPC to get instant stats for some partitions, but these tools didn't work for all partitions and there we had to fallback to using `df` and even a much slower `du`. So it should be easy to adapt to your usecase.
+
 
 ### Dealing with slow memory leaks
+
+Some programs develop tiny memory leaks which can be very difficult to debug. Do not confuse those with the usage of MMAP where the program uses the CPU memory to read quickly read data from and where the memory usage could appear to grow over time, but this is not real. You can [A Deep Investigation into MMAP Not Leaking Memory](https://stasosphere.com/entrepreneur-being/301-mmap-memory-leak-investigation/) to understand why.
+
+Of course, ideally one would analyse their software and fix the leak, but at times the leak could be coming from a 3rd party package or can be very difficult to diagnose and there isn't often a time to do that.
+
+When it comes to GPU memory, there is the possible issue of memory fragmentation, where over time more and more tiny unused memory segments add up and make the GPU appear to have a good amount of free memory, but when the program tries to allocate this memory it fails with the OOM error like:
+
+```
+RuntimeError: CUDA out of memory. Tried to allocate 304.00 MiB (GPU 0; 8.00 GiB total capacity; 142.76 MiB already allocated; 6.32 GiB free; 158.00 MiB reserved in total by PyTorch)
+```
+In this example if there are 6.32GB free, how comes that 304MB couldn't be allocated.
+
+One of the approaches my team developed during IDEFICS-80B training where there was some tiny CPU memory leak that would often take multiple days to lead to running out of CPU memory was to install a watchdog inside the training loop that would check the memory usage and if a threshold was reached it'd voluntarily exit the training loop. The next training job will resume with all the CPU memory reclaimed.
+
+footnote: The reality of machine learning trainings is that not all problems can be fixed with limited resources and often times a solid workaround provides for a quicker finish line, as compared to "stopping the presses" and potentially delaying the training by weeks while trying to figure out the problem. For example we trained BLOOM-176B with `CUDA_LAUNCH_BLOCKING=1` because the training would hang without it and after multiple failed attempts to diagnose that we couldn't afford any more waiting and had to proceed as is. Luckily this environment variable that normally is used for debug purposes and which in theory should make everything slower didn't actually make any difference to our throughput. But we have never figured out what the problem was and today it doesn't matter at all that we didn't, as we moved on with other projects which aren't impacted by that issue.
+
+The idea is similar to the kill switch and save switch discussed earlier, but here instead of polling for a specific file appearance we simply watch how much resident memory is used:
+
+```
+import psutil
+for batch in iterator:
+    total_used_percent = psutil.virtual_memory().percent
+    if total_used_percent > 0.95:
+        print(f"Exiting early since the cpu memory is almost full: ({total_used_percent}%)")
+        save_checkpoint()
+        sys.exit()
+```
+
+Similar heuristics could be used for setting a threshold for GPU memory usage, except one needs to be aware of caching, so to get the actual memory usage you'd need to do first run the garbage collector then empty the cache and only the you will get real memory usage stats:
+
+```
+import gc
+import torch
+
+for batch in iterator:
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # get mem usage in GBs and exit if less than 2GB of free gpu memory remain
+    free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info());
+    if free < 2:
+        print(f"Exiting early since the gpu memory is almost full: ({free}GB remain)")
+        save_checkpoint()
+        sys.exit()
+```
+
+footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up [`max_split_size_mb`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) that controls how memory is allocated.
 
 
 ###
