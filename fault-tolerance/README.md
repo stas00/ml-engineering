@@ -1,6 +1,6 @@
 # Fault Tolerance
 
-Regardless of whether you own the ML training hardware or renting it by the hour, in this every speeding up domain of ML, finishing the training in a timely matter is helpful. As such if while you were asleep one of the GPUs failed or the checkpoint storage run out of space and the training crashed, you'd have discovered upon waking that many training hours were lost.
+Regardless of whether you own the ML training hardware or renting it by the hour, in this ever speeding up domain of ML, finishing the training in a timely matter is important. As such if while you were asleep one of the GPUs failed or the checkpoint storage run out of space and the training crashed, you'd have discovered upon waking that many training hours were lost.
 
 Due the prohibitively high cost of ML hardware, it'd be very difficult to provide redundancy fail-over solutions as it's done in Web-services. Nevertheless making your training fault-tolerant is achievable with just a few simple recipes.
 
