@@ -831,6 +831,7 @@ $ sbatch cron-daily.slurm
 
 This is it, these jobs will now self-perpetuate and usually you don't need to think about it again unless there is an even that makes SLURM lose all its jobs.
 
+
 ### 2. Daily and Hourly Cronjobs
 
 Now whenever you want some job to run once a day, you simply create a slurm job and put it into the `$WORK/cron/cron.daily` dir.
@@ -883,6 +884,36 @@ Please note that it's set to only delete files that are older than 7 days, in ca
 ### Nuances
 
 The scheduler runs with Unix permissions of the person who launched the SLRUM cron scheduler job and so all other SLURM scripts launched by that cron job.
+
+## Self-perpetuating SLURM jobs
+
+The same approach used in [building a scheduler](#1-a-self-perpetuating-scheduler-job) can be used for creating stand-alone self-perpetuating jobs.
+
+For example:
+
+```
+#!/bin/bash
+#SBATCH --job-name=watchdog          # job name
+#SBATCH --ntasks=1                   # number of MP tasks
+#SBATCH --nodes=1
+#SBATCH --time=0:30:00               # maximum execution time (HH:MM:SS)
+#SBATCH --output=%x-%j.out           # output file name
+#SBATCH --partition=PARTITION        # edit me
+
+# ensure to restart self first 1h from now
+RUN_FREQUENCY_IN_HOURS=1
+sbatch --begin=now+${RUN_FREQUENCY_IN_HOURS}hour watchdog.slurm
+
+... do the watchdog work here ...
+```
+and you launch it once with:
+```
+sbatch watchdog.slurm
+```
+This then will immediately schedule itself to be run 1 hour from the launch time and then the normal job work will be done. Regardless of whether the rest of the job will succeed or fail, this job will continue relaunching itself approximately once an hour. This is imprecise due to scheduler job starting overhead and node availability issues. But if there is a least one spare node available and the job itself is quick to finish the requirement to run at an approximate frequency should be sufficient.
+
+As the majority of SLURM environment in addition to the expensive GPU nodes also provide much cheaper CPU-only nodes, you should choose a CPU-only SLURM partition for any jobs that don't require GPUs to run.
+
 
 
 

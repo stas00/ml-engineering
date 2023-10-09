@@ -12,6 +12,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [Debugging software and hardware failures](./debug/)
 
+## [Fault Tolerance](./fault-tolerance/)
+
 ## [Performance](./performance/)
 
 ## [Multi-Node networking](./multi-node)
