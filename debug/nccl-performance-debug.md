@@ -105,7 +105,7 @@ The following env vars are used primarily to tune up performance.
 
 This one defines which algorithms NCCL will use. Typically it's one of tree, ring, collnetdirect and collnetchain.
 
-I was asking questions about how a user can do the optimization and was told at [this NCCL Issue](https://github.com/NVIDIA/nccl/issues/790) that basically the user shouldn't try to optimize anything as NCCL has a ton of smart algoritms inside that will try to automatically switch from one algorithm to another depending on a concrete situation.
+I was asking questions about how a user can do the optimization and was told at [this NCCL Issue](https://github.com/NVIDIA/nccl/issues/790) that basically the user shouldn't try to optimize anything as NCCL has a ton of smart algorithms inside that will try to automatically switch from one algorithm to another depending on a concrete situation.
 
 Sylvain Jeaugey shared:
 
