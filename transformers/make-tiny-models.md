@@ -360,4 +360,9 @@ While in the domain of ML we have the dataset, the model and the tokenizer - eac
 
 ## Backup
 
-Should the original scripts this chapter is pointing to disappear or the HF hub is down, here is [the local back up of all of them](./tiny-scripts/).
+Should the original scripts this chapter is pointing to disappear or the HF hub is down while you're reading this, here is [the local back up of all of them](./tiny-scripts/).
+
+note-to-self: to make the latest backup of files linked to in this chapter run:
+```
+perl -lne '/(https.*?.py)\)/ && do { $_=$1; s/blob/raw/;} && print qq[wget $1]' make-tiny-models.md
+```
