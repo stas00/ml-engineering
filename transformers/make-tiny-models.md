@@ -364,5 +364,5 @@ Should the original scripts this chapter is pointing to disappear or the HF hub 
 
 note-to-self: to make the latest backup of files linked to in this chapter run:
 ```
-perl -lne '/(https.*?.py)\)/ && do { $_=$1; s/blob/raw/;} && print qq[wget $1]' make-tiny-models.md
+perl -lne 'while (/(https.*?.py)\)/g) { $x=$1; $x=~s/blob/raw/; print qq[wget $x] }' make-tiny-models.md
 ```
