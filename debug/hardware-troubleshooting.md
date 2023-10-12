@@ -108,7 +108,7 @@ where `gpu_id` is the sequential number of the gpu you want to reset. Without `-
 
 In order to run full diagnostics on an idle GPU or a node with GPUs, `dcgm` can be used. NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
 
-Here is an example slurm script that will run very in-depth diagnoss (`-r 4`), which will take more than 1 hour to complete:
+Here is an example slurm script that will run very in-depth diagnosis (`-r 4`), which will take more than 1 hour to complete:
 
 ```
 $ cat dcgmi-1n.slurm
