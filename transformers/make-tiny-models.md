@@ -358,7 +358,7 @@ Similar to tiny models, you will find many tiny datasets under https://huggingfa
 While in the domain of ML we have the dataset, the model and the tokenizer - each of which can be made tiny and enable super-speed development with low resource requirements, if you're coming from a different industry you can adapt the ideas discussed in this chapter to your particular domain's artifacts/payloads.
 
 
-## Backup
+## Backup of all scripts in this chapter
 
 Should the original scripts this chapter is pointing to disappear or the HF hub is down while you're reading this, here is [the local back up of all of them](./tiny-scripts/).
 
