@@ -4,7 +4,7 @@
 
 The faster you can make your model to train the sooner the model will finish training, which is important not only to being first to publish something, but also potentially saving a lot of money.
 
-In general maximizing throughput is all about running many experiments and measuring the outcome and chosing the one that is superior.
+In general maximizing throughput is all about running many experiments and measuring the outcome and choosing the one that is superior.
 
 In certain situations your modeling team may ask you to choose some hyper parameters that will be detrimental to throughput but overall beneficial for the overall model's success.
 
@@ -62,7 +62,7 @@ footnote: TFLOPs: Trillion FLOPs per second - [FLOPS](https://en.wikipedia.org/w
 
 Measuring TFLOPs is superior because without it you don't know whether you are close to the best performance that can be achieved or not. This measurement gives you an indication of how far you're from the peak performance reported by the hardware manufacturer.
 
-In this section I will use BLOOM's training for the examplification. We use 80GB A100 NVIDIA GPUs and we trained in mixed bf16 regime. So let's look at the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/) which tells us:
+In this section I will use BLOOM's training for the exemplification. We use 80GB A100 NVIDIA GPUs and we trained in mixed bf16 regime. So let's look at the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/) which tells us:
 
 ```
 BFLOAT16 Tensor Core 	312 TFLOPS
