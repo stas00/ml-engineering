@@ -2,7 +2,7 @@
 
 ## Learning from Training Logbooks
 
-The best learning is to read [Publicly available training logbooks](./resources#publicly-available-training-logbooks) because there you can see exactly what happened and how the problem has been overcome.
+The best learning is to read [Publicly available training logbooks](/resources#publicly-available-training-logbooks) because there you can see exactly what happened and how the problem has been overcome.
 
 
 ## STD Init
@@ -65,3 +65,7 @@ C+i*strideC=αop(A+i*strideA)op(B+i*strideB)+β(C+i*strideC), for i ∈[0,batchC
 ```
 
 The issue is that `alpha` is multiplied after the matrix-matrix multiplication is done so it can cause instability.
+
+## "Bad" combination of data batch and model parameter state
+
+PaLM team observed dozens of loss spikes at "highly irregular intervals" when training larger models. While they were not able to track down the root cause, they mitigated the issue by restarting from an earlier checkpoint and skipping potentially problematic data batches. [Section 5.1 Training instability](https://arxiv.org/pdf/2204.02311.pdf)
