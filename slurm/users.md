@@ -929,7 +929,7 @@ use case: this is for example useful if you want get a list of nodes that were d
 sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
 ```
 
-## Overcoming The lack of group SLURM job ownership
+## Overcoming the lack of group SLURM job ownership
 
 SLURM runs on Unix, but surprisingly its designers haven't adopted the concept of group ownership with regards to SLURM jobs. So if a member of your team started an array of 10 jobs 20h each, and went on vacation - unless you have `sudo` access you now can't do anything to stop those jobs if something is wrong.
 

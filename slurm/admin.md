@@ -79,6 +79,6 @@ now extract and expand the list of nodes, check that the nodes are indeed user-p
 
 Earlier you learned how to [run a command on multiple nodes](run-a-command-on-multiple-nodes) which we will use in this script.
 
-Here is the end result: [undrain-good-nodes.sh](./undrain-good-nodes.sh)
+Here is the script that does all that work for you: [undrain-good-nodes.sh](./undrain-good-nodes.sh)
 
-Now you can just run this script and any nodes that are basically ready to serve but are currently drained will be switched to `idle` state and be available for the users to be used.
+Now you can just run this script and any nodes that are basically ready to serve but are currently drained will be switched to `idle` state and become available for the users to be used.
