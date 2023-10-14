@@ -348,6 +348,47 @@ So the promise is very attractive - it runs a 30min simulation on the cluster of
 🤗 Transformers status: not yet integrated. We already have our models FX-trace-able via [transformers.utils.fx](https://github.com/huggingface/transformers/blob/main/src/transformers/utils/fx.py), which is a prerequisite for FlexFlow, so someone needs to figure out what needs to be done to make FlexFlow work with our models.
 
 
+
+## Inter-node speed requirements to use ZeRO
+
+ZeRO, be it FSDP or Deepspeed, requires a lot more inter-node traffic than TP+PP+DP solutions, and therefore if your internode network is slow your expensive GPUs might be bottlenecked by the comms.
+
+footnote: ZeRO protocols overlap comms with compute, so ideally you want to get close to `comms_time <= compute time`
+
+As explained in this [comment](https://github.com/microsoft/DeepSpeed/issues/2928#issuecomment-1463041491) you need
+`6 * model_size_in_billion / num_of_nodes` GBs of data (in half-precision) to be shorter than compute time to not have the comms to be a bottleneck.
+
+Here is the breakdown:
+
+Notation: model size M, num of GPU per node is G, num of Node is N, in total G*N GPUs in use
+
+Assumption: intra-node GPU communication overhead is ignored (Since NVLink/NVSwitch are high-throughput links)
+
+In ZeRO-3, we have all-gather on weights (M) in forward, then all-gather on weights (M) in backward, last is reduce-scatter on gradients (M) in backward. In total 3 global collective calls.
+
+For each of above 3 collectives, each GPU need to sent out `M/(G*N)` data outside the node as cross-node traffic. Each node need to send out `M / N` amount of data.
+
+Given that we usually use fp16 (2 bytes) to represent both weights and gradients, for each collective, each node send out `2*M/N` Bytes. 3 collectives in total needs each node to send out `6*M/N` Bytes, which is equal to `8 * 6 * M/N = 48 M / N` bits.
+
+Note: if parts of your model are frozen, then there will be less data sent in syncing the gradients.
+
+The Deepspeed team benchmarked a 176B model on 384 V100 GPUs (24 DGX-2 nodes) and found that:
+
+1. With 100 Gbps IB, we only have <20 TFLOPs per GPU.
+2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU.
+3. For 800 Gbps IB, we reach 40+ TFLOPs per GPU.
+
+But be careful here - this benchmark is for V100s! which is about 3x slower than A100, and 9x slower than H100 for half-precision. And if one uses fp8, the H100 compute will be 18x faster. So the comms have to be at least 10x faster for H100 nodes to match the above table.
+
+When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ Deepspeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
+
+They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate.  We are trying to solve this issue with our up-coming new release project called ZeRO++, which could achieve better e2e system throughput when training at scale with small micro-batch size using ZeRO-3. Stay tuned!
+
+Let's take an 80B model and 64 8-gpu nodes and use bf16 mixed precision
+
+
+
+
 ## Which Strategy To Use When
 
 Here is a very rough outline at which parallelism strategy to use when. The first on each list is typically faster.
