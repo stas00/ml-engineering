@@ -915,7 +915,18 @@ This then will immediately schedule itself to be run 1 hour from the launch time
 As the majority of SLURM environment in addition to the expensive GPU nodes also provide much cheaper CPU-only nodes, you should choose a CPU-only SLURM partition for any jobs that don't require GPUs to run.
 
 
+# Convert compact node list to expanded node list
 
+Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
+
+```
+$ scontrol show hostnames node-[42,49-51]
+node-42
+node-49
+node-50
+node-51
+```
+Voila!
 
 
 ## Overcoming The lack of group SLURM job ownership
