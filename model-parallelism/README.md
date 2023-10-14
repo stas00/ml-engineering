@@ -404,12 +404,12 @@ With 64 nodes this is `800/64` => 12.5GB per node => 100Gb => 0.1Tb
 
 Now let's calculate how long the comms of 100Gb will take in a few cases of network speeds:
 
-- 0.4Tbps:
-- 0.8Tbps:
-- 1.6Tbps:
-- 3.2Tbps:
+- 0.4Tbps: 1/4 sec
+- 0.8Tbps: 1/8 secs
+- 1.6Tbps: 1/16 secs
+- 3.2Tbps: 1/32 secs
 
-
+this math looks very wrong as it appears to be too fast.
 
 
 
