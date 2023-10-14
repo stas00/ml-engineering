@@ -351,6 +351,8 @@ So the promise is very attractive - it runs a 30min simulation on the cluster of
 
 ## Inter-node speed requirements to use ZeRO
 
+XXX: this section is a WIP, please skip for now, while I'm sorting out the math.
+
 ZeRO, be it FSDP or Deepspeed, requires a lot more inter-node traffic than TP+PP+DP solutions, and therefore if your internode network is slow your expensive GPUs might be bottlenecked by the comms.
 
 footnote: ZeRO protocols overlap comms with compute, so ideally you want to get close to `comms_time <= compute time`
@@ -384,7 +386,30 @@ When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ D
 
 They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate.  We are trying to solve this issue with our up-coming new release project called ZeRO++, which could achieve better e2e system throughput when training at scale with small micro-batch size using ZeRO-3. Stay tuned!
 
-Let's take an 80B model and 64 8-gpu nodes and use bf16 mixed precision
+Let's take an 80B model and 64x 8-GPU nodes and use:
+1. bf16 mixed precision
+2. using fp32 grad reduction comms
+3. we assume that none of the parameters are frozen
+4. activation recomputation is on
+
+So we have to send the size of `2 bytes * model_size_in_billion_parameters` this many times:
+- 1x - forward
+- 1x - forward for activation recomputation during backward
+- 1x - backward
+- 2x - grad reduction while upcasting to fp32 to avoid a large loss due to NCCL not accumulating in fp32.
+
+So we have `5*2*80` => 800GB of data to send on each iteration across all of nodes.
+
+With 64 nodes this is `800/64` => 12.5GB per node => 100Gb => 0.1Tb
+
+Now let's calculate how long the comms of 100Gb will take in a few cases of network speeds:
+
+- 0.4Tbps:
+- 0.8Tbps:
+- 1.6Tbps:
+- 3.2Tbps:
+
+
 
 
 
