@@ -22,8 +22,6 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [Tensor precision / Data types](./dtype/)
 
-## [Training hyper-parameters and model initializations](./hparams/)
-
 ## [Reproducibility](./reproducibility/)
 
 ## [Instabilities](./instabilities/)
