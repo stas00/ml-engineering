@@ -1,7 +1,7 @@
 # Resources
 
 
-## Publicly available training logbooks
+## Publicly available training LLM/VLM logbooks
 
 This is the one of the best sources to learn about how to deal with training instabilities and good hyper parameters for training.
 
