@@ -3,7 +3,9 @@
 
 ## Publicly available training logbooks
 
-The listing is in no particular order other than the year.
+This is the one of the best sources to learn about how to deal with training instabilities and good hyper parameters for training.
+
+The listing is in no particular order other than being grouped by the year.
 
 ### 2021
 
