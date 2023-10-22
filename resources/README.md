@@ -3,7 +3,7 @@
 
 ## Publicly available training LLM/VLM logbooks
 
-Logbooks and chronicles of training LLM/VLM are the one of the best sources to learn about how to deal with training instabilities and choosing good hyper parameters.
+Logbooks and chronicles of training LLM/VLM are one of the best sources to learn from about dealing with training instabilities and choosing good hyper parameters.
 
 The listing is in no particular order other than being grouped by the year.
 
