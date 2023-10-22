@@ -3,7 +3,7 @@
 
 ## Publicly available training LLM/VLM logbooks
 
-This is the one of the best sources to learn about how to deal with training instabilities and good hyper parameters for training.
+This is the one of the best sources to learn about how to deal with training instabilities and choosing good hyper parameters for training LLM/VLM.
 
 The listing is in no particular order other than being grouped by the year.
 
