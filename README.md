@@ -9,7 +9,6 @@ This repo is an ongoing brain dump of my experiences training Large Language Mod
 
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
-
 ## [Debugging software and hardware failures](./debug/)
 
 ## [Fault Tolerance](./fault-tolerance/)
@@ -34,6 +33,21 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [HF Transformers notes](./transformers/)
 
+## Generate PDF File
+
+The `md2pdf.py` converts all md file to PDF and concatinate them into a final PDF called `book.pdf` for readers who want to print out.
+
+Install:
+
+```
+pip install weasyprint PyPDF2
+```
+
+run the script:
+
+```
+python md2pdf.py
+```
 
 ## Gratitude
 
@@ -45,11 +59,9 @@ Special thanks go to [Thom Wolf](https://github.com/thomwolf) who proposed that 
 
 If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](https://github.com/stas00/ml-engineering/issues) or contribute a PR.
 
-
 ## License
 
 The content of this site is distributed under [Attribution-ShareAlike 4.0 International](./LICENSE-CC-BY-SA).
-
 
 ## My repositories map
 
