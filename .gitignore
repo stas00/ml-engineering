@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 # C extensions
 *.so
 
@@ -127,3 +126,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# md to pdf
+*.pdf
