@@ -45,6 +45,7 @@ import os
 import time
 import torch
 import deepspeed
+import torch.distributed as dist
 
 # critical hack to use the 2nd gpu (otherwise both processes will use gpu0)
 if os.environ["RANK"] == "1":
@@ -52,7 +53,7 @@ if os.environ["RANK"] == "1":
 
 dist.init_process_group("nccl")
 local_rank = int(os.environ.get("LOCAL_RANK"))
-print(f'{torch.distributed.get_rank()=}, {local_rank=}')
+print(f'{dist.get_rank()=}, {local_rank=}')
 
 x = torch.ones(2**30, device=f"cuda:{local_rank}")
 time.sleep(100)
