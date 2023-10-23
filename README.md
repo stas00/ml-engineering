@@ -26,6 +26,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [Instabilities](./instabilities/)
 
+## [Training hyper-parameters and model initializations](./hparams/)
+
 ## [SLURM](./slurm/)
 
 ## [Resources](./resources/)
