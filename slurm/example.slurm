@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# this is a 2 node slurm job example, you will most likely need to adapt --cpus-per-task and --partition
+
 #SBATCH --job-name=example-job
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
@@ -6,14 +9,15 @@
 #SBATCH --gres=gpu:8
 #SBATCH --time=0:10:00
 #SBATCH --exclusive
-#SBATCH --partition=xy-cluster
+#SBATCH --partition=xyz-cluster
 #SBATCH --output=%x-%j.out
+
 
 set -x -e
 
 # CHANGE HERE THE CONDA EVN AND ANY STARTUP SCRIPTS
-source /fsx/xx/start-xx-user
-conda activate stas-xx
+source /path/to/start-xxx-user # if you have something to preload before the job
+conda activate stas-xxx        # if you have conda env to activate
 
 echo "START TIME: $(date)"
 

@@ -33,8 +33,33 @@ Usually benchmarking at least 4 nodes is recommended, but, of course, if you alr
 To run it on 4 nodes:
 
 ```
-python -m torch.distributed.run --nproc_per_node=4 all_reduce_bench.py
+GPUS_PER_NODE=8
+NNODES=4
+MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+MASTER_PORT=6000
+python -u -m torch.distributed.run \
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+    --rdzv_backend c10d \
+    --max_restarts 0 \
+    --role `hostname -s`: \
+    --tee 3 \
+    all_reduce_bench.py
 ```
+
+Notes:
+- adapt `MASTER_ADDR` to rank 0 hostname if it's not a SLURM environment where it's derived automatically.
+
+Here is how to run launch it in a SLURM env with 4 nodes:
+```
+salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
+srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d all_reduce_bench.py
+```
+
+Notes:
+- You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
+- You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
 
 You may get results anywhere between 5Gbps and 1600Gbps (as of this writing). The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
 
