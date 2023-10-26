@@ -285,14 +285,13 @@ So, for example, let's say your HPC allows 100 hour jobs, and then your slurm sc
 #SBATCH --time=100:00:00
 ```
 
-Approach A. Tell the program at launch time when it should start the exiting process
-
+**Approach A**. Tell the program at launch time when it should start the exiting process:
 ```
 srun ... torchrun ... --exit-duration-in-mins 5990
 ```
-100h is 6000 minutes and so here give the program 10min to gracefully exit.
+100h is 6000 minutes and so here we give the program 10 mins to gracefully exit.
 
-And when you start the program you create a timer and then before every new iteration starts you check if the limit is reached. If it is you save the checkpoint and exit.
+And when you start the program you create a timer and then before every new iteration starts you check if the time limit is reached. If it is you save the checkpoint and exit.
 
 use case: you can see how this was set [in the BLOOM training job](https://github.com/bigscience-workshop/bigscience/blob/58d99c67f643d27b5765a73a2ee2d1ce0a4b2c6b/train/tr11-176B-ml/tr11-176B-ml.slurm#L97-L100) and then acted upon [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/blob/e52bdabbde3c6895aceb76c1bced295c2646121f/megatron/training.py#L985-L998):
 
@@ -317,7 +316,7 @@ As you can see since the training is distributed we have to synchronize the exit
 
 You could also automate the derivation, by retrieving the `EndTime` for the running job:
 ```
-scontrol show -d job $SLURM_JOB_ID | grep Time
+$ scontrol show -d job $SLURM_JOB_ID | grep Time
    RunTime=00:00:42 TimeLimit=00:11:00 TimeMin=N/A
    SubmitTime=2023-10-26T15:18:01 EligibleTime=2023-10-26T15:18:01
    AccrueTime=2023-10-26T15:18:01
@@ -325,12 +324,12 @@ scontrol show -d job $SLURM_JOB_ID | grep Time
 ```
 and then comparing with the current time in the program and instead setting the graceful exit period. There are other timestamps and durations that can be retrieved as it can be seen from the output.
 
-Approach B. Sending a signal X minutes before the end
+**Approach B**. Sending a signal X minutes before the end
 
 In your sbatch script you could set
 
 ```
-@SBATCH --signal=SIGUSR1@600
+#SBATCH --signal=USR1@600
 ```
 and then SLURM will send a `SIGUSR1` signal to your program 10min before job's end time.
 
@@ -338,7 +337,6 @@ footnote: normally SLURM schedulers send a `SIGTERM` signal about 30-60 seconds 
 
 
 Let's demonstrate how the signal sending and trapping works. In terminal A, run:
-
 ```
 python -c "
 import time, os, signal
@@ -395,13 +393,13 @@ When this job has been scheduled:
 ```
 sbatch sigusr1.slurm
 ```
-10 seconds (180-170) after it started, it will exit with the log:
+10 seconds (`180-170`) after the job started, it will exit with the log:
 
 ```
 58307
 Signal handler called with signal 10
 ```
 
-which means it was pid `58307` and it caught `SIGUSR1` (`10`).
+which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exited.
 
 Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the iteration, check that the flag is up, save the checkpoint and exit.
