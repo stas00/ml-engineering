@@ -82,3 +82,16 @@ Earlier you learned how to [run a command on multiple nodes](run-a-command-on-mu
 Here is the script that does all that work for you: [undrain-good-nodes.sh](./undrain-good-nodes.sh)
 
 Now you can just run this script and any nodes that are basically ready to serve but are currently drained will be switched to `idle` state and become available for the users to be used.
+
+
+## Modify a job's timelimit
+
+To set a new timelimit on a job, e.g., 2 days:
+```
+scontrol update JobID=$SLURM_JOB_ID TimeLimit=2-00:00:00
+```
+
+To add additional time to the previous setting, e.g. 3 more hours.
+```
+scontrol update JobID=$SLURM_JOB_ID TimeLimit=+3:00:00
+```
