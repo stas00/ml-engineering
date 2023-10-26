@@ -369,7 +369,7 @@ So here is the same thing with the SLURM setup:
 $ cat sigusr1.slurm
 #SBATCH --job-name=sigusr1
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
+#SBATCH --ntasks-per-node=1
 #SBATCH --time=0:3:00
 #SBATCH --partition=mypartition
 #SBATCH --output=%x-%j.out
