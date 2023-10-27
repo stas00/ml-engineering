@@ -30,9 +30,12 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## [SLURM](./slurm/)
 
+## [HF Transformers notes](./transformers/)
+
 ## [Resources](./resources/)
 
-## [HF Transformers notes](./transformers/)
+## [And more debugging](https://github.com/stas00/the-art-of-debugging)
+
 
 
 ## Gratitude
