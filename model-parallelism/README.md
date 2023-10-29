@@ -105,10 +105,9 @@ While reading the literature on this topic you may encounter the following synon
 
 If you pay close attention the way ZeRO partitions the model's weights - it looks very similar to tensor parallelism which will be discussed later. This is because it partitions/shards each layer's weights, unlike vertical model parallelism which is discussed next.
 
-Implementations:
-- [DeepSpeed](https://www.deepspeed.ai/features/#the-zero-redundancy-optimizer) ZeRO-DP stages 1+2+3
-- [pytorch](https://pytorch.org/docs/stable/fsdp.html)
-- [Fairscale](https://github.com/facebookresearch/fairscale/#optimizer-state-sharding-zero) ZeRO-DP stages 1+2+3
+Implementations of ZeRO-DP stages 1+2+3:
+- [DeepSpeed](https://www.deepspeed.ai/features/#the-zero-redundancy-optimizer)
+- [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/#optimizer-state-sharding-zero) and later it was upstreamed into the PyTorch core)
 
 Deepspeed ZeRO Integration:
 - [HF Trainer integration](https://huggingface.co/docs/transformers/main_classes/deepspeed)
