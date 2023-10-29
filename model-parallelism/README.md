@@ -106,10 +106,22 @@ While reading the literature on this topic you may encounter the following synon
 If you pay close attention the way ZeRO partitions the model's weights - it looks very similar to tensor parallelism which will be discussed later. This is because it partitions/shards each layer's weights, unlike vertical model parallelism which is discussed next.
 
 Implementations:
-
 - [DeepSpeed](https://www.deepspeed.ai/features/#the-zero-redundancy-optimizer) ZeRO-DP stages 1+2+3
+- [pytorch](https://pytorch.org/docs/stable/fsdp.html)
 - [Fairscale](https://github.com/facebookresearch/fairscale/#optimizer-state-sharding-zero) ZeRO-DP stages 1+2+3
-- [`transformers` integration](main_classes/trainer#trainer-integrations)
+
+Deepspeed ZeRO Integration:
+- [HF Trainer integration](https://huggingface.co/docs/transformers/main_classes/deepspeed)
+- [Accelerate](https://huggingface.co/docs/accelerate/usage_guides/deepspeed)
+- [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/deepspeed.html)
+- [Determined.AI](https://docs.determined.ai/latest/model-dev-guide/api-guides/apis-howto/deepspeed/_index.html)
+
+FSDP Integration:
+- [HF Trainer integration](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#pytorch-fully-sharded-data-parallel)
+- [Accelerate](https://huggingface.co/docs/accelerate/main/en/usage_guides/fsdp)
+- [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html)
+
+
 
 ## Naive Model Parallelism (Vertical) and Pipeline Parallelism
 
