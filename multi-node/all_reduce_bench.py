@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 
-# this version has been derived from @jeffra's gist: https://gist.github.com/jeffra/b5e80466b4c86be00ea3b6f130fb7a36
-# which in turn is derived from https://github.com/NVIDIA/nccl-tests
-# with contributions from Indu Thangakrishnan (AWS) to handle timing correctly
+# this version
+# has been derived from @jeffra's gist: https://gist.github.com/jeffra/b5e80466b4c86be00ea3b6f130fb7a36
+#    which in turn is derived from the logic in https://github.com/NVIDIA/nccl-tests
+# with contributions from:
+# 1. Indu Thangakrishnan https://github.com/indhub to handle timing correctly using cuda events
+# 2. Ross Whiteman https://github.com/rwightman who suggested to gather results to print from rank 0 to avoid interleaving
 #
-# to run for 4 nodes:
+# Important: when you finished running this benchmark you want to pay attention to the busbw result (not
+# algobw) as explained here
+#
+# To run on 4 nodes:
 #
 # GPUS_PER_NODE=8
 # NNODES=4
@@ -22,9 +28,9 @@
 #
 # note: adapt MASTER_ADDR to rank 0 hostname if it's not a SLURM environment where it's derived automatically
 #
-# the printed results are already n_gpu-agnostic (i.e. averaged for the world size)
-# w/ busbw adjusted for the number of nodes - see https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth
-#
+# Important: when you finished running this benchmark you want to pay attention to the busbw result
+# (not algobw) as they are number of gpus-agnostic as explained here:
+# https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth
 #
 # e.g. example to run with salloc+srun
 # salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
@@ -44,15 +50,6 @@ TRIALS = 5
 N = 500000
 M = 2000
 
-def printflock(*msgs):
-    """ print """
-    with open(__file__, "r") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        try:
-            print(*msgs)
-        finally:
-            fcntl.flock(fh, fcntl.LOCK_UN)
-
 def timed_allreduce(mat, id, start_event, end_event):
     start_event.record()
     dist.all_reduce(mat)
@@ -67,10 +64,18 @@ def timed_allreduce(mat, id, start_event, end_event):
     # 2*(n-1)/n correction factor is explained here:
     # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
     busbw = (size / duration) * (2 * (n - 1) / n) * 8
-    printflock(f"{id}:\n",
-               f"duration: {duration:.4f} sec\n",
-               f"algo throughput: {tput:.4f} bps, {tput/1e9:.4f} Gbps\n",
-               f"busbw: {busbw / 1e9:.4f}  Gbps"
+
+    # gather all data on global-rank-0 and print the results from there to avoid interleaved prints
+    data = [id, duration, tput, busbw]
+    output = [None for _ in range(dist.get_world_size())] if dist.get_rank() == 0 else None
+    dist.gather_object(data, output, dst=0)
+    if dist.get_rank() == 0:
+        for data in output:
+            id, duration, tput, busbw = data
+            print(f"{id}:\n",
+                  f"duration: {duration:.4f} sec\n",
+                  f"algo throughput: {tput/1e9:.4f} Gbps\n",
+                  f"busbw: {busbw / 1e9:.4f}  Gbps"
     )
 
 def run(local_rank):
@@ -78,7 +83,8 @@ def run(local_rank):
     id = f"{hostname}:{local_rank}"
     global_rank = dist.get_rank()
 
-    printflock(f"{id} data size: {M*N*4/1e9} GB")
+    if global_rank == 0:
+        print(f"{id} data size: {M*N*4/1e9} GB")
     mat = torch.rand(N, M, dtype=torch.float32).cuda(local_rank)
 
     start_event = torch.cuda.Event(enable_timing=True)
@@ -97,5 +103,5 @@ def init_processes(local_rank, fn, backend='nccl'):
 
 if __name__ == "__main__":
     rank = int(os.environ["LOCAL_RANK"])
-    printflock("local_rank: %d" % rank)
+    print("local_rank: %d" % rank)
     init_processes(local_rank=rank, fn=run)
