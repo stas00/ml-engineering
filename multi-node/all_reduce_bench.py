@@ -64,6 +64,8 @@ def timed_allreduce(mat, id, start_event, end_event):
     tput = ((M*N*4*2)/duration)*8 # *2 is for send + receive, *8 for gigabits/second
     size = M * N * 4 # 4 is fp32
     n = dist.get_world_size()
+    # 2*(n-1)/n correction factor is explained here:
+    # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
     busbw = (size / duration) * (2 * (n - 1) / n) * 8
     printflock(f"{id}:\n",
                f"duration: {duration:.4f} sec\n",
