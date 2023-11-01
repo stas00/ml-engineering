@@ -10,37 +10,66 @@ This repo is an ongoing brain dump of my experiences training Large Language Mod
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
 
-## [Debugging software and hardware failures](./debug/)
+## Table of Contents
 
-## [Fault Tolerance](./fault-tolerance/)
+My apologies while I'm writing new chapters and re-organizing the content to be more intuitive. And some chapters are placeholders.
 
-## [Performance](./performance/)
+**Part 1. Key Components**
 
-## [Multi-Node networking](./multi-node)
+1. **[Network](./network/)** - inter-node and intra-node connectivity
 
-## [Model parallelism](./model-parallelism/)
+1. **[IO](./io/)** - local and distributed disks and filesystems
 
-## [Tensor precision / Data types](./dtype/)
+2. **[CPU](./cpu/)** - cpus, affinities (not yet written)
 
-## [Reproducibility](./reproducibility/)
+1. **[GPU](./gpu/)** - the work horses(not yet written)
 
-## [Instabilities](./instabilities/)
+1. **[CPU Memory](./cpu-memory/)** - how much is enough (not yet written)
 
-## [Training hyper-parameters and model initializations](./hparams/)
 
-## [SLURM](./slurm/)
+**Part 2. Performance**
 
-## [HF Transformers notes](./transformers/)
+1. **[Fault Tolerance](./fault-tolerance/)**
 
-## [Resources](./resources/)
+1. **[Performance](./performance/)**
 
-## [And more debugging](https://github.com/stas00/the-art-of-debugging)
+1. **[Multi-Node networking](./multi-node)**
+
+1. **[Model parallelism](./model-parallelism/)**
+
+
+**Part 3. Operating**
+
+1. **[SLURM](./slurm/)**
+
+1. **[Training hyper-parameters and model initializations](./hparams/)**
+
+1. **[Instabilities](./instabilities/)**
+
+
+**Part 4. Development**
+
+1. **[Debugging software and hardware failures](./debug/)**
+
+1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
+
+1. **[Reproducibility](./reproducibility/)**
+
+1. **[Tensor precision / Data types](./dtype/)**
+
+1. **[HF Transformers notes](./transformers/)** - making small models, tokenizers, datasets, and other tips
+
+
+**Part 5. Miscellaneous**
+
+1. **[Resources](./resources/)** - LLM/VLM chronicles
+
 
 
 
 ## Shortcuts
 
-Things that you are likely need to find quickly and often.
+Things that you are likely to need to find quickly and often.
 
 Tools:
 
