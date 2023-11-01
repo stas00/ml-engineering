@@ -38,6 +38,23 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 
 
+## Shortcuts
+
+Things that you are likely need to find quickly and often.
+
+Tools:
+
+- [all_reduce_bench.py](./multi-node/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
+- [torch-distributed-gpu-test.py](./debug/torch-distributed-gpu-test.py) - a tool to quickly test your inter-node connectivity
+
+Guides:
+
+- [debugging pytorch applications](./debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
+- [slurm for users](./slurm/users.md) - a slurm cheatsheet and tricks
+- [make tiny models/datasets/tokenizers](./transformers/make-tiny-models.md)
+- [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
+
+
 ## Gratitude
 
 None of this would have been possible without me being entrusted with doing the specific LLM/VLM trainings I have learned this know-how from. This is a privilege that only a few enjoy due to the prohibitively expensive cost of renting huge ML compute clusters. So hopefully the rest of the ML community will vicariously learn from these notes.
