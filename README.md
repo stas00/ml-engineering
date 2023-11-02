@@ -16,7 +16,7 @@ My apologies while I'm writing new chapters and re-organizing the content to be 
 
 **Part 1. Key Components**
 
-1. **[Network](./network/)** - inter-node and intra-node connectivity
+1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
 1. **[IO](./io/)** - local and distributed disks and filesystems
 
