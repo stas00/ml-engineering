@@ -24,6 +24,11 @@ Both have been around for 2+ decades.
 
 case study: At JeanZay HPC we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
 
+More Parallel File Systems I have discovered recently:
+
+- [BeeGFS](https://www.beegfs.io)
+
+
 Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide one and they don't have a fast enough alternative you should reconsider.
 
 **Slow solutions**
