@@ -52,7 +52,7 @@ case study: we didn't have a choice and had to use cloud storage for dataloading
 
 ## Beware that you're being sold only 80% of the storage you pay for
 
-There is a subtle problem with massive online storage. Since most disks used to build the large filesystems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
+There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large filesystems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
 
 From talking to IO engineers, the accepted reality (that for some reason is not being communicated to customers) is that only about 80% of distributed large storage is reliable.
 
