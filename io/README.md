@@ -92,9 +92,19 @@ These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your 
 
 ## Benchmarks
 
+First, here are some published benchmarks:
+
+- [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/en/storage-results-05/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
+
+Then various benchmarks that you can run yourself:
+
 - [HPC IO Benchmark Repository](https://github.com/hpc/ior)
 
 XXX: expand on how it's used
+
+incoming recommendations:
+- https://github.com/argonne-lcf/dlio_benchmark
+-
 
 
 ## Contributors
