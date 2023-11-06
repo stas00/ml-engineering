@@ -375,13 +375,33 @@ When it comes to inter-node networking hardware, there are the well established 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
 
-### Infini-band
+### InfiniBand
 
-XXX: the following is mixed information - different specs show other numbers - 400Gbps? validate
+Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the rate and the number of IB links.
 
-The current NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
+Here the most recent signaling rates which you are likely to see in the current hardware offerings:
 
-For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps.
+Signaling rate of Duplex links in Gbps
+| Links |  NDR |  XDR |  GDR |
+| ----: |  --: |  --: |  --: |
+|     1 |   00 |  200 |  400 |
+|     4 |  400 |  800 | 1600 |
+|     8 |  800 | 1600 | 3200 |
+|    12 | 1200 | 2400 | 4800 |
+
+Latency in usecs:
+| NDR | XDR | GDR |
+| --: | --: | --: |
+| 0.5 | 0.6 | ??  |
+
+
+InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
+
+Here are some examples of NVIDIA devices with the fastest IB:
+
+One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
+
+For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
 
 ### OPA
@@ -392,6 +412,7 @@ case study: I used this technology at JeanZay HPC in France in 2022. It was only
 
 As of this writing I see that the product comes with either 100 or 200Gbps bandwidth. So it's unlikely you will see anybody offering this solution for ML workloads, unless they manage to install many NICs perhaps?
 
+Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
 
 ## Important nuances
