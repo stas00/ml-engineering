@@ -186,8 +186,6 @@ We've seen that training the model uses much more memory than just putting the m
 
 A typical model trained in mixed precision with AdamW requires 18 bytes per model parameter plus activation memory and temp memory.
 
-For inference there are no optimizer states and gradients, so we can subtract those. And thus we end up with 6 bytes per model parameter for mixed precision inference, plus activation memory.
-
 Let's look at the details.
 
 **Model Weights:**
@@ -199,12 +197,13 @@ Let's look at the details.
 
 - 8 bytes * number of parameters for normal AdamW (maintains 2 states)
 - 4 bytes * number of parameters for AdamW running at bf16. See [this work](https://github.com/huggingface/transformers/pull/21312) that uses `AnyPrecisionAdamW`.
-- 4 bytes * number of parameters for optimizers like SGD with momentum (maintains only 1 state) or LION, or Adafactor (and others)
+- 4 bytes * number of parameters for optimizers like SGD with momentum (maintains only 1 state) or LION, or Adafactor (and others) (Adafactor uses some additional memory beside 4 bytes)
 - 2 bytes * number of parameters for 8-bit AdamW optimizers like [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 
 **Gradients**
 
-- 4 bytes * number of parameters for either fp32 or mixed precision training (gradients are almost always kept in fp32)
+- 4 bytes * number of parameters for either fp32 or mixed precision training (gradients are almost always kept in fp32).
+- 2 bytes * number of parameters for more recent works where half-precision is used
 
 **Forward Activations**
 
@@ -219,6 +218,16 @@ Additionally there are all kinds of temporary variables which get released once 
 **Functionality-specific memory**
 
 Then your software could have special memory needs. For example, when generating text using beam search, the software needs to maintain multiple copies of inputs and outputs.
+
+
+For inference, it's very similar to training, minus optimizer states and gradients. And for model weights there is just a single multiplier of the number of parameters:
+
+- 6 bytes in mixed precision (4+2)
+- 4 bytes in fp32
+- 2 bytes in half precision
+- 1 byte in quantized int8 precision
+
+
 
 
 ### GPU memory allocation breakdown
@@ -323,7 +332,7 @@ XXX: expand on new tech from the paper: [Reducing Activation Recomputation in La
 
 ### Memory-efficient optimizers
 
-The most common optimizer is Adam. It and its derivatives all use 8 bytes per param (2 fp32 tensors - one for each momentum), which account for almost half the memory allocation for the model, optimizer and gradients. So at times using other optimizers may save the day, if they successfully train that is. Not all optimizers are suitable for all training tasks.
+The most common optimizer is Adam. It and its derivatives all use 8 bytes per param (2x fp32 tensors - one for each momentum), which account for almost half the memory allocation for the model, optimizer and gradients. So at times using other optimizers may save the day, if they successfully train that is. Not all optimizers are suitable for all training tasks.
 
 4-byte optimizers:
 
@@ -336,9 +345,7 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 - There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/TimDettmers/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
 
 For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
-Speed-wise:`apex`'s Adam optimizer is so far the fastest implementation of Adam.
-
-
+Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
 
 
 
