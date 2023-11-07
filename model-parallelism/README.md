@@ -144,12 +144,14 @@ Main DeepSpeed ZeRO Resources:
 
 ### ZeRO with multiple replicas
 
-ZeRO uses all GPUs to create a single replica - that's the model is spread out across all gpus. Which leads to various limitations such as:
+By default ZeRO uses all GPUs to create a single model replica - that's the model is spread out across all gpus. Which leads to various limitations such as:
 
-- the global batch size is inflexible - it's always a function of `total_gpus*micro_batch_size` - which on large clusters could lead to a huge global batch size which might be detrimental for efficient convergence. Granted on could use a tiny micro batch size to keep the global batch size in check, but this leads to smaller matrices on each GPU which results in less efficient compute
-- the much faster intra-node networking is not being benefited from since the slower inter-node network defines the overall speed of communications
+1. the global batch size is inflexible - it's always a function of `total_gpus*micro_batch_size` - which on large clusters could lead to a huge global batch size which might be detrimental for efficient convergence. Granted on could use a tiny micro batch size to keep the global batch size in check, but this leads to smaller matrices on each GPU which results in less efficient compute
+2. the much faster intra-node networking is not being benefited from since the slower inter-node network defines the overall speed of communications.
 
-[ZeRO++](https://arxiv.org/abs/2306.10209) solves these problems by introducing Hierarchical Weight Partition for ZeRO (hpZ). In this approach instead of spreading whole model weights across all the gpus, each model replica is restricted to a single node. This increases the memory usage by the total number of nodes, but now the 2x `all_gather` calls to gather the sharded components are performed over a much faster intra-node connection. Only the `reduce_scatter` to aggregate and redistribute gradients is performed over the slower inter-node network.
+[ZeRO++](https://arxiv.org/abs/2306.10209) solves the 2nd limitation by introducing Hierarchical Weight Partition for ZeRO (hpZ). In this approach instead of spreading whole model weights across all the gpus, each model replica is restricted to a single node. This increases the memory usage by the total number of nodes, but now the 2x `all_gather` calls to gather the sharded components are performed over a much faster intra-node connection. Only the `reduce_scatter` to aggregate and redistribute gradients is performed over the slower inter-node network.
+
+The first limitation doesn't exactly get fixed since the overall global batch size remains the same, but since each replica is more efficient and because the additional memory pressure is likely to limit the possible micro batch size on each gpu, this overall should improve the throughput of the system.
 
 PyTorch FSDP has this feature implemented in [shardingStrategy.HYBRID_SHARD](https://pytorch.org/docs/stable/fsdp.html)
 
@@ -237,8 +239,6 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
 
-🤗 Transformers status: as of this writing none of the models supports full-PP. GPT2 and T5 models have naive MP support. The main obstacle is being unable to convert the models to `nn.Sequential` and have all the inputs to be Tensors. This is because currently the models include many features that make the conversion very complicated, and will need to be removed to accomplish that.
-
 Other approaches:
 
 DeepSpeed, Varuna and SageMaker use the concept of an [Interleaved Pipeline](https://docs.aws.amazon.com/sagemaker/latest/dg/model-parallel-core-features.html)
@@ -290,10 +290,6 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) has the tensor parallelism implementation based on the Transformers.
 
-🤗 Transformers status:
-- core: not yet implemented in the core
-- but if you want inference [parallelformers](https://github.com/tunib-ai/parallelformers) provides this support for most of our models. So until this is implemented in the core you can use theirs. And hopefully training mode will be supported too.
-- Deepspeed-Inference also supports our BERT, GPT-2, and GPT-Neo models in their super-fast CUDA-kernel-based inference mode, see more [here](https://www.deepspeed.ai/tutorials/inference-tutorial/)
 
 ## DP+PP
 
@@ -312,7 +308,7 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
 
-🤗 Transformers status: not yet implemented
+
 
 ## DP+PP+TP
 
@@ -331,7 +327,6 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
 
-🤗 Transformers status: not yet implemented, since we have no PP and TP.
 
 ## ZeRO DP+PP+TP
 
@@ -341,7 +336,7 @@ When ZeRO-DP is combined with PP (and optionally TP) it typically enables only Z
 
 While it's theoretically possible to use ZeRO stage 2 (gradient sharding) with Pipeline Parallelism, it will have bad performance impacts. There would need to be an additional reduce-scatter collective for every micro-batch to aggregate the gradients before sharding, which adds a potentially significant communication overhead. By nature of Pipeline Parallelism, small micro-batches are used and instead the focus is on trying to balance arithmetic intensity (micro-batch size) with minimizing the Pipeline bubble (number of micro-batches). Therefore those communication costs are going to hurt.
 
-In addition, There are already fewer layers than normal due to PP and so the memory savings won't be huge. PP already reduces gradient size by ``1/PP``, and so gradient sharding savings on top of that are less significant than pure DP.
+In addition, there are already fewer layers than normal due to PP and so the memory savings won't be huge. PP already reduces gradient size by ``1/PP``, and so gradient sharding savings on top of that are less significant than pure DP.
 
 ZeRO stage 3 is not a good choice either for the same reason - more inter-node communications required.
 
@@ -356,7 +351,6 @@ Important papers:
 - [Using DeepSpeed and Megatron to Train Megatron-Turing NLG 530B, A Large-Scale Generative Language Model](
 https://arxiv.org/abs/2201.11990)
 
-🤗 Transformers status: not yet implemented, since we have no PP and TP.
 
 
 ## Sequence Parallelism
@@ -420,7 +414,6 @@ One very important aspect is that FlexFlow is designed for optimizing DNN parall
 
 So the promise is very attractive - it runs a 30min simulation on the cluster of choice and it comes up with the best strategy to utilise this specific environment. If you add/remove/replace any parts it'll run and re-optimize the plan for that. And then you can train. A different setup will have its own custom optimization.
 
-🤗 Transformers status: not yet integrated. We already have our models FX-trace-able via [transformers.utils.fx](https://github.com/huggingface/transformers/blob/main/src/transformers/utils/fx.py), which is a prerequisite for FlexFlow, so someone needs to figure out what needs to be done to make FlexFlow work with our models.
 
 
 
