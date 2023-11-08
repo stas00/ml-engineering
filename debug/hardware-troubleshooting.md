@@ -8,10 +8,16 @@ No hardware is perfect, sometimes due to the manufacturing problems or due to te
 
 A normal user who uses a handful of GPUs is likely to never need to understand GPU-related hardware issues, but if you come anywhere close to massive ML training where you are likely to use hundreds to thousands of GPUs it's certain that you'd want to understand about different hardware issues.
 
-In your system logs you are likely to see occasionally Xid Errors like (`grep Xid /var/log/syslog`):
+In your system logs you are likely to see occasionally Xid Errors like:
 
 ```
 NVRM: Xid (PCI:0000:10:1c): 63, pid=1896, Row Remapper: New row marked for remapping, reset gpu to activate.
+```
+
+To get those logs one of the following ways should work:
+```
+sudo grep Xid /var/log/syslog
+sudo dmesg -T | grep Xid
 ```
 
 Typically, as long as the training doesn't crash, these errors often indicate issues that automatically get corrected by the hardware.

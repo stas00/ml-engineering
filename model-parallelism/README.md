@@ -475,7 +475,7 @@ What I'd expect in the best case is where I have used close to theoretical peak 
 
 What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the updated math with you. But this workout should give you a feeling for what's going on behind the scenes and how all these numbers work together.
 
-Also this discussion didn't include into the math gradient accumulation steps (GAS). In the case of IDEFICS-80B it wasn't used. If GAS>1 the theoretical compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `(2*GAS + 1)*2*M/GBps` since grads would be reduced only once, but the weights unsharding via `all_gather` for `forward` and `backward` would transpire as many times as there are gradient accumulation steps.
+Also this discussion didn't include into the math gradient accumulation steps (GAS). In the case of IDEFICS-80B it wasn't used. If GAS>1 the theoretical compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `GAS*3*2*M/GBps`. The weights gathering via `all_gather` for `forward` and `backward` would transpire as many times as there are gradient accumulation steps. In theory for grads it'd need to happen only once, but since there is no place to store intermediary grads of the gathered weight on each GPU it'll have to be reduced GAS times as well.
 
 We also didn't discuss the `DataLoader` as a potential bottleneck here, but we tested that it was under 1 sec, i.e. a very small overhead.
 
@@ -501,7 +501,9 @@ Also the Deepspeed team empirically [benchmarked a 176B model](https://github.co
 
 To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-us/data-center/v100/).
 
-But be careful here - this benchmark is for V100s! Which is about 2-3x slower than A100, and 4-8x slower than H100 for half-precision. And if one uses fp8, the H100 compute will have an additional 2x speedup. So the comms have to be at least 8x faster for H100 nodes to match the above table at half precision. We need more benchmarks with more recent hardware.
+But be careful here - this benchmark is for V100s! Which is about 2-3x slower than A100, and 4-8x slower than H100 for half-precision. So the comms have to be at least 4-8x faster for H100 nodes to match the above table at half precision. We need more benchmarks with more recent hardware.
+
+footnote: the 2-3x range is because the official specs claim 3x TFLOPS increase for V100->A100, and A100->H100 each, but users benchmarking the difference report at most 2.5x improvements.
 
 They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate. This is solved by the recently introduced [ZeRO++](#zero-with-multiple-replicas).
 
