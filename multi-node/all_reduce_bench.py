@@ -14,8 +14,9 @@
 #   algobw) as explained here https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth
 #
 # - currently this benchmark tests a payload of 4GB (M * N * 4) - if your target application uses a
-#   much smaller payload you want to modify N to the target payload. To calculate the payload use
-#   the number of parameters per a single layer multiplied by 2 (bf16/fp16) or 4 (fp32)
+#   much smaller payload you want to modify M*N*4 to match the target payload. To calculate the
+#   payload use the number of parameters per a single layer multiplied by 2 (bf16/fp16) or 4 (fp32).
+#   e.g., if a single layer is 1B params, and you use bf16 grads it'd be 2GB of payload.
 #
 # - If you are wondering whether you need to also run https://github.com/NVIDIA/nccl-tests - I
 #   already validated that I got very similar results with ./build/all_reduce_perf -b 4G -e 4G
