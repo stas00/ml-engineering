@@ -160,6 +160,17 @@ Papers:
 - [ZeRO++: Extremely Efficient Collective Communication for Giant Model Training](https://arxiv.org/abs/2306.10209)
 - [PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel](https://arxiv.org/abs/2304.11277)
 
+
+### ZeRO variations
+
+Published papers that propose modifications to the ZeRO protocol:
+
+- [MiCS: Near-linear Scaling for Training Gigantic Model on Public Cloud](https://arxiv.org/abs/2205.00119) (2022)
+- [AMSP: Super-Scaling LLM Training via Advanced Model States Partitioning](https://arxiv.org/abs/2311.00257) (2023)
+
+
+
+
 ## Pipeline Parallelism methods
 
 ### Naive Model Parallelism (Vertical)
