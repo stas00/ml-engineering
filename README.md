@@ -20,11 +20,11 @@ My apologies while I'm writing new chapters and re-organizing the content to be 
 
 1. **[IO](./io/)** - local and distributed disks and filesystems
 
-2. **[CPU](./cpu/)** - cpus, affinities (not yet written)
+2. **[CPU](./cpu/)** - cpus, affinities (WIP)
 
-1. **[GPU](./gpu/)** - the work horses(not yet written)
+1. **[GPU](./gpu/)** - the work horses (WIP)
 
-1. **[CPU Memory](./cpu-memory/)** - how much is enough (not yet written)
+1. **[CPU Memory](./cpu-memory/)** - how much CPU memory is enough - the shortest chapter ever.
 
 
 **Part 2. Performance**
