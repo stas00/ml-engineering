@@ -440,7 +440,6 @@ As an experiment let's use the data points from [IDEFICS-80B](https://huggingfac
 
 When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ Deepspeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
 
-
 Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
 - `n_bytes` = `2` in case of bf16 which is 2 bytes
@@ -474,11 +473,13 @@ and so 49 and 51 secs are pretty close. Except this tells us nothing since the l
 
 What I'd expect in the best case is where I have used close to theoretical peak TFLOPS in the formula and received the compute estimate to be about the same as the actual compute time measured on the system. Remember that since comms are interleaved with compute, when we measure `forward`+`backward` wallclock time it includes comms in it.
 
-What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the math with you. But this work out should give you a feeling for what's going on behind the scenes and how all these numbers work together.
+What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the updated math with you. But this workout should give you a feeling for what's going on behind the scenes and how all these numbers work together.
 
-Going back to comms math, we also didn't take into an account various hardware latencies, but when dealing with a large payloads they shouldn't add a significant additional overhead.
+We also didn't discuss the `DataLoader` as a potential bottleneck here, but we tested that it was under 1 sec, i.e. a very small overhead.
 
-And now you know how long it'll take to transmit that many GBs over the network of your system. For example, if the network were to be 5x slower, that is 8.5GBps (68Gbps) then:
+Going back to comms math, we also didn't take into an account various hardware latencies, but when dealing with a large payloads they shouldn't add up a significant additional overhead.
+
+And now you know how long it'll take to transmit that many GBs over the network of your system. For example, if the network were to be 5x slower than the one we used for IDEFICS-80B training, that is 8.5GBps (68Gbps) then:
 
 - comms = `3 * 2 * 80 / 8.5` = 56 sec
 
@@ -488,15 +489,17 @@ If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
 
 - comms = `3 * 2 * 80 / 212` = 2 sec
 
-which would be insignificant comparatively to the compute time, especially if some of it is overlapped with the commute.
+which would be insignificant comparatively to the compute time, especially if some of it is successfully overlapped with the commute.
 
 Also the Deepspeed team empirically [benchmarked a 176B model](https://github.com/microsoft/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
-1. With 100 Gbps IB, we only have <20 TFLOPs per GPU.
-2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU.
-3. For 800 Gbps IB, we reach 40+ TFLOPs per GPU.
+1. With 100 Gbps IB, we only have <20 TFLOPs per GPU (bad)
+2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU (ok)
+3. For 800 Gbps IB, we reach 40+ TFLOPs per GPU (excellent)
 
-But be careful here - this benchmark is for V100s! which is about 2-3x slower than A100, and 4-9x slower than H100 for half-precision. And if one uses fp8, the H100 compute will be an additional 2x faster. So the comms have to be at least 10x faster for H100 nodes to match the above table.
+To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-us/data-center/v100/).
+
+But be careful here - this benchmark is for V100s! Which is about 2-3x slower than A100, and 4-8x slower than H100 for half-precision. And if one uses fp8, the H100 compute will have an additional 2x speedup. So the comms have to be at least 8x faster for H100 nodes to match the above table at half precision. We need more benchmarks with more recent hardware.
 
 They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate. This is solved by the recently introduced [ZeRO++](#zero-with-multiple-replicas).
 
