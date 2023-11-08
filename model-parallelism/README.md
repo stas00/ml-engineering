@@ -475,8 +475,7 @@ What I'd expect in the best case is where I have used close to theoretical peak 
 
 What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the updated math with you. But this workout should give you a feeling for what's going on behind the scenes and how all these numbers work together.
 
-update: this discussion doesn't include gradient accumulation steps (GAS). If GAS>1 the compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `(2*GAS + 1)*2*M/GBps` since grads would be reduced only once, but the weights unsharding for `forward` and `backward` would transpire as many times as there are GAS.
-
+Also this discussion didn't include into the math gradient accumulation steps (GAS). In the case of IDEFICS-80B it wasn't used. If GAS>1 the theoretical compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `(2*GAS + 1)*2*M/GBps` since grads would be reduced only once, but the weights unsharding via `all_gather` for `forward` and `backward` would transpire as many times as there are gradient accumulation steps.
 
 We also didn't discuss the `DataLoader` as a potential bottleneck here, but we tested that it was under 1 sec, i.e. a very small overhead.
 
