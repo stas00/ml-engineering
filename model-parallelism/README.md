@@ -419,28 +419,33 @@ So the promise is very attractive - it runs a 30min simulation on the cluster of
 
 ## Inter-node speed requirements to use ZeRO
 
-XXX: this section is a WIP, please skip for now, while I'm sorting out the math.
+The ZeRO scalability protocol, be it Deepspeed ZeRO or PyTorch FSDP, requires a lot more inter-node traffic than TP+PP+DP solutions, and sometimes it can't take advantage of the faster intra-node connectivity, and therefore if your inter-node network is slow your expensive GPUs might be massively bottlenecked by the comms.
 
-The ZeRO scalability protocol, be it Deepspeed ZeRO or PyTorch FSDP, requires a lot more inter-node traffic than TP+PP+DP solutions, and therefore if your internode network is slow your expensive GPUs might be massively bottlenecked by the comms.
+The ZeRO protocol partially overlaps comms with compute, so ideally you want to get close to `comms_time <= compute_time`. The overlap is not perfect, so there will be always some network bottleneck, but we want to make sure that `comms_time` is not much larger than `compute_time`.
 
-The ZeRO protocol overlaps comms with compute, so ideally you want to get close to `comms_time <= compute_time`. The overlap is not perfect, so there will be always some network bottleneck, but we want to make sure that `comms_time` is not much larger than `compute_time`.
+In ZeRO-3, we have `all_gather` on weights in `forward`, then `all_gather` on weights in `backward`, last is `reduce_scatter` on gradients in backward. In total there are 3 global collective calls each sending a model size multiplied by how many bytes per parameter are used. e.g. a 10B param model in bf16 under ZeRO-3 will need to send 10*2*3=60GB of data.
 
-Notation:
-- M: model size in Billion parameters
-- G: total number of GPUs
-- B: inter-node bandwidth in GBps
-- GBS: global batch size
-- S
+In comparison [DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) (DDP) uses a single `all_reduce` call, but which requires 2x data transmission, and so a 10B param model in bf16 under DDP will need to send 10*2*2=40GB of data.
 
-Here is how we calculate time in seconds for communication and compute:
+ZeRO-1 which only shards the optimiser states, like DDP, will too need to transmit 40GB of data (one `all_gather` and one `reduce_scatter`.)
+
+Here is how to calculate time in seconds for communication and compute:
 
 - `comms_time = n_transmissions * n_bytes * model_size_in_B / inter-node-throughput_in_GBps`
 - `compute_time = n_passes * n_bytes * model_size_in_B * seqlen * global_batch_size / (total_gpus * 1e3 * tflops_wo_comms)`
 
-Values for IDEFICS-80B:
+The compute time formula is a rough estimate which works for any Transformer-block based model. It ignores any small computations and includes only the massive `matmul`s.
+
+As an experiment let's use the data points from [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b/) training.
+
+When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ Deepspeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
+
+
+Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
 - `n_bytes` = `2` in case of bf16 which is 2 bytes
 - `n_transmissions` = `3` in the case of ZeRO-3/FSDP (1x reduce_scatter + 2x all_gather (fwd + bwd)) and 2 in case of ZeRO-1 (1x reduce_scatter + 1x all_gather),
+- additionally, in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `n_transmissions*n_bytes=3*2+2=4*2` for the additional 2 bytes but since half the model was frozen only about half of gradients were sent, so we still have the multiplier of 3.
 - `n_passes` = `4` with activation recomputation, or `3` w/o it. The model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once wrt inputs and once wrt weights). And with activation recomputation one more `forward` is done.
 - `total_gpus` = `512`
 - `global_batch_size` = `3584`
@@ -448,44 +453,44 @@ Values for IDEFICS-80B:
 - `inter-node-throughput_in_GBps` = 42.5 (340Gbps) (AWS EFA v1)
 -`tflops_wo_comms` is the tflops w/o the communication overhead. Not theoretical peak as that is unachievable, but perhaps 75% in the case of A100@BF16 - so `312*0.75=234` TFLOPS
 
-but in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `n_transmissions*n_bytes=3*2+2=4*2` for the additional 2 bytes.
+We derived 340Gbps inter-node network throughput using [all_reduce_bench.py](../multi-node/all_reduce_bench.py) which by default uses a payload of 4GB. In the case of IDEFICS-80B we had 80 layers, so approximately each layer was 1B params large. Which means that each layer was sending 2GB of data for bf16 tensors and 4GB of data with fp32 tensors, which matches the network benchmark. If you were to have a much smaller layer size, I'd recommend adapting the benchmark to that size. For example, if your layer size was only 100M param large, then your payload would be 0.2GB for bf16 tensors. As this is an order of magnitude smaller, the network is likely to give you a lower bandwidth, and you should use that in your calculations.
+
+footnote: if parts of your model are frozen, then there will be less data sent in syncing the gradients. in IDEFICS we had more than half of the model frozen, so when grads were reduced we only had about half the traffic.
 
 Which gives us:
 
-- comms = `4 * 2 * 80 / 42.5` = 15 sec
+- comms = `3 * 2 * 80 / 42.5` = 11 sec
 - compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 250)` = 18 sec
 
-Let's check against our IDEFICS-80B logs, which had each iteration at about 49 seconds.
+If we check against our IDEFICS-80B logs, which had each iteration at about 49 seconds.
 
-So the good news is that the math checks out as comms + compute are in the ballpark of the measured time.
+So the good news is that the math checks out as comms + compute are in the ballpark of the measured time, except
 
 We can do another sanity check by feeding the compute formulae 90 TFLOPS that we logged, in which case:
 
 - compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 90)` = 51 sec
 
-and so 49 and 51 secs are pretty close. Except this tells us nothing since the logged TFLOPS were calculating using this formula, so of course it should match.
+and so 49 and 51 secs are pretty close. Except this tells us nothing since the logged TFLOPS were calculated using this formula, so, of course, it should match.
 
+What I'd expect in the best case is where I have used close to theoretical peak TFLOPS in the formula and received the compute estimate to be about the same as the actual compute time measured on the system. Remember that since comms are interleaved with compute, when we measure `forward`+`backward` wallclock time it includes comms in it.
 
+What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the math with you. But this work out should give you a feeling for what's going on behind the scenes and how all these numbers work together.
 
+Going back to comms math, we also didn't take into an account various hardware latencies, but when dealing with a large payloads they shouldn't add a significant additional overhead.
 
-and we achieved ~90 TFLOPS, so since we used FlashAttention this is quite far from 180 TFLOPS that Megatron-LM reaches with FlashAttention on models of this size.
+And now you know how long it'll take to transmit that many GBs over the network of your system. For example, if the network were to be 5x slower, that is 8.5GBps (68Gbps) then:
 
-As explained in this [comment](https://github.com/microsoft/DeepSpeed/issues/2928#issuecomment-1463041491) you need
-`6 * model_size_in_billion / num_of_nodes` GBs of data (in half-precision) to be shorter than compute time to not have the comms to be a bottleneck.
+- comms = `3 * 2 * 80 / 8.5` = 56 sec
 
-Here is the breakdown:
+which would definitely be a huge bottleneck compared to the faster compute.
 
-Assumption: intra-node GPU communication overhead is ignored (Since NVLink/NVSwitch are high-throughput links)
+If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
 
-In ZeRO-3, we have all-gather on weights (M) in forward, then all-gather on weights (M) in backward, last is reduce-scatter on gradients (M) in backward. In total 3 global collective calls.
+- comms = `3 * 2 * 80 / 212` = 2 sec
 
-For each of above 3 collectives, each GPU need to sent out `M/G` data outside the node as cross-node traffic.
+which would be insignificant comparatively to the compute time, especially if some of it is overlapped with the commute.
 
-Given that we usually use fp16 (2 bytes) to represent both weights and gradients, for each collective, each GPU sends out `2*M` Bytes. 3 collectives in total need each GPU to send out `6*M` Bytes, which is equal to `8 * 6 * M = 48 M` bits.
-
-Note: if parts of your model are frozen, then there will be less data sent in syncing the gradients.
-
-The Deepspeed team benchmarked a 176B model on 384 V100 GPUs (24 DGX-2 nodes) and found that:
+Also the Deepspeed team empirically [benchmarked a 176B model](https://github.com/microsoft/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
 1. With 100 Gbps IB, we only have <20 TFLOPs per GPU.
 2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU.
@@ -493,35 +498,7 @@ The Deepspeed team benchmarked a 176B model on 384 V100 GPUs (24 DGX-2 nodes) an
 
 But be careful here - this benchmark is for V100s! which is about 2-3x slower than A100, and 4-9x slower than H100 for half-precision. And if one uses fp8, the H100 compute will be an additional 2x faster. So the comms have to be at least 10x faster for H100 nodes to match the above table.
 
-When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ Deepspeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
-
-They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate.  We are trying to solve this issue with our up-coming new release project called ZeRO++, which could achieve better e2e system throughput when training at scale with small micro-batch size using ZeRO-3. Stay tuned!
-
-Let's take an 80B model and 64x 8-GPU nodes and use:
-1. bf16 mixed precision
-2. using fp32 grad reduction comms
-3. we assume that none of the parameters are frozen
-4. activation recomputation is on
-
-So we have to send the size of `2 bytes * model_size_in_billion_parameters` this many times:
-- 1x - forward
-- 1x - backward
-- 2x - grad reduction while upcasting to fp32 to avoid a large loss due to NCCL not accumulating in fp32.
-
-activation recomputation is folded into the backward's algather
-
-So we have `4*2*80` => 640GB of data to send on each iteration across all of gpus.
-
-With 64 nodes this is `800/64` => 12.5GB per node => 100Gb => 0.1Tb
-
-Now let's calculate how long the comms of 100Gb will take in a few cases of network speeds:
-
-- 0.4Tbps: 1/4 sec
-- 0.8Tbps: 1/8 secs
-- 1.6Tbps: 1/16 secs
-- 3.2Tbps: 1/32 secs
-
-this math looks very wrong as it appears to be too fast.
+They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate. This is solved by the recently introduced [ZeRO++](#zero-with-multiple-replicas).
 
 
 
@@ -569,6 +546,8 @@ Here is a very rough outline at which parallelism strategy to use when. The firs
 
 
 **⇨ Multi-Node / Multi-GPU**
+
+* If the model fits into a single node first try [ZeRO with multiple replicas](#zero-with-multiple-replicas), because then you will be doing ZeRO over the faster intra-node connectivity, and DDP over slower inter-node
 
 * When you have fast inter-node connectivity:
 
