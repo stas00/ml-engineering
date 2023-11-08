@@ -448,11 +448,25 @@ Values for IDEFICS-80B:
 - `inter-node-throughput_in_GBps` = 42.5 (340Gbps) (AWS EFA v1)
 -`tflops_wo_comms` is the tflops w/o the communication overhead. Not theoretical peak as that is unachievable, but perhaps 75% in the case of A100@BF16 - so `312*0.75=234` TFLOPS
 
-but in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize accumulation loss, so we actually had `
-n_transmissions*n_bytes=3*2+2=4*2` for the additional 2 bytes.
+but in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `n_transmissions*n_bytes=3*2+2=4*2` for the additional 2 bytes.
 
-comms = `4 * 2 * 80 / 42.5` = 15 sec
-compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 250)` = 18 sec
+Which gives us:
+
+- comms = `4 * 2 * 80 / 42.5` = 15 sec
+- compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 250)` = 18 sec
+
+Let's check against our IDEFICS-80B logs, which had each iteration at about 49 seconds.
+
+So the good news is that the math checks out as comms + compute are in the ballpark of the measured time.
+
+We can do another sanity check by feeding the compute formulae 90 TFLOPS that we logged, in which case:
+
+- compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 90)` = 51 sec
+
+and so 49 and 51 secs are pretty close. Except this tells us nothing since the logged TFLOPS were calculating using this formula, so of course it should match.
+
+
+
 
 and we achieved ~90 TFLOPS, so since we used FlashAttention this is quite far from 180 TFLOPS that Megatron-LM reaches with FlashAttention on models of this size.
 

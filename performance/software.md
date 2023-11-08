@@ -220,7 +220,7 @@ Additionally there are all kinds of temporary variables which get released once 
 Then your software could have special memory needs. For example, when generating text using beam search, the software needs to maintain multiple copies of inputs and outputs.
 
 
-For inference, it's very similar to training, minus optimizer states and gradients. And for model weights there is just a single multiplier of the number of parameters:
+For **inference**, the math is very similar to training, minus optimizer states and gradients. And for model weights there is just a single multiplier of the number of parameters:
 
 - 6 bytes in mixed precision (4+2)
 - 4 bytes in fp32
@@ -301,7 +301,10 @@ For parameters that are small, there is also [Dimension Quantization Effects](ht
 
 ### Gradient Accumulation
 
+
 The idea behind gradient accumulation is to instead of calculating the gradients for the whole batch at once to do it in smaller steps. The way we do that is to calculate the gradients iteratively in smaller batches by doing a forward and backward pass through the model and accumulating the gradients in the process. When enough gradients are accumulated we run the model's optimization step. This way we can easily increase the overall batch size to numbers that would never fit into the GPU's memory. In turn, however, the added forward and backward passes can slow down the training a bit.
+
+Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
 
 When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical-and-pipeline-parallelism).
 
@@ -312,6 +315,7 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 - [RTX-3090](https://github.com/huggingface/transformers/issues/14608#issuecomment-1004392537)
 - [A100](https://github.com/huggingface/transformers/issues/15026#issuecomment-1005033957)
 
+When [data parallelism](../model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
 ### Gradient checkpointing

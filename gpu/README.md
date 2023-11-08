@@ -99,8 +99,8 @@ XXX: write a small program to do exactly dynamically figuring out the perfect sh
 
 Typically the more memory the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the GPU memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple GPUs, or offloaded to CPU and/or disk.
 
-Current high end GPUs:
-- NVIDIA GPUs A100 and H100 have 80GB of HBM, while H100 NVL has 188GB
+Current high end GPUs (some aren't GA yet):
+- NVIDIA GPUs A100 and H100 have 80GB of HBM, while the dual-gpu H100 NVL has 188GB
 - AMD MI250 - 128GB, MI300 - 196GB
 
 Memory speed is of course very important since if it's not fast enough than the GPU compute ends up idling waiting for the data to be copied to and from the memory.
@@ -128,6 +128,11 @@ AMD:
 - [MI250](https://www.amd.com/en/products/server-accelerators/instinct-mi250) ~= A100 - very few clouds have them
 - MI300 ~= H100 - don’t expect until late-2024 or even 2025 to be GA
 
+Intel:
+- [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - I can't find where it's available, found some Gaudi1 at AWS [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/), but not Gaudi2. cloud.intel.com is supposed to have Gaudi2 but I couldn't even login into this service.
+
+GraphCore:
+- [IPU](https://www.graphcore.ai/products/ipu) - very difficult to find
 
 ### In-house GPU Clusters
 
@@ -149,9 +154,81 @@ Cerebras:
 
 
 
+## GPUs in detail
 
-- [Intel Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - very difficult to find
-- [GraphCore](https://www.graphcore.ai/products/ipu) - very difficult to find
+### NVIDIA
+
+Abbreviations:
+
+- CUDA: Compute Unified Device Architecture (proprietary to NVIDIA)
+
+NVIDIA-specific key GPU characteristics:
+- CUDA Cores - similar to CPU cores, but unlike CPUs that typically have 10-100 powerful cores, CUDA Cores are weaker and come in thousands and allow to perform massive general purpose computations (parallelization). Like CPU cores CUDA Cores perform a single operation in each clock cycle.
+- Tensor Cores - special compute units that are designed specifically to perform fast multiplication and addition operations like matrix multiplication. These perform multiple operations in each clock cycle. They can execute extremely fast computations on low or mixed precision data types with some loss (fp16, bf16, tf32, fp8, etc.). These cores are specifically designed for ML workloads.
+- Streaming Multiprocessors (SM) are clusters of CUDA Cores, Tensor Cores and other components.
+
+For example, A100-80GB has:
+
+- 6912 CUDA Cores
+- 432 Tensor Cores (Gen 3)
+- 108 Streaming Multiprocessors (SM)
+
+
+### AMD
+
+AMD-specific key GPU characteristics:
+- Stream Processors - are similar in functionality to CUDA Cores - that is these are the parallel computation units. But they aren't the same, so one can't compare 2 gpus by just comparing the number of CUDA Cores vs the number of Stream Processors.
+- Compute Units - are clusters of Stream Processors and other components
+
+for example, AMD MI250 has:
+- 13,312 Stream Processors
+- 208 Compute Units
+
+
+### Intel Gaudi2
+
+[Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
+
+- 24 100 Gigabit Ethernet (RoCEv2) integrated on chip
+- 96 GB HBM2E memory on board w/2.45 TB/sec bandwidth
+
+
+There are no official TFLOPS information published.
+
+A server/node is usually built from 8 GPUs.
+
+Comparison: competes with NVIDIA H100
+
+
+
+
+
+## API
+
+
+### NVIDIA
+
+uses CUDA
+
+
+
+### AMD
+
+uses ROCm
+
+
+
+### Intel Gaudi
+
+The API is via [Habana SynapseAI® SDK](https://habana.ai/training-software/) which supports PyTorch and TensorFlow.
+
+Useful integrations:
+- [HF Optimum Habana](https://github.com/huggingface/optimum-habana) which also includes - [DeepSpeed](https://github.com/microsoft/DeepSpeed) integration.
+
+
+
+
+
 
 
 ## Apples-to-apples Comparison

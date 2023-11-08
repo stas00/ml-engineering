@@ -1,6 +1,6 @@
 # CPU
 
-This chapter needs a lot more work
+XXX: This chapter needs a lot more work
 
 ## How many cpu cores do you need
 
@@ -24,6 +24,10 @@ If the node has 8 gpus, and you have n_workers, then you need `8*(num_workers+1)
 What happens if you have more very active processes than the total number of cpu cores? Some processes will get preempted (put in the queue for when cpu cores become available) and you absolutely want to avoid any context switching.
 
 But modern cloud offerings typically have 48+ cpu-cores so usually there is no problem to have enough cores to go around.
+
+### CPU offload
+
+Some frameworks, like [Deepspeed](https://www.deepspeed.ai/tutorials/zero-offload/) can offload some compute work to CPU without creating an bottleneck. In which case you'd want additional cpu-cores.
 
 
 ## Hyperthreads
