@@ -488,7 +488,7 @@ What I'd expect in the best case is where I have used close to theoretical peak 
 
 What's the conclusion? I'd say more investigation is needed as clearly there are additional hidden bottlenecks here. I no longer have access to this setup to investigate, so I will repeat this exercise afresh when I train another largish model and share the updated math with you. But this workout should give you a feeling for what's going on behind the scenes and how all these numbers work together.
 
-Also this discussion didn't include into the math gradient accumulation steps (GAS). In the case of IDEFICS-80B it wasn't used. If GAS>1 the theoretical compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `GAS*3*2*M/GBps`. The weights gathering via `all_gather` for `forward` and `backward` would transpire as many times as there are gradient accumulation steps. In theory for grads it'd need to happen only once, but since there is no place to store intermediary grads of the gathered weight on each GPU it'll have to be reduced GAS times as well.
+Also this discussion didn't include into the math gradient accumulation steps (GAS). In the case of IDEFICS-80B it wasn't used. If GAS>1 the theoretical compute time doesn't change, but comms time instead of `3*2*M/GBps` would become `GAS*3*2*M/GBps`. The weights gathering via `all_gather` for `forward` and `backward` would transpire as many times as there are gradient accumulation steps. In theory for grads it'd need to happen only once, but since there is no place to store intermediary grads of the gathered weight on each GPU it'll have to be reduced GAS times as well. This is for ZeRO-2 and ZeRO-3. For ZeRO-1 GAS>1 requires no additional comms.
 
 We also didn't discuss the `DataLoader` as a potential bottleneck here, but we tested that it was under 1 sec, i.e. a very small overhead.
 
@@ -581,5 +581,7 @@ Here is a very rough outline at which parallelism strategy to use when. The firs
 
 ## Contributors
 
-[Samyam Rajbhandari](https://github.com/samyam), [Horace He](https://github.com/Chillee),
-[Siddharth Singh](https://github.com/siddharth9820)
+[Samyam Rajbhandari](https://github.com/samyam),
+[Horace He](https://github.com/Chillee),
+[Siddharth Singh](https://github.com/siddharth9820),
+[Olatunji Ruwase](https://github.com/tjruwase),
