@@ -24,6 +24,7 @@ The following is the brief description of the main concepts that will be describ
 4. [Zero Redundancy Optimizer](#zero-data-parallelism) (ZeRO) - Also performs sharding of the tensors somewhat similar to TP, except the whole tensor gets reconstructed in time for a forward or backward computation, therefore the model doesn't need to be modified. It also supports various offloading techniques to compensate for limited GPU memory. Sharded DDP is another name for the foundational ZeRO concept as used by various other implementations of ZeRO.
 5. [Sequence Parallelism](#sequence-parallelism) - training on long input sequences requires huge amounts of GPU memory. This technique splits the processing of a single sequence across multiple GPUs.
 
+The introduction sections of this paper is probably one of the best explanations I have found on most common parallelism techniques [Breadth-First Pipeline Parallelism](https://arxiv.org/abs/2211.05953).
 
 ## Data Parallelism
 
@@ -221,18 +222,35 @@ With `chunks=1` you end up with the naive MP, which is very inefficient. With a 
 
 While the diagram shows that there is a bubble of "dead" time that can't be parallelized because the last `forward` stage has to wait for `backward` to complete the pipeline, the purpose of finding the best value for `chunks` is to enable a high concurrent GPU utilization across all participating GPUs which translates to minimizing the size of the bubble.
 
-There are 2 groups of solutions - the traditional Pipeline API and the more modern solutions that make things much easier for the end user.
 
-Traditional Pipeline API solutions:
-- PyTorch
-- FairScale
-- DeepSpeed
+The choice of the schedule is critical to the efficient performance, with the most common schedules being in the order of invention:
+
+- sequential [Gpipe: Efficient training of giant neural networks using pipeline parallelism](https://arxiv.org/abs/1811.06965)
+- interleaved 1F1B [Pipedream: Fast and efficient pipeline parallel dnn training](https://arxiv.org/abs/1806.03377)
+- looped, depth-first [Efficient large-scale language model training on gpu clusters using Megatron-LM](https://arxiv.org/abs/2104.04473)
+- breadth-first [Breadth-First Pipeline Parallelism](https://arxiv.org/abs/2211.05953)
+
+Here is for example an interleaved pipeline:
+
+![interleaved-pipeline-execution](images/parallelism-sagemaker-interleaved-pipeline.png)
+
+Here the bubble (idle time) is further minimized by prioritizing backward passes.
+
+It's used by DeepSpeed, Varuna and SageMaker to name a few.
+
+Varuna further tries to improve the schedule by using simulations to discover the most efficient scheduling.
+
+There are 2 groups of PP solutions - the traditional Pipeline API and the more modern solutions that make things much easier for the end user by helping to partially or fully automate the process:
+
+1. Traditional Pipeline API solutions:
 - Megatron-LM
+- DeepSpeed
+- PyTorch
 
-Modern solutions:
+2. Modern solutions:
+- PiPPy
 - Varuna
 - Sagemaker
-- PiPPy
 
 Problems with traditional Pipeline API solutions:
 - have to modify the model quite heavily, because Pipeline requires one to rewrite the normal flow of modules into a `nn.Sequential` sequence of the same, which may require changes to the design of the model.
@@ -240,7 +258,7 @@ Problems with traditional Pipeline API solutions:
 - conditional control flow at the level of pipe stages is not possible - e.g., Encoder-Decoder models like T5 require special workarounds to handle a conditional encoder stage.
 - have to arrange each layer so that the output of one model becomes an input to the other model.
 
-We are yet to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
+I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
 Implementations:
 - [Pytorch](https://pytorch.org/docs/stable/pipeline.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/master/benchmarks/distributed/pipeline/pipe.py)
@@ -252,16 +270,9 @@ Implementations:
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
 - [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`
 
-Other approaches:
 
-DeepSpeed, Varuna and SageMaker use the concept of an [Interleaved Pipeline](https://docs.aws.amazon.com/sagemaker/latest/dg/model-parallel-core-features.html)
-![interleaved-pipeline-execution](images/parallelism-sagemaker-interleaved-pipeline.png)
 
-Here the bubble (idle time) is further minimized by prioritizing backward passes.
 
-Varuna further tries to improve the schedule by using simulations to discover the most efficient scheduling.
-
-OSLO has pipeline parallelism implementation based on the Transformers without `nn.Sequential` converting.
 
 ## Tensor Parallelism
 
@@ -374,9 +385,25 @@ Self-Attention, which is the key component of Transformers, suffers from quadrat
 
 As this type of parallelism is orthogonal to the other parallelization types described in this document, it can be combined with any of them, leading to 4D, ZeRO-DP+SP and other combinations.
 
+### Deepspeed-Ulysses implementation
 
-XXX: fill out more details. They key is that the Deepspeed Ulysses implementation is quite different from Meg-LM and Col-AI.
+In this implementation:
+1. the long sequence is partitioned into chunks and each chunk is sent to one of the GPUs
+2. the multiple heads are split groups so that each GPU has a few heads only
 
+During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the head is split up across several GPUs.
+
+Example: Let's consider seqlen=8k, num_heads=128 and a single node of 8 gpus
+
+1. each node gets a 1k-long chunk of the original sequence
+2. each node gets assigned 16 sub-heads
+3. a. on gpu0 before `forward` the original sequence is gathered back into 8k tokens
+   b. the computation is done on the first 16 sub-heads
+the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
+
+You can read the specifics of the very efficient comms [here](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction)
+
+XXX: Still need to add Meg-LM/Col-AI explanation as it's different from Deepspeed's one.
 
 Implementations:
 - [Megatron-LM)(https://github.com/NVIDIA/Megatron-LM)
