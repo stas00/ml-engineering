@@ -232,6 +232,7 @@ Traditional Pipeline API solutions:
 Modern solutions:
 - Varuna
 - Sagemaker
+- PiPPy
 
 Problems with traditional Pipeline API solutions:
 - have to modify the model quite heavily, because Pipeline requires one to rewrite the normal flow of modules into a `nn.Sequential` sequence of the same, which may require changes to the design of the model.
@@ -249,6 +250,7 @@ Implementations:
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
+- [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`
 
 Other approaches:
 
