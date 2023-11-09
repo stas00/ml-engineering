@@ -28,13 +28,13 @@ The introduction sections of this paper is probably one of the best explanations
 
 ## Data Parallelism
 
-## DDP
+### DDP
 
 Most users with just 2 GPUs already enjoy the increased training speed up thanks to `DataParallel` (DP) and `DistributedDataParallel` (DDP) that are almost trivial to use. This is a built-in feature of Pytorch.
 
 For details see [DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
 
-## ZeRO Data Parallelism
+### ZeRO Data Parallelism
 
 ZeRO-powered data parallelism (ZeRO-DP) is described on the following diagram from this [blog post](https://www.microsoft.com/en-us/research/blog/zero-deepspeed-new-system-optimizations-enable-training-models-with-over-100-billion-parameters/)
 ![DeepSpeed-Image-1](images/parallelism-zero.png)
@@ -143,7 +143,7 @@ Main DeepSpeed ZeRO Resources:
 - [Blog posts](https://www.microsoft.com/en-us/research/search/?q=deepspeed)
 
 
-### ZeRO with multiple replicas
+#### ZeRO with multiple replicas
 
 By default ZeRO uses all GPUs to create a single model replica - that's the model is spread out across all gpus. Which leads to various limitations such as:
 
@@ -162,7 +162,7 @@ Papers:
 - [PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel](https://arxiv.org/abs/2304.11277)
 
 
-### ZeRO variations
+#### ZeRO variations
 
 Published papers that propose modifications to the ZeRO protocol:
 
