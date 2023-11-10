@@ -385,35 +385,46 @@ Self-Attention, which is the key component of Transformers, suffers from quadrat
 
 As this type of parallelism is orthogonal to the other parallelization types described in this document, it can be combined with any of them, leading to 4D, ZeRO-DP+SP and other combinations.
 
-### Deepspeed-Ulysses implementation
+### Deepspeed-Ulysses SP
 
-In this implementation:
+Paper: [DeepSpeed Ulysses: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models](https://arxiv.org/abs/2309.14509)
+
+In this implementation 2 elements are sharded:
 1. the long sequence is partitioned into chunks and each chunk is sent to one of the GPUs
-2. the multiple heads are split groups so that each GPU has a few heads only
+2. the multiple-head attention weights are split across the same GPUs so that each GPU has a few sub-heads only.
 
 During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the head is split up across several GPUs.
 
-Example: Let's consider seqlen=8k, num_heads=128 and a single node of 8 gpus
+Example: Let's consider seqlen=8K, num_heads=128 and a single node of 8 gpus
 
-1. each node gets a 1k-long chunk of the original sequence
+1. each node gets a 1K-long chunk of the original sequence
 2. each node gets assigned 16 sub-heads
-3. a. on gpu0 before `forward` the original sequence is gathered back into 8k tokens
-   b. the computation is done on the first 16 sub-heads
+3. a. on gpu0 before `forward` the original sequence is gathered back into 8K tokens
+   b. the attention computation is done on the first 16 sub-heads
 the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
 
-You can read the specifics of the very efficient comms [here](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction)
+You can read the specifics of the very efficient comms [here](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction).
 
-XXX: Still need to add Meg-LM/Col-AI explanation as it's different from Deepspeed's one.
+DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs proportional to message size or sequence length.
+
+### Colossal-AI's SP
+
+Paper: [Sequence parallelism: Long sequence training from system perspective](https://arxiv.org/abs/2105.13120)
+
+Colossal-AI's SP implementation uses ring self-attention, a ring-like communication collective in which query projections are local whereas key and values projections are transmitted in a ring-style to compute global attention, resulting in communication complexity linear in message size, M.
+
+### Megatron-LM's SP
+
+Paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198)
+
+Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increase linearly with message size (M) regardless of number of compute devices.
+
 
 Implementations:
 - [Megatron-LM)(https://github.com/NVIDIA/Megatron-LM)
 - [Deepspeed](https://github.com/microsoft/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
 
-Important papers:
-- [Sequence parallelism: Long sequence training from system perspective](https://arxiv.org/abs/2105.13120)
-- [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198)
-- [DeepSpeed Ulysses: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models](https://arxiv.org/abs/2309.14509)
 
 
 ## FlexFlow
