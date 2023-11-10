@@ -393,17 +393,21 @@ In this implementation 2 elements are sharded:
 1. the long sequence is partitioned into chunks and each chunk is sent to one of the GPUs
 2. the multiple-head attention weights are split across the same GPUs so that each GPU has a few sub-heads only.
 
-During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the head is split up across several GPUs.
+During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the multi-head attention is split up across several GPUs.
 
 ![deepspeed-ulysses sp](images/deepspeed-ulysses.png)
 
 [source](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-ulysses)
 
-On the diagram input sequences N are partitioned across P available devices. Each local N/P partition is projected into queries (Q), keys (K) and values (V) embeddings. Next, (QKV) embeddings are gathered into global QKV through highly optimized all-to-all collectives between participating compute devices. Sequel to all-to-all collective is the attention computation per head in the form:
+On the diagram:
+1. Input sequences N are partitioned across P available devices.
+2. Each local N/P partition is projected into queries (Q), keys (K) and values (V) embeddings.
+3. Next, (QKV) embeddings are gathered into global QKV through highly optimized all-to-all collectives between participating compute devices.
+4. Sequel to all-to-all collective is the attention computation per head in the form:
 
 ![math](images/deepspeed-ulysses-math.png)
 
-After the attention computation, another all-to-all collective transforms output context tensor of attention computation to sequence (N/P) parallel for subsequent operators (MLP MatMul, layer norm, etc.) in the remaining modules of transformer layer block.
+5. After the attention computation, another all-to-all collective transforms output context tensor of attention computation to sequence (N/P) parallel for subsequent operators (MLP MatMul, layer norm, etc.) in the remaining modules of transformer layer block.
 
 Example: Let's consider seqlen=8K, num_heads=128 and a single node of 8 gpus
 
