@@ -395,10 +395,20 @@ In this implementation 2 elements are sharded:
 
 During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the head is split up across several GPUs.
 
+![deepspeed-ulysses sp](images/deepspeed-ulysses.png)
+
+[source](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-ulysses)
+
+On the diagram input sequences N are partitioned across P available devices. Each local N/P partition is projected into queries (Q), keys (K) and values (V) embeddings. Next, (QKV) embeddings are gathered into global QKV through highly optimized all-to-all collectives between participating compute devices. Sequel to all-to-all collective is the attention computation per head in the form:
+
+![math](images/deepspeed-ulysses-math.png)
+
+After the attention computation, another all-to-all collective transforms output context tensor of attention computation to sequence (N/P) parallel for subsequent operators (MLP MatMul, layer norm, etc.) in the remaining modules of transformer layer block.
+
 Example: Let's consider seqlen=8K, num_heads=128 and a single node of 8 gpus
 
-1. each node gets a 1K-long chunk of the original sequence
-2. each node gets assigned 16 sub-heads
+1. each GPU gets a 1K-long chunk of the original sequence
+2. each GPU gets assigned 16 sub-heads
 3. a. on gpu0 before `forward` the original sequence is gathered back into 8K tokens
    b. the attention computation is done on the first 16 sub-heads
 the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
