@@ -417,11 +417,11 @@ Colossal-AI's SP implementation uses ring self-attention, a ring-like communicat
 
 Paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198)
 
-Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increase linearly with message size (M) regardless of number of compute devices.
+Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increases linearly with message size (M) regardless of number of compute devices.
 
 
 Implementations:
-- [Megatron-LM)(https://github.com/NVIDIA/Megatron-LM)
+- [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [Deepspeed](https://github.com/microsoft/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
 
