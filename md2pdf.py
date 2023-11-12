@@ -3,9 +3,23 @@ import markdown
 from weasyprint import HTML
 import PyPDF2
 
+from markdown_it import MarkdownIt
+from mdit_py_plugins.front_matter import front_matter_plugin
+from mdit_py_plugins.footnote import footnote_plugin
+
 def convert_markdown_to_pdf(markdown_path, pdf_path):
+    md = (
+        MarkdownIt('commonmark' ,{'breaks':True,'html':True})
+        .use(front_matter_plugin)
+        .use(footnote_plugin)
+        .enable('table')
+    )
     try:
-        html_content = markdown_to_html(markdown_path)
+        with open(markdown_path, 'r', encoding='utf-8') as md_file:
+            text = md_file.read()
+        tokens = md.parse(text)
+        html_content = md.render(text)
+        # html_content = markdown_to_html(markdown_path)
         html_to_pdf(html_content, pdf_path)
         return True
     except Exception as e:
