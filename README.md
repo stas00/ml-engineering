@@ -40,7 +40,8 @@ The `md2pdf.py` converts all md file to PDF and concatinate them into a final PD
 Install:
 
 ```
-pip install  PyPDF2  weasyprint==52.5 markdown
+pip install  PyPDF2  weasyprint==52.5 markdown markdown-it-py[plugins]
+
 ```
 
 run the script:
