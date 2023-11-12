@@ -8,10 +8,16 @@ No hardware is perfect, sometimes due to the manufacturing problems or due to te
 
 A normal user who uses a handful of GPUs is likely to never need to understand GPU-related hardware issues, but if you come anywhere close to massive ML training where you are likely to use hundreds to thousands of GPUs it's certain that you'd want to understand about different hardware issues.
 
-In your system logs you are likely to see occasionally Xid Errors like (`grep Xid /var/log/syslog`):
+In your system logs you are likely to see occasionally Xid Errors like:
 
 ```
 NVRM: Xid (PCI:0000:10:1c): 63, pid=1896, Row Remapper: New row marked for remapping, reset gpu to activate.
+```
+
+To get those logs one of the following ways should work:
+```
+sudo grep Xid /var/log/syslog
+sudo dmesg -T | grep Xid
 ```
 
 Typically, as long as the training doesn't crash, these errors often indicate issues that automatically get corrected by the hardware.
@@ -106,9 +112,9 @@ where `gpu_id` is the sequential number of the gpu you want to reset. Without `-
 
 ## Running diagnostics
 
-In order to run full diagnostics on an idle GPU or a node with GPUs, `dcgm` can be used. NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
+In order to run full diagnostics on an idle GPU or a node with GPUs, `dcgmi` can be used. NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
 
-Here is an example slurm script that will run very in-depth diagnosis (`-r 4`), which will take more than 1 hour to complete:
+Here is an example slurm script that will run very in-depth diagnosis (`-r 3`), which will take about 10 minutes to complete:
 
 ```
 $ cat dcgmi-1n.slurm
@@ -123,7 +129,7 @@ $ cat dcgmi-1n.slurm
 
 set -x -e
 echo "START TIME: $(date)"
-srun --output=%x-%j-%N.out dcgmi diag -r 4
+srun --output=%x-%j-%N.out dcgmi diag -r 3
 echo "END TIME: $(date)"
 ```
 
@@ -134,6 +140,16 @@ sbatch --nodelist=node-151 dcgmi-1n.slurm
 sbatch --nodelist=node-170 dcgmi-1n.slurm
 ```
 edit the nodelist argument to point to the node name to run.
+
+If the node is drained or downed and you can't launch a slurm job using this node, just ssh into the node and run the command directly on the node:
+```
+dcgmi diag -r 3
+```
+If the diagnostics didn't find any issue, but the application still fails to work, re-run the diagnostics with level 4, which will now take more than 1 hour to complete:
+```
+dcgmi diag -r 4
+```
+
 
 For example, if you run into a repeating Xid 64 error it's likely that the diagnostics report will include:
 
@@ -148,6 +164,12 @@ For example, if you run into a repeating Xid 64 error it's likely that the diagn
 
 so you now know to RMA that problematic GPU, if remapping fails.
 
-The `dcgm` tool contains various other levels of diagnostics, some of which complete in a matter of a few minutes and can be run as a quick diagnostic in the prologue or epilogue of SLURM jobs.
+The `dcgmi` tool contains various other levels of diagnostics, some of which complete in a matter of a few minutes and can be run as a quick diagnostic in the epilogue of SLURM jobs to ensure that the node is ready to work for the next SLURM job, rather than discovering that after the user started their job and it crashed.
 
 When filing an RMA report you will be asked to run `nvidia-bug-report` script, the output of which you will need to submit with the RMA request.
+
+I usually save the log as well for posterity using one of:
+```
+dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
+dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
+```

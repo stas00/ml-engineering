@@ -89,14 +89,13 @@ pgrep -f python | xargs -I {} py-spy dump --pid {}
 (and as before replace `python` with the name of the launcher program if it's not `python`)
 
 
-#### multi-node py-spy
+#### multi-node py-spy via srun
 
 What if you have multiple nodes?
 
 You can of course `ssh` to each node interactively and dump the stack traces.
 
 If you're using the SLURM environment you can use `srun` to do it on all nodes for you.
-
 
 Now in another console get the `SLURM_JOBID` (or get it from `salloc` log):
 ```
@@ -143,6 +142,70 @@ srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -P 
 ```
 and at each stage check that the output makes sense - e.g. the 2nd and 3rd call you should be getting the PIDs of the processes.
 
+
+
+#### multi-node py-spy via pdsh
+
+`pdsh` seems to be a good easy tool to use to accomplish remote work on multiple nodes. Say, you're running on 2 nodes with hostnames `nodename-5` and `nodename-8`, then you can quickly test that remote execution is working by getting the `date` on all of these hosts with just:
+```
+$ PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] "date"
+nodename-5: Wed Oct 25 04:32:43 UTC 2023
+nodename-8: Wed Oct 25 04:32:45 UTC 2023
+```
+
+footnote: `pdsh` should be available via a normal OS package installer
+
+Once you tested that `date` works it's time to move to `py-spy`.
+
+To do `py-spy` on all python processes that are sub-processes, it'd be:
+```
+PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}'
+```
+but as you're likely to need to have the `~/.bashrc` run, you will need to clone it into `~/.pdshrc`, reduce that clone to what is needed to be run (e.g. modify `PATH`, `activate conda`) and then `source` it, like:
+
+```
+PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
+```
+
+The reason you need a startup script is because usually `~/.bashrc` starts with:
+```
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+```
+so when you run such non-interactive workflows Bash won't process its `~/.bashrc` normally (exit early) and thus anything relying on this startup script won't work. So you can either remove the non-interactive exiting code above or fork `~/.bashrc` into a startup file that only contains what's needed for the remote command to succeed.
+
+
+footnote: there is nothing special about `~/.pdshrc` - any other name would do, since you're manually `source`ing it.
+
+
+And if your system isn't setup to run `py-spy` w/o `sudo` as explained a few sections up, you'd need something like this:
+
+```
+PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'sudo bash -c "source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
+```
+
+Of course, you may need to edit the `pgrep` section to narrow down which processes you want to watch.
+
+Additionally, to avoid being prompted with:
+```
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+for every new node you haven't logged into yet, you can disable this check with:
+```
+echo "Host *" >> ~/.ssh/config
+echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+```
+Here I assume you're on an isolated cluster so you don't need to worry about security issues and thus bypassing such check is most likely OK.
+
+
+
+#### multi-node py-spy via ds_ssh
+
+This is yet another way, but please make sure to read the `pdsh` section above first.
+
 The following notes require `pip install deepspeed`.
 
 In one SLURM environment I also attempted using `pdsh` via `ds_ssh`, but somehow I wasn't able to run `py-spy` remotely - the main issue was that remote `ssh` command wasn't giving the same env as when I was logged in interactively via `ssh`. But if you have `sudo` access on the compute nodes then you could do:
@@ -169,15 +232,7 @@ Notes:
 - If you don't have it already `ds_ssh` is installed when you do `pip install deepspeed`.
 - you might need to `export PDSH_RCMD_TYPE=ssh` if you get `rcmd: socket: Permission denied` error
 
-Additionally, to avoid being prompted with:
-```
-Are you sure you want to continue connecting (yes/no/[fingerprint])?
-```
-for every new node you haven't logged into yet, you can disable this check with:
-```
-echo "Host *" >> ~/.ssh/config
-echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-```
+
 
 
 ### Network-level hanging

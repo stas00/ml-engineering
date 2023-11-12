@@ -33,8 +33,33 @@ Usually benchmarking at least 4 nodes is recommended, but, of course, if you alr
 To run it on 4 nodes:
 
 ```
-python -m torch.distributed.run --nproc_per_node=4 all_reduce_bench.py
+GPUS_PER_NODE=8
+NNODES=4
+MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+MASTER_PORT=6000
+python -u -m torch.distributed.run \
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+    --rdzv_backend c10d \
+    --max_restarts 0 \
+    --role `hostname -s`: \
+    --tee 3 \
+    all_reduce_bench.py
 ```
+
+Notes:
+- adapt `MASTER_ADDR` to rank 0 hostname if it's not a SLURM environment where it's derived automatically.
+
+Here is how to run launch it in a SLURM env with 4 nodes:
+```
+salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
+srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d all_reduce_bench.py
+```
+
+Notes:
+- You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
+- You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
 
 You may get results anywhere between 5Gbps and 1600Gbps (as of this writing). The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
 
@@ -161,8 +186,6 @@ We've seen that training the model uses much more memory than just putting the m
 
 A typical model trained in mixed precision with AdamW requires 18 bytes per model parameter plus activation memory and temp memory.
 
-For inference there are no optimizer states and gradients, so we can subtract those. And thus we end up with 6 bytes per model parameter for mixed precision inference, plus activation memory.
-
 Let's look at the details.
 
 **Model Weights:**
@@ -174,12 +197,13 @@ Let's look at the details.
 
 - 8 bytes * number of parameters for normal AdamW (maintains 2 states)
 - 4 bytes * number of parameters for AdamW running at bf16. See [this work](https://github.com/huggingface/transformers/pull/21312) that uses `AnyPrecisionAdamW`.
-- 4 bytes * number of parameters for optimizers like SGD with momentum (maintains only 1 state) or LION, or Adafactor (and others)
+- 4 bytes * number of parameters for optimizers like SGD with momentum (maintains only 1 state) or LION, or Adafactor (and others) (Adafactor uses some additional memory beside 4 bytes)
 - 2 bytes * number of parameters for 8-bit AdamW optimizers like [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
 
 **Gradients**
 
-- 4 bytes * number of parameters for either fp32 or mixed precision training (gradients are almost always kept in fp32)
+- 4 bytes * number of parameters for either fp32 or mixed precision training (gradients are almost always kept in fp32).
+- 2 bytes * number of parameters for more recent works where half-precision is used
 
 **Forward Activations**
 
@@ -194,6 +218,16 @@ Additionally there are all kinds of temporary variables which get released once 
 **Functionality-specific memory**
 
 Then your software could have special memory needs. For example, when generating text using beam search, the software needs to maintain multiple copies of inputs and outputs.
+
+
+For **inference**, the math is very similar to training, minus optimizer states and gradients. And for model weights there is just a single multiplier of the number of parameters:
+
+- 6 bytes in mixed precision (4+2)
+- 4 bytes in fp32
+- 2 bytes in half precision
+- 1 byte in quantized int8 precision
+
+
 
 
 ### GPU memory allocation breakdown
@@ -267,7 +301,10 @@ For parameters that are small, there is also [Dimension Quantization Effects](ht
 
 ### Gradient Accumulation
 
+
 The idea behind gradient accumulation is to instead of calculating the gradients for the whole batch at once to do it in smaller steps. The way we do that is to calculate the gradients iteratively in smaller batches by doing a forward and backward pass through the model and accumulating the gradients in the process. When enough gradients are accumulated we run the model's optimization step. This way we can easily increase the overall batch size to numbers that would never fit into the GPU's memory. In turn, however, the added forward and backward passes can slow down the training a bit.
+
+Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
 
 When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical-and-pipeline-parallelism).
 
@@ -278,6 +315,7 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 - [RTX-3090](https://github.com/huggingface/transformers/issues/14608#issuecomment-1004392537)
 - [A100](https://github.com/huggingface/transformers/issues/15026#issuecomment-1005033957)
 
+When [data parallelism](../model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
 ### Gradient checkpointing
@@ -298,7 +336,7 @@ XXX: expand on new tech from the paper: [Reducing Activation Recomputation in La
 
 ### Memory-efficient optimizers
 
-The most common optimizer is Adam. It and its derivatives all use 8 bytes per param (2 fp32 tensors - one for each momentum), which account for almost half the memory allocation for the model, optimizer and gradients. So at times using other optimizers may save the day, if they successfully train that is. Not all optimizers are suitable for all training tasks.
+The most common optimizer is Adam. It and its derivatives all use 8 bytes per param (2x fp32 tensors - one for each momentum), which account for almost half the memory allocation for the model, optimizer and gradients. So at times using other optimizers may save the day, if they successfully train that is. Not all optimizers are suitable for all training tasks.
 
 4-byte optimizers:
 
@@ -311,9 +349,7 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 - There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/TimDettmers/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
 
 For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
-Speed-wise:`apex`'s Adam optimizer is so far the fastest implementation of Adam.
-
-
+Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
 
 
 

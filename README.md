@@ -9,29 +9,81 @@ This repo is an ongoing brain dump of my experiences training Large Language Mod
 
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
-## [Debugging software and hardware failures](./debug/)
 
-## [Fault Tolerance](./fault-tolerance/)
 
-## [Performance](./performance/)
+## Table of Contents
 
-## [Multi-Node networking](./multi-node)
 
-## [Model parallelism](./model-parallelism/)
+My apologies while I'm writing new chapters and re-organizing the content to be more intuitive. And some chapters are placeholders.
 
-## [Tensor precision / Data types](./dtype/)
+**Part 1. Key Components**
 
-## [Reproducibility](./reproducibility/)
+1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
-## [Instabilities](./instabilities/)
+1. **[IO](./io/)** - local and distributed disks and filesystems
 
-## [Training hyper-parameters and model initializations](./hparams/)
+2. **[CPU](./cpu/)** - cpus, affinities (WIP)
 
-## [SLURM](./slurm/)
+1. **[GPU](./gpu/)** - the work horses (WIP)
 
-## [Resources](./resources/)
+1. **[CPU Memory](./cpu-memory/)** - how much CPU memory is enough - the shortest chapter ever.
 
-## [HF Transformers notes](./transformers/)
+
+**Part 2. Performance**
+
+1. **[Fault Tolerance](./fault-tolerance/)**
+
+1. **[Performance](./performance/)**
+
+1. **[Multi-Node networking](./multi-node)**
+
+1. **[Model parallelism](./model-parallelism/)**
+
+
+**Part 3. Operating**
+
+1. **[SLURM](./slurm/)**
+
+1. **[Training hyper-parameters and model initializations](./hparams/)**
+
+1. **[Instabilities](./instabilities/)**
+
+
+**Part 4. Development**
+
+1. **[Debugging software and hardware failures](./debug/)**
+
+1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
+
+1. **[Reproducibility](./reproducibility/)**
+
+1. **[Tensor precision / Data types](./dtype/)**
+
+1. **[HF Transformers notes](./transformers/)** - making small models, tokenizers, datasets, and other tips
+
+
+**Part 5. Miscellaneous**
+
+1. **[Resources](./resources/)** - LLM/VLM chronicles
+
+
+
+
+## Shortcuts
+
+Things that you are likely to need to find quickly and often.
+
+Tools:
+
+- [all_reduce_bench.py](./multi-node/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
+- [torch-distributed-gpu-test.py](./debug/torch-distributed-gpu-test.py) - a tool to quickly test your inter-node connectivity
+
+Guides:
+
+- [debugging pytorch applications](./debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
+- [slurm for users](./slurm/users.md) - a slurm cheatsheet and tricks
+- [make tiny models/datasets/tokenizers](./transformers/make-tiny-models.md)
+- [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
 
 ## Generate PDF File
 

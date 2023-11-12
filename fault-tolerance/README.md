@@ -259,3 +259,147 @@ for batch in iterator:
 footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/microsoft/DeepSpeed) solve this by pre-allocating tensors at start time and then re-use them again and again preventing the issue of fragmentation altogether.
 
 footnote: this simplified example would work for a single node. For multiple nodes you'd need to gather the stats from all participating nodes and find the one that has the least amount of memory left and act upon that.
+
+
+## Dealing with forced resource preemption
+
+Earlier you have seen how the training can be gracefully stopped with a [kill switch solution](#kill-switch) and it's useful when you need to stop or pause the training on demand.
+
+On HPC clusters SLURM jobs have a maximum runtime. A typical one is 20 hours. This is because on HPCs resources are shared between multiple users/groups and so each is given a time slice to do compute and then the job is forcefully stopped, so that other jobs could use the shared resources.
+
+footnote: this also means that you can't plan how long the training will take unless your jobs run with the highest priority on the cluster. If your priority is not the highest it's not uncommmon to have to wait for hours and sometimes days before your job resumes.
+
+One could, of course, let the job killed and hope that not many cycles were spent since [the last checkpoint was saved](#frequent-checkpoint-saving) and then let the job resume from this checkpoint, but that's quite wasteful and best avoided.
+
+The efficient solution is to gracefully exit before the hard tile limit is hit and the job is killed by SLURM.
+
+First, you need to figure out how much time your program needs to gracefully finish. This typically requires 2 durations:
+
+1. how long does it take for a single iteration to finish if you have just started a new iteration
+2. how long does it take to save the checkpoint
+
+If, for example, the iteration takes 2 minutes at most and the checkpoint saving another 2 minutes, then you need at least 4 minutes of that grace time. To be safe I'd at least double it. There is no harm at exiting a bit earlier, as no resources are wasted.
+
+So, for example, let's say your HPC allows 100 hour jobs, and then your slurm script will say:
+```
+#SBATCH --time=100:00:00
+```
+
+**Approach A**. Tell the program at launch time when it should start the exiting process:
+```
+srun ... torchrun ... --exit-duration-in-mins 5990
+```
+100h is 6000 minutes and so here we give the program 10 mins to gracefully exit.
+
+And when you start the program you create a timer and then before every new iteration starts you check if the time limit is reached. If it is you save the checkpoint and exit.
+
+case study: you can see how this was set [in the BLOOM training job](https://github.com/bigscience-workshop/bigscience/blob/58d99c67f643d27b5765a73a2ee2d1ce0a4b2c6b/train/tr11-176B-ml/tr11-176B-ml.slurm#L97-L100) and then acted upon [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/blob/e52bdabbde3c6895aceb76c1bced295c2646121f/megatron/training.py#L985-L998):
+
+```
+        # Exiting based on duration
+        if args.exit_duration_in_mins:
+            train_time = (time.time() - _TRAIN_START_TIME) / 60.0
+            done_cuda = torch.cuda.IntTensor(
+                [train_time > args.exit_duration_in_mins])
+            torch.distributed.all_reduce(
+                done_cuda, op=torch.distributed.ReduceOp.MAX)
+            done = done_cuda.item()
+            if done:
+                if not saved_checkpoint:
+                    save_checkpoint_and_time(iteration, model, optimizer,
+                                             lr_scheduler)
+                print_datetime('exiting program after {} minutes'.format(train_time))
+                sys.exit()
+```
+
+As you can see since the training is distributed we have to synchronize the exiting event across all ranks
+
+You could also automate the derivation, by retrieving the `EndTime` for the running job:
+```
+$ scontrol show -d job $SLURM_JOB_ID | grep Time
+   RunTime=00:00:42 TimeLimit=00:11:00 TimeMin=N/A
+   SubmitTime=2023-10-26T15:18:01 EligibleTime=2023-10-26T15:18:01
+   AccrueTime=2023-10-26T15:18:01
+   StartTime=2023-10-26T15:18:01 EndTime=2023-10-26T15:18:43 Deadline=N/A
+```
+and then comparing with the current time in the program and instead setting the graceful exit period. There are other timestamps and durations that can be retrieved as it can be seen from the output.
+
+**Approach B**. Sending a signal X minutes before the end
+
+In your sbatch script you could set
+
+```
+#SBATCH --signal=USR1@600
+```
+and then SLURM will send a `SIGUSR1` signal to your program 10min before job's end time.
+
+footnote: normally SLURM schedulers send a `SIGTERM` signal about 30-60 seconds before the job's time is up, and just as the time is up it will send a `SIGKILL` signal if the job is still running. `SIGTERM` can be caught and acted upon but 30 seconds is not enough time to gracefully exit a large model training program.
+
+
+Let's demonstrate how the signal sending and trapping works. In terminal A, run:
+```
+python -c "
+import time, os, signal
+
+def sighandler(signum, frame):
+    print('Signal handler called with signal', signum)
+    exit(0)
+
+signal.signal(signal.SIGUSR1, sighandler)
+print(os.getpid())
+time.sleep(1000)
+"
+```
+it will print the pid of the process, e.g., `4034989` and will go to sleep (emulating real work). In terminal B now send `SIGUSR1` signal to the python program in terminal A with:
+
+```
+kill -s USR1 4034989
+```
+
+The program will trap this signal, call the `sighandler` which will now print that it was called and exit.
+
+```
+Signal handler called with signal 10
+```
+`10` is the numerical value of `SIGUSR1`.
+
+So here is the same thing with the SLURM setup:
+
+```
+$ cat sigusr1.slurm
+#SBATCH --job-name=sigusr1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=0:03:00
+#SBATCH --partition=mypartition
+#SBATCH --output=%x-%j.out
+#SBATCH --signal=USR1@170
+
+srun python -c "
+import time, os, signal
+
+def sighandler(signum, frame):
+    print('Signal handler called with signal', signum)
+    exit(0)
+
+signal.signal(signal.SIGUSR1, sighandler)
+print(os.getpid())
+time.sleep(1000)
+"
+```
+In the SLURM script we told SLURM to send the program a signal 170 seconds before its end and the job itself was set to run for 180 secs (3 mins).
+
+When this job has been scheduled:
+```
+sbatch sigusr1.slurm
+```
+10 seconds (`180-170`) after the job started, it will exit with the log:
+
+```
+58307
+Signal handler called with signal 10
+```
+
+which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exited.
+
+Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in Approach A above.
