@@ -390,10 +390,10 @@ As this type of parallelism is orthogonal to the other parallelization types des
 Paper: [DeepSpeed Ulysses: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models](https://arxiv.org/abs/2309.14509)
 
 In this implementation 2 elements are sharded:
-1. the long sequence is partitioned into chunks and each chunk is sent to one of the GPUs
-2. the multiple-head attention weights are split across the same GPUs so that each GPU has a few sub-heads only.
+1. The multiple-head attention weights are split across the participating GPUs so that each GPU has a few sub-heads only. This is done when the model is created/loaded. This is somewhat similar to [Tensor Parallelism](#tensor-parallelism).
+2. During training each input sequence is partitioned into chunks and each chunk is sent to one of the GPUs, which reminds us of ZeRO-3 sharding, except instead of weights the inputs are sharded.
 
-During compute the sequences are gathered fully on each device, and then computed on each device only for the subheads it owns. The first part is similar to ZeRO-3 where weights are sharded across many GPUs and during compute each GPU gathers the whole layer it's about to process. The second part is somewhat similar to [Tensor Parallelism](#tensor-parallelism), where the multi-head attention is split up across several GPUs.
+During compute each sequence chunk is projected onto QKV and then gathered to the full sequence QKV on each device, computed on each device only for the subheads it owns and then gathered again into the full attention output for the MLP block.
 
 ![deepspeed-ulysses sp](images/deepspeed-ulysses.png)
 
@@ -401,18 +401,18 @@ During compute the sequences are gathered fully on each device, and then compute
 
 On the diagram:
 1. Input sequences N are partitioned across P available devices.
-2. Each local N/P partition is projected into queries (Q), keys (K) and values (V) embeddings.
-3. Next, (QKV) embeddings are gathered into global QKV through highly optimized all-to-all collectives between participating compute devices.
-4. Sequel to all-to-all collective is the attention computation per head in the form:
+2. Each local N/P partition of the input sequence is projected into queries (Q), keys (K) and values (V) embeddings.
+3. Next, local QKV embeddings are gathered into global QKV through highly optimized all-to-all collectives between participating compute devices.
+4. Then the attention computation per head is performed:
 
 ![math](images/deepspeed-ulysses-math.png)
 
-5. After the attention computation, another all-to-all collective transforms output context tensor of attention computation to sequence (N/P) parallel for subsequent operators (MLP MatMul, layer norm, etc.) in the remaining modules of transformer layer block.
+5. At the end another all-to-all collective transforms output context tensor of attention computation to sequence (N/P) parallel for subsequent operators (MLP MatMul, layer norm, etc.) in the remaining modules of transformer layer block.
 
-Example: Let's consider seqlen=8K, num_heads=128 and a single node of 8 gpus
+Example: Let's consider seqlen=8K, num_heads=128 and a single node of num_gpus=8
 
-1. each GPU gets a 1K-long chunk of the original sequence
-2. each GPU gets assigned 16 sub-heads
+1. each GPU gets a 1K-long chunk of the original sequence (`8K/8`)
+2. each GPU gets assigned 16 sub-heads (`128/8`)
 3. a. on gpu0 before `forward` the original sequence is gathered back into 8K tokens
    b. the attention computation is done on the first 16 sub-heads
 the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads

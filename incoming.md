@@ -45,3 +45,10 @@ gdb with cuda
 ```
 cuda-gdb
 ```
+
+
+- integrate debug_utils.py
+
+# Testing
+
+- integrate the features from testing_utils.py
