@@ -256,7 +256,7 @@ for batch in iterator:
     train_step(batch)
 ```
 
-footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/microsoft/DeepSpeed) solve this by pre-allocating tensors at start time and then re-use them again and again preventing the issue of fragmentation altogether.
+footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/microsoft/DeepSpeed) solve this by pre-allocating tensors at start time and then reuse them again and again preventing the issue of fragmentation altogether.
 
 footnote: this simplified example would work for a single node. For multiple nodes you'd need to gather the stats from all participating nodes and find the one that has the least amount of memory left and act upon that.
 
@@ -267,7 +267,7 @@ Earlier you have seen how the training can be gracefully stopped with a [kill sw
 
 On HPC clusters SLURM jobs have a maximum runtime. A typical one is 20 hours. This is because on HPCs resources are shared between multiple users/groups and so each is given a time slice to do compute and then the job is forcefully stopped, so that other jobs could use the shared resources.
 
-footnote: this also means that you can't plan how long the training will take unless your jobs run with the highest priority on the cluster. If your priority is not the highest it's not uncommmon to have to wait for hours and sometimes days before your job resumes.
+footnote: this also means that you can't plan how long the training will take unless your jobs run with the highest priority on the cluster. If your priority is not the highest it's not uncommon to have to wait for hours and sometimes days before your job resumes.
 
 One could, of course, let the job killed and hope that not many cycles were spent since [the last checkpoint was saved](#frequent-checkpoint-saving) and then let the job resume from this checkpoint, but that's quite wasteful and best avoided.
 

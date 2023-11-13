@@ -24,7 +24,7 @@ py-spy dump -n -p PID
 and it will tell you where the process hangs (very often it's a nccl collective function or a `barrier`).
 
 - `PID` is the process id of the hanging python process.
-- `-n` is useful if you want to see strack traces from python extensions written in C, C++, etc., as the program may hang in one of the extensions
+- `-n` is useful if you want to see stack traces from python extensions written in C, C++, etc., as the program may hang in one of the extensions
 - you may need to add `sudo` before the command - for more details see [this note](https://github.com/benfred/py-spy#when-do-you-need-to-run-as-sudo).
 
 If you have no `sudo` access your sysadmin might be able to perform this for you:
