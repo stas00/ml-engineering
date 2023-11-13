@@ -1,11 +1,12 @@
-import os
-import markdown
-from weasyprint import HTML
 import PyPDF2
+import datetime
+import markdown
+import os
 
 from markdown_it import MarkdownIt
-from mdit_py_plugins.front_matter import front_matter_plugin
 from mdit_py_plugins.footnote import footnote_plugin
+from mdit_py_plugins.front_matter import front_matter_plugin
+from weasyprint import HTML
 
 def convert_markdown_to_pdf(markdown_path, pdf_path):
     md = (
@@ -42,19 +43,34 @@ def concatenate_pdfs(pdf_files, output_pdf):
     pdf_merger.write(output_pdf)
     pdf_merger.close()
 
-def find_markdown_files(root_dir):
-    markdown_files = []
-    for root, dirs, files in os.walk(root_dir):
-        for file in files:
-            if file.endswith(".md"):
-                markdown_files.append(os.path.join(root, file))
-    return markdown_files
+def make_cover_page_file(cover_md_file, date):
+    with open(cover_md_file, "w") as f:
+        f.write(f"""
+## Machine Learning Engineering
+
+This is a PDF version of [Machine Learning Engineering by Stas Bekman](https://github.com/stas00/ml-engineering).
+
+As this book is an early work in progress that gets updated frequently, if you downloaded it as pdf, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering).
+
+This PDF was generated on {date}.
+""")
+    return cover_md_file
+
+def get_markdown_files(chapters_file):
+    with open(chapters_file) as f:
+        chapters = [l for l in f.read().splitlines() if len(l)>0]
+    return chapters
 
 if __name__ == "__main__":
-    root_directory = "." 
-    out_pdf_path = 'book.pdf'
-    markdown_files = find_markdown_files(root_directory)
 
+    date = datetime.datetime.now().strftime("%Y-%m-%d")
+    cover_md_file = "book-front.md"
+    chapters_file = "chapters.txt"
+    out_pdf_path = f"Stas Bekman - Machine Learning Engineering ({date}).pdf"
+
+    markdown_files = [make_cover_page_file(cover_md_file, date)] + get_markdown_files(chapters_file)
+
+    cleanup_files = [cover_md_file]
     if not markdown_files:
         print("No Markdown files found.")
     else:
@@ -64,8 +80,13 @@ if __name__ == "__main__":
             if convert_markdown_to_pdf(markdown_file, pdf_file):
                 pdf_files.append(pdf_file)
 
+        cleanup_files += pdf_files
+
         if pdf_files:
             concatenate_pdfs(pdf_files, out_pdf_path)
             print(f"PDFs successfully concatenated into {out_pdf_path}")
         else:
             print("No PDFs generated.")
+
+    for f in cleanup_files:
+        os.unlink(f)

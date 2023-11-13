@@ -48,6 +48,8 @@ My apologies while I'm writing new chapters and re-organizing the content to be 
 
 1. **[Instabilities](./instabilities/)**
 
+1. **[Checkpoints](./checkpoints/)**
+
 
 **Part 4. Development**
 
