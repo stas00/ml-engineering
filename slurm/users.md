@@ -122,7 +122,7 @@ Note that depending on your application there can be quite a performance differe
 On some setups like AWS the network's performance degrades dramatically when `--hint=nomultithread` is used!
 
 
-## Re-use allocation
+## Reuse allocation
 
 e.g. when wanting to run various jobs on identical node allocation.
 

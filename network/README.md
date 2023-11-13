@@ -172,7 +172,7 @@ footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-cent
 
 So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
 
-Earlier we said that a typical A100 node has an intra-node NVLink connectin of 600GBps, and thus we said that to send 16GB of grads will take `16/600` = 0.027 secs.
+Earlier we said that a typical A100 node has an intra-node NVLink connection of 600GBps, and thus we said that to send 16GB of grads will take `16/600` = 0.027 secs.
 
 And we measured our compute to be 0.42 secs, so here are we good as `0.027 < 0.42` so the comms will be faster than compute and not be a bottleneck.
 

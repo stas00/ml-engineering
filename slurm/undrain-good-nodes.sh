@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# When nodes get auto placed in drain because SLURM fails to wait till all last job's processes are killed and it just takes longer for them to finishe, this script automatically checks if all processes tied to the gpu have been killed and if this is so it'll undrain those nodes
+# When nodes get auto placed in drain because SLURM fails to wait till all last job's processes are killed and it just takes longer for them to finish, this script automatically checks if all processes tied to the gpu have been killed and if this is so it'll undrain those nodes
 
 # get the nodes that were put to `drain` because the job was too slow to exit
 nodes=( $(sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames) )
@@ -20,7 +20,7 @@ for n in "${nodes[@]}"; do
         clean=0
         # if there are processes running still try to kill them again and recheck if it was successful
 
-        # kill any processes tieing up the gpus
+        # kill any processes tying up the gpus
         PDSH_RCMD_TYPE=ssh pdsh -w $n "nvidia-smi --query-compute-apps=pid --format=csv,noheader | sort | uniq | xargs -n1 sudo kill -9"
 
         echo "sleeping for 3 secs to let the processes exit"
