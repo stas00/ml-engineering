@@ -50,7 +50,7 @@ def make_cover_page_file(cover_md_file, date):
 
 This is a PDF version of [Machine Learning Engineering by Stas Bekman](https://github.com/stas00/ml-engineering).
 
-As this book is an early work in progress that gets updated frequently, if you downloaded it as pdf, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering).
+As this book is an early work in progress that gets updated frequently, if you downloaded it as a pdf file, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering).
 
 This PDF was generated on {date}.
 """)
@@ -66,27 +66,25 @@ if __name__ == "__main__":
     date = datetime.datetime.now().strftime("%Y-%m-%d")
     cover_md_file = "book-front.md"
     chapters_file = "chapters.txt"
-    out_pdf_path = f"Stas Bekman - Machine Learning Engineering ({date}).pdf"
+    pdf_file = f"Stas Bekman - Machine Learning Engineering ({date}).pdf"
 
     markdown_files = [make_cover_page_file(cover_md_file, date)] + get_markdown_files(chapters_file)
 
     cleanup_files = [cover_md_file]
-    if not markdown_files:
-        print("No Markdown files found.")
+
+    pdf_files = []
+    for markdown_file in markdown_files:
+        pdf_file = markdown_file.replace(".md", ".pdf")
+        if convert_markdown_to_pdf(markdown_file, pdf_file):
+            pdf_files.append(pdf_file)
+
+    cleanup_files += pdf_files
+
+    if pdf_files:
+        concatenate_pdfs(pdf_files, pdf_file)
+        print(f"PDFs successfully concatenated into {pdf_file}")
     else:
-        pdf_files = []
-        for markdown_file in markdown_files:
-            pdf_file = markdown_file.replace(".md", ".pdf")
-            if convert_markdown_to_pdf(markdown_file, pdf_file):
-                pdf_files.append(pdf_file)
-
-        cleanup_files += pdf_files
-
-        if pdf_files:
-            concatenate_pdfs(pdf_files, out_pdf_path)
-            print(f"PDFs successfully concatenated into {out_pdf_path}")
-        else:
-            print("No PDFs generated.")
+        print(f"No PDFs generated, check {chapters_file}")
 
     for f in cleanup_files:
         os.unlink(f)
