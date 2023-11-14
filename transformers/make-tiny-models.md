@@ -195,28 +195,36 @@ But for the needs of a tiny model (testing) the frequency doesn't matter at all.
 
 ### Hack the tokenizer file approach
 
-Some tokenizers can be be just manually truncated at the file level, e.g. Electra:
+Some tokenizers can be be just manually truncated at the file level, e.g. let's shrink Llama2's tokenizer to 3k items:
+
 ```
 # Shrink the orig vocab to keep things small (just enough to tokenize any word, so letters+symbols)
-# ElectraTokenizerFast is fully defined by a tokenizer.json, which contains the vocab and the ids, so we just need to truncate it wisely
+# ElectraTokenizerFast is fully defined by a tokenizer.json, which contains the vocab and the ids,
+# so we just need to truncate it wisely
 import subprocess
-from transformers import ElectraTokenizerFast
+import shlex
+from transformers import LlamaTokenizerFast
 
-mname = "google/electra-small-generator"
+mname = "meta-llama/Llama-2-7b-hf"
 vocab_keep_items = 3000
 
-tokenizer_fast = ElectraTokenizerFast.from_pretrained(mname)
+tokenizer_fast = LlamaTokenizerFast.from_pretrained(mname)
 tmp_dir = f"/tmp/{mname}"
 tokenizer_fast.save_pretrained(tmp_dir)
 # resize tokenizer.json (vocab.txt will be automatically resized on save_pretrained)
-# perl -pi -e 's|(2999).*|$1}}}|' tokenizer.json # 0-indexed, so vocab_keep_items-1!
-closing_pat = "}}}"
-cmd = (f"perl -pi -e s|({vocab_keep_items-1}).*|$1{closing_pat}| {tmp_dir}/tokenizer.json").split()
-result = subprocess.run(cmd, capture_output=True, text=True)
+# perl  -0777 -pi -e 's|(2999).*|$1},"merges": []}}|msg' tokenizer.json # 0-indexed, so vocab_keep_items-1!
+closing_pat = '},"merges": []}}'
+cmd = (f"perl -0777 -pi -e 's|({vocab_keep_items-1}).*|$1{closing_pat}|msg' {tmp_dir}/tokenizer.json")
+#print(f"Running:\n{cmd}")
+result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
 # reload with modified tokenizer
-tokenizer_fast_tiny = ElectraTokenizerFast.from_pretrained(tmp_dir)
+tokenizer_fast_tiny = LlamaTokenizerFast.from_pretrained(tmp_dir)
 tokenizer_fast_tiny.save_pretrained(".")
 ```
+Please remember that the outcome is only useful for functional testing - not quality work.
+
+Here is the full version of [make_tiny_model.py](https://huggingface.co/stas/tiny-random-llama-2/blob/main/make_tiny_model.py) which includes both the model and the tokenizer shrinking.
+
 
 ### SentencePiece vocab shrinking
 
