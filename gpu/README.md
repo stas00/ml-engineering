@@ -189,15 +189,14 @@ for example, AMD MI250 has:
 
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
-- 24 100 Gigabit Ethernet (RoCEv2) integrated on chip
-- 96 GB HBM2E memory on board w/2.45 TB/sec bandwidth
+- 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per GPU), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
+- 96GB HBM2E memory on board w/2.45 TBps bandwidth per chip, for a total of 768GB per node
 
+A server/node is built from 8 GPUs, which can then be expanded with racks of those servers.
 
-There are no official TFLOPS information published.
+There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://developer.habana.ai/resources/habana-models-performance/ but I'm not sure how these can be used to compare this compute to other providers.
 
-A server/node is usually built from 8 GPUs.
-
-Comparison: competes with NVIDIA H100
+Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
 
 
