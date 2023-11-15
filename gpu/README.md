@@ -22,7 +22,7 @@ GPUs:
 - As of today, ML clouds started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
 - AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. From a recent discussion with an AMD representative MI300 is not planned to be in general availability until some time in 2025.
 - Intel's Gaudi2 is out there as well, but again, I haven't seen many clouds that offer this GPU.
-- And there is GraphCore with their IPU offering, and again, I have no idea where to try it out.
+- And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
 
 TPU:
 - Google's TPUs are, of course, available but they aren't the most desirable GPUs because you can't only rent them, and the software isn't quite yet easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked in into a hardware which is a Google monopoly.
@@ -131,8 +131,8 @@ AMD:
 Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - I can't find where it's available, found some Gaudi1 at AWS [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/), but not Gaudi2. cloud.intel.com is supposed to have Gaudi2 but I couldn't even login into this service.
 
-GraphCore:
-- [IPU](https://www.graphcore.ai/products/ipu) - very difficult to find
+Graphcore:
+- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)
 
 ### In-house GPU Clusters
 
