@@ -260,15 +260,15 @@ Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
 NVlink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
 
-- NVLink 2 has  6 links => `25* 6`=> 150 GBps unidirectional and 300 Gbps bi-directional
-- NVLink 3 has 12 links => `25*12`=> 300 GBps unidirectional and 600 Gbps bi-directional
-- NVLink 4 has 18 links => `25*18`=> 450 GBps unidirectional and 900 Gbps bi-directional
+- NVLink 2 has  6 links => `25* 6`=> 150 GBps unidirectional and 300 GBps bi-directional
+- NVLink 3 has 12 links => `25*12`=> 300 GBps unidirectional and 600 GBps bi-directional
+- NVLink 4 has 18 links => `25*18`=> 450 GBps unidirectional and 900 GBps bi-directional
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
 As of this writing NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVlink is 7x faster than PCIe.
 
-Let's look at some A100 and H100 nodes and correlate the theory with reality.
+Let's look at some actual A100 and H100 nodes and correlate the theory with reality.
 
 - A100 topology:
 
@@ -301,6 +301,7 @@ GPU7  NV18  NV18  NV18  NV18  NV18  NV18  NV18   X    52-103        1
 ```
 You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
+Of course, other A100 and H100s servers may be different, e.g. different number of cpu cores.
 
 
 ### NVSwitch
@@ -311,11 +312,15 @@ The benefit of connecting more than 8 GPUs at the speed of NVLink is that it all
 
 For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Depspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
-The current [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 GBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 GBps all-to-all connectivity for 8 GPUs.
+The current [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
-NVIDIA DGX A100 has 6 switches of 12 NVlinks => 72
+NVIDIA DGX A100 has 6 switches of 12 NVlinks => 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 GBps per node, for a total of 57.6 GBps in total.
+
+### Gaudi2
+
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps and each card connected with each of the other 7 cards at 262.5 GBps.
 
 
 ### NUMA Affinity
@@ -403,6 +408,9 @@ One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/In
 
 For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
+### Gaudi2
+
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 24 NICs of 100GbE RoCE v2 ROMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 servers.
 
 ### OPA
 
