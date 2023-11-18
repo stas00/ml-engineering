@@ -5,9 +5,9 @@ XXX: This a very early WIP
 
 As of this writing GPUs are the workhorses of the ML training.
 
-There exist two main ML workloads - training and inference.
+There exist two main ML workloads - training and inference. There is also the finetuning workload which is usually the same as training, unless a much lighter [LORA-style](https://arxiv.org/abs/2106.09685) finetuning is performed which requires significantly fever resources and time than normal finetuning.
 
-In language models during inference the generation is performed in a sequence - one token at a time. So it has to repeat the same `forward` call thousands of times one small `matmul` (matrix multiplication or GEMM) at a time. And this can be done on either a GPU or some of the most recent CPUs, that can handle inference quite efficiently.
+In language models during inference the generation is performed in a sequence - one token at a time. So it has to repeat the same `forward` call thousands of times one smallish `matmul` (matrix multiplication or GEMM) at a time. And this can be done on either a GPU or some of the most recent CPUs, that can handle inference quite efficiently.
 
 During training the whole sequence length is processed in one huge `matmul` operation. So if the sequence length is 4k long, the training of the same model will require a compute unit that can handle 4k times more operations than inference and do it fast. GPU excels at this task. In fact the larger the matrices it has to multiply, the more efficient the compute.
 
@@ -60,7 +60,7 @@ We will use the NVIDIA A100 spec as a reference point in the following sections.
 
 As mentioned earlier most of the work that ML training and inference do is matrix multiplication. If you remember your algebra matrix multiplication is made of many multiplications followed by summation. Each of these computations can be counted and define how many of these operations can be performed by the chip in a single seconds.
 
-This is one of the key characteristics that the GPUs are judged by. The term TFLOPS defines how many FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example here are a few entries for A100:
+This is one of the key characteristics that the GPUs are judged by. The term TFLOPS defines how many FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
 
 | Data type              | FLOPS | w/ Sparsity |
 | :---                   |   --: |         --: |
@@ -121,15 +121,16 @@ The only important practical understanding for heat is that if the GPUs aren't k
 Most common GPUs that can be either rented on compute clouds or purchased:
 
 NVIVDIA:
-- [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated
-- [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8
+- [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated.
+- [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, slowly emerging on all major clouds.
+- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - availability is unknown.
 
 AMD:
 - [MI250](https://www.amd.com/en/products/server-accelerators/instinct-mi250) ~= A100 - very few clouds have them
 - MI300 ~= H100 - don’t expect until late-2024 or even 2025 to be GA
 
 Intel:
-- [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - I can't find where it's available, found some Gaudi1 at AWS [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/), but not Gaudi2. cloud.intel.com is supposed to have Gaudi2 but I couldn't even login into this service.
+- [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - Currently there is a very low availability on [cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/).
 
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)

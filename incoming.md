@@ -7,16 +7,10 @@ https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
 
 # IO chapter
 
-Fastest IO solution
+### IO benchmarks:
 
-Parallel store:
+https://github.com/argonne-lcf/dlio_benchmark
 
-- GPFS
-- Lustre
-
-Super slow solutions:
-
-- NFS
 
 
 # Debug
