@@ -4,6 +4,8 @@ Training loss plot is similar to the heart beat pattern - there is the good, the
 
 In this section you will find a gallery of such training losses with either explanations and more often than not educated guesses to what might be happening.
 
+Most of the time we don't understand the cause of some patterns, but we know how to deal with them to bring the training to the finish line.
+
 Please excuse the plot snapshots looking wildly different from each other as they have come from many sources over multiple years.
 
 ## The good, the bad and the unexpected
@@ -148,7 +150,7 @@ As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plottin
 
 ![](images/ptl-repeat-data-p3.png)
 
-There was no spike in two earlier runs. The loss never went below 2.05! 2.05 was the true loss. It was under-reporting both times due to repeat data and then it reached data it hasn't seen before and started reporting correctly. In other words it was overfitting for a stretch.
+There was no real spike in the two earlier runs. The loss never went up in the first place. In both resumes it was under-reporting loss due to an exactly repeated data and then it reached data it hasn't seen before and started reporting correctly. In other words it was overfitting and reporting a false loss.
 
 The cause of the problem is data repetition, and since it clearly memorised some of it it was reporting a better loss.
 
@@ -157,3 +159,5 @@ The problem comes from [pytorch-lightning](https://github.com/lightning-ai/light
 footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
 
 Make sure to check your training framework documentation whether it handles the DataSampler resuming correctly. Make sure you didn't discover this problem after the training has finished and you ended up training 6x times the same 50B of tokens from the planned 300B tokens seen only once each.
+
+Doing a couple of resumes early on before embarking on the real training should also expose if there is a problem. Albeit, if the data gets reshuffled on each resume you are unlikely to see it. It'll only be seen if the seed is the same.
