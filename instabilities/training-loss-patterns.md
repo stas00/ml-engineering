@@ -1,40 +1,44 @@
 # Understanding Training Loss Patterns
 
-Training loss plot is similar to the heart beat pattern - there the good, the bad and the so so one. After studying many training loss trajectories one develops an intuition to explain various loss behaviors during one's training and how to act on those.
+Training loss plot is similar to the heart beat pattern - there is the good, the bad and you-should-worry one. After studying many training loss trajectories one develops an intuition to explain various loss behaviors during one's training and how to act on those.
 
 In this section you will find a gallery of such training losses with either explanations and more often than not educated guesses to what might be happening.
 
 Please excuse the plot snapshots looking wildly different from each other as they have come from many sources over multiple years.
 
-## A very failed training
+## The good, the bad and the unexpected
 
-Prior to starting BLOOM-176B training we did multiple experiments with a [104B model](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide). We failed to figure out how to not diverge very early on.
+Let's look at some good, bad and unusual patterns.
+
+### A very failed training
+
+Prior to starting BLOOM-176B training we did multiple experiments with the [104B model](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide). We failed to figure out how to not diverge very early on.
 
 ![](images/pre-bloom-104B-en-fail.png)
 
 As you can see many attempts were made, many techniques were applied (see [chronicles](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide/chronicles.md). We think the 2 main obstacles were using fp16 and data that had a lot of garbage in it. For BLOOM-176B we switched to bf16, used much cleaner data and also added an embedding layer-norm and that made all the difference.
 
 
-## An almost perfect training
+### An almost perfect training
 
 ![](images/bloom-176B-success.png)
 
-[BLOOM-176B](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr11-176B-ml) had a close to perfect training loss trajectory, with a single spike that has recovered in 200 steps.
+The [BLOOM-176B](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr11-176B-ml) training had a close to perfect training loss trajectory, with a single spike that has recovered in 200 steps.
 
 You can inspect the [TB](https://huggingface.co/bigscience/tr11-176B-logs/tensorboard) to zoom in and check other plots.
 
 This was the almost perfect training indeed. Lots of hard work was put into achieving this.
 
 
-## The grokking moment
+### The grokking moment
 
 Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ Deepspeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
 
 ![](images/llama-7b-grokking.png)
 
-Do you see how the model suddenly dropped from 4 to 2. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. The model suddenly generalized to predict the masked tokens in a single step.
+Do you see how the model suddenly dropped from loss 4 to 2? My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In a single step with just 8 samples the model suddenly generalized to much better predict the masked tokens.
 
-Normally one doesn't see such an abrupt transition when using a huge batch size.
+Normally one doesn't see such a dramatic improvement when using a much larger batch size.
 
 
 ## Main types of loss spikes
@@ -45,11 +49,16 @@ In general there are 3 types of loss spikes:
 2. Slow recovering spikes
 3. Not fully recovering spikes
 
+The spikes usually happen because of a bad data pocket, either due to badly shuffled data or because it hasn't been cleaned from some garbage scraped from the websites.
+
+While one would suspect that the batch before the spike was the trigger, but if you were to study that batch's contents you are likely to find nothing unusual - quite often the problem starts developing many steps before and then most of the sudden it happens. But also it might not be easy to study the batch, since it could amount to a size of a book when the global batch size and the sequence lengths are huge.
+
+
 ### Fast recovering spikes
 
 Loss spikes can happen often and as long as they quickly bounce back to where they left off the training usually continues as if nothing happened:
 
-Here is an example of [a 13B pre-BLOOM training experiment](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr1-13B-base):
+Here is an example of [the 13B pre-BLOOM training experiment](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr1-13B-base):
 
 ![](images/pre-bloom-tr1-13B-glitch-1-2.png)
 
@@ -58,8 +67,7 @@ As you can see there are many spikes, some of a huge magnitude but they have all
 
 ### Slow recovering spikes
 
-
-Here is a slow recovering spike from [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training:
+Here is a slow recovering spike from the [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training:
 
 ![](images/idefics-80b-tr-190-01-spike-recover-2023-05-30.png)
 
@@ -72,7 +80,7 @@ This [104B model attempt](https://github.com/bigscience-workshop/bigscience/tree
 
 ![](images/pre-bloom-tr8-104B-glitch-1.png)
 
-Here is another example from [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training:
+Here is another example from the [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training:
 
 ![](images/idefics-80b-tr-190-01-spike-2023-05-27.png)
 
@@ -94,7 +102,7 @@ All these are from the [104B model attempts](https://github.com/bigscience-works
 
 ### Multiple datasets spikes
 
-During [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training we were using 2 different dataset types.
+During the [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training we were using 2 different dataset types.
 
 ![](images/idefics-80b-tr-190-01-losses-2023-06-04.png)
 
@@ -112,7 +120,7 @@ Training resume due to a hardware crash or because a need to rollback to an earl
 The most complicated challenge of resume is restoring various RNGs, getting to the DataLoader index where the previous training was restored, and dealing with various other requirements if you use complex DataLoaders that are specific to your setup.
 
 
-## DataSampler related issues
+### DataSampler related issues
 
 During [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training we had a very complicated DataLoader which was suffering from image to text ratio fluctuations when the DataLoader was getting restored on resume, so we ended up having a small spike on each resume which would then recover:
 
@@ -124,7 +132,7 @@ You can see the loss and ratio plots correlation here. As we had to resume about
 
 
 
-## Impacts of repeat data
+### Impacts of repeat data
 
 I was training a variation of Llama2 and saw this super unusual spike that didn't diverge or recover but which switched to a new higher loss level:
 
