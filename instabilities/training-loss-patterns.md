@@ -104,15 +104,15 @@ All these are from the [104B model attempts](https://github.com/bigscience-works
 
 ### Multiple datasets spikes
 
-During the [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training we were using 2 different dataset types.
+During the [IDEFICS-80B](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) training we were using 2 different dataset types mixed together:
 
 ![](images/idefics-80b-tr-190-01-losses-2023-06-04.png)
 
-cm4 (high), average (mid) and pmd (low)
+Legend: cm4 (high), average (mid) and pmd (low)
 
 You can see that the loss spikes were sometimes happening simultaneously on both datasets and at other times only one of the datasets loss would spike.
 
-Here the model was learning two different data distributions and as you can see it was not reporting the same loss and the spike behaviors on both data distributions.
+Here the model was learning two different data distributions and as you can see it was not reporting the same loss and the spike behaviors on both data distributions. The pmd datasets loss was much easier for the model than the cm4 one.
 
 
 ## Resume-related spikes
