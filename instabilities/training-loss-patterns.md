@@ -4,6 +4,7 @@ Training loss plot is similar to the heart beat pattern - there the good, the ba
 
 In this section you will find a gallery of such training losses with either explanations and more often than not educated guesses to what might be happening.
 
+Please excuse the plot snapshots looking wildly different from each other as they have come from many sources over multiple years.
 
 ## A very failed training
 
