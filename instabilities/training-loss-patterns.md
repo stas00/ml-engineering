@@ -2,9 +2,9 @@
 
 Training loss plot is similar to the heart beat pattern - there is the good, the bad and you-should-worry one. After studying many training loss trajectories one develops an intuition to explain various loss behaviors during one's training and how to act on those.
 
-In this section you will find a gallery of such training losses with either explanations and more often than not educated guesses to what might be happening.
+I warn you that the "Understanding" in the title of this section is overloaded since very often we don't really understand why certain types of spikes happen. Here "understanding" refers to recognizing various patterns. We then usually have techniques to overcome the bad patterns and bring the training successfully to the finish line.
 
-Most of the time we don't understand the cause of some patterns, but we know how to deal with them to bring the training to the finish line.
+Thus you will find here a gallery of training loss patterns sometimes with real explanations, but more often than not educated guesses to what might be happening.
 
 Please excuse the plot snapshots looking wildly different from each other as they have come from many sources over multiple years.
 
