@@ -412,6 +412,10 @@ For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated I
 
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 24 NICs of 100GbE RoCE v2 ROMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 servers.
 
+### HPE Slingshot interconnect
+
+[HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of this writing it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
+
 ### OPA
 
 [OmniPath](https://en.wikipedia.org/wiki/Omni-Path). Originally by Intel, the technology got sold to Cornelis Networks.
