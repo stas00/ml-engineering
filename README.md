@@ -1,4 +1,4 @@
-# Machine Learning Engineering Guides and Tools
+# Machine Learning Engineering Online Book
 
 An open collection of methodologies to help with successful training of large language models and multi-modal models.
 
