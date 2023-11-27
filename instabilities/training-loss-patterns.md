@@ -36,11 +36,17 @@ This was the almost perfect training indeed. Lots of hard work was put into achi
 
 Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ Deepspeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
 
-![](images/llama-7b-grokking.png)
+![](images/llama-7b-grokking-no-zoom.png)
 
-Do you see how the model suddenly dropped from loss 4 to 2? My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In a single step with just 8 samples the model suddenly generalized to much better predict the masked tokens.
+Here one can observe a rapid loss improvement from 4 to 2.5 in just 480 samples after a very steady much slower improvements. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In just a handful of steps the model suddenly generalized to much better predict the masked tokens.
 
 Normally one doesn't see such a dramatic improvement when using a much larger batch size.
+
+If we zoom in it took about 60 8-sample per iteration steps:
+
+![](images/llama-7b-grokking.png)
+
+
 
 
 ## Main types of loss spikes
