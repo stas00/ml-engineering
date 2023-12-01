@@ -16,13 +16,13 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 1. Key Components**
 
+1. **[Accelerator](./accelerator/)** - the work horses of ML - GPU, TPU, IPU, XPU, FPGA, QPU, etc. (WIP)
+
 1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
 1. **[IO](./io/)** - local and distributed disks and filesystems
 
-2. **[CPU](./cpu/)** - cpus, affinities (WIP)
-
-1. **[GPU](./gpu/)** - the work horses (WIP)
+1. **[CPU](./cpu/)** - cpus, affinities (WIP)
 
 1. **[CPU Memory](./cpu-memory/)** - how much CPU memory is enough - the shortest chapter ever.
 
