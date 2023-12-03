@@ -46,3 +46,10 @@ cuda-gdb
 # Testing
 
 - integrate the features from testing_utils.py
+
+
+# From Adam Moody's team at LLNL
+
+- Training hanging detection tool:
+
+https://github.com/LLNL/STAT - the Stack Trace Analysis Tool

@@ -14,7 +14,11 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 My apologies if the layout is a bit unstable while I'm writing new chapters and gradually re-organizing the content to be more intuitive.
 
-**Part 1. Key Components**
+**Part 1. Insights**
+
+1. **[The AI Battlefield Engineering - What You Need To Know](./insights/ai-battlefield.md)**
+
+**Part 2. Key Hardware Components**
 
 1. **[Accelerator](./accelerator/)** - the work horses of ML - GPU, TPU, IPU, XPU, FPGA, QPU, etc. (WIP)
 
@@ -27,7 +31,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[CPU Memory](./cpu-memory/)** - how much CPU memory is enough - the shortest chapter ever.
 
 
-**Part 2. Performance**
+**Part 3. Performance**
 
 1. **[Fault Tolerance](./fault-tolerance/)**
 
@@ -38,7 +42,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Model parallelism](./model-parallelism/)**
 
 
-**Part 3. Operating**
+**Part 4. Operating**
 
 1. **[SLURM](./slurm/)**
 
@@ -47,7 +51,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Instabilities](./instabilities/)**
 
 
-**Part 4. Development**
+**Part 5. Development**
 
 1. **[Debugging software and hardware failures](./debug/)**
 
@@ -60,7 +64,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[HF Transformers notes](./transformers/)** - making small models, tokenizers, datasets, and other tips
 
 
-**Part 5. Miscellaneous**
+**Part 6. Miscellaneous**
 
 1. **[Resources](./resources/)** - LLM/VLM chronicles
 

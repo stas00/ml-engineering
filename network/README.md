@@ -232,7 +232,7 @@ Note to the reader: my notes currently include only NVIDIA intra-node hardware, 
 
 On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardware - NVLink and NVSwitch. There is of course PCIe but it's about an order of magnitude slower so it's never used on modern GPU servers to perform GPU-to-GPU communications.
 
-## NVLink
+### NVLink
 
 - [PCIe](https://en.wikipedia.org/wiki/PCI_Express)
 - [NVLink](https://en.wikipedia.org/wiki/NVLink)
