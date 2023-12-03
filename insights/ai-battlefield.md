@@ -23,7 +23,7 @@ Inference:
 1. Fast compute massively dominated by matrix multiplications
 2. Fast enough memory, IO, network and CPU to feed the compute
 
-Corollary: If when you buy or rent hardware you get a great deal on accelerators, but cheap out on any of the other components you wasted $$ and you might not win the race as it'll take longer to train.
+Corollary: If when you buy or rent hardware you invest in the fastest accelerators, but cheap out on any of the other components you wasted $$ and you might not win the race as it'll take longer to train.
 
 
 
