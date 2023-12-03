@@ -18,7 +18,7 @@ Inference:
 3. How much $$ is being spent per user (can we rent more GPUs to acquire more users and/or improve (1) and (2)?)
 
 
-### What is LLM training?
+### What are the needs of LLM training?
 
 1. Fast compute massively dominated by matrix multiplications
 2. Fast enough memory, IO, network and CPU to feed the compute
@@ -38,7 +38,7 @@ Corollary: If when you buy or rent hardware you get a great deal on accelerators
 
 - AI companies - train models/build products around self-trained or trained-by-others' models, in-house research.
 - Academia - does massive research and write papers. Lots of new ideas are generated.
-- AI enthusiasts - lots of good will available, some pull resources/talents together to train open access models, with donated compute by HPCs and an occasional cloud, or university cluster
+- AI enthusiasts - lots of good will available, some pull resources/talents together to train open access models, with donated compute by HPCs and an occasional cloud, or university cluster.
 - Entrepreneurs - lots of low hanging fruit to pick - creating reselling of services, apps, and various other ingenious combinations of available resources to create amazing outcomes.
 
 
@@ -215,7 +215,7 @@ As mentioned earlier, time is of a huge importance, so you might still choose a 
 Unfortunately, this math is only partially correct because the advertised peak TFLOPS are typically unachievable. The MFU section delves into it.
 
 
-## Model Flops Utilization (MFU)
+### Model Flops Utilization (MFU)
 
 As mentioned in the previous section, some (most?) vendors publish unrealistic peak performance TFLOPS - they aren't possible to achieve.
 
@@ -237,7 +237,7 @@ Practically:
 Therefore once you know the MFU you can now adjust the cost estimate from the previous section. In the example there we said it'll take 7 days to train, but if MFU is 50%, it means it'll take 14 days to train.
 
 
-## Moving bits
+### Moving bits
 
 Why can't the advertised TFLOPS achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disc and other gpus to the accelerator's memory.
 
@@ -253,7 +253,7 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
   2. While checkpoints are being saved the accelerators idle unless some async saving solution is used, so fast IO is crucial here
 
 
-## Key Components
+## Key hardware components
 
 ### Accelerators
 
@@ -325,7 +325,7 @@ You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100
 Also typically with LLMs the payload is so large that network latency is often negligible for training. It's still quite important for inference.
 
 
-### Intra-node Network
+#### Intra-node Network
 
 - Pay attention to bytes vs bits. 1Byte = 8bytes. 1GBps = 8Gbps.
 
@@ -346,7 +346,7 @@ Intel Gaudi2:
 More details [here](../network/README.md#intra-node-networking)
 
 
-### Inter-node Network
+#### Inter-node Network
 
 - An order of magnitude slower than Intra-node
 
@@ -366,19 +366,6 @@ More details [here](../network/README.md#intra-node-networking)
 More details [here](../network/README.md#inter-node-networking).
 
 
-### CPU Memory
-
-You need enough memory for:
-
-- 2-3 possibly DL workers per Accelerator (so 16-24 processes with 8 accelerators per node)
-
-- Even more memory for DL workers if you pull data from the cloud
-
-- Enough memory to load the model if you can't load to accelerator directly
-
-- Often used for accelerator memory offloading - extends accelerator's memory by swapping out the currently unused layers - if that's the target use, then the more cpu memory is available - the better!
-
-
 
 ### IO
 
@@ -395,6 +382,20 @@ There are 3 distinct IO needs in the ML workload:
   2. You want Parallel FS like GPFS (IBM) or Lustre (Open Source)
 
 More details [here](../io/README.md).
+
+
+### CPU Memory
+
+You need enough memory for:
+
+- 2-3 possibly DL workers per Accelerator (so 16-24 processes with 8 accelerators per node)
+
+- Even more memory for DL workers if you pull data from the cloud
+
+- Enough memory to load the model if you can't load to accelerator directly
+
+- Often used for accelerator memory offloading - extends accelerator's memory by swapping out the currently unused layers - if that's the target use, then the more cpu memory is available - the better!
+
 
 
 ### CPU
