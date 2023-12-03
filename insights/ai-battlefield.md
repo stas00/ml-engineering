@@ -324,7 +324,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 #### Intra-node Network
 
-- Pay attention to bytes vs bits. 1Byte = 8bytes. 1GBps = 8Gbps.
+- Pay attention to bytes vs bits. 1Byte = 8bits. 1GBps = 8Gbps.
 
 - If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, so intra-node speed doesn't matter then
 
