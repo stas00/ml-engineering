@@ -38,7 +38,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - AI companies - train models/build products around self-trained or trained-by-others' models, in-house research.
 - Academia - does massive research and write papers. Lots of new ideas are generated.
-- AI enthusiasts - lots of good will available, some pull resources/talents together to train open access models, with donated compute by HPCs and an occasional cloud, or university cluster.
+- AI enthusiasts - lots of good will available, some pull resources/talents together to train open access models, with donated compute by HPCs and an occasional cloud, or a university cluster.
 - Entrepreneurs - lots of low hanging fruit to pick - creative reselling of services, making ML-driven apps, and using various ingenious combinations of available resources to create amazing outcomes.
 
 
@@ -53,7 +53,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 ### The AI bubble
 
-- [Dot-com bubble](https://en.wikipedia.org/wiki/Dot-com_bubble) occurred during 1995-2000. And a very similar situation is happening right now in the AI space.
+- The [Dot-com bubble](https://en.wikipedia.org/wiki/Dot-com_bubble) occurred during 1995-2000. And a very similar situation is happening right now in the AI space.
 
 - There is a lot of money available to create new startups or boost the existing companies. It's relatively easy to raise millions of dollars.
 
