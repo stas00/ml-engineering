@@ -1,6 +1,6 @@
 # The AI Battlefield Engineering - What You Need To Know
 
-This chapter is one person's opinionated overview of the ML/AI Engineering reality, which may or may not be another person's reality. But it'll surely help you start asking the right questions and get your ML Engineering needs met.
+This chapter is one person's opinionated overview of the ML/AI Engineering reality, which may or may not be another person's reality. The intention is to help you start asking the right questions and get your ML Engineering needs met.
 
 ## Basics
 
@@ -53,19 +53,19 @@ Corollary: If when you buy or rent hardware you get a great deal on accelerators
 
 ### The AI bubble
 
-[Dot-com bubble](https://en.wikipedia.org/wiki/Dot-com_bubble) occurred during 1995-2000. And a very similar situation is happening right now in the AI space.
+- [Dot-com bubble](https://en.wikipedia.org/wiki/Dot-com_bubble) occurred during 1995-2000. And a very similar situation is happening right now in the AI space.
 
-There is a lot of money available to create new startups or boost the existing companies. It's relatively easy to raise millions of dollars.
+- There is a lot of money available to create new startups or boost the existing companies. It's relatively easy to raise millions of dollars.
 
-As we are in the wild-wild-west stage of the AI industry it's very difficult to predict the future, and so pretty much anything goes as far as startup ideas go, as long as it sounds reasonable.
+- As we are in the wild-wild-west stage of the AI industry it's very difficult to predict the future, and so pretty much anything goes as far as startup ideas go, as long as it sounds reasonable.
 
-What distinguishes the AI bubble from the Dot-com bubble, is that one didn't actually need much money to operate a Dot-com company - most of the raised money went to marketing and some to staff, barely any to compute. AI companies need millions of dollars because training LLMs requires an insane amount of compute, and that compute is very expensive. e.g. NVIDIA H100 costs ~$30k and a company may need 512 of those, which is $15M (not counting the other hardware components)!
+- What distinguishes the AI bubble from the Dot-com bubble, is that one didn't actually need much money to operate a Dot-com company - most of the raised money went to marketing and some to staff, barely any to compute. AI companies need millions of dollars because training LLMs requires an insane amount of compute, and that compute is very expensive. e.g. 1x NVIDIA H100 costs ~$30k and a company may need 512 of those, which is $15M (not counting the other hardware components and related costs)!
 
 
 
 ## ML Engineer's heaven and hell
 
-This is my personal heaven and hell summarized experiences based on my LLM/VLM trainings. YMMV.
+This is my personal LLM/VLM trainings-based heaven and hell. YMMV.
 
 ### ML Engineer's heaven
 
@@ -75,13 +75,13 @@ This is my personal heaven and hell summarized experiences based on my LLM/VLM t
 
 2. Lots of nodes available for exclusive unlimited use
 
-3. Fast inter-node connection that doesn't bottleneck the accelerators and which isn't shared with other users
+3. Fast inter-node connectivity that doesn't bottleneck the accelerators and which isn't shared with other users
 
-4. Huge local super-fast NVME based filesystem that can fit datasets and checkpoints
+4. Huge local super-fast NVME based shared filesystem that can fit datasets and checkpoints
 
 5. Barebones Linux w/ SLURM and minimal software to be able to launch training jobs
 
-6. `sudo`er access to be able to work in a team
+6. `sudo`er access to ease the work with a team of people
 
 
 
@@ -196,21 +196,21 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 ### TFLOPS
 
-Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../performance/software.md#tflops-as-a-performance-metric).
+- Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../performance/software.md#tflops-as-a-performance-metric).
 
-All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
+- All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
-First, you calculate the time needed to train given the TFLOPS of the considered solution:
+1. Calculate the time needed to train given the TFLOPS of the considered solution:
 
 `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
 
 Let's say it came to be 604800 secs or 7 days.
 
-Second, you look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
+2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
 
-Now look at other proposals and calculate the same - chose the best option.
+3. Look at other proposals and calculate the same - chose the best option.
 
-As mentioned earlier, time is of a huge importance, so you might still choose a more expensive solution if finishing the training sooner is important because you want to be first to market.
+- As mentioned earlier, time is of a huge importance, so you might still choose a more expensive solution if finishing the training sooner is important because you want to be first to market.
 
 Unfortunately, this math is only partially correct because the advertised peak TFLOPS are typically unachievable. The MFU section delves into it.
 
@@ -306,10 +306,9 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 ### Network
 
-If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to syncronize multiple accelerators.
+- If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to syncronize multiple accelerators.
 
-The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA
-
+- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA:
 
 | GPU  | Compute | Compute | Intra-node | Intra-node |
 |      |  TFLOPS | Speedup |       GBps |    speedup |
@@ -320,9 +319,9 @@ The biggest issue right now is that compute hardware advancements move faster th
 |      |         |         |            |            |
 
 
-You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLInk has only increased by 300GBps each generation.
+- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLInk has only increased by 300GBps each generation.
 
-Also typically with LLMs the payload is so large that network latency is often negligible for training. It's still quite important for inference.
+- Also typically with LLMs the payload is so large that network latency is often negligible for training. It's still quite important for inference.
 
 
 #### Intra-node Network
@@ -450,9 +449,9 @@ As you navigate this very complex AI industry here are some thing to be aware of
 
 - Be very careful before you sign a contract that includes clauses that start with "we will make a reasonable effort to ...".
 
-When was the last time you went to the bread section of the supermarket and found a lump of half-baked dough with a note "we made a reasonable effort to bake this bread, but alas, what you see is what you get"?
+   When was the last time you went to the bread section of the supermarket and found a lump of half-baked dough with a note "we made a reasonable effort to bake this bread, but alas, what you see is what you get"?
 
-But for whatever reason it's acceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
+   But for whatever reason it's acceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
 
 
 ### Beware of hardware and software lock-in scenarios
