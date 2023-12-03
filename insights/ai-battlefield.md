@@ -284,7 +284,7 @@ Emerging to general availability:
 
 
 
-### Accelerator Inter-operability
+#### Accelerator Inter-operability
 
 In general most (all?) accelerators are supported by major frameworks like PyTorch or TensorFlow and the same code should run everywhere with small modifications as long as it doesn't use any accelerator-specific functionality.
 
@@ -517,3 +517,8 @@ So at the end of the day we are still better off re-using other people's softwar
 So first of all, try to find a way not to beat yourself up if the software you didn't write doesn't work. If you think about it, those problems aren't of your creation.
 
 Learning how to [debug efficiently](https://github.com/stas00/the-art-of-debugging/tree/master/methodology) should also make this process much less painful.
+
+
+## Contributors
+
+[Mark Saroufim](https://github.com/msaroufim),
