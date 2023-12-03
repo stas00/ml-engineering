@@ -310,12 +310,11 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA:
 
-| GPU  | Compute<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps  | Intra-node<br>speedup |
-| :--- |               --: |                --: |                 --: |                --: |
-| V100 |               125 |                  1 |                 300 |                  1 |
-| A100 |               312 |                2.5 |                 600 |                  2 |
-| H100 |               989 |                  8 |                 900 |                  3 |
-|      |                   |                    |                     |                    |
+| GPU  | Compute<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
+| :--- |               --: |                --: |                --: |                   --: |
+| V100 |               125 |                  1 |                300 |                     1 |
+| A100 |               312 |                2.5 |                600 |                     2 |
+| H100 |               989 |                  8 |                900 |                     3 |
 
 
 - You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLInk has only increased by 300GBps each generation.
