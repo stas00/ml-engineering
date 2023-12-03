@@ -39,7 +39,7 @@ Corollary: If when you buy or rent hardware you get a great deal on accelerators
 - AI companies - train models/build products around self-trained or trained-by-others' models, in-house research.
 - Academia - does massive research and write papers. Lots of new ideas are generated.
 - AI enthusiasts - lots of good will available, some pull resources/talents together to train open access models, with donated compute by HPCs and an occasional cloud, or university cluster.
-- Entrepreneurs - lots of low hanging fruit to pick - creating reselling of services, apps, and various other ingenious combinations of available resources to create amazing outcomes.
+- Entrepreneurs - lots of low hanging fruit to pick - creative reselling of services, making ML-driven apps, and using various ingenious combinations of available resources to create amazing outcomes.
 
 
 ### Information sharing
@@ -47,7 +47,7 @@ Corollary: If when you buy or rent hardware you get a great deal on accelerators
 - It's very surprising that almost everybody involved in the domain of AI shares a lot of the discoveries with the community.
 - Surely, companies don't disclose all of their IP, but a lot of it does get shared in the form of knowledge or model weights
 - Companies that publish a lot of IP and models tend to attract higher quality talent.
-- Twitter seems to be the platform where one must be to follow what's going on
+- Twitter seems to be the central platform where one must be to follow what's going on
 
 
 
@@ -202,9 +202,9 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 1. Calculate the time needed to train given the TFLOPS of the considered solution:
 
-`total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
+   `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
 
-Let's say it came to be 604800 secs or 7 days.
+   Let's say it came to be 604800 secs or 7 days.
 
 2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
 
