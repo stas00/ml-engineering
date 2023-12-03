@@ -153,7 +153,7 @@ In addition to email you could probably also setup other notifications, such as 
 
 Once you understand how to schedule watchdogs and you have a notification facility working let's next discuss the critical watchdogs.
 
-### Is-Job-running watchdog
+### Is-job-running watchdog
 
 The most obvious watchdog is one which checks that there is a training SLURM job running or more are scheduled to run.
 
@@ -179,7 +179,18 @@ then all is good. But if `my-training-10b` job doesn't show the alert will be se
 
 You can now adapt these scripts to your needs with minimal changes of editing the path and email addresses. And if it wasn't you who launched the job then replace `whoami` with the name of the user who launched it. `whoami` only works if it was you who launched it.
 
-### Low Disc Space Alerts
+
+### Is-job-hanging watchdog
+
+If the application is doing `torch.distributed` or alike and a hanging occurs during one of the collectives, it'll eventually timeout and throw an exception, which would restart the training and one could send an alert that the job got restarted.
+
+However, if the hanging happens during another syscall which may have no timeout, e.g. reading from the disk, the application could easily hang there for hours and nobody will be the wiser.
+
+Most applications do periodic logging, e.g., most training log the stats of the last N steps every few minutes. Then one could check if the log file has been updated during the expected time-frame - and if it didn't - send an alert. You could write your own, or use [io-watchdog](https://github.com/grondo/io-watchdog) for that.
+
+
+
+### Low disc space alerts
 
 The next biggest issue is running out of disc space. If your checkpoints are large and are saved frequently and aren't offloaded elsewhere it's easy to quickly run out of disc space. Moreover, typically multiple team members share the same cluster and it could be that your colleagues could quickly consume a lot of disc space. Ideally, you'd have a storage partition that is dedicated to your training only, but often this is difficult to accomplish. In either case you need to know when disc space is low and space making action is to be performed.
 
