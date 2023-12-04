@@ -85,6 +85,9 @@ Here we have 47 nodes being used (`alloc`), 23 available (`idle`) and 4 unavaila
 
 The sysadmin is expected to periodically check the drained nodes, fix or replace them and then make them again available to be used by changing their state to `idle`.
 
+The other approach is to daisy-chain jobs via `--dependency` as explained [here](../slurm/users.md#request-allocation-via-dependency). Both of these approaches could also be combined.
+
+How do you know when the job array or a daisy chain should not resume - well, normally the training loop will exit immediately if it knows the job is done. But you could also add features like [kill switch](#kill-switch) which are even easier to use to prevent a job array from running.
 
 
 ## Frequent checkpoint saving
@@ -414,3 +417,9 @@ Signal handler called with signal 10
 which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exited.
 
 Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in Approach A above.
+
+
+
+## Contributors
+
+[Adam Moody](https://github.com/adammoody),
