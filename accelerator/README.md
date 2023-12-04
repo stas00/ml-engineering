@@ -112,11 +112,12 @@ Let's look at the TFLOPS specs across the high end accelerators:
 | Accelerator / TFLOPS |  fp32 | fp16 |  fp8 | int8 |
 | :---------------     |   --: | ---: | ---: | ---: |
 | NVIDIA A100 SXM      |  19.5 |  312 |  624 |  624 |
+| AMD MI250            |  45.3 |  362 |    X |  362 |
+| AMD MI250X           |  47.9 |  383 |    X |  383 |
+|                      |       |      |      |      |
 | NVIDIA H100 SXM      |  67.0 |  989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 |  756 | 1513 | 1513 |
 | NVIDIA H100 dual NVL | 134.0 |  989 | 3958 | 3958 |
-| AMD MI250            |  45.3 |  362 |    X |  362 |
-| AMD MI250X           |  47.9 |  383 |    X |  383 |
 | AMD MI300            |    ?  |  ?   |    ? |   ?  |
 |                      |       |      |      |      |
 
