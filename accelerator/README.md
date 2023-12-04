@@ -106,6 +106,25 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization).
 
+
+Let's look at the TFLOPS specs across the high end accelerators:
+
+| Accelerator / TFLOPS |  fp32 | fp16 |  fp8 | int8 |
+| :---------------     |   --: | ---: | ---: | ---: |
+| NVIDIA A100 SXM      |  19.5 |  312 |  624 |  624 |
+| NVIDIA H100 SXM      |  67.0 |  989 | 1979 | 1979 |
+| NVIDIA H100 PCIe     |  51.0 |  756 | 1513 | 1513 |
+| NVIDIA H100 dual NVL | 134.0 |  989 | 3958 | 3958 |
+| AMD MI250            |  45.3 |  362 |    X |  362 |
+| AMD MI250X           |  47.9 |  383 |    X |  383 |
+| AMD MI300            |    ?  |  ?   |    ? |   ?  |
+|                      |       |      |      |      |
+
+* Intel Gaudi didn't publish TFLOPS specs
+
+
+
+
 #### Achievable peak TFLOPS
 
 The problem with the advertised peak TFLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic TFLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
@@ -125,14 +144,16 @@ Typically the more on-chip memory the accelerator has the better. At any given t
 
 Current high end accelerators (some aren't GA yet):
 
-| Accelerator          | Memory<br> in GBs | Type | Speed<b> in TB/s |
-| :---------------     |     ------------: | :--  | ---------------: |
-| NVIDIA A100          |                80 | HBM2 |              1.6 |
-| NVIDIA H100          |                80 | HBM3 |             3.35 |
-| NVIDIA H100 dual NVL |               188 | HBM3 |                  |
-| AMD MI250            |               128 |      |                  |
-| AMD MI300            |               196 |      |                  |
-|                      |                   |      |                  |
+| Accelerator          | Memory<br> in GBs | Type  | Speed<b>in TB/s  |
+| :---------------     |     ------------: | :--   | ------------:    |
+| NVIDIA A100 SXM      |                80 | HBM2e |                2 |
+| NVIDIA H100 SXM      |                80 | HBM3  |             3.35 |
+| NVIDIA H100 PCIe     |                80 | HBM3  |                2 |
+| NVIDIA H100 dual NVL |               188 | HBM3  |              7.8 |
+| AMD MI250            |               128 | HBM2e |             3.28 |
+| AMD MI250X           |               128 | HBM2e |             3.28 |
+| AMD MI300            |               192 | HBM3  |                  |
+|                      |                   |       |                  |
 
 - XXX: add other accelerators
 
