@@ -88,9 +88,9 @@ This is one of the key characteristics that the accelerators are judged by. The 
 
 | Data type              | FLOPS | w/ Sparsity |
 | :---                   |   --: |         --: |
-| FP32                   |  19.5 |        19.5 |
-| Tensor Float 32 (TF32) |   156 |         624 |
-| BFLOAT16 Tensor Core   |   312 |             |
+| FP32                   |  19.5 |         n/a |
+| Tensor Float 32 (TF32) |   156 |         312 |
+| BFLOAT16 Tensor Core   |   312 |         624 |
 | FP16 Tensor Core       |   312 |         624 |
 | INT8 Tensor Core       |   624 |        1248 |
 
@@ -120,7 +120,7 @@ Let's look at the TFLOPS specs across the high end accelerators:
 | AMD MI300            |    ?  |  ?   |    ? |   ?  |
 |                      |       |      |      |      |
 
-* Intel Gaudi didn't publish TFLOPS specs
+* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing
 
 
 
