@@ -79,3 +79,14 @@ This configured io-watchdog to assume the job was stuck if it saw no output for 
 ```
 srun --io-watchdog mpi_application
 ```
+
+a quick demo of SCR.  The python to use it is pretty clean.
+
+Install the SCR library (C + MPI)
+https://scr.readthedocs.io/en/v3.0/users/build.html#cmake
+
+Install the scr.py module:
+https://github.com/LLNL/scr/tree/develop/python#installing-the-scr-python-module
+
+Example checkpoint in python:
+https://github.com/LLNL/scr/blob/1878de8756c2b51882a7cda7b97b142eae4e3995/python/scr_example.py#L64-L105

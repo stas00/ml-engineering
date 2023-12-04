@@ -31,7 +31,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - An accelerator or a processing unit is what does most of the work.
 
-- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, QPUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
+- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
 [More details](../accelerators/).
 
@@ -141,7 +141,7 @@ There aren't that many HPCs out there and so the amount of available resources i
 
 Pros:
 - Managed for you - all you need is your software to do the training and a bit of [SLURM](../slurm) know-how to launch jobs
-- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC}(http://www.idris.fr/eng/jean-zay/)!)
+- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC](http://www.idris.fr/eng/jean-zay/)!)
 
 Cons:
 - needing to time share compute with other teams == short job times with possible long wait times in between - could be difficult to finish training quickly
@@ -511,7 +511,7 @@ I realized this very early one and I stopped paying attention to most announceme
 
 So I actually know very little, but what I have researched in depth I know quite well for some time and later I forget even that (that's why I write these notes - so that I can easily find what I have already researched).
 
-So if you ask me something chances are that I don't know it, but the saving grace for me is that if you give me time I can figure it out and give the answer or develop a solution.
+So if you ask me something, chances are that I don't know it, but the saving grace for me is that if you give me time I can figure it out and give the answer or develop a solution.
 
 
 ### Don't beat yourself up when using half-baked software

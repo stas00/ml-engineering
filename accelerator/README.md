@@ -1,11 +1,10 @@
-# GPU
+# Accelerators
 
-XXX: This a very early WIP
+XXX: This chapter is a super-early WIP
 
+Compute accelerators are the workhorses of the ML training. At the beginning there were just GPUs. But now there are also TPUs, IPUs, FPGAs, QPUs, RDUs and more are being invented.
 
-As of this writing GPUs are the workhorses of the ML training.
-
-There exist two main ML workloads - training and inference. There is also the finetuning workload which is usually the same as training, unless a much lighter [LORA-style](https://arxiv.org/abs/2106.09685) finetuning is performed which requires significantly fever resources and time than normal finetuning.
+There exist two main ML workloads - training and inference. There is also the finetuning workload which is usually the same as training, unless a much lighter [LORA-style](https://arxiv.org/abs/2106.09685) finetuning is performed. The latter requires significantly fewer resources and time than normal finetuning.
 
 In language models during inference the generation is performed in a sequence - one token at a time. So it has to repeat the same `forward` call thousands of times one smallish `matmul` (matrix multiplication or GEMM) at a time. And this can be done on either a GPU or some of the most recent CPUs, that can handle inference quite efficiently.
 
@@ -16,16 +15,16 @@ The other computational difference is that while both training and inference hav
 
 ## Bird's eye view on the high end GPU reality
 
-While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end GPUs, and if you rent on the cloud, most providers will have more or less the same few GPUs to offer.
+While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few GPUs to offer.
 
 GPUs:
 - As of today, ML clouds started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
-- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. From a recent discussion with an AMD representative MI300 is not planned to be in general availability until some time in 2025.
-- Intel's Gaudi2 is out there as well, but again, I haven't seen many clouds that offer this GPU.
+- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. From a recent discussion with an AMD representative MI300 is not planned to be in general availability until some time in 2025, though some HPCs already plan to get them some time in 2024.
+- Intel's Gaudi2 are starting to slowly emerge on Intel's cloud
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
 
 TPU:
-- Google's TPUs are, of course, available but they aren't the most desirable GPUs because you can't only rent them, and the software isn't quite yet easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked in into a hardware which is a Google monopoly.
+- Google's TPUs are, of course, available but they aren't the most desirable accelerators because you can only rent them, and the software isn't quite easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked into a hardware which is a Google monopoly.
 
 Pods and racks:
 - And then there are various standalone super-computers like Cerebras' WaferScale Engine (WSE) and dozens of different pod and rack configs that compose the GPUs I have just mentioned with super-fast interconnects.
@@ -48,7 +47,7 @@ Besides hardware, you, of course, need software that can efficiently deploy the 
 
 We will discuss both the hardware and the software aspects in various chapters of this guide.
 
-## What GPU characteristics do we care for
+## What Accelerator characteristics do we care for
 
 We will use the NVIDIA A100 spec as a reference point in the following sections.
 
@@ -82,7 +81,7 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization).
 
-#### Actual peak TFLOPS
+#### Achievable peak TFLOPS
 
 The problem with the advertised peak TFLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each GPU has its own realistic TFLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
 
@@ -114,11 +113,11 @@ This is of interest when you buy your own hardware, when you rent on the cloud t
 The only important practical understanding for heat is that if the GPUs aren't kept cool they will throttle their compute clock and slow everything down (and could even crash sometimes, albeit throttling is supposed to prevent that).
 
 
-## High end GPUs for LLM/VLM workloads
+## High end accelerators for LLM/VLM workloads
 
-### Cloud and in-house GPUs
+### Cloud and in-house accelerators
 
-Most common GPUs that can be either rented on compute clouds or purchased:
+Most common accelerators that can be either rented on compute clouds or purchased:
 
 NVIVDIA:
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated.
@@ -135,14 +134,21 @@ Intel:
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)
 
-### In-house GPU Clusters
+SambaNova:
+- [DataScale SN30](https://sambanova.ai/products/datascale/)
+
+
+### In-house accelerator clusters
 
 Cerebras:
 - [clusters](https://www.cerebras.net/product-cluster/)
 - [systems](https://www.cerebras.net/product-system/)
 based on WaferScale Engine (WSE).
 
-### Cloud only solutions
+
+
+
+### Cloud-only solutions
 
 These can be only used via clouds:
 
@@ -155,7 +161,7 @@ Cerebras:
 
 
 
-## GPUs in detail
+## Accelerators in detail
 
 ### NVIDIA
 
