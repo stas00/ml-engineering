@@ -31,7 +31,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - An accelerator or a processing unit is what does most of the work.
 
-- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
+- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
 [More details](../accelerators/).
 

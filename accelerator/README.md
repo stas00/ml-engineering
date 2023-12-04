@@ -2,42 +2,65 @@
 
 XXX: This chapter is a super-early WIP
 
-Compute accelerators are the workhorses of the ML training. At the beginning there were just GPUs. But now there are also TPUs, IPUs, FPGAs, QPUs, RDUs and more are being invented.
+Compute accelerators are the workhorses of the ML training. At the beginning there were just GPUs. But now there are also TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs and more are being invented.
 
 There exist two main ML workloads - training and inference. There is also the finetuning workload which is usually the same as training, unless a much lighter [LORA-style](https://arxiv.org/abs/2106.09685) finetuning is performed. The latter requires significantly fewer resources and time than normal finetuning.
 
-In language models during inference the generation is performed in a sequence - one token at a time. So it has to repeat the same `forward` call thousands of times one smallish `matmul` (matrix multiplication or GEMM) at a time. And this can be done on either a GPU or some of the most recent CPUs, that can handle inference quite efficiently.
+In language models during inference the generation is performed in a sequence - one token at a time. So it has to repeat the same `forward` call thousands of times one smallish `matmul` (matrix multiplication or GEMM) at a time. And this can be done on either an accelerator, like GPU, or some of the most recent CPUs, that can handle inference quite efficiently.
 
-During training the whole sequence length is processed in one huge `matmul` operation. So if the sequence length is 4k long, the training of the same model will require a compute unit that can handle 4k times more operations than inference and do it fast. GPU excels at this task. In fact the larger the matrices it has to multiply, the more efficient the compute.
+During training the whole sequence length is processed in one huge `matmul` operation. So if the sequence length is 4k long, the training of the same model will require a compute unit that can handle 4k times more operations than inference and do it fast. Accelerators excel at this task. In fact the larger the matrices they have to multiply, the more efficient the compute.
 
-The other computational difference is that while both training and inference have to perform the same total amount of `matmul`s in the `forward` pass, in the `backward` pass, which is only done for training, an additional 2x times of `matmul`s is done to calculate the gradients wrt inputs and weights. And an additional `forward` is performed if computation recomputation is used. Therefore the training process requires at 3-4x more `matmul`s than inference.
+The other computational difference is that while both training and inference have to perform the same total amount of `matmul`s in the `forward` pass, in the `backward` pass, which is only done for training, an additional 2x times of `matmul`s is done to calculate the gradients with regards to inputs and weights. And an additional `forward` is performed if activations recomputation is used. Therefore the training process requires at 3-4x more `matmul`s than inference.
 
 
-## Bird's eye view on the high end GPU reality
+## Bird's eye view on the high end accelerator reality
 
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few GPUs to offer.
 
 GPUs:
-- As of today, ML clouds started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
+- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
 - AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. From a recent discussion with an AMD representative MI300 is not planned to be in general availability until some time in 2025, though some HPCs already plan to get them some time in 2024.
+
+HPU:
 - Intel's Gaudi2 are starting to slowly emerge on Intel's cloud
+
+IPU:
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
 
 TPU:
 - Google's TPUs are, of course, available but they aren't the most desirable accelerators because you can only rent them, and the software isn't quite easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked into a hardware which is a Google monopoly.
 
 Pods and racks:
-- And then there are various standalone super-computers like Cerebras' WaferScale Engine (WSE) and dozens of different pod and rack configs that compose the GPUs I have just mentioned with super-fast interconnects.
+- Cerebras' WaferScale Engine (WSE)
+- SambaNova's DataScale
+- dozens of different pod and rack configs that compose the afformentioned GPUs with super-fast interconnects.
 
 That's about it as Q4-2023.
 
+
+## Glossary
+
+- CPU: Central Processing Unit
+- FPGA: Field Programmable Gate Arrays
+- GPU: Graphics Processing Unit
+- HBM: High Bandwidth Memory
+- HPC: High-performance Computing
+- HPU: Habana Gaudi AI Processor Unit
+- IPU: Intelligence Processing Unit
+- MME: Matrix Multiplication Engine
+- QPU: Quantum Processing Unit
+- RDU: Reconfigurable Dataflow Unit
+- TPU: Tensor Processing Unit
+
 ## The most important thing to understand
 
-I will make the following statement multiple times in this guide - and that it's not enough to buy/rent the most expensive GPUs and expect a high return on investment (ROI). The two metrics for a high ROI for ML training would be:
+I will make the following statement multiple times in this book - and that it's not enough to buy/rent the most expensive accelerators and expect a high return on investment (ROI).
+
+The two metrics for a high ROI for ML training are:
 1. the speed at which the training will finish, because if the training takes 2-3x longer than planned, your model can become irrelevant before it was released - time is everything in the current super-competitive ML market
 2. the total $$ spent to train the model, because if the training takes 2-3x longer than planned, you will end up spending 2-3x times more
 
-Unless the rest of the purchased/rented hardware isn't chosen carefully to match the required workload chances are very high that the GPUs will idle a lot and both time and $$ will be lost. The most critical component is [network](../network), then [io](../io), and the least critical ones are ([CPU](../cpu) and [CPU memory](../cpu-memory).
+Unless the rest of the purchased/rented hardware isn't chosen carefully to match the required workload chances are very high that the accelerators will idle a lot and both time and $$ will be lost. The most critical component is [network](../network), then [io](../io), and the least critical ones are ([CPU](../cpu) and [CPU memory](../cpu-memory).
 
 If the compute is rented one usually doesn't have the freedom to choose - the hardware is either set in stone or some components might be replaceable but with not too many choices. Thus there are times when the chosen cloud provider doesn't provide a sufficiently well matched hardware, in which case it's best to seek out a different provider.
 
@@ -45,11 +68,13 @@ If you purchase your servers then I recommend to perform a very indepth due dili
 
 Besides hardware, you, of course, need software that can efficiently deploy the hardware.
 
-We will discuss both the hardware and the software aspects in various chapters of this guide.
+We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](/..performance) and [here](../model-parallelism).
+
+
 
 ## What Accelerator characteristics do we care for
 
-We will use the NVIDIA A100 spec as a reference point in the following sections.
+Let's use the NVIDIA A100 spec as a reference point in the following sections.
 
 ![nvidia-a100-spec](images/nvidia-a100-spec.png)
 
@@ -59,7 +84,7 @@ We will use the NVIDIA A100 spec as a reference point in the following sections.
 
 As mentioned earlier most of the work that ML training and inference do is matrix multiplication. If you remember your algebra matrix multiplication is made of many multiplications followed by summation. Each of these computations can be counted and define how many of these operations can be performed by the chip in a single seconds.
 
-This is one of the key characteristics that the GPUs are judged by. The term TFLOPS defines how many FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
+This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
 
 | Data type              | FLOPS | w/ Sparsity |
 | :---                   |   --: |         --: |
@@ -83,34 +108,47 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 #### Achievable peak TFLOPS
 
-The problem with the advertised peak TFLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each GPU has its own realistic TFLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
+The problem with the advertised peak TFLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic TFLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
 
-If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end GPUs discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
+If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end accelerators discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
 
 To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for half precision mixed precision, with FlashAttention, it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
-I think it should be possible to calculate the actual peak TFLOPS by doing a perfect max-size for the given gpu perfectly aligned matrices `matmul` measured on a single GPU.
+It should be possible to calculate the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator.
 
-XXX: write a small program to do exactly dynamically figuring out the perfect shapes based on [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) and max sizes (how?) so that the benchmark isn't hardcoded to a particular GPU.
+XXX: write a small program to do exactly dynamically figuring out the perfect shapes based on [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) and max sizes (how?) so that the benchmark isn't hardcoded to a particular accelerator.
 
 
-### GPU Memory size and speed
+### Accelerator memory size and speed
 
-Typically the more memory the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the GPU memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple GPUs, or offloaded to CPU and/or disk.
+Typically the more on-chip memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
-Current high end GPUs (some aren't GA yet):
-- NVIDIA GPUs A100 and H100 have 80GB of HBM, while the dual-gpu H100 NVL has 188GB
-- AMD MI250 - 128GB, MI300 - 196GB
+Current high end accelerators (some aren't GA yet):
 
-Memory speed is of course very important since if it's not fast enough than the GPU compute ends up idling waiting for the data to be copied to and from the memory.
+| Accelerator          | Memory<br> in GBs | Type | Speed<b> in TB/s |
+| :---------------     |     ------------: | :--  | ---------------: |
+| NVIDIA A100          |                80 | HBM2 |              1.6 |
+| NVIDIA H100          |                80 | HBM3 |             3.35 |
+| NVIDIA H100 dual NVL |               188 | HBM3 |                  |
+| AMD MI250            |               128 |      |                  |
+| AMD MI300            |               196 |      |                  |
+|                      |                   |      |                  |
+
+- XXX: add other accelerators
+
+Memory speed is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
 The GPUs use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TB/sec, and H100-SXM comes with HBM3 at 3.35TB/s.
+
+
 
 ### Heat
 
 This is of interest when you buy your own hardware, when you rent on the cloud the provider hopefully takes care of adequate cooling.
 
-The only important practical understanding for heat is that if the GPUs aren't kept cool they will throttle their compute clock and slow everything down (and could even crash sometimes, albeit throttling is supposed to prevent that).
+The only important practical understanding for heat is that if the accelerators aren't kept cool they will throttle their compute clock and slow everything down (and could even crash sometimes, albeit throttling is supposed to prevent that).
+
+
 
 
 ## High end accelerators for LLM/VLM workloads

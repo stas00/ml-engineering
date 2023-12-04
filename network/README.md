@@ -14,13 +14,13 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary
 
-- MFU - Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPs, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
-- Gbps, Gb/s - Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
-- GBps, GB/s - Gigabyte per secs (1GBps = 8Gbps) transferred in a channel
+- MFU: Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPs, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
+- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
+- GBps, GB/s: Gigabyte per secs (1GBps = 8Gbps) transferred in a channel
 - GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
-- Unidirectional - a transmission from one point to another in one direction A -> B
+- Unidirectional: a transmission from one point to another in one direction A -> B
 - Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
-
+- RoCE: RDMA over Converged Ethernet
 
 
 ## Understanding why inter-node network speed is of a huge importance
