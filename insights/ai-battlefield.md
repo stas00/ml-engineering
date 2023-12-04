@@ -437,8 +437,8 @@ Here is the breakdown:
 
 For example: Let's take an 80B param model and 80GB GPUs and calculate how many of them we will need for:
 
-- Training: at least 23 GPUs `80*18*1.25/8`
-- Inference: at least 3 GPUs `80*2*1.25/8`
+- Training: at least 23 GPUs `80*18*1.25/80`
+- Inference: at least 3 GPUs `80*2*1.25/80`
 
 [More details](../performance/software.md#anatomy-of-models-memory).
 
