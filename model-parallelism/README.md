@@ -3,7 +3,8 @@
 
 ## Parallelism overview
 
-In the modern machine learning the various approaches to parallelism are used to
+In the modern machine learning the various approaches to parallelism are used to:
+
 1. Overcome GPU memory limitations. Examples:
    - fit very large models - e.g., t5-11b is 45GB in just model params
    - fit very long sequences - e.g.,
@@ -13,6 +14,9 @@ We will first discuss in depth various 1D parallelism techniques and their pros 
 
 While the main concepts most likely will apply to any other framework, this article is focused on PyTorch-based implementations.
 
+Two main approaches are used to enable training and inferring models that are bigger than the accelerator's memory:
+1. 3D parallelism - very network efficient, but can be very invasive into the modeling code and require a lot more work to make it work correctly
+2. ZeRO parallelism - not very network efficient, but requires close to zero changes to the modeling code and very easy to make to work.
 
 ## Scalability concepts
 

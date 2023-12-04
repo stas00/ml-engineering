@@ -33,6 +33,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, QPUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
+[More details](../accelerators/).
 
 ### AI driving entities
 
@@ -194,6 +195,7 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 
 
+
 ### TFLOPS
 
 - Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../performance/software.md#tflops-as-a-performance-metric).
@@ -243,6 +245,8 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 - There is not much can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
+- If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../model-parallelism/) network becomes the bottleneck.
+
 - Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) address part of this problem. [more](#inra-node-network).
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
@@ -284,7 +288,7 @@ Emerging to general availability:
 
 
 
-#### Accelerator Inter-operability
+#### Accelerator Interoperability
 
 In general most (all?) accelerators are supported by major frameworks like PyTorch or TensorFlow and the same code should run everywhere with small modifications as long as it doesn't use any accelerator-specific functionality.
 
@@ -306,9 +310,9 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 ### Network
 
-- If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to syncronize multiple accelerators.
+- If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to synchronize multiple accelerators.
 
-- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA:
+- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node:
 
 | GPU  | Compute<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |               --: |                --: |                --: |                   --: |
@@ -317,7 +321,11 @@ Also in general most ML code could be compiled into cross-platform formats like 
 | H100 |               989 |                  8 |                900 |                     3 |
 
 
-- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLInk has only increased by 300GBps each generation.
+- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 300GBps each generation.
+
+- Moreover, all 3 generations of NVLink use identical NICs of the same 50GBps duplex throughput. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
+
+- The inter-node situation isn't any better with most NICs there doing 100 or 200Gbps, and some 400Gbps are starting to emerge. (correspondingly in GBps: 12.5, 25 and 50). It's the same story here, some solutions provide dozens of NICs to get to higher speeds.
 
 - Also typically with LLMs the payload is so large that network latency is often negligible for training. It's still quite important for inference.
 
@@ -340,7 +348,7 @@ Intel Gaudi2:
 
 - 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
 
-More details [here](../network/README.md#intra-node-networking)
+[More details](../network/README.md#intra-node-networking)
 
 
 #### Inter-node Network
@@ -360,7 +368,7 @@ More details [here](../network/README.md#intra-node-networking)
 
 * Practically less than 3x but it's a good estimate
 
-More details [here](../network/README.md#inter-node-networking).
+[More details](../network/README.md#inter-node-networking).
 
 
 
@@ -378,7 +386,7 @@ There are 3 distinct IO needs in the ML workload:
   1. NFS can be extremely slow if you have a lot of small files (=Python!)
   2. You want Parallel FS like GPFS (IBM) or Lustre (Open Source)
 
-More details [here](../io/README.md).
+[More details](../io/README.md).
 
 
 ### CPU Memory
@@ -432,7 +440,7 @@ For example: Let's take an 80B param model and 80GB GPUs and calculate how many 
 - Training: at least 23 GPUs `80*18*1.25/8`
 - Inference: at least 3 GPUs `80*2*1.25/8`
 
-More details [here](../performance/software.md#anatomy-of-models-memory).
+[More details](../performance/software.md#anatomy-of-models-memory).
 
 
 
@@ -510,7 +518,7 @@ So if you ask me something chances are that I don't know it, but the saving grac
 
 Because the ML field is in a huge race, a lot of the open source software is half-baked, badly documented, badly tested, at times poorly supported. So if you think you can save time by re-using software written by others expect spending hours to weeks trying to figure out how to make it work. And then keeping it working when the updates break it.
 
-The next problem is that most of this software depends on other software which often can be just as bad. It's not uncommon where I start fixing some integration problem, just to discover a problem in a dependent package, which in its turn has another problem from another package. This can be extremely frustrating and discouraging. Once excepts to save time by re-use, but ends up spending a long time figuring out how to make it work. At least if I write my own software I have fun and it's a creative process, trying to make other people's software work is not.
+The next problem is that most of this software depends on other software which often can be just as bad. It's not uncommon where I start fixing some integration problem, just to discover a problem in a dependent package, which in its turn has another problem from another package. This can be extremely frustrating and discouraging. Once excepts to save time by reuse, but ends up spending a long time figuring out how to make it work. At least if I write my own software I have fun and it's a creative process, trying to make other people's software work is not.
 
 So at the end of the day we are still better off re-using other people's software, except it comes at an emotional price and exhaustion.
 
