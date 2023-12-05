@@ -75,7 +75,7 @@ $ sudo ifconfig
 
 One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
 
-Then there is the inter-node interface which can be Infiniband, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking). There could be one or dozens of those interfaces.
+Then there is the inter-node interface which can be Infiniband, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking)). There could be one or dozens of those interfaces.
 
 Here are some examples of `ifconfig`'s output:
 
@@ -167,16 +167,18 @@ If you have more than 2 nodes you just need to change the number of nodes and th
 
 **MPI**:
 
-Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available. There you create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, it'd be:
+Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
+
+To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
 
 ```
 $ cat hostfile
 10.0.0.1:8
 10.0.0.2:8
 ```
-
+and to run, it's just:
 ```
-$ mpirun -np 16 -map-by ppr:8:node python my-program.py
+$ mpirun --hostfile  -np 16 -map-by ppr:8:node python my-program.py
 ```
 
 Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
@@ -185,7 +187,7 @@ Nuances:
 - You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
 - You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
 
-`mpirun` has a gazillion of applications and I will recommend reading its manpage for more information. My intention was only to show you how you could use it.
+`mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
 
 
 ## Prefixing logs with `node:rank`, interleaved asserts
