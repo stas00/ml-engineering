@@ -1,5 +1,193 @@
 # Debugging PyTorch programs
 
+
+## Getting nodes to talk to each other
+
+Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
+
+In this section we will discuss a very simple case of just 2 nodes (with 8 GPUs each) talking to each other and which can then be easily extended to as many nodes as needed. Let's say that these nodes have the IP addresses 10.0.0.1 and 10.0.0.2.
+
+Once we have the IP addresses we then need to choose a port for communications.
+
+In Unix there are 64k ports. The first 1k are reserved for common services so that any computer on the Internet could connect to any other computer knowing ahead of time which port to connect to. For example, port 22 is reserved for SSH. So that whenever you do `ssh example.com` in fact the program open a connection to `example.com:22`.
+
+As there are thousands of services out there, the reserved 1k ports is not enough, and so various services could use pretty much any port. But fear not, when you get your Linux box on the cloud or an HPC, you're unlikely to have many preinstalled services that could use a high number port, so most ports should be available.
+
+Therefore let's choose port 6000.
+
+Now we have: `10.0.0.1:6000` and `10.0.0.2:6000` that we want to be able to communicate with each other.
+
+The first thing to do is to open port `6000` for incoming and outgoing connections on both nodes. It might be open already or you might have to read up the instructions of your particular setup on how to open a given port.
+
+Here are multiple ways that you could use to test whether port 6000 is already open.
+
+```
+telnet localhost:6000
+nmap -p 6000 localhost
+nc -zv localhost 6000
+curl -v telnet://localhost:6000
+```
+
+Most of these should be available via `apt install` or whatever your package manager uses.
+
+Let's use `nmap` in this example. If I run:
+
+```
+$ nmap -p 22 localhost
+[...]
+PORT   STATE SERVICE
+22/tcp open  ssh
+```
+We can see the port is open and it tells us which protocol and service is allocated as a bonus.
+
+Now let's run:
+```
+$ nmap -p 6000 localhost
+[...]
+
+PORT     STATE  SERVICE
+6000/tcp closed X11
+```
+Here you can see port 6000 is closed.
+
+Now that you understand how to test, you can proceed to test the `10.0.0.1:6000` and `10.0.0.2:6000`.
+
+First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
+
+```
+ssh 10.0.0.1
+nmap -p 6000 10.0.0.2
+```
+if all is good, then in terminal B ssh to the second node and do the same check in reverse:
+
+```
+ssh 10.0.0.2
+nmap -p 6000 10.0.0.1
+```
+
+If both ports are open you can now use this port. If either or both are closed you have to open these ports. Since most clouds use a proprietary solution, simply search the Internet for "open port" and the name of your cloud provider.
+
+The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
+
+```
+$ sudo ifconfig
+```
+
+One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
+
+Then there is the inter-node interface which can be Infiniband, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking). There could be one or dozens of those interfaces.
+
+Here are some examples of `ifconfig`'s output:
+
+```
+$ ifconfig
+enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
+        [...]
+```
+I removed most of the output showing only some of the info. Here the key information is the IP address that is listed after `inet`. In the example above it's `10.0.0.23`. This is the IP address of interface `enp5s0`.
+
+If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or something of sorts - the last segment will be the one with a different number.
+
+Let's look at another example:
+
+```
+$ ifconfig
+ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+        inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
+        [...]
+```
+Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network#opa) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
+
+If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
+
+Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will co-ordinate other nodes.
+For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
+
+In terminal A:
+
+```
+$ ssh 10.0.0.1
+$ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+```
+
+In terminal B:
+
+```
+$ ssh 10.0.0.2
+$ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+```
+
+Note that I'm using the same `--master_addr 10.0.0.1 --master_port 6000` in both cases because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host.
+
+This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
+
+**pdsh**
+
+`pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
+
+```
+PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
+"python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
+```
+
+You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument.
+
+
+**SLURM**
+
+If you use SLURM, it's almost certain that whoever set things up already have all the ports opened for you, so it should just work. But if it doesn't the information in this section should help debug things.
+
+Here is how you'd use this with SLURM.
+
+```
+#!/bin/bash
+#SBATCH --job-name=test-nodes        # name
+#SBATCH --nodes=2                    # nodes
+#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
+#SBATCH --cpus-per-task=10           # number of cores per tasks
+#SBATCH --gres=gpu:8                 # number of gpus
+#SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
+#SBATCH --output=%x-%j.out           # output file name
+#
+export GPUS_PER_NODE=8
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=6000
+#
+srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+torch-distributed-gpu-test.py'
+```
+If you have more than 2 nodes you just need to change the number of nodes and the above script will automatically work for any number of them.
+
+
+**MPI**:
+
+Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available. There you create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, it'd be:
+
+```
+$ cat hostfile
+10.0.0.1:8
+10.0.0.2:8
+```
+
+```
+$ mpirun -np 16 -map-by ppr:8:node python my-program.py
+```
+
+Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
+
+Nuances:
+- You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
+- You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
+
+`mpirun` has a gazillion of applications and I will recommend reading its manpage for more information. My intention was only to show you how you could use it.
+
+
 ## Prefixing logs with `node:rank`, interleaved asserts
 
 In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
@@ -7,7 +195,8 @@ In this section we will use `torchrun` (`torch.distributed.run`) during the demo
 When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
 
 ```
-python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
+torch-distributed-gpu-test.py
 ```
 
 Now each log line will be prefixed with `[hostname:rank]`
