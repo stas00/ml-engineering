@@ -80,7 +80,7 @@ Then there is the inter-node interface which can be Infiniband, EFA, OPA, HPE Sl
 Here are some examples of `ifconfig`'s output:
 
 ```
-$ ifconfig
+$ sudo ifconfig
 enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
         [...]
@@ -92,7 +92,7 @@ If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or someth
 Let's look at another example:
 
 ```
-$ ifconfig
+$ sudo ifconfig
 ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
         inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
         [...]

@@ -50,6 +50,12 @@ cuda-gdb
 
 # From Adam Moody's team at LLNL
 
+
+- NUMA affinities
+
+https://github.com/LLNL/mpibind/tree/master/python
+mpibind for Python enables the use of the mpibind algorithm in arbitrary Python programs.
+
 - Training hanging detection tool:
 
 This is to expand:
