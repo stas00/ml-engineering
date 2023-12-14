@@ -256,7 +256,22 @@ pt=1.13.1: used=0.90GB, free=78.31GB, total=79.21GB
 
 The older pytorch "wasted" 1.78GB of A100, the newer only 0.9GB, thus saving a whooping 0.9GB, which can be the saving grace for the OOM situations.
 
-`CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand.
+`CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand. But do not use this setting in production since it's likely to use more memory than needed. The whole point of lazy-loading is to load only the kernels that are needed.
+
+With `pytorch==2.1.1`:
+```
+$ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
+pt=2.1.1+cu121: used=3.74GB, free=75.41GB, total=79.15GB
+```
+
+This is alarmingly higher than with 1x series. Even if we use the lazy mode - it's still very high:
+```
+$ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
+pt=2.1.1+cu121: used=3.74GB, free=75.41GB, total=79.15GB
+```
+
 
 2. Model weights, optimizer states and gradients
 
