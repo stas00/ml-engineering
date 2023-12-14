@@ -190,6 +190,37 @@ Nuances:
 `mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
 
 
+
+### Solving the Infiniband connection between multiple nodes
+
+In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
+
+```
+NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
+```
+I saw in the debug messages that Infiniband interfaces got detected:
+```
+node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
+```
+But the connection would then time out with the message:
+```
+node-2:5776:5902 [0] transport/net_ib.cc:1296 NCCL WARN NET/IB : Got completion from peer 10.2.0.5<33092> with error 12, opcode 0, len
+0, vendor err 129 (Recv)
+node-2:5776:5902 [0] NCCL INFO transport/net.cc:1134 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:679 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
+```
+and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
+
+There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations).
+
+Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
+
+The individual nodes are often not meant for inter-node communication and often the clouds have the concept of clusters, which are designed for allocating multiple nodes as a group and are already preconfigured to work together.
+
+
+
+
 ## Prefixing logs with `node:rank`, interleaved asserts
 
 In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
