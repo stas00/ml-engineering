@@ -262,15 +262,15 @@ With `pytorch==2.1.1`:
 ```
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=2.1.1+cu121: used=3.74GB, free=75.41GB, total=79.15GB
+pt=2.1.1+cu121: used=0.92GB, free=78.23GB, total=79.15GB
 ```
-
-This is alarmingly higher than with 1x series. Even if we use the lazy mode - it's still very high:
+As compared to the lazy mode:
 ```
 $ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=2.1.1+cu121: used=3.74GB, free=75.41GB, total=79.15GB
+pt=2.1.1+cu121: used=0.47GB, free=78.68GB, total=79.15GB
 ```
+There is a 450MB difference, but here we only loaded kernels to do `torch.ones` - the actual memory allocated at run time with other code using torch API will be somewhere between 0.47 and 0.92GB.
 
 
 2. Model weights, optimizer states and gradients
