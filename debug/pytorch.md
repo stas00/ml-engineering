@@ -602,3 +602,51 @@ It will conveniently prefix each line with the pid of the program so it should b
 But if you want separate logs per process, then use `-ff` instead of `-f`.
 
 The `strace` manpage has a ton of other useful options.
+
+
+## Invoke pdb on a specific rank in multi-node training
+
+Once pytorch 2.2 is released you will have a new handy debug feature:
+
+```
+import torch.distributed as dist
+[...]
+
+def mycode(...):
+
+   dist.breakpoint(0)
+
+```
+
+This is the same as `ForkedPdb` (below) but will automatically break for you on the rank of your choice - rank0 in the example above. Just make sure to call `up;;n` right away when the breakpoint hits to get into your normal code.
+
+Here is what it does underneath:
+
+```
+import sys
+import pdb
+
+class ForkedPdb(pdb.Pdb):
+    """
+    PDB Subclass for debugging multi-processed code
+    Suggested in: https://stackoverflow.com/questions/4716533/how-to-attach-debugger-to-a-python-subproccess
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+
+def mycode():
+
+    if dist.get_rank() == 0:
+        ForkedPdb().set_trace()
+    dist.barrier()
+
+```
+so you can code it yourself as well.
+
+And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
