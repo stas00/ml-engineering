@@ -145,7 +145,7 @@ Typically the more on-chip memory the accelerator has the better. At any given t
 
 Current high end accelerators (some aren't GA yet):
 
-| Accelerator          | Memory<br> in GBs | Type  | Speed<b>in TB/s  |
+| Accelerator          | Memory<br> in GBs | Type  | Speed<b> in TB/s |
 | :---------------     |     ------------: | :--   | ------------:    |
 | NVIDIA A100 SXM      |                80 | HBM2e |                2 |
 | NVIDIA H100 SXM      |                80 | HBM3  |             3.35 |
