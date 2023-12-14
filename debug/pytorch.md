@@ -101,7 +101,7 @@ Here `ib` typically tells us it's an InfiniBand card, but really it can be any o
 
 If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
 
-Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will co-ordinate other nodes.
+Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes.
 For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
 
 In terminal A:
