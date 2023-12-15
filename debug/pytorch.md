@@ -212,7 +212,7 @@ node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
 ```
 and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
 
-There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations).
+There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
 
 Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
 

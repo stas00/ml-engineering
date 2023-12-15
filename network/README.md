@@ -447,6 +447,12 @@ You want to make sure that the nodes used for a single training all reside on th
 
 When you plan to eventually have a large cluster but starting small make sure that your provider can expand the cluster while keeping all the nodes close to each other.
 
+Here are the cloud-specific ways of accomplishing node proximity:
+
+- Azure: [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
+- GCP: [compact placement policies](https://cloud.google.com/compute/docs/instances/use-compact-placement-policies)
+
+Depending on the type of package you have or what type of machines you rent - you may or may not be able to use those.
 
 ### Shared internode network
 
