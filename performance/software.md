@@ -173,7 +173,7 @@ This knowledge can be helpful to know when analyzing performance bottlenecks.
 This summary is derived from [Data Movement Is All You Need: A Case Study on Optimizing Transformers 2020](https://arxiv.org/abs/2007.00072)
 
 
-### Anatomy of Model's Memory
+### Anatomy of Model's Memory Usage
 
 We've seen that training the model uses much more memory than just putting the model on the GPU. This is because there are many components during training that use GPU memory. The components on GPU memory are the following:
 
@@ -230,11 +230,11 @@ For **inference**, the math is very similar to training, minus optimizer states 
 
 
 
-### GPU memory allocation breakdown
+### Additional GPU memory usage
 
-To be able to avoid OOM-situations and be able to use the largest batch size it helps to understand how GPU memory is used
+In addition to the memory usage described in the previous section, there are other consumers of the GPU memory - so you never get the full memory for your model's use.
 
-1. Preloaded cuda kernels size
+#### Preloaded CUDA kernels memory usage
 
 When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, reducing the GPU's total available memory.
 
@@ -273,31 +273,13 @@ pt=2.1.1+cu121: used=0.47GB, free=78.68GB, total=79.15GB
 There is a 450MB difference, but here we only loaded kernels to do `torch.ones` - the actual memory allocated at run time with other code using torch API will be somewhere between 0.47 and 0.92GB.
 
 
-2. Model weights, optimizer states and gradients
+#### Memory fragmentation
 
-The most common situation with mixed precision training the math is:
+As the model allocates and frees tensors, the memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
-```
-2*4: optim states (2x fp32)
-4+2: weights (1x fp32 master weights and 1x bf16/fp16 half)
-  4: grads (1x fp32)
-----------------------------------
- 18: total (18 bytes per parameter)
-```
-
-So if you have an 11B model, you need at least (`18*11`) 198GB of GPU memory to train the model regardless of batch size and sequence length. The latter belong into the activation memory allocations.
-
-See the section above for various other situations.
+Environment variable `PYTORCH_CUDA_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
 
 
-3. Activation memory
-
-- coming soon
-
-
-4. Temp memory
-
-This one is hard to calculate but it shouldn't be significantly large. It's basically the extra memory that is used for intermediary calculations.
 
 
 ### Batch sizes
