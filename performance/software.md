@@ -357,6 +357,17 @@ Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest 
 For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, `gradOutput` and output of the forward, and writes once, `gradInput`).
 
 
+## Memory profiler tools
+
+In this chapter we discussed the theoretical math of how much this or that feature should consume in MBs of memory. But often in reality things aren't exactly the same. So you plan for a certain model size and batch sizes but when you come to use it suddenly there is not enough memory. So you need to work with your actual code and model and see which part takes how much memory and where things got either miscalculated or some additional missed overhead hasn't been accounted for.
+
+You'd want to use some sort of memory profiler for that purpose. There are various memory profilers out there.
+
+One useful tool that I developed for quick and easy profiling of each line or block of code is
+[IPyExperiments](https://github.com/stas00/ipyexperiments). You just need to load your code into a jupyter notebook and it'll automatically tell you how much CPU/GPU memory each block allocates/frees. So e.g. if you want to see how much memory loading a model took, and then how much extra memory a single inference step took - including peak memory reporting.
+
+
+
 ## Vector and matrix size divisibility
 
 
