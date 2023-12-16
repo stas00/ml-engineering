@@ -211,7 +211,7 @@ In this case even though we still have the much faster NVLink connection, we don
 
 So in this particular situation if you were able to get a 400Gbps inter-node the speed would double and the comms will finish in 0.32 secs and thus will be faster than that 0.42 secs the compute would take.
 
-footnote: you will never be able to get the advertised speed fully on the application level, so if it's advertised as 400Gbps in the best case expect to get 320Gbps (about 80%). So make sure to take this into the account as well.
+footnote: you will never be able to get the advertised speed fully on the application level, so if it's advertised as 400Gbps in the best case expect to get 320Gbps (about 80%). So make sure to take this into the account as well. Moreover, depending on the payload of each collective - the smaller the payload the smaller the actual network throughput will be.
 
 And remember this was all handling a pretty tiny as considered these days 2B param model.
 
@@ -428,6 +428,93 @@ Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_acc
 
 
 ## Important nuances
+
+### Real network throughput
+
+The network throughput in the advertised spec and the actual throughput will never be the same. In the best case you can expect about 80-90% of the advertised spec.
+
+Then the network throughput will depend on the size of payload being sent during each communication. The higher the payload the higher the throughput will be.
+
+Let's demonstrate this using [nccl-tests](https://github.com/NVIDIA/nccl-tests) on a single A100 node
+```
+$ ./build/all_reduce_perf -b 32k -e 16G -f 2 -g 8 -n 50
+[...]
+           size    time   algbw   busbw
+            (B)    (us)  (GB/s)  (GB/s)
+         32_768   43.83    0.75    1.31
+         65_536   46.80    1.40    2.45
+        131_072   51.76    2.53    4.43
+        262_144   61.38    4.27    7.47
+        524_288   80.40    6.52   11.41
+       1048_576   101.9   10.29   18.00
+       2097_152   101.4   20.68   36.18
+      4_194_304   101.5   41.33   72.33
+      8_388_608   133.5   62.82  109.93
+     16_777_216   276.6   60.66  106.16
+     33_554_432   424.0   79.14  138.49
+     67_108_864   684.6   98.02  171.54
+    134_217_728  1327.6  101.10  176.92
+    268_435_456  2420.6  110.90  194.07
+    536_870_912  4218.4  127.27  222.72
+  1_073_741_824  8203.9  130.88  229.04
+  2_147_483_648   16240  132.23  231.41
+  4_294_967_296   32136  133.65  233.88
+  8_589_934_592   64074  134.06  234.61
+ 17_179_869_184  127997  134.22  234.89
+```
+
+footnote: I massaged the output to remove unwanted columns and made the size more human readable
+
+This benchmark run an `all_reduce` collective for various payload sizes from 32KB to 16GB. The value that we care about is the `busbw` - this column tells us the real network throughput as explained [here](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bus-bandwidth).
+
+As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
+
+Here is a benchmark that demonstrates that [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Using the same A100 node:
+
+```
+$ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
+
+----------- 1x 4.0GB ----------------
+ busbw: 1257.1650  Gbps
+
+----------- 1000x 0.004GB ----------------
+ busbw: 374.3910  Gbps
+```
+
+It's easy to see that it's about 3x slower in this particular case to send the same payload but in 1000 smaller chunks.
+
+So when you calculate how long does it take to `all_reduce` a given payload size, you need to use the corresponding `busbw` entry (after of course you have run this benchmark on your particular hardware/environment).
+
+Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
+
+But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
+600GBs - but we aren't getting anywhere close to 600GBs here, we had 234GBs with 17GB payload and more than that the benchmark crashes. But it can be seen that not much more can be squeezed.
+
+So is something wrong with the hardware? Let's run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which perhaps a low-level benchmark:
+
+```
+./p2pBandwidthLatencyTest
+[...]
+Bidirectional P2P=Enabled Bandwidth Matrix (GB/s)
+   D\D     0      1      2      3      4      5      6      7
+     0 1602.56 520.62 520.93 517.34 517.65 518.00 518.86 517.97
+     1 521.00 1605.03 519.11 518.71 518.68 518.00 519.90 520.92
+     2 520.80 524.82 1602.56 519.57 517.88 519.38 518.17 519.02
+     3 518.37 518.55 517.68 1599.28 521.77 519.38 518.86 518.17
+     4 517.67 519.04 520.49 518.18 1603.39 521.88 519.75 517.68
+     5 519.76 519.38 516.87 519.04 519.92 1603.39 519.23 519.40
+     6 520.25 519.73 519.91 517.32 517.51 518.02 1601.74 517.85
+     7 518.70 519.91 518.87 517.33 518.37 517.34 518.20 1599.28
+```
+
+As you can see here we do get about 520GBps out of 600GBps advertised (~87%).
+
+Still there is a huge gap between 235GBps `all_reduce` and 520GBps in p2p benchmark.
+
+Bottom line - in this particular setup:
+1. if you have huge payloads you will be able to use about 1/3rd of the advertised 600GBps
+2. if the payload of each communication is smallish it could be far far lower.
+
 
 ### Proprietary network hardware and NCCL
 

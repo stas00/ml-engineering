@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# this is derived from the all_reduce_latency_comp.py
+# this is derived from the all_reduce_bench.py
 # but adjusted to show how 1x 4GB reduction is much faster than 1000x 4MB reduction
 #
 # to run on 8 gpus:
