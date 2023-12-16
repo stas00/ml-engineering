@@ -469,7 +469,7 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is a benchmark that demonstrates that [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Using the same A100 node:
+Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Let's run it on the same A100 node:
 
 ```
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
@@ -488,7 +488,7 @@ So when you calculate how long does it take to `all_reduce` a given payload size
 Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
 
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
-600GBs - but we aren't getting anywhere close to 600GBs here, we had 234GBs with 17GB payload and more than that the benchmark crashes. But it can be seen that not much more can be squeezed.
+600GBs - but we aren't getting anywhere close to 600GBs here, we had 234GBs (40%) with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
 So is something wrong with the hardware? Let's run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which perhaps a low-level benchmark:
 
@@ -507,9 +507,9 @@ Bidirectional P2P=Enabled Bandwidth Matrix (GB/s)
      7 518.70 519.91 518.87 517.33 518.37 517.34 518.20 1599.28
 ```
 
-As you can see here we do get about 520GBps out of 600GBps advertised (~87%).
+As you can see here we do get about 520GBps out of the advertised 600GBps (~87%).
 
-Still there is a huge gap between 235GBps `all_reduce` and 520GBps in p2p benchmark.
+Still there is a huge gap between 235GBps `all_reduce` and 520GBps in the p2p benchmark.
 
 Bottom line - in this particular setup:
 1. if you have huge payloads you will be able to use about 1/3rd of the advertised 600GBps
