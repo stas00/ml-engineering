@@ -93,5 +93,5 @@ scontrol update JobID=$SLURM_JOB_ID TimeLimit=2-00:00:00
 
 To add additional time to the previous setting, e.g. 3 more hours.
 ```
-scontrol update JobID=$SLURM_JOB_ID TimeLimit=+3:00:00
+scontrol update JobID=$SLURM_JOB_ID TimeLimit=+10:00:00
 ```

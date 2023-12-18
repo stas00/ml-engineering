@@ -14,13 +14,25 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary
 
+- DMA: Direct Memory Access
+- EFA: Elastic Fabric Adapter
+- HCA: Host Channel Adapter
+- IB: Infiniband
 - MFU: Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPs, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
-- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
-- GBps, GB/s: Gigabyte per secs (1GBps = 8Gbps) transferred in a channel
-- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
-- Unidirectional: a transmission from one point to another in one direction A -> B
-- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
+- NIC: Network Interface Card
+- OPA: Omni-Path Architecture
 - RoCE: RDMA over Converged Ethernet
+- RoE: RDMA over Ethernet
+- VPI: Virtual Protocol Interconnect
+- RDMA: Remote Direct Memory Access
+
+Speed-related:
+- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
+- GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
+- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
+- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
+- Unidirectional: a transmission from one point to another in one direction A -> B
+
 
 
 ## Understanding why inter-node network speed is of a huge importance
@@ -226,6 +238,16 @@ It can be difficult to do even approximate math as we did in this chapter, becau
 As I have shown in these sections it should be possible to be able to do a back-of-envelope calculations once you understand the specific scalabiity technique and its networking costs, so that you could know ahead of time which Inter-node network speed you need to require from your acquisition manager. Of course, you also need to understand the particular model architecture and calculate how many TFLOP it will take to do a single iteration.
 
 
+### Unidirectional vs Bidirectional (Duplex)
+
+Most benchmarking / bandwidth measurement tools will report a unidirectional bandwidth. So be careful when you look at unidirectional vs. bidirectional (duplex) speeds. Typically the latter is ~2x faster.
+
+If you measure the bandwidth on your setup and it's about 40% of the advertised speed, carefully check if the advertised speed said duplex and if so half that and then your measured bandwidth should now be about 80% which is expected.
+
+case study: for a while I couldn't understand why when I run the nccl-tests all_reduce benchmark on an A100 node with advertised 600GBps intra-node speed I was getting only 235Gbps (40%) until Horace He kindly pointed out that I should be looking at unidirectional speed which is 300GBps, and then I get 80% of the theoretical spec which checks out.
+
+
+
 ## Intra-node networking
 
 Note to the reader: my notes currently include only NVIDIA intra-node hardware, since I'm yet to find access to AMD MI* nodes - if you are with AMD and you want me to extend this writing to AMD hardware please contact me with access to such hardware as it seems impossible to find.
@@ -239,7 +261,6 @@ On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardw
 - [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post.
 
 I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
-
 
 footnote: Pay attention that 1 GBps = 8 Gbps
 
@@ -386,27 +407,28 @@ Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) has been around for a
 
 Here the most recent signaling rates which you are likely to see in the current hardware offerings:
 
-Signaling rate of Duplex links in Gbps
-| Links |  NDR |  XDR |  GDR |
-| ----: |  --: |  --: |  --: |
-|     1 |   00 |  200 |  400 |
-|     4 |  400 |  800 | 1600 |
-|     8 |  800 | 1600 | 3200 |
-|    12 | 1200 | 2400 | 4800 |
+Signaling rate of uni-directional links in Gbps:
+| Links | EDR | HDR |  NDR |  XDR |  GDR |
+| ----: | --: | --: |  --: |  --: |  --: |
+|     1 |  25 |  50 |  100 |  200 |  400 |
+|     4 | 100 | 200 |  400 |  800 | 1600 |
+|     8 | 200 | 400 |  800 | 1600 | 3200 |
+|    12 | 300 | 600 | 1200 | 2400 | 4800 |
 
 Latency in usecs:
-| NDR | XDR | GDR |
-| --: | --: | --: |
-| 0.5 | 0.6 | ??  |
+| EDR | HDR | NDR | XDR | GDR |
+| --: | --: | --: | --: | --: |
+| 0.5 | 0.6 | ??  | ??  | ??  |
+
+`??` = NDR and later didn't publish latency data
 
 
 InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
 Here are some examples of NVIDIA devices with the fastest IB:
 
-One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
-
-For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
+- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
+- For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
 ### Gaudi2
 
@@ -418,7 +440,7 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 ### OPA
 
-[OmniPath](https://en.wikipedia.org/wiki/Omni-Path). Originally by Intel, the technology got sold to Cornelis Networks.
+[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path). Originally by Intel, the technology got sold to Cornelis Networks.
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
@@ -467,7 +489,7 @@ footnote: I massaged the output to remove unwanted columns and made the size mor
 
 This benchmark run an `all_reduce` collective for various payload sizes from 32KB to 16GB. The value that we care about is the `busbw` - this column tells us the real network throughput as explained [here](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bus-bandwidth).
 
-As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
+As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around payload size of 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
 Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Let's run it on the same A100 node:
 
@@ -488,32 +510,46 @@ So when you calculate how long does it take to `all_reduce` a given payload size
 Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
 
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
-600GBs - but we aren't getting anywhere close to 600GBs here, we had 234GBs (40%) with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
+uni-directional 300GBs so we get about 78% of the theoretical speed with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
-So is something wrong with the hardware? Let's run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which perhaps a low-level benchmark:
+We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark:
 
 ```
 ./p2pBandwidthLatencyTest
 [...]
-Bidirectional P2P=Enabled Bandwidth Matrix (GB/s)
+Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
    D\D     0      1      2      3      4      5      6      7
-     0 1602.56 520.62 520.93 517.34 517.65 518.00 518.86 517.97
-     1 521.00 1605.03 519.11 518.71 518.68 518.00 519.90 520.92
-     2 520.80 524.82 1602.56 519.57 517.88 519.38 518.17 519.02
-     3 518.37 518.55 517.68 1599.28 521.77 519.38 518.86 518.17
-     4 517.67 519.04 520.49 518.18 1603.39 521.88 519.75 517.68
-     5 519.76 519.38 516.87 519.04 519.92 1603.39 519.23 519.40
-     6 520.25 519.73 519.91 517.32 517.51 518.02 1601.74 517.85
-     7 518.70 519.91 518.87 517.33 518.37 517.34 518.20 1599.28
+     0 1581.48 274.55 275.92 272.02 275.35 275.28 273.62 273.20
+     1 274.70 1581.48 275.33 272.83 275.38 273.70 273.45 273.70
+     2 274.81 276.90 1594.39 272.66 275.39 275.79 273.97 273.94
+     3 273.25 274.87 272.12 1545.50 274.38 274.37 274.22 274.38
+     4 274.24 275.15 273.44 271.57 1584.69 275.76 275.04 273.49
+     5 274.37 275.77 273.53 270.84 274.59 1583.08 276.04 273.74
+     6 275.61 274.86 275.47 273.19 272.58 275.69 1586.29 274.76
+     7 275.26 275.46 275.49 273.61 275.50 273.28 272.24 1591.14
+[...]
 ```
 
-As you can see here we do get about 520GBps out of the advertised 600GBps (~87%).
-
-Still there is a huge gap between 235GBps `all_reduce` and 520GBps in the p2p benchmark.
+As you can see in the Unidirectional section of the report we do get 274 GBps out of the advertised 300GBps (~91%).
 
 Bottom line - in this particular setup:
-1. if you have huge payloads you will be able to use about 1/3rd of the advertised 600GBps
+1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
 2. if the payload of each communication is smallish it could be far far lower.
+
+This graph is also helpful to demonstrate how the actual bandwidth changes with the size of the message:
+
+![Low-level Uni-directional Bandwidth Measurements](images/ccgrid11-uni-direction-bandwidth.png)
+([source](https://ieeexplore.ieee.org/document/5238655))
+
+
+
+### Latency
+
+
+![Low-level Latency Measurements](images/ccgrid11-low-level-latency.png)
+([source](https://ieeexplore.ieee.org/document/5238655))
+
+XXX: integrate/expand
 
 
 ### Proprietary network hardware and NCCL
