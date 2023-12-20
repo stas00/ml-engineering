@@ -36,7 +36,7 @@ Incoming suggestions from Ross Wightman to integrate:
 **The fastest solution is Parallel FileSystem**
 
 - [Lustre FS](https://www.lustre.org/) (Open Source)
-- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM)
+- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale.
 
 Both have been around for 2+ decades.
 
@@ -73,7 +73,7 @@ For checkpointing there should be enough local disc space for saving a checkpoin
 case study: we didn't have a choice and had to use cloud storage for dataloading during IDEFICS-80B training as we had barely any local storage and since it was multimodal data it was many TBs of data. We spent many weeks trying to make this solution robust and it sucked at the end. The biggest issue was that it was very difficult at the time to keep track of RNG state for the DataSampler because the solution we used, well, didn't bother to take care of it. So a lot of data that took a lot of time to create was wasted (not used) and a lot of data was repeated, so we didn't have a single epoch of unique data.
 
 
-## Beware that you're being sold only 80% of the storage you pay for
+## Beware that you're often being sold only 80% of the storage you pay for
 
 There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large filesystems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
 
@@ -98,6 +98,7 @@ First, here are some published benchmarks:
 
 Then various benchmarks that you can run yourself:
 
+- [fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/)
 - [HPC IO Benchmark Repository](https://github.com/hpc/ior)
 
 XXX: expand on how it's used

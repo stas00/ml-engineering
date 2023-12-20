@@ -227,7 +227,8 @@ For **inference**, the math is very similar to training, minus optimizer states 
 - 2 bytes in half precision
 - 1 byte in quantized int8 precision
 
-
+Another excellent resource that takes you through the memory needs and other requirements is
+[Transformer Math 101](https://blog.eleuther.ai/transformer-math/).
 
 
 ### Additional GPU memory usage

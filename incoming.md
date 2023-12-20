@@ -40,8 +40,17 @@ gdb with cuda
 cuda-gdb
 ```
 
-
 - integrate debug_utils.py
+
+# Network
+
+like nccl-tests, another common set of benchmarks used at HPC sites are the OSU microbenchmarks like osu_lat, osu_bw, and osu_bibw.
+
+https://mvapich.cse.ohio-state.edu/benchmarks/
+
+Those are MPI-based benchmarks.  Those can be run using GPUDirect RDMA so you can measure MPI performance between GPUs, either on the same node or between nodes.
+
+
 
 # Testing
 
