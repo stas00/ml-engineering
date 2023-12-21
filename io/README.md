@@ -98,9 +98,9 @@ These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your 
 
 ### fio
 
-[fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/) is a commonly used io benchmarking tool.
+[fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/) is a commonly used io benchmarking tool, which is quite easy to use.
 
-Install with `apt install fio` or whatever your package manager is.
+First install `fio` with `apt install fio` or however your package manager does it.
 
 Here is [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
 
@@ -145,6 +145,7 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([su
 
 As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line.
 
+Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will re-use files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this re-use is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
 
 
 ### other tools
