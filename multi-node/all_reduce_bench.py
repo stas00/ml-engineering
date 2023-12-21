@@ -13,6 +13,9 @@
 # - when you finished running this benchmark you want to pay attention to the busbw result (not
 #   algobw) as explained here https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth
 #
+# - similar to NVIDIA/nccl-tests this benchmark measures a unidirectional bandwidth - so compare the
+# - outcome against the advertised unidirectional peak throughput and not bi-directional (duplex)
+#
 # - currently this benchmark tests a payload of 4GB (M * N * 4) - if your target application uses a
 #   much smaller payload you want to modify M*N*4 to match the target payload. To calculate the
 #   payload use the number of parameters per a single layer multiplied by 2 (bf16/fp16) or 4 (fp32).
