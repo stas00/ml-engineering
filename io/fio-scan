@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# This script will run fio on a given parition/path for read/write for 16KB, 1MB and 1GB file sizes
+# using a fixed 4k block size.
+#
+# usage:
+#
+# ./fio-scan /mnt/nvme0/fio
+#
+# The required argument is the path to the partition you want to benchmark. It will save a json file
+# with each of the runs and produce a single summary of average latency, bandwidth and IOPs.
+#
+# note: this script calls `python ./fio-json-extract.py` so if you copy this script from the repo make sure to copy fio-json-extract.py as well.
+#
+# Scroll to the end of the script to optionally adapt any of the fio parameters to reflect your reality.
+
+#set -x
+set -euo pipefail
+
+if [ $# -eq 1 ]; then
+   partition_path=$1
+else
+    echo "Usage: $0 /path/to/a/partition/to/run/benchmark/on"
+    exit 1
+fi
+
+# append an extra section in case someone passes a top-level dir
+base_path=$partition_path/fio-test
+mkdir -p $base_path
+
+echo
+echo "*** Benchmarking $base_path"
+echo
+
+DATETIMEFS=$(date +"%Y-%m-%d-%H-%M-%S")
+DATETIME=$(date +"%Y-%m-%d-%T")
+HOSTNAME=$(hostname -s)
+
+# add pid in case multiple benchmarks get started at the same time
+report_file=$HOSTNAME-$DATETIMEFS-$$-summary.md
+
+echo "# fio benchmark results for $HOSTNAME on $DATETIME" >> $report_file
+echo >> $report_file
+echo "partition $base_path"  >> $report_file
+echo >> $report_file
+
+# fio parameters discussion. You might want to read fio's manpage and adapt some of the settings.
+#
+# I'm using --unlink=1 to prevent fio from doing invalid reporting as it'd otherwise incorrectly
+# reuse work files from previous benchmarks and report invalid outcomes. It incidentally also
+# removes the need to clean up at the end of the benchmark run.
+#
+# Use --numjobs=16 if you're planning to have a read/write concurrency of 16 processes. e.g. if
+# you write a checkpoint from 8 processes on 8 nodes, you will have a write concurrency of 64 (same
+# for loading those 64 checkpoints on resume)
+#
+# --runtime should be long enough to create a sustainable load - so at least a few minutes
+#
+
+filesizes=( 16k 1m 1g )
+readwrite=( read write )
+
+for FS in "${filesizes[@]}"; do
+    echo >> $report_file
+    for RW in "${readwrite[@]}"; do
+        echo "# filesize=$FS $RW" >> $report_file
+        output=$HOSTNAME-$RW-$FS-$DATETIMEFS.json
+        cmd="fio --ioengine=libaio --filesize=$FS --ramp_time=2s --time_based --runtime=3m --numjobs=16 --direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path --name=$RW --blocksize=4k --iodepth=64 --readwrite=$RW --output-format=json --output=$output"
+        echo $cmd
+        $cmd
+        echo >> $report_file
+        python ./fio-json-extract.py $output >> $report_file
+        echo >> $report_file
+    done
+    echo >> $report_file
+done
+
+echo
+echo "wrote a summary report into $report_file"
+echo
+
+cat $report_file

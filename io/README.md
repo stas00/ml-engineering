@@ -90,22 +90,80 @@ When you sync data to and from the cloud make sure to research whether the tool 
 
 These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your environment is safe, but if you want the additional security do SHA256 checksums.
 
+
+
 ## Benchmarks
 
-First, here are some published benchmarks:
+
+
+### fio
+
+[fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/) is a commonly used io benchmarking tool.
+
+Install with `apt install fio` or whatever your package manager is.
+
+Here is [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
+
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md):
+
+* filesize=16k read
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     4.0 |   1006.3 |   257614 |   16 |
+
+* filesize=16k write
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     3.2 |   1239.1 |   317200 |   16 |
+
+* filesize=1m read
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     1.7 |   2400.1 |   614419 |   16 |
+
+* filesize=1m write
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     2.1 |   1940.5 |   496765 |   16 |
+
+* filesize=1g read
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     1.4 |   2762.0 |   707062 |   16 |
+
+* filesize=1g write
+
+| lat msec | bw MBps |   IOPS   | jobs |
+| -------: | ------: | -------: | ---: |
+|     2.1 |   1943.9 |   497638 |   16 |
+
+
+As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line.
+
+
+
+### other tools
+
+- [HPC IO Benchmark Repository](https://github.com/hpc/ior)
+- [DLIO](https://github.com/argonne-lcf/dlio_benchmark)
+
+XXX: expand on how these are used when I get a chance to try those
+
+
+
+### Published benchmarks
+
+Here are some published IO benchmarks:
 
 - [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/en/storage-results-05/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
 
 Then various benchmarks that you can run yourself:
 
-- [fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/)
-- [HPC IO Benchmark Repository](https://github.com/hpc/ior)
-
-XXX: expand on how it's used
-
-incoming recommendations:
-- https://github.com/argonne-lcf/dlio_benchmark
--
 
 
 ## Contributors
