@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script will run fio on a given parition/path for read/write for 16KB, 1MB and 1GB file sizes
+# This script will run fio on a given partition/path for read/write for 16KB, 1MB and 1GB file sizes
 # using a fixed 4k block size.
 #
 # usage:

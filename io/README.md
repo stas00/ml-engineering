@@ -145,7 +145,7 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([su
 
 As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line.
 
-Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will re-use files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this re-use is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
+Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will reuse files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this reuse is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
 
 
 ### other tools

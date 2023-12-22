@@ -285,15 +285,64 @@ Environment variable `PYTORCH_CUDA_ALLOC_CONF` comes to help and allows you to r
 
 ### Batch sizes
 
+First, there are usually two batch sizes:
+
+1. micro batch size (MBS), also known as batch size per gpu - this is how many samples a single gpu consumes during a model's single `forward` call.
+
+2. global batch size (GBS) - this is the total amount of samples consumed between two optimizer steps across all participating GPUs.
+
+Model replica is how many gpus are needed to fit the full model.
+
+- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../model-parallelism#data-parallelism)
+- If the model doesn't fit into a single GPU, it'd usually require some sort of sharding technique - it can be
+ [Tensor Parallelism](../model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../model-parallelism#zero-data-parallelism) (ZeRO-DP).
+
+You can have as many data streams as there are replicas. Which is the same as the value of DP.
+- So in the simple case of a model fitting into a single GPU. There are as many data streams as there are GPUs. DP=N_GPUS
+- when the model doesn't fit onto a single GPU, then `DP=N_GPUs/(TP*PP)` in the case of 3D parallelism and DP=ZeRO-DP in the case of ZeRO parallelism.
+
+Going back to our global batch size (GBS) it's calculated as:
+
+```
+GBS = MBS*DP
+```
+
+So if you have 8 gpus (N_GPUS=8) and your MBS=4 and you do DP you end up with having GBS=32 because:
+
+```
+GBS = MBS*DP = 4*8 = 32
+```
+
+If you use TP with a degree of 2 (TP=2) and PP with a degree of 2 (PP=2) this means each model replica takes 4 gpus (`TP*PP`), and thus with N_GPUS=8
+
+```
+DP = N_GPUS/(TP*PP) = 8 / (2*2) = 2
+```
+and now GBS becomes:
+
+```
+GBS = MBS*DP = 4*2 = 8
+```
+
+If your training setup requires [Gradient Accumulation](#gradient-accumulation), one usually defines the interval of how many steps to wait before performing a gradient accumulation. The term is usually Gradient Accumulation Steps (GAS). If GAS=4 (i.e. sync grads every 4 steps) and TP=1, PP=1 and DP=8:
+
+
+```
+DP = N_GPUS/(TP*PP) = 8 / (1*1) = 8
+GBS = MBS*DP*GAS = 4*8*4 = 128
+```
+
+Typically you want to make the micro batch size as large as possible so that the GPU memory is close to being full, but not too full.
+
+With large models usually there is not much free GPU memory left to have a large micro batch size, therefore every additional sample you can fit is important.
+
+While it's super important that sequence length and hidden size and various other hyper parameters are high multiples of 2 (64, 128 and higher) to achieve the highest performance, because in most models the batch dimension is flattened with the sequence length dimension during the compute the micro batch size alignment usually has little to no impact on performance.
+
+Therefore if you tried to fit a micro batch size of 8 and it OOM'ed, but 7 fits - use the latter rather than 4. The higher the batch size the more samples you will be able to fit into a single step.
+
+Of course, when using hundreds of GPUs your global batch size may become very large. In that case you might use a smaller micro batch size or use less GPUs or switch to a different form of data parallelism so that the GPUs work more efficiently.
+
 One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
-
-For example for fully connected layers (which correspond to GEMMs), NVIDIA provides recommendations for [input/output neuron counts](
-https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#input-features) and [batch size](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#batch-size).
-
-[Tensor Core Requirements](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc) define the multiplier based on the dtype and the hardware. For example, for fp16 a multiple of 8 is recommended, but on A100 it's 64!
-
-For parameters that are small, there is also [Dimension Quantization Effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) to consider, this is where tiling happens and the right multiplier can have a significant speedup.
-
 
 
 
@@ -370,6 +419,15 @@ One useful tool that I developed for quick and easy profiling of each line or bl
 
 
 ## Vector and matrix size divisibility
+
+
+For fully connected layers (which correspond to GEMMs), NVIDIA provides recommendations for [input/output neuron counts](
+https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#input-features) and [batch size](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#batch-size).
+
+[Tensor Core Requirements](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc) define the multiplier based on the dtype and the hardware. For example, for fp16 a multiple of 8 is recommended, but on A100 it's 64!
+
+For parameters that are small, there is also [Dimension Quantization Effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) to consider, this is where tiling happens and the right multiplier can have a significant speedup.
+
 
 
 ### Tile and wave quantization
