@@ -102,50 +102,67 @@ These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your 
 
 First install `fio` with `apt install fio` or however your package manager does it.
 
-Here is [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
+Here is an example of a read benchmark:
+
+```
+base_path=/path/to/partition/
+fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --numjobs=16 \
+--direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path  \
+--name=read-test --blocksize=4k --iodepth=64 --readwrite=read
+```
+
+Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4k (typical for most OSes) with the file size of 16k (a common size of most Python files) in a sequential reading style using non-buffered IO (`O_DIRECT`). So this would be a good benchmark to showing how fast you can import Python modules on 16 concurrent processes.
+
+case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
+
+Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will reuse files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this reuse is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
+
+Going back to the benchmark - the parameters will need to change to fit the type of the IO operation you care to be fast - is it doing a lot of pip installs or writing a checkpoint on 512 processes, or doing a random read from a parquet file - each benchmark will have to be adapted to measure the right thing.
+
+At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
 
 Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md):
 
 * filesize=16k read
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     4.0 |   1006.3 |   257614 |   16 |
+| 4.0      | 1006.3  | 257614   | 16   |
+|          |         |          |      |
 
 * filesize=16k write
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     3.2 |   1239.1 |   317200 |   16 |
+| 3.2      | 1239.1  | 317200   | 16   |
+|          |         |          |      |
 
 * filesize=1m read
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     1.7 |   2400.1 |   614419 |   16 |
+| 1.7      | 2400.1  | 614419   | 16   |
 
 * filesize=1m write
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     2.1 |   1940.5 |   496765 |   16 |
+| 2.1      | 1940.5  | 496765   | 16   |
 
 * filesize=1g read
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     1.4 |   2762.0 |   707062 |   16 |
+| 1.4      | 2762.0  | 707062   | 16   |
 
 * filesize=1g write
 
-| lat msec | bw MBps |   IOPS   | jobs |
+| lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
-|     2.1 |   1943.9 |   497638 |   16 |
+| 2.1      | 1943.9  | 497638   | 16   |
 
 
-As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line.
-
-Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will reuse files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this reuse is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
+As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared filesystem.
 
 
 ### other tools
