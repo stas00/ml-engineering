@@ -342,7 +342,6 @@ Therefore if you tried to fit a micro batch size of 8 and it OOM'ed, but 7 fits 
 
 Of course, when using hundreds of GPUs your global batch size may become very large. In that case you might use a smaller micro batch size or use less GPUs or switch to a different form of data parallelism so that the GPUs work more efficiently.
 
-One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
 
 
 
@@ -420,6 +419,8 @@ One useful tool that I developed for quick and easy profiling of each line or bl
 
 ## Vector and matrix size divisibility
 
+
+One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
 
 For fully connected layers (which correspond to GEMMs), NVIDIA provides recommendations for [input/output neuron counts](
 https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#input-features) and [batch size](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#batch-size).
