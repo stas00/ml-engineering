@@ -300,14 +300,11 @@ Using this principle, we can update an MLP of arbitrary depth, without the need 
 Parallelizing the multi-headed attention layers is even simpler, since they are already inherently parallel, due to having multiple independent heads!
 ![parallel self-attention](images/parallelism-tp-parallel_self_attention.png)
 
-Special considerations: TP requires very fast network, and therefore it's not advisable to do TP across more than one node. Practically, if a node has 4 GPUs, the highest TP degree is therefore 4. If you need a TP degree of 8, you need to use nodes that have at least 8 GPUs.
-
-This section is based on the original much more [detailed TP overview](https://github.com/huggingface/transformers/issues/10321#issuecomment-783543530).
-by [@anton-l](https://github.com/anton-l).
+Important: TP requires very fast network, and therefore since typically intra-node networks are much faster than inter-node networks it's not advisable to do TP across nodes. Practically, if a node has 4 GPUs, the highest TP degree is therefore 4. If you need a TP degree of 8, you need to use nodes that have at least 8 GPUs.
 
 Important: TP degree shouldn't span across nodes. For example if the node has 8 gpus, TP degree should be no more than 8.
 
-SageMaker combines TP with DP for a more efficient processing.
+TP can combined with other parallelization methods.
 
 Alternative names:
 - DeepSpeed calls it [tensor slicing](https://www.deepspeed.ai/features/#model-parallelism)
