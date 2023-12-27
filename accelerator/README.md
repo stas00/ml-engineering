@@ -84,9 +84,9 @@ Let's use the NVIDIA A100 spec as a reference point in the following sections.
 
 As mentioned earlier most of the work that ML training and inference do is matrix multiplication. If you remember your algebra matrix multiplication is made of many multiplications followed by summation. Each of these computations can be counted and define how many of these operations can be performed by the chip in a single seconds.
 
-This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
+This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many trillions of FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
 
-| Data type              | FLOPS | w/ Sparsity |
+| Data type              | TFLOPS | w/ Sparsity |
 | :---                   |   --: |         --: |
 | FP32                   |  19.5 |         n/a |
 | Tensor Float 32 (TF32) |   156 |         312 |
@@ -95,6 +95,8 @@ This is one of the key characteristics that the accelerators are judged by. The 
 | INT8 Tensor Core       |   624 |        1248 |
 
 footnote: INT8 is measured in TeraOperations as it's not a floating operation.
+
+footnote: the term FLOPS could mean either the total number of FloatingPointOperations, e.g. when counting how many FLOPS a single Transformer iteration takes, and it could also mean FloatingPointOperations per second - so watch out for the context. When you read an accelerator spec it's almost always a per second definition. When model architectures are discussed it's usually just the total number of FloatingPointOperations.
 
 So you can see that int8 is 2x faster than bf16 which in turn is 2x faster than tf32.
 
