@@ -102,7 +102,7 @@ So you can see that int8 is 2x faster than bf16 which in turn is 2x faster than 
 
 Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
-![nvidia-a100-matmul-tflops](nvidia-a100-matmul-tflops.png)
+![nvidia-a100-matmul-tflops](images/nvidia-a100-matmul-tflops.png)
 
 [source](https://developer.nvidia.com/blog/cuda-11-features-revealed/)
 
