@@ -73,7 +73,7 @@ srun myprogram
 
 ## To enable Hyper-Threads or not
 
-As explained in the [Hyper-Threads](users.md#hyper-threads) section you should be able to double the number of available cpu-cores if the CPUs support hyper-threading and for some workloads this may lead to an overall faster performance.
+As explained in the [Hyper-Threads](users.md#hyper-threads) section you should be able to double the number of available cpu-cores if your CPUs support hyper-threading and for some workloads this may lead to an overall faster performance.
 
 However, you should test the performance w/ and w/o HT, compare the results and choose the setting that gives the best outcome.
 

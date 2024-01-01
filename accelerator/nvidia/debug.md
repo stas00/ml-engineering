@@ -1,8 +1,6 @@
-# Hardware Troubleshooting
+# Troubleshooting NVIDIA GPUs
 
-## NVIDIA GPUs
-
-### Xid Errors
+## Xid Errors
 
 No hardware is perfect, sometimes due to the manufacturing problems or due to tear and wear (especially because of exposure to high heat), GPUs are likely to encounter various hardware issues. A lot of these issues get corrected automatically without needing to really understand what's going on. If the application continues running usually there is nothing to worry about. If the application crashes due to a hardware issue it's important to understand why this is so and how to act on it.
 
@@ -112,9 +110,11 @@ where `gpu_id` is the sequential number of the gpu you want to reset. Without `-
 
 ## Running diagnostics
 
-In order to run full diagnostics on an idle GPU or a node with GPUs, `dcgmi` can be used. NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
+If you suspect one or mode NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
 
-Here is an example slurm script that will run very in-depth diagnosis (`-r 3`), which will take about 10 minutes to complete:
+NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
+
+Here is an example slurm script that will run very in-depth diagnostics (`-r 3`), which will take about 10 minutes to complete on an 8-GPU node:
 
 ```
 $ cat dcgmi-1n.slurm
@@ -173,3 +173,37 @@ I usually save the log as well for posterity using one of:
 dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
+
+## How do detect if you get the same broken node again and again
+
+This is mostly relevant to cloud users who rent GPU nodes.
+
+So you launched a new virtual machine and discovered it has one or more broken NVIDIA GPUs. You discarded it and launched a new and the GPUs are broken again.
+
+Chances are that you're getting the same node with the same broken GPUs. Here is how you can know that.
+
+Before discarding the current node, run and log:
+
+```
+$ nvidia-smi -q | grep UUID
+    GPU UUID                              : GPU-2b416d09-4537-ecc1-54fd-c6c83a764be9
+    GPU UUID                              : GPU-0309d0d1-8620-43a3-83d2-95074e75ec9e
+    GPU UUID                              : GPU-4fa60d47-b408-6119-cf63-a1f12c6f7673
+    GPU UUID                              : GPU-fc069a82-26d4-4b9b-d826-018bc040c5a2
+    GPU UUID                              : GPU-187e8e75-34d1-f8c7-1708-4feb35482ae0
+    GPU UUID                              : GPU-43bfd251-aad8-6e5e-ee31-308e4292bef3
+    GPU UUID                              : GPU-213fa750-652a-6cf6-5295-26b38cb139fb
+    GPU UUID                              : GPU-52c408aa-3982-baa3-f83d-27d047dd7653
+```
+
+These UUIDs are unique to each GPU.
+
+When you then re-created your VM, run this command again - if the UUIDs are the same - you know you have the same broken GPUs.
+
+Sometimes just rebooting the node will get new hardware. In some situations you get new hardware on almost every reboot, in other situations this doesn't happen. And this behavior may change from one provider to another.
+
+If you keep on getting the same broken node - one trick to overcoming this is allocating a new VM, while holding the broken VM running and when the new VM is running - discarding the broken one. That way you will surely get new GPUs - except there is no guarantee they won't be broken as well. If the use case fits consider getting a static cluster where it's much easier to keep the good hardware.
+
+This method is extra-crucial for when GPUs don't fail right away but after some use so it is non-trivial to see that there is a problem. Even if you reported this node to the cloud provider the technician may not notice the problem right away and put the bad node back into circulation. So if you're not using a static cluster and tend to get random VMs on demand you may want to keep a log of bad UUIDs and know you have got a lemon immediately and not 10 hours into the node's use.
+
+Cloud providers usually have a mechanism of reporting bad nodes. Therefore other than discarding a bad node, it'd help yourself and other users to report bad nodes. Since most of the time users just discard the bad nodes, the next user is going to get them. I have seen users getting a very high percentage of bad nodes in some situations.

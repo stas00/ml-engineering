@@ -12,6 +12,10 @@ During training the whole sequence length is processed in one huge `matmul` oper
 
 The other computational difference is that while both training and inference have to perform the same total amount of `matmul`s in the `forward` pass, in the `backward` pass, which is only done for training, an additional 2x times of `matmul`s is done to calculate the gradients with regards to inputs and weights. And an additional `forward` is performed if activations recomputation is used. Therefore the training process requires at 3-4x more `matmul`s than inference.
 
+## Subsections
+
+[NVIDIA GPUs Debug](nvidia/debug.md).
+
 
 ## Bird's eye view on the high end accelerator reality
 
