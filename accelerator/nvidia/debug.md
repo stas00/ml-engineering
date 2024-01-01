@@ -174,7 +174,7 @@ dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
 
-## How do detect if you get the same broken node again and again
+## How to detect if you get the same broken node again and again
 
 This is mostly relevant to cloud users who rent GPU nodes.
 
