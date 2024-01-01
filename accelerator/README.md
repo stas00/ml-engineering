@@ -14,7 +14,7 @@ The other computational difference is that while both training and inference hav
 
 ## Subsections
 
-[NVIDIA GPUs Debug](nvidia/debug.md).
+- [Troubleshooting NVIDIA GPUs](nvidia/debug.md)
 
 
 ## Bird's eye view on the high end accelerator reality
