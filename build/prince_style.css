@@ -1,0 +1,296 @@
+/*
+
+  CSS style sheet for prince html2pdf system (http://www.princexml.com/)
+  It's based on the CSS style sheet for Wikipedia articles written by Hakon Wium Lie March 2008.
+  modified to create pdfs with images that would scale automatically to fit the page and a few other tweaks, like single column, etc.
+
+  Here's an example of how to use the style sheet:
+
+  prince --no-author-style -s http://www.princexml.com/howcome/2008/wikipedia/wiki2.css http://en.wikipedia.org/wiki/Winter_war -o foo.pdf
+
+*/
+
+@import url(http://www.princexml.com/fonts/gentium/index.css);
+
+/* set headers and footers */
+
+@page {
+  size: letter;
+  margin: 2cm 2cm;
+  font: 11pt/1.3 "Gentium", serif;
+
+  @top-right { 
+    content: string(title);
+    font-style: italic;
+  }
+  @top-left { 
+    content: string(source);
+    font-style: italic;
+  }
+  @bottom-center {
+    content: counter(page);
+    vertical-align: top;
+    padding-top: 1em;
+  }
+
+  prince-shrink-to-fit: auto;
+}
+
+#siteSub { string-set: source content() }
+
+/* basic style settings*/
+
+body {
+  font: 14pt/1.3 "Gentium", serif;
+  prince-linebreak-magic: auto; 
+  hyphens: auto;
+  text-align: justify;
+}
+
+ul, ol, dl { text-align: left; hyphens: manual; }
+
+chapter { page-break-before: always;
+    prince-bookmark-level: 1;
+    prince-bookmark-label: attr(title);
+}
+
+h1 { page-break-before: always; }
+
+h1, h2, h3, h4, h5, h6 { 
+  line-height: 1.2;
+  padding: 0;
+  margin: 0.7em 0 0.2em; 
+  font-weight: normal;
+  text-align: left;
+  page-break-after: avoid;
+  clear: both;
+}
+
+title { prince-bookmark-level: 1 }
+h1 { prince-bookmark-level: 1 }
+/*
+h2 { prince-bookmark-level: 2 }
+h3 { prince-bookmark-level: 3 }
+h4 { prince-bookmark-level: 4 }
+h5 { prince-bookmark-level: 5 }
+h6 { prince-bookmark-level: 6 }
+*/
+
+/* a { text-decoration: none; color: inherit; } */
+
+p { padding: 0; margin: 0 }
+
+blockquote p {
+  font-size: 1em;
+  font-style: italic;
+}
+
+
+/* text indentation */
+
+p + p { text-indent: 1.5em }
+div.thumb + p { text-indent: 1.5em }
+h2 + div.thumb + p { text-indent: 0 }
+h3 + div.thumb + p { text-indent: 0 }
+h2 + div.thumb + div.thumb + p { text-indent: 0 }
+h3 + div.thumb + div.thumb + p { text-indent: 0 }
+h2 + dl + div.thumb + p { text-indent: 0 }
+h3 + dl + div.thumb + p { text-indent: 0 }
+
+
+div + div.thumb + p { text-indent: 0 }
+
+
+#toc { display: none }
+
+
+ul { 
+  list-style-type: disc;
+  margin-left: 1.3em;
+}
+
+/* put article heading on top of the page, spanning all columns */
+
+h1.firstHeading { 
+  float: top; 
+  string-set: title content();
+  padding-bottom: 0.2em;
+  border-bottom: thin solid black;
+  margin-bottom: 1em;
+}
+
+
+#footer { padding-top: 1em }
+#footer ul { 
+  list-style-type: none;
+  margin-left: 0;
+}
+
+#footer li { display: inline }
+#footer br { display: none ! important }
+#privacy, #about, #disclaimer { display: none }
+
+/* images */
+
+.thumb, .thumbinner, img, .thumbcaption { 
+  border: none; margin: 0; padding: 15px;
+  page-break-inside: avoid;
+}
+
+.thumb { 
+  margin: 0.2em 0;
+  float: prince-column-top-if-necessary; 
+}
+
+.thumb img {
+  max-height: 100%;
+  max-width: 100%;
+/*  width: 100%; */
+/*  height: auto; */
+}
+
+.thumbcaption { 
+   background: #fff; 
+   text-align: left; 
+   font-style: italic;
+   font-size: 1em;
+   line-height: 1.2em;
+   padding-bottom: 0.3em;
+   border-bottom: thin solid gray;
+   margin-bottom: 1em;
+}
+
+div, img { max-width: 100% }
+
+img.thumbborder { border: thin solid black }
+
+.infobox img { width: auto; height: auto; max-width: 100% }
+
+
+/* notes */
+
+li > b:first-child { display: none }
+
+a[href^="/wiki"] { color: #400 }
+a { color: #004 }
+
+#siteSub { 
+  display: block; 
+  font-style: italic; 
+  margin: 0.3em 0 
+}
+
+h2 + dl { display: none } /* these hide tag abuse */
+h3 + dl { display: none }
+
+/* tables */
+
+tr, td, th { margin: 0; padding: 0.1em 0.3em; text-align: left; vertical-align: top }
+
+div.center, th[align="center"] { text-align: center }
+
+/* infoboxes are troublesome */
+
+.infobox {
+  float: none;
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  line-height: 1.2em; 
+  font-size: 90%;
+  margin: 0 0 1em; 
+  padding: 0;
+  background: #ddd; 
+  hyphens: manual;
+  border: solid 1px #aaa;
+}
+
+.infobox td,
+.infobox th {
+    border: none;
+    border-top: solid 1px #aaa;
+    padding: 0.4em 0.6em 0.4em 0.6em;
+}
+
+.infobox .mergedtoprow td,
+.infobox .mergedtoprow th {
+    border-top: solid 1px #aaa;
+    padding: 0.4em 0.6em 0.2em 0.6em;
+}
+
+.infobox .mergedrow td,
+.infobox .mergedrow th {
+    border: 0;
+    padding: 0 0.6em 0.2em 0.6em;
+}
+
+.infobox .mergedbottomrow td,
+.infobox .mergedbottomrow th {
+    border-top: 0;
+    border-bottom: solid 1px #aaa;
+    padding: 0 0.6em 0.4em 0.6em;
+}
+
+.infobox .maptable td,
+.infobox .maptable th {
+    border: 0;
+    padding: 0;
+}
+
+table.wikitable { float: top; width: 100%; border-collapse: collapse; border-bottom: thin solid black; margin-bottom: 1em }
+table.wikitable, table.wikitable td, table.wikitable th { border: thin solid black; padding: 0.2em; text-align: left }
+
+table.wikitable[align] { float: none; width: 100%; margin: 1em 0 }
+table.wikitable[align] td { padding: 0.2em 0.3em }
+table.wikitable[align] th { padding: 0.2em 0.3em; text-align: center; font-weight: bold }
+
+table.wikitable img { width: auto; height: auto; prince-image-resolution: auto }
+
+/* avoid the huge smiley images (and padding around them) - 
+   on wordpress they all belong to wp-smiley class */
+img.wp-smiley { border: none; margin: 0; padding: 0; width: auto; height: auto; prince-image-resolution: 300dpi; }
+
+
+.ambox { border: thin solid black; padding: 0.3em; margin: 0.7em 0 }
+
+table.collapsible { display: none }
+
+/* remove elements */
+
+#administrator, #protected-icon, #siteSub, .magnify, .noprint, #jump-to-nav, .navbox, .top, #column-one, #colophon, .editsection, .toctoggle, .tochidden, #f-poweredbyico, #f-copyrightico, #viewcount, #about, #disclaimer, #privacy, #contentSub, #privacy, #about, #disclaimers, #mw-hidden-catlinks, .dablink, .sisterproject, .metadata { display: none }
+
+hr { display: none }
+
+.printfooter, #footer, #catlinks { float: bottom; margin: 0.5em 0; page-break-after: avoid }
+
+#catlinks { prince-text-replace: " |" ", " }
+
+sup { vertical-align: baseline }
+sup { vertical-align: top }
+
+ol, ul { margin-left: 1.5em }
+
+ol.references { margin-left: 2.2em }
+ol.references li::marker { 
+  width: 2.2em;
+  padding-right: 0;  
+  text-align: left;
+  content: "[" counter(list-item) "]";
+}
+
+/* remove those pesky '' characters */
+
+body { prince-text-replace: "'" "\2019" }
+
+
+/* remove visible markers references */
+
+ol.references li a[href|="#cite_ref"] { display: none }
+
+/*
+ol.references li { prince-text-replace: "^" "" }
+ol.references li a { prince-text-replace: none }
+ol.references li a sup i b { prince-text-replace: "a" "" "b" "" "c" "" "d" "" "e" "" "f" "" "g" "" "h" "" "i" "" "j" "" "k" "" "l" "" "m" ""}
+*/
+
+
