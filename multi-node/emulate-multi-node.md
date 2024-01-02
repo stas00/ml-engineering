@@ -8,7 +8,7 @@ The full setup instructions follow:
 
 1. Create a `hostfile`:
    
- ```bash
+```bash
  $ cat hostfile
  worker-0 slots=1
  worker-1 slots=1
@@ -16,7 +16,7 @@ The full setup instructions follow:
 
 2. Add a matching config to your ssh client
 
- ```bash
+```bash
  $ cat ~/.ssh/config
  [...]
  
@@ -35,13 +35,13 @@ The full setup instructions follow:
 
  The `deepspeed` launcher explicitly uses no-password connection, e.g. on worker0 it'd run: `ssh -o PasswordAuthentication=no worker-0 hostname`, so you can always debug ssh setup using:
 
- ```bash
+```bash
  $ ssh -vvv -o PasswordAuthentication=no worker-0 hostname
  ```
 
 4. Create a test script to check both GPUs are used.
 
- ```bash
+```bash
  $ cat test1.py
  import os
  import time
@@ -92,7 +92,7 @@ The full setup instructions follow:
 
  Script adapted from [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
  
- ```bash
+```bash
  $ cat test2.py
  import deepspeed
  import fcntl
@@ -152,7 +152,7 @@ The full setup instructions follow:
  
  Run:
  
- ```bash
+```bash
  $ deepspeed -H hostfile test2.py
  [2022-09-08 12:07:09,336] [INFO] [runner.py:415:main] Using IP address of 192.168.0.17 for node worker-0
  [2022-09-08 12:07:09,337] [INFO] [multinode_runner.py:65:get_cmd] Running on the following workers: worker-0,worker-1
