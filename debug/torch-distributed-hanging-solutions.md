@@ -458,7 +458,7 @@ gcore <pid>
 kill -ABRT <pid>
 ```
 
-and then you can introspect the core file as explained [here](pytorch-debug.md#segfaults-and-getting-a-backtrace-from-a-core-file).
+and then you can introspect the core file as explained [here](pytorch.md#segfaults-and-getting-a-backtrace-from-a-core-file).
 
 If you don't get the core file dumped you need to configure your system to allow so and also specify where the core files should be saved to.
 
