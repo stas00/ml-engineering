@@ -43,9 +43,6 @@ The full setup instructions follow:
 
  ```bash
  $ cat test1.py
- ```
-
- ```python
  import os
  import time
  import torch
