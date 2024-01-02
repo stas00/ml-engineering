@@ -90,97 +90,97 @@ The full setup instructions follow:
 
 5. Finally, let's test that NCCL collectives work as well
 
- Script adapted from [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
- 
+Script adapted from [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
+
 ```bash
- $ cat test2.py
- import deepspeed
- import fcntl
- import os
- import socket
- import time
- import torch
- import torch.distributed as dist
- 
- # a critical hack to use the 2nd GPU by the 2nd process (otherwise both processes will use gpu0)
- if os.environ["RANK"] == "1":
-     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
- 
- def printflock(*msgs):
-     """ solves multi-process interleaved print problem """
-     with open(__file__, "r") as fh:
-         fcntl.flock(fh, fcntl.LOCK_EX)
-         try:
-             print(*msgs)
-         finally:
-             fcntl.flock(fh, fcntl.LOCK_UN)
- 
- local_rank = int(os.environ["LOCAL_RANK"])
- torch.cuda.set_device(local_rank)
- device = torch.device("cuda", local_rank)
- hostname = socket.gethostname()
- 
- gpu = f"[{hostname}-{local_rank}]"
- 
- try:
-     # test distributed
-     dist.init_process_group("nccl")
-     dist.all_reduce(torch.ones(1).to(device), op=dist.ReduceOp.SUM)
-     dist.barrier()
-     print(f'{dist.get_rank()=}, {local_rank=}')
- 
-     # test cuda is available and can allocate memory
-     torch.cuda.is_available()
-     torch.ones(1).cuda(local_rank)
- 
-     # global rank
-     rank = dist.get_rank()
-     world_size = dist.get_world_size()
- 
-     printflock(f"{gpu} is OK (global rank: {rank}/{world_size})")
- 
-     dist.barrier()
-     if rank == 0:
-         printflock(f"pt={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
-         printflock(f"device compute capabilities={torch.cuda.get_device_capability()}")
-         printflock(f"pytorch compute capabilities={torch.cuda.get_arch_list()}")
- 
- except Exception:
-     printflock(f"{gpu} is broken")
-     raise
- ```
- 
- Run:
- 
+$ cat test2.py
+import deepspeed
+import fcntl
+import os
+import socket
+import time
+import torch
+import torch.distributed as dist
+
+# a critical hack to use the 2nd GPU by the 2nd process (otherwise both processes will use gpu0)
+if os.environ["RANK"] == "1":
+  os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+def printflock(*msgs):
+  """ solves multi-process interleaved print problem """
+  with open(__file__, "r") as fh:
+      fcntl.flock(fh, fcntl.LOCK_EX)
+      try:
+          print(*msgs)
+      finally:
+          fcntl.flock(fh, fcntl.LOCK_UN)
+
+local_rank = int(os.environ["LOCAL_RANK"])
+torch.cuda.set_device(local_rank)
+device = torch.device("cuda", local_rank)
+hostname = socket.gethostname()
+
+gpu = f"[{hostname}-{local_rank}]"
+
+try:
+  # test distributed
+  dist.init_process_group("nccl")
+  dist.all_reduce(torch.ones(1).to(device), op=dist.ReduceOp.SUM)
+  dist.barrier()
+  print(f'{dist.get_rank()=}, {local_rank=}')
+
+  # test cuda is available and can allocate memory
+  torch.cuda.is_available()
+  torch.ones(1).cuda(local_rank)
+
+  # global rank
+  rank = dist.get_rank()
+  world_size = dist.get_world_size()
+
+  printflock(f"{gpu} is OK (global rank: {rank}/{world_size})")
+
+  dist.barrier()
+  if rank == 0:
+      printflock(f"pt={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
+      printflock(f"device compute capabilities={torch.cuda.get_device_capability()}")
+      printflock(f"pytorch compute capabilities={torch.cuda.get_arch_list()}")
+
+except Exception:
+  printflock(f"{gpu} is broken")
+  raise
+```
+
+Run:
+
 ```bash
- $ deepspeed -H hostfile test2.py
- [2022-09-08 12:07:09,336] [INFO] [runner.py:415:main] Using IP address of 192.168.0.17 for node worker-0
- [2022-09-08 12:07:09,337] [INFO] [multinode_runner.py:65:get_cmd] Running on the following workers: worker-0,worker-1
- [2022-09-08 12:07:09,337] [INFO] [runner.py:504:main] cmd = pdsh -S -f 1024 -w worker-0,worker-1 export PYTHONPATH=/mnt/nvme0/code/huggingface/multi-node-emulate-ds;  cd /mnt/nvme0/code/huggingface/multi-node-emulate-ds; /home/stas/anaconda3/envs/py38-pt112/bin/python -u -m deepspeed.launcher.launch --world_info=eyJ3b3JrZXItMCI6IFswXSwgIndvcmtlci0xIjogWzBdfQ== --node_rank=%n --master_addr=192.168.0.17 --master_port=29500 test2.py
- worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:136:main] WORLD INFO DICT: {'worker-0': [0], 'worker-1': [0]}
- worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:142:main] nnodes=2, num_local_procs=1, node_rank=0
- worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:155:main] global_rank_mapping=defaultdict(<class 'list'>, {'worker-0': [0], 'worker-1': [1]})
- worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:156:main] dist_world_size=2
- worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:158:main] Setting CUDA_VISIBLE_DEVICES=0
- worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:136:main] WORLD INFO DICT: {'worker-0': [0], 'worker-1': [0]}
- worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:142:main] nnodes=2, num_local_procs=1, node_rank=1
- worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:155:main] global_rank_mapping=defaultdict(<class 'list'>, {'worker-0': [0], 'worker-1': [1]})
- worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:156:main] dist_world_size=2
- worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:158:main] Setting CUDA_VISIBLE_DEVICES=0
- worker-0: dist.get_rank()=0, local_rank=0
- worker-1: dist.get_rank()=1, local_rank=0
- worker-0: [hope-0] is OK (global rank: 0/2)
- worker-1: [hope-0] is OK (global rank: 1/2)
- worker-0: pt=1.12.1+cu116, cuda=11.6, nccl=(2, 10, 3)
- worker-0: device compute capabilities=(8, 0)
- worker-0: pytorch compute capabilities=['sm_37', 'sm_50', 'sm_60', 'sm_70', 'sm_75', 'sm_80', 'sm_86']
- worker-1: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576485 exits successfully.
- worker-0: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576484 exits successfully.
- ```
- 
- Voila, missing accomplished.
- 
- We tested that the NCCL collectives work, but they use local NVLink/PCIe and not the IB/ETH connections like in real multi-node, so it may or may not be good enough for testing depending on what needs to be tested.
+$ deepspeed -H hostfile test2.py
+[2022-09-08 12:07:09,336] [INFO] [runner.py:415:main] Using IP address of 192.168.0.17 for node worker-0
+[2022-09-08 12:07:09,337] [INFO] [multinode_runner.py:65:get_cmd] Running on the following workers: worker-0,worker-1
+[2022-09-08 12:07:09,337] [INFO] [runner.py:504:main] cmd = pdsh -S -f 1024 -w worker-0,worker-1 export PYTHONPATH=/mnt/nvme0/code/huggingface/multi-node-emulate-ds;  cd /mnt/nvme0/code/huggingface/multi-node-emulate-ds; /home/stas/anaconda3/envs/py38-pt112/bin/python -u -m deepspeed.launcher.launch --world_info=eyJ3b3JrZXItMCI6IFswXSwgIndvcmtlci0xIjogWzBdfQ== --node_rank=%n --master_addr=192.168.0.17 --master_port=29500 test2.py
+worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:136:main] WORLD INFO DICT: {'worker-0': [0], 'worker-1': [0]}
+worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:142:main] nnodes=2, num_local_procs=1, node_rank=0
+worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:155:main] global_rank_mapping=defaultdict(<class 'list'>, {'worker-0': [0], 'worker-1': [1]})
+worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:156:main] dist_world_size=2
+worker-0: [2022-09-08 12:07:10,635] [INFO] [launch.py:158:main] Setting CUDA_VISIBLE_DEVICES=0
+worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:136:main] WORLD INFO DICT: {'worker-0': [0], 'worker-1': [0]}
+worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:142:main] nnodes=2, num_local_procs=1, node_rank=1
+worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:155:main] global_rank_mapping=defaultdict(<class 'list'>, {'worker-0': [0], 'worker-1': [1]})
+worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:156:main] dist_world_size=2
+worker-1: [2022-09-08 12:07:10,635] [INFO] [launch.py:158:main] Setting CUDA_VISIBLE_DEVICES=0
+worker-0: dist.get_rank()=0, local_rank=0
+worker-1: dist.get_rank()=1, local_rank=0
+worker-0: [hope-0] is OK (global rank: 0/2)
+worker-1: [hope-0] is OK (global rank: 1/2)
+worker-0: pt=1.12.1+cu116, cuda=11.6, nccl=(2, 10, 3)
+worker-0: device compute capabilities=(8, 0)
+worker-0: pytorch compute capabilities=['sm_37', 'sm_50', 'sm_60', 'sm_70', 'sm_75', 'sm_80', 'sm_86']
+worker-1: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576485 exits successfully.
+worker-0: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576484 exits successfully.
+```
+
+Voila, missing accomplished.
+
+We tested that the NCCL collectives work, but they use local NVLink/PCIe and not the IB/ETH connections like in real multi-node, so it may or may not be good enough for testing depending on what needs to be tested.
 
 
 ## Larger set ups
