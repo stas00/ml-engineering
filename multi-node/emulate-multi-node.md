@@ -94,9 +94,6 @@ The full setup instructions follow:
  
  ```bash
  $ cat test2.py
- ```
-
- ```python
  import deepspeed
  import fcntl
  import os
