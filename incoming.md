@@ -1,5 +1,10 @@
 # Things to add / integrate
 
+# pdf book notes
+
+ideas from Sam: https://github.com/saforem2: https://github.com/stas00/ml-engineering/pull/17#discussion_r1439912709
+https://quarto.org/, https://quarto.org/docs/gallery/, https://kevinheavey.github.io/modern-polars/, https://quarto.org/docs/output-formats/pdf-basics.html
+
 # Performance
 
 https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html

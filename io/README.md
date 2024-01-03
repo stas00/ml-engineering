@@ -121,21 +121,19 @@ Going back to the benchmark - the parameters will need to change to fit the type
 
 At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
 
-Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md):
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md)):
 
 * filesize=16k read
 
 | lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
 | 4.0      | 1006.3  | 257614   | 16   |
-|          |         |          |      |
 
 * filesize=16k write
 
 | lat msec | bw MBps | IOPS     | jobs |
 | -------: | ------: | -------: | ---: |
 | 3.2      | 1239.1  | 317200   | 16   |
-|          |         |          |      |
 
 * filesize=1m read
 
