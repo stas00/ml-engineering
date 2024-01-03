@@ -7,14 +7,16 @@ We use the `deepspeed` launcher here. There is no need to actually use any of th
 The full setup instructions follow:
 
 1. Create a `hostfile`:
-```
+
+```bash
 $ cat hostfile
 worker-0 slots=1
 worker-1 slots=1
 ```
 
 2. Add a matching config to your ssh client
-```
+
+```bash
 $ cat ~/.ssh/config
 [...]
 
@@ -33,13 +35,13 @@ Adapt the port if it's not 22 and the hostname if `localhost` isn't it.
 
 The `deepspeed` launcher explicitly uses no-password connection, e.g. on worker0 it'd run: `ssh -o PasswordAuthentication=no worker-0 hostname`, so you can always debug ssh setup using:
 
-```
+```bash
 $ ssh -vvv -o PasswordAuthentication=no worker-0 hostname
 ```
 
 4. Create a test script to check both GPUs are used.
 
-```
+```bash
 $ cat test1.py
 import os
 import time
@@ -60,7 +62,8 @@ time.sleep(100)
 ```
 
 Run:
-```
+
+```bash
 $ deepspeed -H hostfile test1.py
 [2022-09-08 12:02:15,192] [INFO] [runner.py:415:main] Using IP address of 192.168.0.17 for node worker-0
 [2022-09-08 12:02:15,192] [INFO] [multinode_runner.py:65:get_cmd] Running on the following workers: worker-0,worker-1
@@ -89,7 +92,7 @@ Note that the script hacks in `CUDA_VISIBLE_DEVICES` to tell the 2nd process to 
 
 Script adapted from [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
 
-```
+```bash
 $ cat test2.py
 import deepspeed
 import fcntl
@@ -149,7 +152,7 @@ except Exception:
 
 Run:
 
-```
+```bash
 $ deepspeed -H hostfile test2.py
 [2022-09-08 12:07:09,336] [INFO] [runner.py:415:main] Using IP address of 192.168.0.17 for node worker-0
 [2022-09-08 12:07:09,337] [INFO] [multinode_runner.py:65:get_cmd] Running on the following workers: worker-0,worker-1
@@ -184,14 +187,14 @@ We tested that the NCCL collectives work, but they use local NVLink/PCIe and not
 
 Now, let's say you have 4 GPUs and you want to emulate 2x2 nodes. Then simply change the `hostfile` to be:
 
-```
+```bash
 $ cat hostfile
 worker-0 slots=2
 worker-1 slots=2
 ```
 and the `CUDA_VISIBLE_DEVICES` hack to:
 
-```
+```bash
 if os.environ["RANK"] in ["2", "3"]:
     os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 ```
@@ -202,7 +205,8 @@ Everything else should be the same.
 ## Automating the process
 
 If you want an automatic approach to handle any shape of topology, you could use something like this:
-```
+
+```python
 def set_cuda_visible_devices():
     """
     automatically assign the correct groups of gpus for each emulated node by tweaking the
