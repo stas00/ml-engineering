@@ -127,7 +127,7 @@ git clone https://github.com/stas00/ml-engineering/
 cd ml-engineering
 cd io
 
-path_to_test=/path/to/parition/to/test
+path_to_test=/path/to/partition/to/test
 ./fio-scan $path_to_test
 ```
 Adapt `path_to_test` to point to the partition path you want to benchmark.
