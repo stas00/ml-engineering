@@ -173,6 +173,26 @@ I usually save the log as well for posterity using one of:
 dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
+## How to detect if a node is missing GPUs
+
+If you got a new VM, there are odd cases where there is less than expected number of GPUs. Here is how you can quickly test you have got 8 of them:
+
+```
+cat << 'EOT' >> test-gpu-count.sh
+#!/bin/bash
+
+set -e
+
+# test the node has 8 gpus
+test $(nvidia-smi -q | grep UUID | wc -l) != 8 && echo "broken node: less than 8 gpus" && false
+EOT
+```
+and then:
+
+```
+bash test-gpu-count.sh
+```
+
 
 ## How to detect if you get the same broken node again and again
 
