@@ -31,4 +31,4 @@ print("| " + " | ".join(headers)  + " |")
 
 print(f"| {'-'*(width[0]-1)}: | {'-'*(width[1]-1)}: | {'-'*(width[2]-1)}: | {'-'*(width[3]-1)}: | ")
 
-print(f"| {section['lat_ns']['mean']/10**6:{width[1]}.1f} | {section['bw_bytes']/2**20:{width[0]}.1f} | {int(section['iops']):{width[2]}d} | {numjobs:{width[3]}d} |")
+print(f"| {section['lat_ns']['mean']/10**6:{width[0]}.1f} | {section['bw_bytes']/2**20:{width[1]}.1f} | {int(section['iops']):{width[2]}d} | {numjobs:{width[3]}d} |")
