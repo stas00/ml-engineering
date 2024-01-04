@@ -5,8 +5,8 @@
 #
 # ./fio-json-extract.py fio-json-file.json
 #
-# The script expects an fio generated json file as the only input that is `filename.json` from
-# `fio ... --output-format=json --output=filename.json`
+# The script expects an fio-generated json file as the only input. That is `filename.json` that
+# comes from `fio ... --output-format=json --output=filename.json`
 #
 # The will print out a markdown table of average latency, bandwidth and iops
 
