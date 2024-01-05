@@ -78,17 +78,42 @@ To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed
 Of course, the requirements are higher for A100 gpu nodes and even higher for H100s (but no such benchmark information has been shared yet).
 
 
+## MACs vs FLOP vs FLOPS vs FLOP/s
 
-## TFLOPS as a performance metric
+This section is here to try to disambiguate the common performance metric definitions and their relationship to each other.
 
-Definitions:
+**MAC vs FLOP**:
 
 - 1 FLOP (FLoating point OPeration) can be one of addition, subtraction, multiplication, or division operation.
+
 - 1 MAC (Multiply-ACCumulate) operation is a multiplication followed by an addition, that is: `a * b + c`
-- Thus 1 MAC = 2 FLOPs. It's also quite common for modern hardware to perform 1 MAC in a single clock cycle.
+
+Thus 1 MAC = 2 FLOPs. It's also quite common for modern hardware to perform 1 MAC in a single clock cycle.
+
+Please note that to calculate the number of MACs in relationship to FLOPs the reverse logic applies, that is MACs = 0.5 FLOPs - it's somewhat confusing since we have just said that 1 MAC = 2 FLOPs, but it checks out - observe: 100 FLOPs = 50 MACs - because there are 2 FLOPs in each MAC.
+
+**FLOP vs FLOPS vs FLOP/s**
+
+- 1 FLOP (FLoating point OPeration) is any floating point addition, subtraction, multiplication, or division operation.
+
 - 1 FLOPS (FLoating point OPeration per Second) is how many floating point operations were performed in 1 second - see [FLOPS](https://en.wikipedia.org/wiki/FLOPS)
-- GFLOPS = Giga FLOPS, TFLOPS = Tera FLOPS, etc.
-- There is an ambiguity when you FLOPS is used in writing - sometimes people use it to indicate the total quantity of operations, at other times it refers to operations per second. The latter is the most common usage and that what I will use in this section. In some places you might also see FLOPs, which again could mean either. With the right context it should be possible to derive what is meant. If it's a math equation - if there is a division by time you know it's per second.
+
+Further you will find the following abbreviations: GFLOPS = Giga FLOPS, TFLOPS = Tera FLOPS, etc., since it's much easier to quickly grasp 150TFLOPS rather than 150000000000FLOPS.
+
+There is an ambiguity when you FLOPS is used in writing - sometimes people use it to indicate the total quantity of operations, at other times it refers to operations per second. The latter is the most common usage and that the definition used in this book.
+
+In scientific writing FLOP/s is often used to clearly tell the user that it's operations per second. Though this particular approach is hard to convert to a variable name since it still becomes `flops` when illegal characters are removed.
+
+In some places you might also see FLOPs, which again could mean either, since it's too easy to flip lower and upper case `s`.
+
+If the definition is ambiguous try to search for context which should help to derive what is meant:
+
+- If it's a math equation and there is a division by time you know it's operations per second.
+- If speed or performance is being discussed it usually refers to operations per second.
+- If it talks about the amount of compute required to do something it refers to the total amount of operations.
+
+
+## TFLOPS as a performance metric
 
 Before you start optimizing the performance of your training setup you need a metric that you can use to see whether the throughput is improving or not. You can measure seconds per iteration, or iterations per second, or some other such timing, but there is a more useful metric that measures TFLOPS.
 
