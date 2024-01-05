@@ -79,7 +79,7 @@ Of course, the requirements are higher for A100 gpu nodes and even higher for H1
 
 
 
-## TFLOPs as a performance metric
+## TFLOPS as a performance metric
 
 Definitions:
 
@@ -88,50 +88,55 @@ Definitions:
 - Thus 1 MAC = 2 FLOPs. It's also quite common for modern hardware to perform 1 MAC in a single clock cycle.
 - 1 FLOPS (FLoating point OPeration per Second) is how many floating point operations were performed in 1 second - see [FLOPS](https://en.wikipedia.org/wiki/FLOPS)
 - GFLOPS = Giga FLOPS, TFLOPS = Tera FLOPS, etc.
+- There is an ambiguity when you FLOPS is used in writing - sometimes people use it to indicate the total quantity of operations, at other times it refers to operations per second. The latter is the most common usage and that what I will use in this section. In some places you might also see FLOPs, which again could mean either. With the right context it should be possible to derive what is meant. If it's a math equation - if there is a division by time you know it's per second.
 
-Before you start optimizing the performance of your training setup you need a metric that you can use to see whether the throughput is improving or not. You can measure seconds per iteration, or iterations per second, or some other such timing, but there is a more useful metric that measures TFLOPs.
+Before you start optimizing the performance of your training setup you need a metric that you can use to see whether the throughput is improving or not. You can measure seconds per iteration, or iterations per second, or some other such timing, but there is a more useful metric that measures TFLOPS.
 
-Measuring TFLOPs is superior because without it you don't know whether you are close to the best performance that can be achieved or not. This measurement gives you an indication of how far you're from the peak performance reported by the hardware manufacturer.
+Measuring TFLOPS is superior because without it you don't know whether you are close to the best performance that can be achieved or not. This measurement gives you an indication of how far you're from the peak performance reported by the hardware manufacturer.
 
-In this section I will use BLOOM's training for the exemplification. We use 80GB A100 NVIDIA GPUs and we trained in mixed bf16 regime. So let's look at the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/) which tells us:
+In this section I will use BLOOM's training for the exemplification. We used 80GB A100 NVIDIA GPUs and we trained in mixed bf16 regime. So let's look at the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/) which tells us:
 
 ```
 BFLOAT16 Tensor Core 	312 TFLOPS
 ```
 
-Therefore we now know that if we were to only run `matmul` on huge bf16 matrices without copying to and from the device we should get around 312 TFLOPs max.
+Therefore we now know that if we were to only run `matmul` on huge bf16 matrices of very specific dimensions without copying to and from the device we should get around 312 TFLOPS max.
 
-Practically though, due to disk IO, communications and copying data from gpu memory to gpu computing unit overhead and because we can't do everything in bf16 and at times we have to do math in fp32 (or tf32) we can really expect about half of that. So 155 TFLOPs should be an amazing sustainable throughput for a complex hundreds of GPUs training setup.
+Practically though, due to disk IO, communications and copying data from the GPU's memory to its computing unit overhead and because we can't do everything in bf16 and at times we have to do math in fp32 (or tf32) we can really expect much less than that. The realistic value will vary from accelerator to accelerator, but for A100 in 2022 getting above 50% (155 TFLOPS) was an amazing sustainable throughput for a complex 384 GPUs training setup.
 
-When we first started tuning things up we were at <100 TFLOPs and a few weeks later when we launched the training we managed to get 150 TFLOPs.
+footnote: in 2023 the invention of flash attention and other techniques have pushed the bar to more than 50%.
+
+When we first started tuning things up we were at <100 TFLOPS and a few weeks later when we launched the training we managed to get 150 TFLOPS.
 
 The important thing to notice here is that we knew that we can't push it further by much and we knew that there was no more point to try and optimize it even more.
 
-So a general rule of thumb - if your training set up gets about 1/2 of advertised peak performance you're doing great. Don't let it stop you though from beating this suggestion and getting even more efficient.
+So a general rule of thumb for when you prepare for a massive model training - ask around what's the top TFLOPS one can expect to get with a given accelerator on a multi-node setup with the specified precision - and optimize until you get close to that. Once you did stop optimizing and start training.
 
-When calculating TFLOPs it's important to remember that the math is different if [Gradient checkpointing](#gradient-checkpointing) are enabled, since when it's activated more compute is used and it needs to be taken into an account.
+footnote: For 80GB A100s in 2022 that was 155, in 2023 it has been pushed to about 180 TFLOPS.
 
-for transformer models the following is an estimation formula which slightly under-reports the real TFLOPs:
+footnote: When calculating TFLOPS it's important to remember that the math is different if [Gradient checkpointing](#gradient-checkpointing) are enabled, since when it's activated more compute is used and it needs to be taken into an account. Usually the cost is of an additional forward path, but recently better methods have been found that saves some of that recomputation.
 
-TFLOPs: `model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)`
+For decoder transformer models the following is an estimation formula which slightly under-reports the real TFLOPS:
 
-The factor of 4 is when used with activation check-pointing, otherwise it will be 3, but for 100B+ model, activation check-pointing will always be on.
+TFLOPS: `model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)`
 
-So the `3*2` is often called "model FLOPs" and `4*2` - "hardware FLOPs".
+The factor of 4 is used with activation/gradient checkpointing, otherwise it will be 3. For 100B+ models, activation checkpointing will almost always be on.
+
+So the `3*2` is often called "model FLOPs" and `4*2` - "hardware FLOPs", correlating to MFU and HFU (model and hardware FLOPS per second divided by the accelerator's theoretical peak FLOPS)
 
 ```
 perl -le '$ng=64; $ms=52; $gbs=1024; $sp=127; $seqlen=2048; print $ms*4*2*$seqlen*$gbs / ( $sp * $ng * 1e3)'
 ```
 (ng = total gpus, ms = model size in B, gbs = global batch size, sp = throughput in seconds)
 
-same with bash env vars and broken down GBS into mbs*dp*gas (gas=pp_chunks):
+Here is the same formula using `bash` env vars and which breaks down GBS into `MBS*DP*GAS` (GAS in this case corresponded to `pp_chunks` which was the number of chunks in the pipeline, but normally GAS just stands for Gradient Accumulation Steps):
 ```
 echo "($MSIZE*4*2*SEQLEN*$MICRO_BATCH_SIZE*$DP_SIZE*$GAS)/($THROUGHPUT*$NNODES*4*1000)" | bc -l
 ```
 
 The exact formula is in Equation 3 of Section 5.1 of the [Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM](https://arxiv.org/abs/2104.04473) paper. You can see the code [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/pull/251).
 
-footnote: For Inference only it'd be: `24Bsh^2 + 4𝐵s^2h` floating point operations per layer
+footnote: For Inference only it'd be: `24Bsh^2 + 4𝐵s^2h` floating point operations per layer.
 
 
 
