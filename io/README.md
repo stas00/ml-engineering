@@ -31,12 +31,20 @@ Incoming suggestions from Ross Wightman to integrate:
 
 
 
+## Glossary
+
+- NAS: Network Attached Storage
+- SAN: Storage Area Network
+- DAS: Direct-Attached storage
+
+
+
 ## Which Filesystem to choose
 
 **The fastest solution is Parallel FileSystem**
 
 - [Lustre FS](https://www.lustre.org/) (Open Source)
-- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale.
+- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and before that it was called IBM Spectrum Scale.
 
 Both have been around for 2+ decades.
 
@@ -53,11 +61,22 @@ Most clouds provide at least one implementation of these, but not all. If your c
 
 - [NFS](https://en.wikipedia.org/wiki/Network_File_System) - has been around for 4 decades but you don't want it as it's extremely slow. Especially since most providers have its very old version 3. It has a very long latency. It can take 30min to install several python packages and 20 seconds to load `import pytorch`. Its main problem is that it's very slow at handling meta-data so if you have a lot of small files, it just can't handle it well. And if you're into Python - it has thousands of small files. It's probably OK'ish if you have a few huge files. Otherwise, stay away for any serious ML work load.
 
-case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes. At JeanZay HPC we had to ask for a special small partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions.
+case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions.
+
+case study: As of this writing GCP's FileStore NFS solution `import torch` takes 20 secs! Once the files are cached it then takes 2 secs. Installing a conda environment with a handful of packages takes 30 min!
 
 **OK'ish solutions**
 
 There are many other OK'ish solutions offered by various clouds. Benchmark those seriously before you commit to any.
+
+
+## Cloud shared storage solutions
+
+Here are shared filesystem storage solutions made available by various cloud providers:
+
+- [GCP](https://cloud.google.com/architecture/filers-on-compute-engine)
+- [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
+- [AWS](https://aws.amazon.com/what-is/nas/#seo-faq-pairs#how-can-aws-help-with-storage-solutions)
 
 
 ## Local storage beats cloud storage
