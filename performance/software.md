@@ -92,6 +92,8 @@ Thus 1 MAC = 2 FLOPs. It's also quite common for modern hardware to perform 1 MA
 
 Please note that to calculate the number of MACs in relationship to FLOPs the reverse logic applies, that is MACs = 0.5 FLOPs - it's somewhat confusing since we have just said that 1 MAC = 2 FLOPs, but it checks out - observe: 100 FLOPs = 50 MACs - because there are 2 FLOPs in each MAC.
 
+Moreover, while 1 MAC = 2 FLOPs, the reverse isn't necessarily true. That is 2 FLOPs isn't necessarily equal to 1 MAC. For example, if you did `.5*.6` 100 times it'd be 100 FLOPs, which here would equal to 100 MACs, because here only the multiply part of the MAC is executed.
+
 **FLOP vs FLOPS vs FLOP/s**
 
 - 1 FLOP (FLoating point OPeration) is any floating point addition, subtraction, multiplication, or division operation.

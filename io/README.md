@@ -61,9 +61,9 @@ Most clouds provide at least one implementation of these, but not all. If your c
 
 - [NFS](https://en.wikipedia.org/wiki/Network_File_System) - has been around for 4 decades but you don't want it as it's extremely slow. Especially since most providers have its very old version 3. It has a very long latency. It can take 30min to install several python packages and 20 seconds to load `import pytorch`. Its main problem is that it's very slow at handling meta-data so if you have a lot of small files, it just can't handle it well. And if you're into Python - it has thousands of small files. It's probably OK'ish if you have a few huge files. Otherwise, stay away for any serious ML work load.
 
-case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions.
+case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MB block sizes, so this was not a suitable partition for 4KB-large files.
 
-case study: As of this writing GCP's FileStore NFS solution `import torch` takes 20 secs! Once the files are cached it then takes 2 secs. Installing a conda environment with a handful of packages takes 30 min!
+case study: As of this writing GCP's Zonal FileStore NFS solution `python -c "import torch"` takes 20 secs! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can take ~30 min!
 
 **OK'ish solutions**
 
