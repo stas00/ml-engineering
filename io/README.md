@@ -36,12 +36,12 @@ Incoming suggestions from Ross Wightman to integrate:
 - NAS: Network Attached Storage
 - SAN: Storage Area Network
 - DAS: Direct-Attached storage
-
+- NSD: Network Shared Disk
 
 
 ## Which Filesystem to choose
 
-**The fastest solution is Parallel FileSystem**
+**Parallel FileSystems are the fastest solutions**
 
 - [Lustre FS](https://www.lustre.org/) (Open Source)
 - [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and before that it was called IBM Spectrum Scale.
@@ -50,24 +50,39 @@ Both have been around for 2+ decades.
 
 case study: At JeanZay HPC we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
 
-More Parallel File Systems I have discovered recently:
+Other Parallel File Systems I don't yet have experience with:
 
 - [BeeGFS](https://www.beegfs.io)
 
-
 Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide one and they don't have a fast enough alternative you should reconsider.
-
-**Slow solutions**
-
-- [NFS](https://en.wikipedia.org/wiki/Network_File_System) - has been around for 4 decades but you don't want it as it's extremely slow. Especially since most providers have its very old version 3. It has a very long latency. It can take 30min to install several python packages and 20 seconds to load `import pytorch`. Its main problem is that it's very slow at handling meta-data so if you have a lot of small files, it just can't handle it well. And if you're into Python - it has thousands of small files. It's probably OK'ish if you have a few huge files. Otherwise, stay away for any serious ML work load.
-
-case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MB block sizes, so this was not a suitable partition for 4KB-large files.
-
-case study: As of this writing GCP's Zonal FileStore NFS solution `python -c "import torch"` takes 20 secs! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can take ~30 min!
 
 **OK'ish solutions**
 
-There are many other OK'ish solutions offered by various clouds. Benchmark those seriously before you commit to any.
+There are many OK'ish solutions offered by [various cloud providers](#cloud-shared-storage-solutions). Benchmark those seriously before you commit to any. Those are usually quite decent for handling large files and not so much for small files.
+
+case study: As of this writing GCP's Zonal FileStore over NFS solution `python -c "import torch"` takes 20 secs! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can take ~30 min!
+
+## FS Clients
+
+You will need to choose which client to use to connect the filesystem to your VM.
+
+The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_System) - has been around for 4 decades. It introduces an additional overhead and slows things down. So if there is a native client supported by your VM, you'd have an overall faster performance using the native client over NFS. For example, GPFS comes with an [NSD](https://www.ibm.com/docs/en/linux-on-systems?topic=configurations-network-shared-disk-nsd) client which is superior to NFS.
+
+## File Block size
+
+If the filesystem you use uses a block size of 16mb, but the average size of your files is 16k, you will be using 1,000 times more disk space than the actual use. For example, you will see 100TB of disk space used when the actual disk space will be just 100MB.
+
+footnote: On Linux the native filesystems typically use a block size of 4k.
+
+So often you might have 2 very different needs and require 2 different partitions optimized for different needs.
+
+1. thousands to millions of tiny files - 4-8k block size
+2. few large files - 2-16mb block size
+
+case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MB block sizes, so this was not a suitable partition for 4KB-large files.
+
+The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2mb, with a sub-block of 8k, and then the tiny files get packed together as sub-blocks, thus not wasting too much disc space.
+
 
 
 ## Cloud shared storage solutions
