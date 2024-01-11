@@ -37,42 +37,53 @@ Incoming suggestions from Ross Wightman to integrate:
 - SAN: Storage Area Network
 - DAS: Direct-Attached storage
 - NSD: Network Shared Disk
+- OSS: Object storage server
+- MDS: Metadata server
+- MGS: Management server
 
 
-## Which Filesystem to choose
 
-**Parallel FileSystems are the fastest solutions**
+## Which file system to choose
 
-- [Lustre FS](https://www.lustre.org/) (Open Source)
+**Distributed Parallel File Systems are the fastest solutions**
+
+Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
+
+The 2 excellent performing parallel file systems that I had experience with are:
+
+- [Lustre FS](https://www.lustre.org/) (Open Source) ([Wiki](https://wiki.lustre.org/Main_Page))
 - [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and before that it was called IBM Spectrum Scale.
 
-Both have been around for 2+ decades.
+Both solutions have been around for 2+ decades. Both are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/lustre-architecture).
 
-case study: At JeanZay HPC we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
+case study: At JeanZay HPC (France) we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
 
-Other Parallel File Systems I don't yet have experience with:
+Other parallel file systems I don't yet have direct experience with:
 
 - [BeeGFS](https://www.beegfs.io)
+- [WekaIO](https://www.weka.io/)
+- [DAOS](https://docs.daos.io/) (Distributed Asynchronous Object Storage) (Intel)
+- [NetApp](https://www.netapp.com)
 
-Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide one and they don't have a fast enough alternative you should reconsider.
+Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide at least one of these and they don't have a fast enough alternative to meet your needs you should reconsider.
 
 **OK'ish solutions**
 
 There are many OK'ish solutions offered by [various cloud providers](#cloud-shared-storage-solutions). Benchmark those seriously before you commit to any. Those are usually quite decent for handling large files and not so much for small files.
 
-case study: As of this writing GCP's Zonal FileStore over NFS solution `python -c "import torch"` takes 20 secs! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can take ~30 min!
+case study: As of this writing with GCP's Zonal FileStore over NFS solution `python -c "import torch"` takes 20 secs to execute, which is extremely slow! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can easily take 20-30 min! This solution we started with had been very painful and counter-productive to our work. This would impact anybody who has a lot of python packages and conda environments. But, of course, GCP provides much faster solutions as well.
 
-## FS Clients
+## Remote File System Clients
 
-You will need to choose which client to use to connect the filesystem to your VM.
+You will need to choose which client to use to connect the file system to your VM with.
 
-The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_System) - has been around for 4 decades. It introduces an additional overhead and slows things down. So if there is a native client supported by your VM, you'd have an overall faster performance using the native client over NFS. For example, GPFS comes with an [NSD](https://www.ibm.com/docs/en/linux-on-systems?topic=configurations-network-shared-disk-nsd) client which is superior to NFS.
+The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_System) - which has been around for 4 decades. It introduces an additional overhead and slows things down. So if there is a native client supported by your VM, you'd have an overall faster performance using it over NFS. For example, GPFS comes with an [NSD](https://www.ibm.com/docs/en/linux-on-systems?topic=configurations-network-shared-disk-nsd) client which is superior to NFS.
 
 ## File Block size
 
-If the filesystem you use uses a block size of 16mb, but the average size of your files is 16k, you will be using 1,000 times more disk space than the actual use. For example, you will see 100TB of disk space used when the actual disk space will be just 100MB.
+If the file system you use uses a block size of 16mb, but the average size of your files is 16k, you will be using 1,000 times more disk space than the actual use. For example, you will see 100TB of disk space used when the actual disk space will be just 100MB.
 
-footnote: On Linux the native filesystems typically use a block size of 4k.
+footnote: On Linux the native file systems typically use a block size of 4k.
 
 So often you might have 2 very different needs and require 2 different partitions optimized for different needs.
 
@@ -87,7 +98,7 @@ The good news is that modern solutions are starting to introduce a dynamic block
 
 ## Cloud shared storage solutions
 
-Here are shared filesystem storage solutions made available by various cloud providers:
+Here are shared file system storage solutions made available by various cloud providers:
 
 - [GCP](https://cloud.google.com/architecture/filers-on-compute-engine)
 - [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
@@ -109,7 +120,7 @@ case study: we didn't have a choice and had to use cloud storage for dataloading
 
 ## Beware that you're often being sold only 80% of the storage you pay for
 
-There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large filesystems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
+There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
 
 From talking to IO engineers, the accepted reality (that for some reason is not being communicated to customers) is that only about 80% of distributed large storage is reliable.
 
@@ -205,12 +216,13 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([su
 | 2.1      | 1943.9  | 497638   | 16   |
 
 
-As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared filesystem.
+As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
 
 
 ### other tools
 
-- [HPC IO Benchmark Repository](https://github.com/hpc/ior)
+-
+- [HPC IO Benchmark Repository](https://github.com/hpc/ior) (`mdtest` has been merged into `ior` in 2017)
 - [DLIO](https://github.com/argonne-lcf/dlio_benchmark)
 
 XXX: expand on how these are used when I get a chance to try those
