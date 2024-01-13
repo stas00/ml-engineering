@@ -51,5 +51,6 @@
 ./transformers/README.md
 ./transformers/make-tiny-models.md
 ./transformers/re-train-hub-models.md
+./transformers/tiny-scripts/README.md
 
 ./resources/README.md

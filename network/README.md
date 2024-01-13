@@ -47,7 +47,7 @@ If your model is 80B parameter large, and you need to transmit every parameter o
 
 ### 1-GPU training
 
-Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../performance/software.md#anatomy-of-models-memory) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
+Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../performance/software.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
 
 We then assume for the moment that the DataLoader is fast enough to be negligible in duration compared to the compute time. And thus we get a close to a perfect MFU (Model FLOPs Utilization):
 

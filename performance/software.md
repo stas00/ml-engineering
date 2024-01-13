@@ -390,7 +390,7 @@ The idea behind gradient accumulation is to instead of calculating the gradients
 
 Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
 
-When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical-and-pipeline-parallelism).
+When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical).
 
 Since the optimizer step isn't performed as often with gradient accumulation there is an additional speed up here as well.
 

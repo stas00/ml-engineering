@@ -90,7 +90,7 @@ Note that the script hacks in `CUDA_VISIBLE_DEVICES` to tell the 2nd process to 
 
 5. Finally, let's test that NCCL collectives work as well
 
-Script adapted from [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
+Script adapted from [torch-distributed-gpu-test.py](../debug/torch-distributed-gpu-test.py) to just tweak `os.environ["CUDA_VISIBLE_DEVICES"]`
 
 ```bash
 $ cat test2.py

@@ -77,7 +77,7 @@ sinfo -R | grep "Kill task failed"
 
 now extract and expand the list of nodes, check that the nodes are indeed user-process free (or try to kill them first) and then undrain them.
 
-Earlier you learned how to [run a command on multiple nodes](run-a-command-on-multiple-nodes) which we will use in this script.
+Earlier you learned how to [run a command on multiple nodes](#run-a-command-on-multiple-nodes) which we will use in this script.
 
 Here is the script that does all that work for you: [undrain-good-nodes.sh](./undrain-good-nodes.sh)
 

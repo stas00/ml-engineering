@@ -111,7 +111,7 @@ In many SLURM environments users have no `sudo` access and when one user started
 
 This was the situation during BLOOM-176B training and we implemented a kill-switch to handle that. The mechanism is very simple. The training loop polls for a specific file to appear before starting a new iteration and if the file is there the program saves the checkpoint and exits, allowing users other than the one who started the previous training to change things and restart it again. An additional poll was added at the very beginning of `main` so that if there was a long job array queued by the user who is asleep they could be "burned through" quickly by getting each job exit quickly on start.
 
-This is also discussed [here](../slurm#overcoming-the-lack-of-group-slurm-job-ownership).
+This is also discussed [here](../slurm/users.md#overcoming-the-lack-of-group-slurm-job-ownership).
 
 This facility helps to minimize the amount of wasted training time.
 
@@ -143,7 +143,7 @@ To setup a crontab, execute `crontab -e` and check which jobs are scheduled `cro
 
 The reason I don't go into many details is because many SLURM environments don't provide access to the `crontab` facility. And therefore one needs to use other approaches to scheduling jobs.
 
-The section on [Crontab Emulation](../slurm#crontab-emulation) discusses how to implement crontab-like SLURM emulation and also [Self-perpetuating SLURM jobs](../slurm#self-perpetuating-slurm-jobs).
+The section on [Crontab Emulation](../slurm/users.md#crontab-emulation) discusses how to implement crontab-like SLURM emulation and also [Self-perpetuating SLURM jobs](../slurm/users.md#self-perpetuating-slurm-jobs).
 
 
 ### Notification facility
@@ -160,7 +160,7 @@ Once you understand how to schedule watchdogs and you have a notification facili
 
 The most obvious watchdog is one which checks that there is a training SLURM job running or more are scheduled to run.
 
-Here is an example [slurm-status.py](./slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../slurm#crontab-emulation), we simply needed to drop  [slurm-status.slurm](./slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
+Here is an example [slurm-status.py](./slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../slurm/users.md#crontab-emulation), we simply needed to drop  [slurm-status.slurm](./slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
 
 The key part of the SLURM job is:
 ```

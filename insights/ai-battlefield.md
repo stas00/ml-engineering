@@ -247,7 +247,7 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 - If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../model-parallelism/) network becomes the bottleneck.
 
-- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) address part of this problem. [more](#inra-node-network).
+- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
 
@@ -440,7 +440,7 @@ For example: Let's take an 80B param model and 80GB GPUs and calculate how many 
 - Training: at least 23 GPUs `80*18*1.25/80`
 - Inference: at least 3 GPUs `80*2*1.25/80`
 
-[More details](../performance/software.md#anatomy-of-models-memory).
+[More details](../performance/software.md#anatomy-of-models-memory-usage).
 
 
 

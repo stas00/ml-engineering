@@ -6,7 +6,7 @@ Sub-sections:
 
 ## Learning from Training Logbooks
 
-The best learning is to read [Publicly available training logbooks](../resources#publicly-available-training-logbooks) because there you can see exactly what happened and how the problem has been overcome.
+The best learning is to read [Publicly available training LLM/VLM logbooks](../resources#publicly-available-training-llmvlm-logbooks) because there you can see exactly what happened and how the problem has been overcome.
 
 
 ## STD Init

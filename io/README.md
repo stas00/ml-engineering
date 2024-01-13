@@ -47,7 +47,7 @@ Incoming suggestions from Ross Wightman to integrate:
 
 **Distributed Parallel File Systems are the fastest solutions**
 
-Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
+Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients can access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
 
 The 2 excellent performing parallel file systems that I had experience with are:
 
@@ -57,6 +57,14 @@ The 2 excellent performing parallel file systems that I had experience with are:
 Both solutions have been around for 2+ decades. Both are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/lustre-architecture).
 
 case study: At JeanZay HPC (France) we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
+
+NASA's cluster has [a long long list of gotchas around using Lustre](https://www.nas.nasa.gov/hecc/support/kb/lustre-best-practices_226.html).
+
+Some very useful pros of GFPS:
+- If you have a lot of small files, you can easily run out of inodes (`df -i` to check). GFPS 5.x never runs out of inodes, it dynamically creates more as needed
+- GPFS doesn't have the issue Lustre has where you can run out of disk space at 80% if one of the sub-disks got full and wasn't re-balanced in time - you can reliably use all 100% of the allocated storage.
+- GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metatada is handled by each node in the storage cluster.
+- GPFS comes with a native NSD client which is superior to the generic NFS client, but either can be used with it.
 
 Other parallel file systems I don't yet have direct experience with:
 
@@ -120,13 +128,20 @@ case study: we didn't have a choice and had to use cloud storage for dataloading
 
 ## Beware that you're often being sold only 80% of the storage you pay for
 
-There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.5-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
+There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.3-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
 
 From talking to IO engineers, the accepted reality (that for some reason is not being communicated to customers) is that only about 80% of distributed large storage is reliable.
 
 Which means that if you want to have 100TB of reliable cloud storage you actually need to buy 125TB of storage, since 80% of that will be 100TB. So you need to plan to pay 25% more than what you provisioned for your actual needs. I'm not sure why the customer should pay for the technology deficiency but that's how it is.
 
 For example, GCP states that only [89%](https://cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
+
+I also talked to [Sycomp](http://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
+
+Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disc usage - it may show usage not including the backups. So if your backups consume 50% of the partition.
+
+Whatever storage solution you pick, ask the provider how much of the storage can be reliably used, so that there will be no surprises later.
+
 
 
 ## Don't forget the checksums
