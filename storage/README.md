@@ -185,7 +185,7 @@ Here is how to run it:
 ```
 git clone https://github.com/stas00/ml-engineering/
 cd ml-engineering
-cd io
+cd storage
 
 path_to_test=/path/to/partition/to/test
 ./fio-scan $path_to_test

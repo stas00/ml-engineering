@@ -24,7 +24,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
-1. **[IO](./io/)** - local and distributed disks and filesystems
+1. **[IO](./storage/)** - local and distributed disks and filesystems
 
 1. **[CPU](./cpu/)** - cpus, affinities (WIP)
 

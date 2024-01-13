@@ -386,7 +386,7 @@ There are 3 distinct IO needs in the ML workload:
   1. NFS can be extremely slow if you have a lot of small files (=Python!)
   2. You want Parallel FS like GPFS (IBM) or Lustre (Open Source)
 
-[More details](../io/README.md).
+[More details](../storage/README.md).
 
 
 ### CPU Memory
