@@ -163,7 +163,7 @@ echo "($MSIZE*4*2*SEQLEN*$MICRO_BATCH_SIZE*$DP_SIZE*$GAS)/($THROUGHPUT*$NNODES*4
 
 The exact formula is in Equation 3 of Section 5.1 of the [Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM](https://arxiv.org/abs/2104.04473) paper. You can see the code [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/pull/251).
 
-footnote: For Inference only it'd be: `24Bsh^2 + 4𝐵s^2h` floating point operations per layer.
+footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operations per layer.
 
 
 
