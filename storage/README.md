@@ -68,7 +68,7 @@ Some very useful pros of GFPS:
 
 Other parallel file systems I don't yet have direct experience with:
 
-- [BeeGFS](https://www.beegfs.io)
+- [BeeGFS](https://www.beegfs.io/)
 - [WekaIO](https://www.weka.io/)
 - [DAOS](https://docs.daos.io/) (Distributed Asynchronous Object Storage) (Intel)
 - [NetApp](https://www.netapp.com)
@@ -136,7 +136,7 @@ Which means that if you want to have 100TB of reliable cloud storage you actuall
 
 For example, GCP states that only [89%](https://cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
 
-I also talked to [Sycomp](http://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
+I also talked to [Sycomp](https://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
 
 Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disc usage - it may show usage not including the backups. So if your backups consume 50% of the partition.
 
@@ -248,7 +248,7 @@ XXX: expand on how these are used when I get a chance to try those
 
 Here are some published IO benchmarks:
 
-- [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/en/storage-results-05/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
+- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/benchmarks/storage/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
 
 Then various benchmarks that you can run yourself:
 

@@ -54,3 +54,5 @@
 ./transformers/tiny-scripts/README.md
 
 ./resources/README.md
+
+./build/README.md

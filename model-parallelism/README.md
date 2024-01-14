@@ -114,8 +114,8 @@ While reading the literature on this topic you may encounter the following synon
 If you pay close attention the way ZeRO partitions the model's weights - it looks very similar to tensor parallelism which will be discussed later. This is because it partitions/shards each layer's weights, unlike vertical model parallelism which is discussed next.
 
 Implementations of ZeRO-DP stages 1+2+3:
-- [DeepSpeed](https://www.deepspeed.ai/features/#the-zero-redundancy-optimizer)
-- [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/#optimizer-state-sharding-zero) and later it was upstreamed into the PyTorch core)
+- [DeepSpeed](https://www.deepspeed.ai/tutorials/zero/)
+- [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/) and later it was upstreamed into the PyTorch core)
 
 Deepspeed ZeRO Integration:
 - [HF Trainer integration](https://huggingface.co/docs/transformers/main_classes/deepspeed)
@@ -124,7 +124,7 @@ Deepspeed ZeRO Integration:
 - [Determined.AI](https://docs.determined.ai/latest/model-dev-guide/api-guides/apis-howto/deepspeed/_index.html)
 
 FSDP Integration:
-- [HF Trainer integration](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#pytorch-fully-sharded-data-parallel)
+- [HF Trainer integration](https://huggingface.co/docs/transformers/main/en/fsdp)
 - [Accelerate](https://huggingface.co/docs/accelerate/main/en/usage_guides/fsdp)
 - [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html)
 
@@ -307,7 +307,7 @@ Important: TP degree shouldn't span across nodes. For example if the node has 8 
 TP can combined with other parallelization methods.
 
 Alternative names:
-- DeepSpeed calls it [tensor slicing](https://www.deepspeed.ai/features/#model-parallelism)
+- DeepSpeed calls it [tensor slicing](https://www.deepspeed.ai/tutorials/large-models-w-deepspeed/)
 
 Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation, as it's very model-specific

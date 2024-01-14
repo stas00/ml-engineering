@@ -383,8 +383,8 @@ There are 3 distinct Storage IO needs in the ML workload:
 - Most of the time you're being sold 80% of what you paid. If you want a reliable 100TBs you need to rent 125TBs or your application may fail to write long before the disk is full.
 
 - Shared Distributed Filesystem:
-  1. NFS can be extremely slow if you have a lot of small files (=Python!)
-  2. You want Parallel FS like GPFS (IBM) or Lustre (Open Source)
+  1. non-parallel shared file systems can be extremely slow if you have a lot of small files (=Python!)
+  2. You want Parallel FS like GPFS (IBM Spectrum Scale) or Lustre (Open Source)
 
 [More details](../storage/README.md).
 

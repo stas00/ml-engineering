@@ -4,8 +4,7 @@ An open collection of methodologies to help with successful training of large la
 
 This is a technical material suitable for LLM/VLM training engineers and operators. That is the content here contains lots of scripts and copy-n-paste commands to enable you to quickly address your needs.
 
-This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and
-[IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training open-source Retrieval Augmented models at [Contextual.AI](https://contextual.ai/).
+This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training open-source Retrieval Augmented models at [Contextual.AI](https://contextual.ai/).
 
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
@@ -88,6 +87,11 @@ Guides:
 - [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
 
 
+## Book Building
+
+If you want to build a PDF, check links, etc. See [Book building](./build/)
+
+
 ## Gratitude
 
 None of this would have been possible without me being entrusted with doing the specific LLM/VLM trainings I have learned this know-how from. This is a privilege that only a few enjoy due to the prohibitively expensive cost of renting huge ML compute clusters. So hopefully the rest of the ML community will vicariously learn from these notes.
@@ -106,23 +110,10 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 
 ## My repositories map
 
-✔ **Machine Learning:**
- [ML Engineering](https://github.com/stas00/ml-engineering) |
- [ML ways](https://github.com/stas00/ml-ways) |
- [Porting](https://github.com/stas00/porting)
+✔ **Machine Learning:** [ML Engineering Online Book](https://github.com/stas00/ml-engineering) | [ML ways](https://github.com/stas00/ml-ways) | [Porting](https://github.com/stas00/porting)
 
-✔ **Guides:**
- [The Art of Debugging](https://github.com/stas00/the-art-of-debugging)
+✔ **Guides:** [The Art of Debugging](https://github.com/stas00/the-art-of-debugging)
 
-✔ **Applications:**
- [ipyexperiments](https://github.com/stas00/ipyexperiments)
+✔ **Applications:** [ipyexperiments](https://github.com/stas00/ipyexperiments)
 
-✔ **Tools and Cheatsheets:**
- [bash](https://github.com/stas00/bash-tools) |
- [conda](https://github.com/stas00/conda-tools) |
- [git](https://github.com/stas00/git-tools) |
- [jupyter-notebook](https://github.com/stas00/jupyter-notebook-tools) |
- [make](https://github.com/stas00/make-tools) |
- [python](https://github.com/stas00/python-tools) |
- [tensorboard](https://github.com/stas00/tensorboard-tools) |
- [unix](https://github.com/stas00/unix-tools)
+✔ **Tools and Cheatsheets:** [bash](https://github.com/stas00/bash-tools) | [conda](https://github.com/stas00/conda-tools) | [git](https://github.com/stas00/git-tools) | [jupyter-notebook](https://github.com/stas00/jupyter-notebook-tools) | [make](https://github.com/stas00/make-tools) | [python](https://github.com/stas00/python-tools) | [tensorboard](https://github.com/stas00/tensorboard-tools) | [unix](https://github.com/stas00/unix-tools)

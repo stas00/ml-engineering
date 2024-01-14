@@ -72,7 +72,7 @@ If you purchase your servers then I recommend to perform a very indepth due dili
 
 Besides hardware, you, of course, need software that can efficiently deploy the hardware.
 
-We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](/..performance) and [here](../model-parallelism).
+We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](../performance) and [here](../model-parallelism).
 
 
 
@@ -191,7 +191,7 @@ NVIVDIA:
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - availability is unknown.
 
 AMD:
-- [MI250](https://www.amd.com/en/products/server-accelerators/instinct-mi250) ~= A100 - very few clouds have them
+- [MI250](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250.html) ~= A100 - very few clouds have them
 - MI300 ~= H100 - don’t expect until late-2024 or even 2025 to be GA
 
 Intel:
