@@ -108,12 +108,28 @@ If you found a bug, typo or would like to propose an improvement please don't he
 The content of this site is distributed under [Attribution-ShareAlike 4.0 International](./LICENSE-CC-BY-SA).
 
 
+
+
+
 ## My repositories map
 
-✔ **Machine Learning:** [ML Engineering Online Book](https://github.com/stas00/ml-engineering) | [ML ways](https://github.com/stas00/ml-ways) | [Porting](https://github.com/stas00/porting)
+✔ **Machine Learning:**
+ [ML Engineering Online Book](https://github.com/stas00/ml-engineering) |
+ [ML ways](https://github.com/stas00/ml-ways) |
+ [Porting](https://github.com/stas00/porting)
 
-✔ **Guides:** [The Art of Debugging](https://github.com/stas00/the-art-of-debugging)
+✔ **Guides:**
+ [The Art of Debugging](https://github.com/stas00/the-art-of-debugging)
 
-✔ **Applications:** [ipyexperiments](https://github.com/stas00/ipyexperiments)
+✔ **Applications:**
+ [ipyexperiments](https://github.com/stas00/ipyexperiments)
 
-✔ **Tools and Cheatsheets:** [bash](https://github.com/stas00/bash-tools) | [conda](https://github.com/stas00/conda-tools) | [git](https://github.com/stas00/git-tools) | [jupyter-notebook](https://github.com/stas00/jupyter-notebook-tools) | [make](https://github.com/stas00/make-tools) | [python](https://github.com/stas00/python-tools) | [tensorboard](https://github.com/stas00/tensorboard-tools) | [unix](https://github.com/stas00/unix-tools)
+✔ **Tools and Cheatsheets:**
+ [bash](https://github.com/stas00/bash-tools) |
+ [conda](https://github.com/stas00/conda-tools) |
+ [git](https://github.com/stas00/git-tools) |
+ [jupyter-notebook](https://github.com/stas00/jupyter-notebook-tools) |
+ [make](https://github.com/stas00/make-tools) |
+ [python](https://github.com/stas00/python-tools) |
+ [tensorboard](https://github.com/stas00/tensorboard-tools) |
+ [unix](https://github.com/stas00/unix-tools)
