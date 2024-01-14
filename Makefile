@@ -12,7 +12,8 @@ spell: ## spellcheck
 
 html: ## make html version
 	python build/utils/md-to-html.py
-	perl -ne 's|\.md|.html|; print' chapters-md.txt > chapters-html.txt
+	echo book-front.html > chapters-html.txt
+	perl -ne 's|\.md|.html|; print' chapters-md.txt >> chapters-html.txt
 
 pdf: html ## make pdf version (from html files)
 	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")

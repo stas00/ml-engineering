@@ -67,13 +67,11 @@ h1, h2, h3, h4, h5, h6 {
 
 title { prince-bookmark-level: 1 }
 h1 { prince-bookmark-level: 1 }
-/*
 h2 { prince-bookmark-level: 2 }
 h3 { prince-bookmark-level: 3 }
 h4 { prince-bookmark-level: 4 }
 h5 { prince-bookmark-level: 5 }
 h6 { prince-bookmark-level: 6 }
-*/
 
 /* a { text-decoration: none; color: inherit; } */
 
@@ -157,15 +155,6 @@ table, table td, table th {
 }
 
 table th { background: #eee; font-weight: bold}
-
-
-/*
-table[align] { float: none; width: auto; margin: 1em 0 }
-table[align] td { padding: 0.2em 0.3em }
-table[align] th { padding: 0.2em 0.3em; text-align: center; font-weight: bold }
-
-table img { width: auto; height: auto; prince-image-resolution: auto }
-*/
 
 /* hr { display: none } */
 

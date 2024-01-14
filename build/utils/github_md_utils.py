@@ -32,7 +32,7 @@ re_md_link_full = re.compile(r"""
 img_exts = ["jpg", "jpeg", "png"]
 re_link_images = re.compile("(" + "|".join(img_exts) + ")", re.VERBOSE|re.MULTILINE|re.IGNORECASE)
 
-cwd_path = Path.cwd()
+cwd_abs_path = Path.cwd()
 
 def md_is_relative_link(link):
     # skip any protocol:/ based links - what remains should be a relative local links - relative to
@@ -41,13 +41,13 @@ def md_is_relative_link(link):
         return False
     return True
 
-def md_process_local_links(para, cwd_path, callback):
+def md_process_local_links(para, cwd_rel_path, callback):
     """
     parse the paragraph to detect local markdown links, process those through callback and put them
     back into the paragraph and return the result
     """
     return re.sub(re_md_link_full,
-                  lambda x: callback(x.group(), cwd_path) if md_is_relative_link(x.group()) else x.group(),
+                  lambda x: callback(x.group(), cwd_rel_path) if md_is_relative_link(x.group()) else x.group(),
                   para)
 
 
@@ -92,7 +92,7 @@ def resolve_rel_link(link, cwd_rel_path):
 
     XXX: it assumes the program is run from the root of the repo
     """
-    link = (Path(cwd_rel_path) / Path(link)).resolve().relative_to(cwd_path)
+    link = (Path(cwd_rel_path) / Path(link)).resolve().relative_to(cwd_abs_path)
     return str(link)
 
 def md_expand_links(text, cwd_rel_path, repo_url=""):
@@ -174,6 +174,7 @@ def md_header_to_md_link(text, link=''):
 
 if __name__ == "__main__":
 
+    # run to test some of these utils
     para = 'bb [Markdown text](foo.md#tar) aaa bb [Markdown text2](foo/#bar) aaa [Markdown text3](http://ex.com/foo/#bar)'
     print(para)
     para = md_process_local_links(para, md_expand_links)

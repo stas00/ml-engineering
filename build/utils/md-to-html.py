@@ -21,9 +21,9 @@ md_expand_links_my_repo = partial(md_expand_links, repo_url=my_repo_url)
 def convert_markdown_to_html(markdown_path):
     md_content = markdown_path.read_text()
 
-    cwd_path = markdown_path.parent
-    md_content = md_process_local_links(md_content, cwd_path, md_expand_links_my_repo)
-    md_content = md_process_local_links(md_content, cwd_path, md_convert_md_target_to_html)
+    cwd_rel_path = markdown_path.parent
+    md_content = md_process_local_links(md_content, cwd_rel_path, md_expand_links_my_repo)
+    md_content = md_process_local_links(md_content, cwd_rel_path, md_convert_md_target_to_html)
 
     tokens = mdit.parse(md_content)
     html_content = mdit.render(md_content)
@@ -36,11 +36,11 @@ def convert_markdown_to_html(markdown_path):
 def make_cover_page_file(cover_md_file, date):
     with open(cover_md_file, "w") as f:
         f.write(f"""
-## Machine Learning Engineering
+## Machine Learning Engineering Online Book
 
-This is a PDF version of [Machine Learning Engineering by Stas Bekman](https://github.com/stas00/ml-engineering).
+This is a PDF version of [Machine Learning Engineering Online Book by Stas Bekman](https://github.com/stas00/ml-engineering/).
 
-As this book is an early work in progress that gets updated frequently, if you downloaded it as a pdf file, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering).
+As this book is an early work in progress that gets updated frequently, if you downloaded it as a pdf file, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering/).
 
 This PDF was generated on {date}.
 """)
