@@ -21,7 +21,7 @@ check-links-local: html ## check local links
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee -a linkchecker-local.txt
 
 check-links-all: html ## check all links including external ones
-	linkchecker --config build/linkcheckerrc README.html --check-extern --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0" | tee -a linkchecker-all.txt
+	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") |  --check-extern --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0" | tee -a linkchecker-all.txt
 
 clean: ## remove build files
 	find . -name "*html" -exec rm {} \;
