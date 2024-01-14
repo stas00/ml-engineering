@@ -115,7 +115,6 @@ ul {  list-style-type: disc }
 /* put article heading on top of the page, spanning all columns */
 
 h1 {
-  float: top;
   string-set: title content();
   padding-bottom: 0.2em;
   border-bottom: thin solid black;
