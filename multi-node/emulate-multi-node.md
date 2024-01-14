@@ -233,6 +233,6 @@ The following is an orthogonal need to the one discussed in this document, but i
 With NVIDIA A100 you can use [MIG](https://www.nvidia.com/en-us/technologies/multi-instance-gpu/) to emulate up to 7 instances of GPUs on just one real GPU, but alas you can't use those instances for anything but standalone use - e.g. you can't do DDP or any NCCL comms over those GPUs. I hoped I could use my A100 to emulate 7 instances and add one more real GPU and to have 8x GPUs to do development with - but nope it doesn't work. Asking NVIDIA engineers about it, there are no plans to have this use-case supported.
 
 
-# Acknowledgements
+## Acknowledgements
 
 Many thanks to [Jeff Rasley](https://github.com/jeffra/) for helping me to set this up.
