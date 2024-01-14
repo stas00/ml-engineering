@@ -29,6 +29,10 @@ re_md_link_full = re.compile(r"""
 )
 """, re.VERBOSE|re.MULTILINE)
 
+img_exts = ["jpg", "jpeg", "png"]
+re_link_images = re.compile("(" + "|".join(img_exts) + ")", re.VERBOSE|re.MULTILINE|re.IGNORECASE)
+
+cwd_path = Path.cwd()
 
 def md_is_relative_link(link):
     # skip any protocol:/ based links - what remains should be a relative local links - relative to
@@ -82,37 +86,54 @@ def md_link_build(link_text, link, anchor=None):
     return f"[{link_text}]({full_link})"
 
 
-def md_expand_links(text, cwd_path):
-    """
-    convert link shortcuts into full links
+def resolve_rel_link(link, cwd_rel_path):
+    """ resolves all sorts of ./, ../foobar and returns a relative to the repo root relative link
+    this is useful if a repo url needs to be prepended
 
-    - chapter/ => chapter/README.md
+    XXX: it assumes the program is run from the root of the repo
     """
+    link = (Path(cwd_rel_path) / Path(link)).resolve().relative_to(cwd_path)
+    return str(link)
+
+def md_expand_links(text, cwd_rel_path, repo_url=""):
+    """
+    - if the link contains protocol :// do nothing
+
+    - convert relative link shortcuts into full links
+
+    chapter/ => chapter/README.md
+
+    - if the link is not for .md or images, it's not in the book, so resolve it and point to the repo
+
+    """
+
 
     link_text, link, anchor = md_link_break_up(text)
 
     #print(link_text, link, anchor)
 
-    if not (link.endswith(".md") or len(link) == 0):
+    if not (link.endswith(".md") or len(link) == 0) or re.search(r'^\w+://', link):
         link = Path(link)
         try_link = link / "README.md"
 
-        full_path = cwd_path / try_link
+        full_path = cwd_rel_path / try_link
         if full_path.exists():
             link = str(try_link)
         else:
             link = str(link)
 
-    # if not (link.endswith(".md") or len(link) == 0):
-    #     link = Path(link)
-    #     link /= "README.md"
-    #     link = str(link)
+            # leave the images local for pdf rendering, but for the rest of the file (scripts,
+            # reports, etc.)
+            # pre-pend the repo base url, while removing ./ relative prefix if any
+            if not re.search(re_link_images, link):
+                link = resolve_rel_link(link, cwd_rel_path)
+                link = repo_url + "/" + link
 
     return md_link_build(link_text, link, anchor)
 
 
 
-def md_convert_md_target_to_html(text, cwd_path):
+def md_convert_md_target_to_html(text, cwd_rel_path):
     """
     convert .md target to .html target
 

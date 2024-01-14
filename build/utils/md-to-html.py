@@ -1,10 +1,11 @@
 
+import datetime
 
+from functools import partial
 from github_md_utils import md_header_to_anchor, md_process_local_links, md_expand_links, md_convert_md_target_to_html
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
 from pathlib import Path
-import datetime
 
 mdit = (
     MarkdownIt('commonmark', {'breaks':True, 'html':True})
@@ -12,11 +13,15 @@ mdit = (
     .enable('table')
 )
 
+my_repo_url = "https://github.com/stas00/ml-engineering/blob/master"
+
+md_expand_links_my_repo = partial(md_expand_links, repo_url=my_repo_url)
+
 def convert_markdown_to_html(markdown_path):
     text = markdown_path.read_text()
 
     cwd_path = markdown_path.parent
-    text = md_process_local_links(text, cwd_path, md_expand_links)
+    text = md_process_local_links(text, cwd_path, md_expand_links_my_repo)
     text = md_process_local_links(text, cwd_path, md_convert_md_target_to_html)
 
     tokens = mdit.parse(text)

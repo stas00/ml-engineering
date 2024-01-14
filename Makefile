@@ -12,13 +12,16 @@ spell: ## spellcheck
 
 html: ## make html version
 	python build/utils/md-to-html.py
+	perl -ne 's|\.md|.html|; print' chapters-md.txt > chapters-html.txt
 
 pdf: html ## make pdf version (from html files)
-	perl -ne 's|\.md|.html|; print' chapters-md.txt > chapters-html.txt
 	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")
 
-checklinks: html ## check links
-	linkchecker --ignore-url=index --file-output=html --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ")
+check-links-local: html ## check local links
+	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee -a linkchecker-local.html
+
+check-links-all: html ## check all links including external ones
+	linkchecker --config build/linkcheckerrc README.html --check-extern --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0" | tee -a linkchecker-all.html
 
 clean: ## remove build files
 	find . -name "*html" -exec rm {} \;

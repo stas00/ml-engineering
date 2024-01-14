@@ -1,6 +1,14 @@
+# rtfm https://linkchecker.github.io/linkchecker/man/linkcheckerrc.html
+
 [output]
 
 [text]
-  colorwarning=blue
+colorwarning=blue
 
 [AnchorCheck]
+
+[filtering]
+ignorewarnings=http-redirected,http-moved-permanent
+
+[checking]
+threads=20
