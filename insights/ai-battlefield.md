@@ -251,7 +251,7 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
 
-- IO is important primarily for feeding the DataLoader workers and saving the checkpoints. [more](#io).
+- Storage IO is important primarily for feeding the DataLoader workers and saving the checkpoints. [more](#storage).
 
   1. Typically with enough DL workers the DataLoader adds very little overhead.
   2. While checkpoints are being saved the accelerators idle unless some async saving solution is used, so fast IO is crucial here
@@ -372,9 +372,9 @@ Intel Gaudi2:
 
 
 
-### IO
+### Storage
 
-There are 3 distinct IO needs in the ML workload:
+There are 3 distinct Storage IO needs in the ML workload:
 
 1. You need to be able to feed the DataLoader fast - (super fast read, don't care about fast write) - requires sustainable load for hours and days
 2. You need to be able to write checkpoints fast - (super fast write, fastish read as you will be resuming a few times) - requires burst writing - you want super fast to not block the training for long (unless you use some sort of cpu offloading to quickly unblock the training)
