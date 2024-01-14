@@ -1,5 +1,6 @@
 
 import datetime
+import re
 
 from functools import partial
 from github_md_utils import md_header_to_anchor, md_process_local_links, md_expand_links, md_convert_md_target_to_html
@@ -18,14 +19,16 @@ my_repo_url = "https://github.com/stas00/ml-engineering/blob/master"
 md_expand_links_my_repo = partial(md_expand_links, repo_url=my_repo_url)
 
 def convert_markdown_to_html(markdown_path):
-    text = markdown_path.read_text()
+    md_content = markdown_path.read_text()
 
     cwd_path = markdown_path.parent
-    text = md_process_local_links(text, cwd_path, md_expand_links_my_repo)
-    text = md_process_local_links(text, cwd_path, md_convert_md_target_to_html)
+    md_content = md_process_local_links(md_content, cwd_path, md_expand_links_my_repo)
+    md_content = md_process_local_links(md_content, cwd_path, md_convert_md_target_to_html)
 
-    tokens = mdit.parse(text)
-    html_content = mdit.render(text)
+    tokens = mdit.parse(md_content)
+    html_content = mdit.render(md_content)
+    # we don't want <br />, since github doesn't use it in presentation
+    html_content = re.sub('<br />', '', html_content)
 
     html_file = markdown_path.with_suffix(".html")
     html_file.write_text(html_content)
