@@ -45,6 +45,40 @@ So we can now kill all those processes in one swoop:
 ```
 
 
+## Slurm settings
+
+Show the slurm settings:
+
+```
+sudo scontrol show config
+```
+
+The config file is `/etc/slurm/slurm.conf` on the slurm controller node.
+
+Once `slurm.conf` was updated to reload the config run:
+```
+sudo scontrol reconfigure
+```
+from the controller node.
+
+
+
+## Auto-reboot
+
+If the nodes need to be rebooted safely (e.g. if the image has been updated), adapt the list of the node and run:
+
+```
+scontrol reboot ASAP node-[1-64]
+```
+
+For each of the non-idle nodes this command will wait till the current job ends, then reboot the node and bring it back up to `idle`.
+
+Note that you need to have:
+```
+RebootProgram = "/sbin/reboot"
+```
+set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM deamon if you have just added this entry to the config file).
+
 
 ## Changing the state of the node
 
