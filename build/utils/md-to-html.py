@@ -36,9 +36,9 @@ def convert_markdown_to_html(markdown_path):
 def make_cover_page_file(cover_md_file, date):
     with open(cover_md_file, "w") as f:
         f.write(f"""
-## Machine Learning Engineering Online Book
+## Machine Learning Engineering Open Book
 
-This is a PDF version of [Machine Learning Engineering Online Book by Stas Bekman](https://github.com/stas00/ml-engineering/).
+This is a PDF version of [Machine Learning Engineering Open Book by Stas Bekman](https://github.com/stas00/ml-engineering/).
 
 As this book is an early work in progress that gets updated frequently, if you downloaded it as a pdf file, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering/).
 

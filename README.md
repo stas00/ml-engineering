@@ -1,4 +1,4 @@
-# Machine Learning Engineering Online Book
+# Machine Learning Engineering Open Book
 
 An open collection of methodologies to help with successful training of large language models and multi-modal models.
 
@@ -114,7 +114,7 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 ## My repositories map
 
 ✔ **Machine Learning:**
- [ML Engineering Online Book](https://github.com/stas00/ml-engineering) |
+ [ML Engineering Open Book](https://github.com/stas00/ml-engineering) |
  [ML ways](https://github.com/stas00/ml-ways) |
  [Porting](https://github.com/stas00/porting)
 
