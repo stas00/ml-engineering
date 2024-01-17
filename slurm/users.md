@@ -793,6 +793,22 @@ perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST
 }
 ```
 
+## Environment variables
+
+You can always do:
+
+```
+export SOMEKEY=value
+```
+from the slurm script to get a desired environment variable passed to the program launched from it.
+
+And you can also add to the top of the slurm script:
+```
+#SBATCH --export=ALL
+```
+The launched program will see all the environment variables visible in the shell where it was launched from.
+
+
 
 ## Crontab Emulation
 

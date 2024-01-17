@@ -129,3 +129,12 @@ To add additional time to the previous setting, e.g. 3 more hours.
 ```
 scontrol update JobID=$SLURM_JOB_ID TimeLimit=+10:00:00
 ```
+
+## When something goes wrong with SLURM
+
+Analyze the events log in the SLURM's log file:
+```
+sudo cat /var/log/slurm/slurmctld.log
+```
+
+This, for example, can help to understand why a certain node got its jobs cancelled before time or the node got removed completely.
