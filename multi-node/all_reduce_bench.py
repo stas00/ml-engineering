@@ -74,23 +74,25 @@ def timed_allreduce(mat, id, start_event, end_event):
     duration = start_event.elapsed_time(end_event) / 1000
 
     size = M * N * 4 # 4 is fp32
-    tput = (size * 2 / duration) * 8 # *2 is for send + receive, *8 for gigabits/second
+    # note that this is following the same math as NVIDIA/nccl-tests
+    algbw = (size / duration) * 8 # 8 is bytes to bits
     n = dist.get_world_size()
-    # 2*(n-1)/n correction factor is explained here:
+    # the 2*(n-1)/n busbw correction factor specific to all-reduce is explained here:
     # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
-    busbw = (size / duration) * (2 * (n - 1) / n) * 8
+    # busbw reflects how optimally the hardware is used
+    busbw = algbw * (2*(n - 1) / n)
 
     # gather all data on global-rank-0 and print the results from there to avoid interleaved prints
-    data = [id, duration, tput, busbw]
+    data = [id, duration, algbw, busbw]
     output = [None for _ in range(dist.get_world_size())] if dist.get_rank() == 0 else None
     dist.gather_object(data, output, dst=0)
     if dist.get_rank() == 0:
         for data in output:
-            id, duration, tput, busbw = data
+            id, duration, algbw, busbw = data
             print(f"{id}:\n",
-                  f"duration: {duration:.4f} sec\n",
-                  f"algo throughput: {tput/1e9:.4f} Gbps\n",
-                  f"busbw: {busbw / 1e9:.4f}  Gbps"
+                  f"duration: {duration:.3f} sec\n",
+                  f"algbw: {algbw/1e9:.3f} Gbps\n",
+                  f"busbw: {busbw/1e9:.3f} Gbps"
     )
 
 def run(local_rank):

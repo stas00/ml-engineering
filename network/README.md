@@ -83,8 +83,8 @@ footnote: there is also the important issue of latency of the network - which is
 
 How long will it take to send 16GB of data?
 
-- A100 @ 600GBps: `16/600` = 0.027 secs
-- H100 @ 900GBps: `16/900` = 0.018 secs
+- A100 @ 300GBps: `16/300` = 0.053 secs
+- H100 @ 450GBps: `16/450` = 0.035 secs
 
 which is incredibly fast!
 
@@ -184,9 +184,9 @@ footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-cent
 
 So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
 
-Earlier we said that a typical A100 node has an intra-node NVLink connection of 600GBps, and thus we said that to send 16GB of grads will take `16/600` = 0.027 secs.
+Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
 
-And we measured our compute to be 0.42 secs, so here are we good as `0.027 < 0.42` so the comms will be faster than compute and not be a bottleneck.
+And we measured our compute to be 0.42 secs, so here we have a problem as `0.053 > 0.42` so the comms will be slower than compute and the network is a bottleneck.
 
 You can now do several thought experiments - for example if you halve the batch size or the sequence length you will halve the compute time.
 
@@ -194,7 +194,7 @@ footnote: this is a very rough suggestions since GPUs work the fastest when the 
 
 OK, but hopefully at this point it's quite clear that if you remain at the boundaries of a single node, you don't need to worry about your GPUs idling.
 
-But what if you want to speed up the training even more and throw say 4 8-gpu nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become a bottleneck.
+But what if you want to speed up the training even more and throw say 4x 8-gpu nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become an even bigger bottleneck.
 
 
 
@@ -497,10 +497,10 @@ Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](./all_r
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
 
 ----------- 1x 4.0GB ----------------
- busbw: 1257.1650  Gbps
+ busbw: 1257.165 Gbps
 
 ----------- 1000x 0.004GB ----------------
- busbw: 374.3910  Gbps
+ busbw: 374.391 Gbps
 ```
 
 It's easy to see that it's about 3x slower in this particular case to send the same payload but in 1000 smaller chunks.
