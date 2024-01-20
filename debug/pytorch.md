@@ -690,8 +690,8 @@ Now you might say that the `1e-6` discrepancy can be safely ignored. And it's of
 
 For example, see this [discussion](https://github.com/microsoft/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about Deepspeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
 
-It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device:
+It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device.
 
 ![](images/math-fp-discrepancy-outcome-lizard.png)
 
-[source](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645)
+This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
