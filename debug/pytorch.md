@@ -684,7 +684,8 @@ Greatest absolute difference: 9.5367431640625e-07 at index (9,)
 Greatest relative difference: 1.200604771156577e-07 at index (9,)
 ```
 
-This was is a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
+
+This was a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
 
 Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
 
@@ -695,3 +696,17 @@ It's uncommon that small variations make much of a difference, but sometimes the
 ![](images/math-fp-discrepancy-outcome-lizard.png)
 
 This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
+
+If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
+
+```
+class LlamaRotaryEmbedding(nn.Module):
+    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+        super().__init__()
+
+        self.dim = dim
+        self.max_position_embeddings = max_position_embeddings
+        self.base = base
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+```
