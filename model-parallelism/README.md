@@ -273,7 +273,7 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
 - [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`
-
+- [nanotron](https://github.com/huggingface/nanotron)
 
 
 
@@ -312,9 +312,10 @@ Alternative names:
 Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation, as it's very model-specific
 - [PyTorch](https://pytorch.org/docs/stable/distributed.tensor.parallel.html)
-- [parallelformers](https://github.com/tunib-ai/parallelformers) (only inference at the moment)
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) has the tensor parallelism implementation based on the Transformers.
+- [nanotron](https://github.com/huggingface/nanotron)
+- [parallelformers](https://github.com/tunib-ai/parallelformers) (only inference at the moment)
 
 
 ## DP+PP
@@ -333,6 +334,7 @@ Implementations:
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
+- [nanotron](https://github.com/huggingface/nanotron)
 
 
 
@@ -352,6 +354,7 @@ Implementations:
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
+- [nanotron](https://github.com/huggingface/nanotron)
 
 
 ## ZeRO DP+PP+TP
