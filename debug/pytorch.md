@@ -650,3 +650,48 @@ def mycode():
 so you can code it yourself as well.
 
 And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
+
+
+
+## Floating point math discrepancies on different devices
+
+It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
+
+Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
+
+```
+import torch
+
+def do_math(device):
+    inv_freq = (10 ** (torch.arange(0, 10, device=device) / 10))
+    print(f"{inv_freq[9]:.20f}")
+    return inv_freq.cpu()
+
+a = do_math(torch.device("cpu"))
+b = do_math(torch.device("cuda"))
+
+torch.testing.assert_close(a, b, rtol=0.0, atol=0.0)
+```
+when we run it we get 2 out of 10 elements mismatch:
+```
+7.94328212738037109375
+7.94328308105468750000
+[...]
+AssertionError: Tensor-likes are not equal!
+
+Mismatched elements: 2 / 10 (20.0%)
+Greatest absolute difference: 9.5367431640625e-07 at index (9,)
+Greatest relative difference: 1.200604771156577e-07 at index (9,)
+```
+
+This was is a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
+
+Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
+
+For example, see this [discussion](https://github.com/microsoft/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about Deepspeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
+
+It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device:
+
+![](images/math-fp-discrepancy-outcome-lizard.png)
+
+[source](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645)
