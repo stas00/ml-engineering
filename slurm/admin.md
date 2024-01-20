@@ -77,7 +77,7 @@ Note that you need to have:
 ```
 RebootProgram = "/sbin/reboot"
 ```
-set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM deamon if you have just added this entry to the config file).
+set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM daemon if you have just added this entry to the config file).
 
 
 ## Changing the state of the node
