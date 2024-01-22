@@ -149,12 +149,12 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
     full_path = str(cwd_rel_path / link)
     print("FULL ORIG", full_path)
 
-    new_path = full_path.replace(src, dst)
+    new_path = re.sub(r"^{src}", dst, full_path)
     print("FULL  NEW", new_path)
 
     if new_path != full_path:
         print("SHORT NEW", new_path)
-        link = new_path.replace(str(cwd_rel_path) + "/", "")
+        link = re.sub(r"^{cwd_rel_path}/", "", new_path)
 
     return md_link_build(link_text, link, anchor)
 

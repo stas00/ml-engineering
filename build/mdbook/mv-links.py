@@ -15,13 +15,13 @@ from utils.build_utils import get_markdown_files
 from utils.github_md_utils import md_rename_relative_links, md_process_local_links
 
 
-def rewrite_links(markdown_path, src=src, dst=dst):
+def rewrite_links(markdown_path, src, dst):
     md_content = markdown_path.read_text()
 
     cwd_rel_path = markdown_path.parent
     md_content = md_process_local_links(md_content, md_rename_relative_links, cwd_rel_path=cwd_rel_path, src=src, dst=dst)
 
-    markdown_path.write_text()
+    markdown_path.write_text(md_content)
 
 
 if __name__ == "__main__":
