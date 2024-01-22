@@ -41,13 +41,13 @@ def md_is_relative_link(link):
         return False
     return True
 
-def md_process_local_links(para, cwd_rel_path, callback):
+def md_process_local_links(para, callback, **kwargs):
     """
     parse the paragraph to detect local markdown links, process those through callback and put them
     back into the paragraph and return the result
     """
     return re.sub(re_md_link_full,
-                  lambda x: callback(x.group(), cwd_rel_path) if md_is_relative_link(x.group()) else x.group(),
+                  lambda x: callback(x.group(), **kwargs) if md_is_relative_link(x.group()) else x.group(),
                   para)
 
 
@@ -97,43 +97,70 @@ def resolve_rel_link(link, cwd_rel_path):
 
 def md_expand_links(text, cwd_rel_path, repo_url=""):
     """
-    - if the link contains protocol :// do nothing
-
-    - convert relative link shortcuts into full links
-
-    chapter/ => chapter/README.md
-
-    - if the link is not for .md or images, it's not in the book, so resolve it and point to the repo
+    Perform link rewrites as following:
+    - if the link ends in .md or contains protocol :// return unmodified
+    - convert relative link shortcuts into full links, e.g. chapter/ => chapter/README.md
+    - if the link is not for .md or images, it's not going to be in the pdf, so resolve it and point
+      to its url at the the repo
 
     """
-
-
     link_text, link, anchor = md_link_break_up(text)
 
     #print(link_text, link, anchor)
 
-    if not (link.endswith(".md") or len(link) == 0) or re.search(r'^\w+://', link):
-        link = Path(link)
-        try_link = link / "README.md"
+    # skip explicit .md links and external links
+    if len(link) > 0  and (link.endswith(".md") or re.search(r'^\w+://', link)):
+        return text
 
-        full_path = cwd_rel_path / try_link
-        if full_path.exists():
-            link = str(try_link)
-        else:
-            link = str(link)
+    link = Path(link)
+    try_link = link / "README.md"
 
-            # leave the images local for pdf rendering, but for the rest of the file (scripts,
-            # reports, etc.)
-            # prepend the repo base url, while removing ./ relative prefix if any
-            if not re.search(re_link_images, link):
-                link = resolve_rel_link(link, cwd_rel_path)
-                link = repo_url + "/" + link
+    full_path = cwd_rel_path / try_link
+    if full_path.exists():
+        link = str(try_link)
+    else:
+        link = str(link)
+
+        # leave the images local for pdf rendering, but for the rest of the file (scripts,
+        # reports, etc.)
+        # prepend the repo base url, while removing ./ relative prefix if any
+        if not re.search(re_link_images, link):
+            link = resolve_rel_link(link, cwd_rel_path)
+            link = repo_url + "/" + link
+
+    return md_link_build(link_text, link, anchor)
+
+
+def md_rename_relative_links(text, cwd_rel_path, src, dst):
+    """
+    Perform link rewrites as following:
+    - if the link contains protocol :// do nothing
+
+    """
+    link_text, link, anchor = md_link_break_up(text)
+
+    # skip external links
+    if len(link) > 0 and re.search(r'^\w+://', link):
+        return text
+
+    print(link_text, link, anchor)
+    print(cwd_rel_path, src, dst)
+
+    full_path = str(cwd_rel_path / link)
+    print("FULL ORIG", full_path)
+
+    new_path = full_path.replace(src, dst)
+    print("FULL  NEW", new_path)
+
+    if new_path != full_path:
+        print("SHORT NEW", new_path)
+        link = new_path.replace(str(cwd_rel_path) + "/", "")
 
     return md_link_build(link_text, link, anchor)
 
 
 
-def md_convert_md_target_to_html(text, cwd_rel_path):
+def md_convert_md_target_to_html(text):
     """
     convert .md target to .html target
 
@@ -174,13 +201,19 @@ def md_header_to_md_link(text, link=''):
 
 if __name__ == "__main__":
 
-    # run to test some of these utils
-    para = 'bb [Markdown text](foo.md#tar) aaa bb [Markdown text2](foo/#bar) aaa [Markdown text3](http://ex.com/foo/#bar)'
-    print(para)
-    para = md_process_local_links(para, md_expand_links)
-    print(para)
+    # # run to test some of these utils
+    # para = 'bb [Markdown text](foo.md#tar) aaa bb [Markdown text2](foo/#bar) aaa [Markdown text3](http://ex.com/foo/#bar)'
+    # print(para)
+    # para = md_process_local_links(para, md_expand_links, cwd_rel_path=".")
+    # print(para)
 
-    para = 'bb [Part 1](../Part1/) [Part 1](../Part1) [Local](#local) ![image](image.png)'
+    # para = 'bb [Part 1](../Part1/) [Part 1](../Part1) [Local](#local) ![image](image.png)'
+    # print(para)
+    # para = md_process_local_links(para, md_expand_links, cwd_rel_path=".")
+    # print(para)
+
+
+    para = 'bb [Markdown text](foo.md#tar) aaa bb [Markdown text2](foo/#bar) aaa [Markdown text3](../foo/bar)'
     print(para)
-    para = md_process_local_links(para, md_expand_links)
+    para = md_process_local_links(para, md_rename_relative_links, cwd_rel_path=Path("."), src="foo", dst="tar")
     print(para)

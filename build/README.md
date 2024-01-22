@@ -39,3 +39,20 @@ To additionally also check external links
 make check-links-all
 ```
 use the latter sparingly to avoid being banned for hammering servers.
+
+
+## Move md files/dirs and adjust relative links
+
+
+e.g. `slurm` => `orchestration/slurm`
+```
+src=slurm
+dst=orchestration/slurm
+
+git mv $src $dst
+perl -pi -e "s|$src|$dst|" chapters-md.txt
+python build/utils/mv-links.py $src $dst
+
+make check-links-local
+
+```

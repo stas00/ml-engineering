@@ -11,7 +11,7 @@ spell: ## spellcheck
 	@codespell --write-changes --skip "*.pdf" .
 
 html: ## make html version
-	python build/utils/md-to-html.py
+	python build/mdbook/md-to-html.py
 	echo book-front.html > chapters-html.txt
 	perl -ne 's|\.md|.html|; print' chapters-md.txt >> chapters-html.txt
 
