@@ -159,6 +159,9 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
         print("SHORT NEW", new_path)
         link = re.sub(r"^{cwd_rel_path}/", "", new_path)
 
+    link = re.sub(r"^{cwd_rel_path}/", "", link)
+    link = re.sub(r"^{cwd_rel_path}/", "", link)
+
     return md_link_build(link_text, link, anchor)
 
 
