@@ -1,6 +1,6 @@
 # Inter-node and intra-node Networking Hardware
 
-This chapter is a WIP - Please ignore for now
+This chapter is a WIP
 
 It's not enough to buy/rent expensive GPUs to train/infer models fast. You need to ensure that your IO, CPU and Network are fast enough to "feed the GPU furnace". If this is not ensured then the expensive GPUs will be underutilized leading to lost $$, slower training time and inference. While it can be any other of the mentioned components, the network is most of the time what causes the bottleneck in the training (assume your DataLoader is fast).
 

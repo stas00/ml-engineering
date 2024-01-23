@@ -1,5 +1,7 @@
 # Book Building
 
+Important: this is still a WIP - it mostly works, but stylesheets need some work to make the pdf really nice. Should be complete in a few weeks.
+
 This document assumes you're working from the root of the repo.
 
 ## Installation requirements
