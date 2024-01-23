@@ -98,9 +98,12 @@ def resolve_rel_link(link, cwd_rel_path):
 def md_expand_links(text, cwd_rel_path, repo_url=""):
     """
     Perform link rewrites as following:
-    - if the link ends in .md or contains protocol :// return unmodified
-    - convert relative link shortcuts into full links, e.g. chapter/ => chapter/README.md
-    - if the link is not for .md or images, it's not going to be in the pdf, so resolve it and point
+    - return unmodified if the link:
+       * is empty (same doc internal anchor)
+       * ends in .md (well defined)
+       * is remote - i.e. contains protocol :// return unmodified
+    - convert relative link shortcuts into full links, e.g. s#chapter/?#chapter/README.md#
+    - if the local link is not for .md or images, it's not going to be in the pdf, so resolve it and point
       to its url at the the repo
 
     """
@@ -112,7 +115,7 @@ def md_expand_links(text, cwd_rel_path, repo_url=""):
     # - empty links (i.e. just local anchor to the same doc)
     # - skip explicit .md links
     # - external links like https://...
-    if len(link) == 0  or link.endswith(".md") or re.search(r'^\w+://', link):
+    if len(link) == 0 or link.endswith(".md") or re.search(r'^\w+://', link):
         return text
 
     link = Path(link)
@@ -138,6 +141,7 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
     """
     Perform link rewrites as following:
     - if the link contains protocol :// do nothing
+    XXX: complete me when finished
 
     """
     link_text, link, anchor = md_link_break_up(text)
@@ -165,11 +169,17 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
         new_path = re.sub(rf"/{src}", f"/{dst}", full_path)
         print("SUB   NEW", new_path)
 
-    # did it get modified? then undo the prepending of cwd_rel_path
-    prefix = rf"^{cwd_rel_path}/" if str(cwd_rel_path) != "" else ""
-    if new_path != full_path:
+    prefix = rf"^{cwd_rel_path}/" if str(cwd_rel_path) != "." else ""
+
+    # did it not get modified?
+    if full_path == new_path:
+        # do nothing if there was no rewrite
+        return text
+    else:
+        # if it got modified then undo the prepending of cwd_rel_path
         print("SHORT NEW", new_path)
         new_path = re.sub(prefix, "", new_path)
+
 
     # strip the prefix second time if it was also part of the rename
     #new_path = re.sub(prefix, "", new_path)
@@ -178,7 +188,7 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
 
     link = new_path
 
-    return text
+    #return text
 
 
 
