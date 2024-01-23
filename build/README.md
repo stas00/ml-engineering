@@ -49,10 +49,11 @@ e.g. `slurm` => `orchestration/slurm`
 src=slurm
 dst=orchestration/slurm
 
+mkdir -p orchestration
 git mv $src $dst
 perl -pi -e "s|$src|$dst|" chapters-md.txt
-python build/utils/mv-links.py $src $dst
-
+python build/mdbook/mv-links.py $src $dst
+git checkout $dst
 make check-links-local
 
 ```
