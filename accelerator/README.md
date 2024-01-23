@@ -185,7 +185,7 @@ The only important practical understanding for heat is that if the accelerators 
 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
-NVIVDIA:
+NVIDIA:
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, slowly emerging on all major clouds.
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - availability is unknown.
