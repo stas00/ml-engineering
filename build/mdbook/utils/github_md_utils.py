@@ -156,23 +156,23 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
     full_path = str(cwd_rel_path / link)
     print("FULL ORIG", full_path)
 
-    if cwd_rel_path == "":
+    if str(cwd_rel_path) == ".":
         # top-level
         new_path = re.sub(rf"^{src}", dst, full_path)
         print("TOP   NEW", new_path)
     else:
-        # nested - to ensure we rewrite with leading / only
+        # sub-dir - to ensure we rewrite with leading / only
         new_path = re.sub(rf"/{src}", f"/{dst}", full_path)
         print("SUB   NEW", new_path)
 
     # did it get modified? then undo the prepending of cwd_rel_path
-    prefix = rf"^{cwd_rel_path}/" if cwd_rel_path != "" else ""
+    prefix = rf"^{cwd_rel_path}/" if str(cwd_rel_path) != "" else ""
     if new_path != full_path:
         print("SHORT NEW", new_path)
         new_path = re.sub(prefix, "", new_path)
 
     # strip the prefix second time if it was also part of the rename
-    new_path = re.sub(prefix, "", new_path)
+    #new_path = re.sub(prefix, "", new_path)
 
     print("FINAL   ", new_path)
 
