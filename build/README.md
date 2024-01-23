@@ -53,7 +53,7 @@ mkdir -p orchestration
 git mv $src $dst
 perl -pi -e "s|$src|$dst|" chapters-md.txt
 python build/mdbook/mv-links.py $src $dst
-
+git checkout $dst
 make check-links-local
 
 ```

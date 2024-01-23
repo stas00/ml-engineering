@@ -108,8 +108,11 @@ def md_expand_links(text, cwd_rel_path, repo_url=""):
 
     #print(link_text, link, anchor)
 
-    # skip explicit .md links and external links
-    if len(link) > 0  and (link.endswith(".md") or re.search(r'^\w+://', link)):
+    # skip:
+    # - empty links (i.e. just local anchor to the same doc)
+    # - skip explicit .md links
+    # - external links like https://...
+    if len(link) == 0  or (link.endswith(".md") or re.search(r'^\w+://', link)):
         return text
 
     link = Path(link)
@@ -139,28 +142,45 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
     """
     link_text, link, anchor = md_link_break_up(text)
 
-    # skip external links
-    if len(link) > 0 and re.search(r'^\w+://', link):
+    # skip:
+    # - empty links (i.e. just local anchor to the same doc)
+    # - external links like https://...
+    if len(link) == 0 or re.search(r'^\w+://', link):
         return text
 
     print(link_text, link, anchor)
     print(cwd_rel_path, src, dst)
 
+    print("INCOMING ", link)
+
     full_path = str(cwd_rel_path / link)
     print("FULL ORIG", full_path)
 
-    new_path = re.sub(rf"^{src}", dst, full_path)
-    print("FULL  NEW", new_path)
-    if new_path == full_path:
+    if cwd_rel_path == "":
+        # top-level
+        new_path = re.sub(rf"^{src}", dst, full_path)
+        print("TOP   NEW", new_path)
+    else:
+        # nested - to ensure we rewrite with leading / only
         new_path = re.sub(rf"/{src}", f"/{dst}", full_path)
-    print("FULL  NEW", new_path)
+        print("SUB   NEW", new_path)
 
+    # did it get modified? then undo the prepending of cwd_rel_path
+    prefix = rf"^{cwd_rel_path}/" if cwd_rel_path != "" else ""
     if new_path != full_path:
         print("SHORT NEW", new_path)
-        link = re.sub(r"^{cwd_rel_path}/", "", new_path)
+        new_path = re.sub(prefix, "", new_path)
 
-    link = re.sub(r"^{cwd_rel_path}/", "", link)
-    link = re.sub(r"^{cwd_rel_path}/", "", link)
+    # strip the prefix second time if it was also part of the rename
+    new_path = re.sub(prefix, "", new_path)
+
+    print("FINAL   ", new_path)
+
+    link = new_path
+
+    #return text
+
+
 
     return md_link_build(link_text, link, anchor)
 
