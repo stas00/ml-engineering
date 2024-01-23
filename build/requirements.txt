@@ -1,4 +1,3 @@
-github_md_utils
-mdit_py_plugins
-markdown_it
+mdit-py-plugins
+markdown-it-py
 linkchecker
