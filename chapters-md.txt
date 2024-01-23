@@ -24,10 +24,10 @@
 
 ./model-parallelism/README.md
 
-./slurm/README.md
-./slurm/admin.md
-./slurm/users.md
-./slurm/performance.md
+./orchestration/slurm/README.md
+./orchestration/slurm/admin.md
+./orchestration/slurm/users.md
+./orchestration/slurm/performance.md
 
 ./hparams/README.md
 

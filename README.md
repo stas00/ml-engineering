@@ -43,7 +43,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 4. Operating**
 
-1. **[SLURM](./slurm/)**
+1. **[SLURM](orchestration/slurm)**
 
 1. **[Training hyper-parameters and model initializations](./hparams/)**
 
@@ -82,7 +82,7 @@ Tools:
 Guides:
 
 - [debugging pytorch applications](./debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
-- [slurm for users](./slurm/users.md) - a slurm cheatsheet and tricks
+- [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
 - [make tiny models/datasets/tokenizers](./transformers/make-tiny-models.md)
 - [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
 
