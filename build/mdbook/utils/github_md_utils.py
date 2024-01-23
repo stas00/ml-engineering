@@ -178,7 +178,7 @@ def md_rename_relative_links(text, cwd_rel_path, src, dst):
 
     link = new_path
 
-    #return text
+    return text
 
 
 
