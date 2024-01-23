@@ -112,7 +112,7 @@ def md_expand_links(text, cwd_rel_path, repo_url=""):
     # - empty links (i.e. just local anchor to the same doc)
     # - skip explicit .md links
     # - external links like https://...
-    if len(link) == 0  or (link.endswith(".md") or re.search(r'^\w+://', link)):
+    if len(link) == 0  or link.endswith(".md") or re.search(r'^\w+://', link):
         return text
 
     link = Path(link)
