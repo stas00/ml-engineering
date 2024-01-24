@@ -155,6 +155,120 @@ These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your 
 ## Benchmarks
 
 
+### Poor man's benchmark
+
+Besides properly designed performance benchmarks which give you some numbers that you may or may not be able to appreciate there is a perception benchmark, and that is how does a certain functionality or a service feel. For example, when going to a website, does it feel like it's taking too long to load a webpage? or when going to a video service, does it take too long for the video to start playing and does it stop every few seconds to buffer the stream?
+
+So with file system the questions are very simple - does it feel that it takes too long to install or launch a program? Since a lot of us live in the Python world, python is known to have thousands of tiny files which are usually installed into a virtual environment, with [conda](https://www.anaconda.com/download) being the choice of many as of this writing.
+
+In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch'` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
+
+So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
+
+Step 1. Install conda onto the shared file system you want to test if it's not there already.
+
+```
+export target_partition_path=/mnt/weka  # edit me!!!
+mkdir -p $target_partition_path/miniconda3
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $target_partition_path/miniconda3/miniconda.sh
+bash $target_partition_path/miniconda3/miniconda.sh -b -u -p $target_partition_path/miniconda3
+rm -rf $target_partition_path/miniconda3/miniconda.sh
+$target_partition_path/miniconda3/bin/conda init bash
+bash
+```
+notes:
+- adapt `target_partition_path` and the miniconda download link if you aren't on the x86 platform.
+- at the end we launch a new `bash` shell for conda setup to take an effect, you might need to tweak things further if you're not a `bash` user - I trust you will know what to do.
+
+Step 2. Measure conda install time (write test)
+
+Time the creation of a new conda environment:
+```
+time conda create -y -n install-test python=3.9
+```
+
+```
+real    0m29.657s
+user    0m9.141s
+sys     0m2.861s
+```
+
+Time the installation of some heavy packages:
+```
+conda deactivate
+conda activate install-test
+time pip install torch torchvision torchaudio
+```
+
+```
+real    2m10.355s
+user    0m50.547s
+sys     0m12.144s
+```
+
+Please note that this test is somewhat skewed since it also includes the packages download in it and depending on your incoming network speed it could be super fast or super slow and could impact the outcome. But once the downloaded packages are cached, in the case of conda they are also untarred, so if you try to install the packages the 2nd time the benchmark will no longer be fair as on a slow shared file system the untarring could be very slow and we want to catch that.
+
+I don't worry about it because usually when the file system is very slow usually you can tell it's very slow even if the downloads are slow, you just watch the progress and you can just tell.
+
+If you do want to make this benchmark precise, you probably could keep the pre-downloaded conda packages and just deleting their untar'ed dirs:
+
+```
+find $target_partition_path/miniconda3/pkgs -mindepth 1 -type d -exec rm -rf {} +
+```
+
+in the case of `pip` it doesn't untar anything, but just caches the wheels it downloaded, so the `time pip install` benchmark can definitely be more precise if you run it the 2nd time (the first time it's downloaded, cached and installed, the second time it's installed from cache. So you could do:
+
+```
+conda create -y -n install-test python=3.9
+conda activate install-test
+pip install torch torchvision torchaudio
+conda create -y -n install-test2 python=3.9
+conda activate install-test2
+time pip install torch torchvision torchaudio
+```
+As you can see here we time only the 2nd time we install the pip packages.
+
+
+Step 3. Measure loading time after flushing the memory and file system caches (read test)
+
+```
+sudo sync
+echo 3 | sudo tee /proc/sys/vm/drop_caches
+time python -c "import torch"
+```
+
+As you can see before we do the measurement we have to tell the OS to flush its memory and file system caches.
+
+If you don't have `sudo` access you can skip the command involving `sudo`, also sometimes the system is setup to work w/o `sudo`. If you can't run the syncing and flushing of the file system caches you will just get incorrect results as the benchmark will be measuring the time to load already cached file system objects. To overcome this either ask your sysadmin to do it for you or simply come back in the morning while hopefully your file system caches other things and evicts the python packages, and then repeat the python one liner then with the hope those files are no longer in the cache.
+
+
+Here is how to see the caching effect:
+```
+$ time python -c "import torch"
+
+real    0m5.404s
+user    0m1.761s
+sys     0m0.751s
+
+$ time python -c "import torch"
+
+real    0m1.977s
+user    0m1.623s
+sys     0m0.519s
+
+$ sudo sync
+$ echo 3 | sudo tee /proc/sys/vm/drop_caches
+$ time python -c "import torch"
+
+real    0m5.698s
+user    0m1.712s
+sys     0m0.734s
+```
+
+You can see that the first time it wasn't cached and took ~3x longer, then when I run it the second time. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
+
+I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
+
 
 ### fio
 
@@ -191,6 +305,8 @@ path_to_test=/path/to/partition/to/test
 ./fio-scan $path_to_test
 ```
 Adapt `path_to_test` to point to the partition path you want to benchmark.
+
+note: the log parser uses python3. if `fio-scan` fails it's most likely because you run it on a system with python2 installed by default. It expects `python --version` to be some python 3.x version. You can edit `fio-scan` to point to the right `python`.
 
 Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md)):
 
