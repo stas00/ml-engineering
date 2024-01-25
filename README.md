@@ -68,7 +68,13 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Resources](./resources/)** - LLM/VLM chronicles
 
 
+## PDF version
 
+[PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true).
+
+I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here]((./build/).
+
+Thank you HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
 
 ## Shortcuts
 
@@ -85,11 +91,6 @@ Guides:
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
 - [make tiny models/datasets/tokenizers](./transformers/make-tiny-models.md)
 - [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
-
-
-## Book Building
-
-If you want to build a PDF, check links, etc. See [Book building](./build/)
 
 
 ## Gratitude
