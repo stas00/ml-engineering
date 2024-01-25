@@ -98,6 +98,13 @@ blockquote p {
 code {
   font-family: Consolas, Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
   font-size: 0.8em; /* seems to be similar in size to the non-monospace font */
+  background: #f9f9f9;
+}
+
+pre {
+  background: #f9f9f9;
+  margin: 1.5em 10px;
+  padding: 0.5em 10px;
   white-space: pre-wrap; /* wrap long code sections to fit the page */
   hyphens: none; /* do not hyphenate code sections */
 }
