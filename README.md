@@ -70,9 +70,9 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 ## PDF version
 
-[PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true).
+Download the [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true) version of the book.
 
-I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here]((./build/).
+I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here](./build/).
 
 Thank you HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
 
