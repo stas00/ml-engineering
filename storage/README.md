@@ -143,6 +143,17 @@ Also on some setups if you do backups via the cloud provider API (not directly o
 Whatever storage solution you pick, ask the provider how much of the storage can be reliably used, so that there will be no surprises later.
 
 
+## Beware that on some cloud providers backups use the same partition they backup
+
+This makes no sense to me but with some providers when you make a back up of a partition using their tools, the back up will use space on that same partition. And on some of those providers you won't even know this happened until you run out of disk space when you really used 30% of the partition you allocated. On those providers running `df` is pointless because it'll tell you the free disk space, but it won't include any back ups in it. So you have no idea what's going on.
+
+If you start making a backup and suddenly everything fails because all processes fail to write but `df` reports 30% usage, you will now know why this happened. Snapshots too use the same partition.
+
+So say you paid for a 100TB partition and you used up 95TB and now you want to back it up - well, you can't - where would it put 95TB of data if it has 5TB of data left even if it compresses it.
+
+As I discover specific solution that have this unintuitive behavior I will add pointers to how you can see the actual disk usage:
+- [GCP FileStore](https://cloud.google.com/filestore/docs/monitoring-instances#free-raw-capacity-percent) (but it doesn't work for Basic Tier)
+
 
 ## Don't forget the checksums
 
@@ -152,10 +163,175 @@ These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your 
 
 
 
+## Concepts
+
+Here are a few key storage-related concepts that you likely need to be familiar with:
+
+### Queue Depth
+
+**Queue depth** (or **IO depth**) is the number of IO requests that can be queued at one time on a storage device controller. If more IO requests than the controller can queue are being sent the OS will usually put those into its own queue.
+
+On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
+
+Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
+
+### Direct vs Buffered IO
+
+**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in `open(2)` system call.
+
+The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
+
+When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
+
+In certain situation opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer typically helps to get the reader see the logged lines much sooner.
+
+
+### Synchronous vs asynchronous IO
+
+In synchronous IO the client submits an IO request and wait for it to be finished before submitting the next IO request to the same target device.
+
+In asynchronous IO the client may submit multiple IO requests one after another without waiting for any to finish first. This requires that the target device can [queue up multiple IO requests](#queue-depth).
+
+
+### Sequential vs Random access IO
+
+**Sequential access** IO is when you read blocks of data one by one sequentially (think a movie). Here are some examples:
+- reading or writing a model's checkpoint file all at once
+- loading a python program
+- installing a package
+
+**Random access** IO is when you're accessing part of a file at random. Here are some examples:
+- database querying
+- reading samples from a pre-processed dataset in a random fashion
+- moving around a file using `seek`
+
+
+
 ## Benchmarks
 
+Time is money both in terms of a developer's time and model's training time, so it's crucial that storage IO isn't a bottleneck in your human and compute workflows.
 
-### Poor man's benchmark
+In the following sections we will discuss various approaches to figuring out whether the proposed storage solution satisfies your work needs.
+
+### Metrics
+
+The three main storage IO metrics one typically cares for are:
+
+1. [Throughput](https://en.wikipedia.org/wiki/Network_throughput) or Bandwidth (bytes per second - can be MBps, GBps, etc.)
+2. [IOPS](https://en.wikipedia.org/wiki/IOPS) (Input/output operations per second that a system can perform
+3. [Latency](https://en.wikipedia.org/wiki/Latency_(engineering)) (msecs or usecs)
+
+- *IOPS* measures how many input and/or output operations a given storage device or a cluster can perform per second. Typically read and write IOPS won't be the same. And for many systems it'll also depend on whether the operation is sequential or random. So a storage system will have 4 different IOPS rates:
+
+1. IOPS of random reads
+2. IOPS of random writes
+3. IOPS of sequential reads
+4. IOPS of sequential writes
+
+- *Throughput* refers to how much data can be processed per second.
+
+IOPS vs. Throughput
+
+- when you deal with small files high IOPS is important.
+- when you deal with large files high throughput is important.
+
+IOPS correlates to Throughput via block size: `Throughput = IOPS * block_size`
+
+Thus given a fixed IOPS - the larger the block size that the system can read or write the bigger the throughput will be.
+
+And since there are 4 IOPS categories, correspondingly there are 4 throughput values to match.
+
+*Latency*: is the delay between the moment the instruction to transfer data is issued and when the response to that instruction arrives.
+
+Typically the more distance (switches, relays, actual distance) the packet has to travel the bigger the latency will be.
+
+So if you have a local NVME drive your read or write latency will be much shorter as compared to reading or writing to a storage device that is located on another continent.
+
+
+
+### fio
+
+[fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/) is a commonly used IO benchmarking tool, which is relatively easy to operate. It has many options which allow you to emulate pretty much any type of a load and it provides a very detailed performance report.
+
+First install `fio` with `apt install fio` or however your package manager does it.
+
+Here is an example of a read benchmark:
+
+```
+base_path=/path/to/partition/
+fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --numjobs=16 \
+--direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path  \
+--name=read-test --blocksize=4k --iodepth=64 --readwrite=read
+```
+
+Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4k (typical for most OSes) with the file size of 16k (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good benchmark to show how fast you can import Python modules on 16 concurrent processes.
+
+case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
+
+good read: [Fio Output Explained](https://tobert.github.io/post/2014-04-17-fio-output-explained.html) - it's an oldie but is still a goodie - if you have a more up-to-date write up please send me a link or a PR.
+
+Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will reuse files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this reuse is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
+
+Going back to the benchmark - the parameters will need to change to fit the type of the IO operation you care to be fast - is it doing a lot of pip installs or writing a checkpoint on 512 processes, or doing a random read from a parquet file - each benchmark will have to be adapted to measure the right thing.
+
+At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
+
+Here is how to run it:
+```
+git clone https://github.com/stas00/ml-engineering/
+cd ml-engineering
+cd storage
+
+path_to_test=/path/to/partition/to/test
+./fio-scan $path_to_test
+```
+Adapt `path_to_test` to point to the partition path you want to benchmark.
+
+note: the log parser uses python3. if `fio-scan` fails it's most likely because you run it on a system with python2 installed by default. It expects `python --version` to be some python 3.x version. You can edit `fio-scan` to point to the right `python`.
+
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md)):
+
+* filesize=16k read
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 4.0      | 1006.3  | 257614   | 16   |
+
+* filesize=16k write
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 3.2      | 1239.1  | 317200   | 16   |
+
+* filesize=1m read
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 1.7      | 2400.1  | 614419   | 16   |
+
+* filesize=1m write
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 2.1      | 1940.5  | 496765   | 16   |
+
+* filesize=1g read
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 1.4      | 2762.0  | 707062   | 16   |
+
+* filesize=1g write
+
+| lat msec | bw MBps | IOPS     | jobs |
+| -------: | ------: | -------: | ---: |
+| 2.1      | 1943.9  | 497638   | 16   |
+
+
+As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
+
+
+### Poor man's storage IO benchmark
 
 Besides properly designed performance benchmarks which give you some numbers that you may or may not be able to appreciate there is a perception benchmark, and that is how does a certain functionality or a service feel. For example, when going to a website, does it feel like it's taking too long to load a webpage? or when going to a video service, does it take too long for the video to start playing and does it stop every few seconds to buffer the stream?
 
@@ -164,6 +340,8 @@ So with file system the questions are very simple - does it feel that it takes t
 In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch'` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
 
 So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
+
+note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but with beware that many shared file systems won't be able to match that.
 
 Step 1. Install conda onto the shared file system you want to test if it's not there already.
 
@@ -193,7 +371,7 @@ user    0m9.141s
 sys     0m2.861s
 ```
 
-Time the installation of some heavy packages:
+Time the installation of some heavy pip packages:
 ```
 conda deactivate
 conda activate install-test
@@ -270,86 +448,6 @@ You can see that the first time it wasn't cached and took ~3x longer, then when 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
 
 
-### fio
-
-[fio - Flexible I/O tester](https://fio.readthedocs.io/en/latest/) is a commonly used io benchmarking tool, which is quite easy to use.
-
-First install `fio` with `apt install fio` or however your package manager does it.
-
-Here is an example of a read benchmark:
-
-```
-base_path=/path/to/partition/
-fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --numjobs=16 \
---direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path  \
---name=read-test --blocksize=4k --iodepth=64 --readwrite=read
-```
-
-Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4k (typical for most OSes) with the file size of 16k (a common size of most Python files) in a sequential reading style using non-buffered IO (`O_DIRECT`). So this would be a good benchmark to showing how fast you can import Python modules on 16 concurrent processes.
-
-case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
-
-Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s work files between different benchmarks - not doing so can lead to seriously wrong reports as `fio` will reuse files it prepared for a different benchmark which must not be re-used if the benchmark parameters have changed. Apparently this reuse is an `fio` feature, but to me it's a bug since I didn't know this nuance and got a whole lot of invalid reports because of it and it took awhile to realize they were wrong.
-
-Going back to the benchmark - the parameters will need to change to fit the type of the IO operation you care to be fast - is it doing a lot of pip installs or writing a checkpoint on 512 processes, or doing a random read from a parquet file - each benchmark will have to be adapted to measure the right thing.
-
-At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
-
-Here is how to run it:
-```
-git clone https://github.com/stas00/ml-engineering/
-cd ml-engineering
-cd storage
-
-path_to_test=/path/to/partition/to/test
-./fio-scan $path_to_test
-```
-Adapt `path_to_test` to point to the partition path you want to benchmark.
-
-note: the log parser uses python3. if `fio-scan` fails it's most likely because you run it on a system with python2 installed by default. It expects `python --version` to be some python 3.x version. You can edit `fio-scan` to point to the right `python`.
-
-Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md)):
-
-* filesize=16k read
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 4.0      | 1006.3  | 257614   | 16   |
-
-* filesize=16k write
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 3.2      | 1239.1  | 317200   | 16   |
-
-* filesize=1m read
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.7      | 2400.1  | 614419   | 16   |
-
-* filesize=1m write
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1940.5  | 496765   | 16   |
-
-* filesize=1g read
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.4      | 2762.0  | 707062   | 16   |
-
-* filesize=1g write
-
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1943.9  | 497638   | 16   |
-
-
-As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
-
-
 ### other tools
 
 -
@@ -368,6 +466,194 @@ Here are some published IO benchmarks:
 
 Then various benchmarks that you can run yourself:
 
+
+
+
+## Why pay for more storage when you can easily clean it up instead
+
+Talking to a few storage providers I understood that many companies don't bother cleaning up and just keep on buying more and more storage. If you're not that company and want to keep things tidy in the following sections I will share how to easily prune various caches that many of us in the Python/Pytorch ecosphere use (and a lot of those will apply to other ecospheres).
+
+### HuggingFace Hub caches
+
+The very popular HuggingFace Hub makes it super easy to download models and datasets and cache them locally. What you might not be aware of is that whenever a new revision of the model or a dataset is released, the old revisions remain on your disk - so over time you are likely to have a lot of dead weight.
+
+The cached files are usually found at `~/.cache/huggingface` but it's possible to override those with `HF_HOME` environment variable and place them elsewhere if your `/home/` doesn't have space for huge files. (and in the past those were `HUGGINGFACE_HUB_CACHE` and `TRANSFORMERS_CACHE` and some others).
+
+The other solution that requires no mucking with environment variables, which requires you to remember to set them, is to symlink your cache to another partition. You could do it for all of your caches:
+```
+mkdir -p ~/.cache
+mv ~/.cache /some/path/
+ln -s /some/path/.cache ~/.cache
+```
+
+or just for HF hub caches:
+```
+mkdir -p ~/.cache/huggingface
+mv ~/.cache/huggingface /some/path/
+ln -s /some/path/cache/huggingface ~/.cache/cache/huggingface
+```
+
+The `mkdir` calls are there in case you have haven't used the caches yet, so they weren't there and they ensure the above code won't fail.
+
+Now that you know where the caches are, you could, of course, nuke the whole cache every so often, but if these are huge models and datasets, and especially if there was some preprocessing done for the latter - you really won't want to repeat those time consuming tasks again and again. So I will teach you how to use special tools provided by HuggingFace to do the cleanup.
+
+The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main` in a few quick steps without tedious manual editing.
+
+In terminal A:
+```
+$ pip install huggingface_hub["cli"] -U
+$ huggingface-cli delete-cache --disable-tui
+File to edit: /tmp/tmpundr7lky.txt
+0 revisions selected counting for 0.0. Continue ? (y/N)
+```
+Do not answer the prompt and proceed with my instructions.
+
+(note your tmp file will have a different path, so adjust it below)
+
+In terminal B:
+```
+$ cp /tmp/tmpedbz00ox.txt cache.txt
+$ perl -pi -e 's|^#(.*\(detached\).*)|$1|' cache.txt
+$ cat cache.txt >>  /tmp/tmpundr7lky.txt
+```
+The perl one-liner uncommented out all lines that had `(detached)` in it - so can be wiped out. And then we pasted it back into the tmp file `huggingface-cli` expects to be edited.
+
+Now go back to terminal A and hit: N, Y, Y, so it looks like:
+
+```
+0 revisions selected counting for 0.0. Continue ? (y/N) n
+89 revisions selected counting for 211.7G. Continue ? (y/N) y
+89 revisions selected counting for 211.7G. Confirm deletion ? (Y/n) y
+```
+Done.
+
+If you messed up with the prompt answering you still have `cache.txt` file which you can feed again to the new tmp file it'll create when you run `huggingface-cli delete-cache --disable-tui` again.
+
+attached as a snapshot as well as it's easier to read on twitter, but use the message to copy-n-paste from.
+
+Please note that you can also use this tool to choose which models or datasets to delete completely. You just need to open `cache.txt` in your editor and remove the `#` in front of lines that contain `main` in it for models/datasets you want to be deleted for you. and then repeat the process explained above minus the `perl` one liner which you'd replace with manual editing.
+
+Additionally you will find that HF `datasets` have a `~/.cache/huggingface/datasets/downloads` dir which often will contain a ton of leftovers from datasets downloads and their preprocessing, including various lock files. On one setup I found literally a few millions of files there. So here is how I clean those up:
+
+```
+sudo find ~/.cache/huggingface/datasets/downloads -type f -mtime +3 -exec rm {} \+
+sudo find ~/.cache/huggingface/datasets/downloads -type d -empty -delete
+```
+
+The first command leaves files that are younger than 3 days in place, in case someone is in the process of download/processing things and we don't want to swipe the carpet from under their feet.
+
+As usual you may need to adjust the paths if you placed your caches elsewhere.
+
+### Python package manager cleanups
+
+conda and pip will pile up more and more files on your system over time. conda is the worst because it keeps the untarred files which consume an insane amount of inodes and make backups and scans slow. pip at least caches just the wheels (tarred files).
+
+So you can safely nuke these dirs:
+
+```
+rm -rf ~/.cache/pip
+rm -rf ~/anaconda3/pkgs/
+```
+
+Make sure edit the last command if your conda is installed elsewhere.
+
+
+### Share caches in group environments
+
+If you have more than 2 people working on the same system, you really want to avoid each person having their own cache of `pip`, `conda`, HF models, datasets and possibly other things. It is very easy to get each user's setup to point to a shared cache.
+
+For example, let's say you make `pip` and `conda` caches under `/data/cache` like so:
+
+```
+mkdir /data/cache/conda
+mkdir /data/cache/pip
+chmod a+rwx /data/cache/conda
+chmod a+rwx /data/cache/pip
+```
+
+now you just need to symlink from each user's local cache to this shared cache:
+```
+mkdir -p ~/.cache
+
+rm -rf ~/.cache/pip
+ln -s /data/cache/pip ~/.cache/pip
+
+rm -rf ~/.conda/pkgs
+ln -s /data/cache/conda/pkgs ~/.conda/pkgs
+```
+note that we wiped out the existing caches, but you could also move them to the shared cache instead - whatever works, you will want to periodically nuke those anyway.
+
+So now when `pip` or `conda` will try to reach the user caches they will get redirected to the shared cache. If you have 20 people in the group that's 20x less files - and this is very important because conda pkg files are untarred and take up a huge amount of inodes on the disk.
+
+So the only issue with this approach is file permissions. If user A installs some packages, user B might not be able to read or write them.
+
+If this is an isolated cluster where there are no malicious users you can simply ask everybody to use `umask 000` in their `~/.bashrc` or even configuring this setting system-wide via `/etc/profile` or `/etc/bash.bashrc` and different other shell config files if `bash` isn't your shell of choice.
+
+Once `umask 000` is run, most files will be created with read/write perms so that all users can read/write each others files.
+
+Of course, if you are using a sort of HPC, where many unrelated groups use the same cluster this won't work and then you would either use groups instead of making files read/write by all, with possibly `setgid` bit preset or using ACL . In any such environments there are always sysadmins so you can ask them how to setup a shared cache for your team and they will know what to do.
+
+### General disk usage
+
+Of course, sooner or later, your partition will get bigger and bigger, and you will probably want to understand where data is leaking. Typically you will need to find the users who contribute to the most of data consumption and ask them to do some cleanups.
+
+So for example to find which users consume the most disk run:
+```
+sudo du -ahd1 /home/* | sort -rh
+```
+it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyse the data a level deeper:
+
+```
+sudo du -ahd1 /home/*/* | sort -rh
+```
+or for a specific user `foo`:
+```
+sudo du -ahd1 /home/foo/* | sort -rh
+```
+
+You could also set disk usage quotas but usually this doesn't work too well, because depending on the workflows of your company some users need to generate a lot more data then others, so they shouldn't be punished for that with inability to do their work and have their job crash - which could have been run for many hours and all that work will be lost - so at the end of the day the company will be paying for the lost time.
+
+Getting users to be aware of them using too much disk space can be a very difficult task.
+
+### Partition inodes limit
+
+Also beware of inode usage, on some shared partitions on HPCs I have seen more than once cases where a job crashed not because there was no disk space left, but because the job used up the last inodes and the whole thing crashed.
+
+To see inode usage, use `df -i`:
+```
+$ /bin/df -hi
+Filesystem     Inodes IUsed IFree IUse% Mounted on
+tmpfs             16M  1.9K   16M    1% /run
+/dev/sda1         59M  4.1M   55M    7% /
+```
+ `-h` formats huge numbers into human-readable strings.
+
+ So here you can see the the `/` partition is using 7% of the total possible inodes.
+
+ Depending on the type of filesystem in some cases it's possible to add more inodes whereas in other cases it's not possible.
+
+ So as part of your monitoring of disk space you also need to monitor inode usage as a critical resource.
+
+
+
+### `/tmp` on compute nodes
+
+Normally compute nodes will use `/tmp/` for temp files. The problem is on most set ups `/tmp` resides on the tiny `/` filesystem of each node (often <100GB) and since `/tmp/` only gets reset on reboot, this doesn't get cleaned up between SLURM jobs and this leads to `/tmp` running out of space and so when you try to run something that let's say untars a file you're likely to run into:
+
+```
+OSError: [Errno 28] No space left on device
+```
+
+The solution is to set in your SLURM launcher script.
+```
+export TMPDIR=/scratch
+```
+
+Now, the slurm job will use a much larger `/scratch` instead of `/tmp`, so plenty of temp space to write too.
+
+footnote: while `/scratch` is quite common - the mounted local SSD disk mount point could be named anything, e.g. `/localssd` - it should be easy to see the right path by running `df` on one of the compute nodes.
+
+You can also arrange for the SLURM setup to automatically clean up such folders on job's termination.
 
 
 ## Contributors
