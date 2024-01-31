@@ -119,7 +119,7 @@ This last approach will allocate one thread per core and in this mode there are 
 
 Note that depending on your application there can be quite a performance difference between these 2 modes. Therefore try both and see which one gives you a better outcome.
 
-On some setups like AWS the network's performance degrades dramatically when `--hint=nomultithread` is used!
+On some setups like AWS the all-reduce throughput degrades dramatically when `--hint=nomultithread` is used! Whereas on some other setups the opposite is true - the throughput is worse without HT!
 
 
 ## Reuse allocation
