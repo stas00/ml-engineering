@@ -593,6 +593,12 @@ Once `umask 000` is run, most files will be created with read/write perms so tha
 
 Of course, if you are using a sort of HPC, where many unrelated groups use the same cluster this won't work and then you would either use groups instead of making files read/write by all, with possibly `setgid` bit preset or using ACL . In any such environments there are always sysadmins so you can ask them how to setup a shared cache for your team and they will know what to do.
 
+Additionally, recently some of these applications added tools to do the cleanup, e.g. for `conda` and `pip`:
+```
+conda clean --all -f -y
+pip cache purge
+```
+
 ### General disk usage
 
 Of course, sooner or later, your partition will get bigger and bigger, and you will probably want to understand where data is leaking. Typically you will need to find the users who contribute to the most of data consumption and ask them to do some cleanups.
