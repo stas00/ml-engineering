@@ -499,7 +499,7 @@ More powers of 2 in $h/a$ helps!
 
 ### Number/size of Attention heads
 
-Generally, it's most computationally efficient to keep the ratio of $h/a$ as large as possible without accuracy degradation. A good figure from https://arxiv.org/pdf/2401.14489.pdf showing this effect is:
+Generally, it's most computationally efficient to keep the ratio of $h/a$ as large as possible without accuracy degradation. A good figure from [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) showing this effect is:
 
 <img src="images/attention-less-heads.png" width=20% height=20% />
 
