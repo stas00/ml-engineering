@@ -471,7 +471,7 @@ https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/
 
 For parameters that are small, there is also [Dimension Quantization Effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) to consider, this is where tiling happens and the right multiplier can have a significant speedup.
 
-The work in https://arxiv.org/abs/2401.14489 provides much greater detail on tile/wave quantization and the number of attention heads, but the highlights are:
+[The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) provides much greater detail on tile/wave quantization and the number of attention heads, but the highlights are:
 
 ### Tile and wave quantization
 
