@@ -2,6 +2,8 @@
 
 """
 
+The latest version of this program can be found at https://github.com/stas00/ml-engineering
+
 This benchmark is very similar to https://github.com/NVIDIA/nccl-tests but it's much easier to set
 up as it only requires PyTorch to be installed
 
