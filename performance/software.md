@@ -24,6 +24,8 @@ It's critical to understand your particular model size and framework requirement
 
 If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
 
+Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [communication benchmarks](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/communication) for each collective that you can use to quickly measure the throughput of your internode or intranode network.
+
 Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
 
 [all_reduce_bench.py](../multi-node/all_reduce_bench.py)
@@ -268,6 +270,11 @@ For **inference**, the math is very similar to training, minus optimizer states 
 Another excellent resource that takes you through the memory needs and other requirements is
 [Transformer Math 101](https://blog.eleuther.ai/transformer-math/).
 
+The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [calculation scripts](https://github.com/EleutherAI/cookbook/tree/main/calc) that can output the theoretical memory overhead for a given training or inference calculation run based on your configuration and setup.
+
+There is a very handy [GPU VRAM Estimator](https://vram.asmirnov.xyz/) from Alexander Smirnov, and [the notes to how it works](https://asmirnov.xyz/vram).
+
+
 
 ### Additional GPU memory usage
 
@@ -457,6 +464,7 @@ One useful tool that I developed for quick and easy profiling of each line or bl
 
 ## Vector and matrix size divisibility
 
+The paper, [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) investigates the effects of transformer sizing on the underlying hardware. The [associated scripts](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing) allow you to run the benchmarks yourself if you're running on hardware besides NVIDIA V100/A100.
 
 One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
 
@@ -467,13 +475,56 @@ https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/
 
 For parameters that are small, there is also [Dimension Quantization Effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) to consider, this is where tiling happens and the right multiplier can have a significant speedup.
 
-
+[The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) provides much greater detail on tile/wave quantization and the number of attention heads, but the highlights are:
 
 ### Tile and wave quantization
 
-XXX
+Notation:
+
+- `a`: Number of attention heads
+- `h`: Hidden dimension size
+- `s`: Sequence length
+- `b`: Microbatch size
+- `t`: Tensor-parallel size
+
+First, some background.
+
+NVIDIA GPUs divide the output matrix into regions or tiles as shown in the below figure and schedule them to one of the available streaming multiprocessors (SM) on the GPU (e.g., A100 GPUs have 108 SMs). Each tile or thread block is processed in a Tensor Core, which NVIDIA introduced for fast tensor operations. NVIDIA Tensor Cores are only available for GEMMs with appropriate dimensions. Tensor Cores can be fully utilized when GEMM dimensions `m`, `k`, and `n` are multiples of 16 bytes and 128 bytes for V100 and A100 GPUs, respectively. Since a FP16 element is 2 bytes, this corresponds to dimension sizes that are multiples of 8 and 64 elements, respectively. If these dimension sizes are not possible, Tensor Cores perform better with larger multiples of 2 bytes.
+
+![tiling](images/tiling.png)
+
+There are multiple tile sizes that the kernel can choose from. If the GEMM size does not divide evenly into the tile size, there will be wasted compute, where the thread block must execute fully on the SM, but only part of the output is necessary. This is called the **tile quantization** effect, as the output is quantized into discrete tiles.
+
+Another quantization effect is called **wave quantization**. As the thread blocks are scheduled to SMs, only 108 thread blocks at a time may be scheduled. If, for example, 109 thread blocks must be scheduled, two rounds, or waves, of thread blocks must be scheduled to GPU. The first wave will have 108 thread blocks, and the second wave will have 1. The second wave will have almost the same latency as the first, but with a small fraction of the useful compute. As the matrix size increases, the last or tail wave grows. The throughput will increase, until a new wave is required. Then, the throughput will drop.
+
+What this means for transformers, is that for a given ratio of `h/a`, one needs to ensure they're on the crest of a wave. If you're using NVIDIA V100/A100 GPUs, we've already done this work for you in https://arxiv.org/pdf/2401.14489.pdf
+
+An example of this for 32 attention heads:
+
+![wave quantization](images/wave-quant.png)
+
+More powers of 2 in `h/a` helps!
 
 
-### Number/size of Attention heads
+### Number and size of attention heads
 
-XXX
+Generally, it's most computationally efficient to keep the ratio of `h/a` as large as possible without accuracy degradation. A good figure from [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) showing this effect is:
+
+![attention heads](images/attention-less-heads.png)
+
+
+### Flash attention
+
+If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention), good news! These MHA sizing constraints are taken care of for you. Your only constraint is to have a large enough ratio of `h/a` to saturate your GPU cores:
+
+![flash attention](images/flash-attention.png)
+
+
+### Final recommendations for sizing
+
+The full recommendations are:
+1. Vocab size divisible by 64
+2. Microbatch size as large as possible
+3. `b*s`, `h/a`, and `h/t` should be divisible by a power of 2
+4. `(b*a)/t` should be an integer
+5. `t` should be small as possible
