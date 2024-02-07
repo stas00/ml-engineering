@@ -242,8 +242,8 @@ Let's look at the details.
 
 **Gradients**
 
-- 4 bytes * number of parameters for either fp32 or mixed precision training (gradients are almost always kept in fp32).
-- 2 bytes * number of parameters for more recent works where half-precision is used
+- 4 bytes * number of parameters for either fp32 precision and in some frameworks with mixed half-precision precision training.
+- 2 bytes * number of parameters for non-mixed half-precision and in some frameworks with mixed half-precision precision training.
 
 **Forward Activations**
 
