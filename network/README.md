@@ -250,13 +250,20 @@ case study: for a while I couldn't understand why when I run the nccl-tests all_
 
 ## Intra-node networking
 
+There are multiple platforms/solutions out there that provide intra-node networking:
 
+1. Generic: [PCIe](#pcie)
+2. NVIDIA: [NVLink](#nvlink) and [NVSwitch](#nvswitch)
+3. AMD: [Infinity Fabric](#infinity-fabric)
+4. Intel: [Gaudi2](#gaudi2)
 
-On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardware - NVLink and NVSwitch. There is of course PCIe but it's about an order of magnitude slower so it's never used on modern GPU servers to perform GPU-to-GPU communications.
+footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
+
+footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if it doesn't say anything look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information.
 
 ### PCIe
 
-- [PCIe](https://en.wikipedia.org/wiki/PCI_Express)
+[PCIe](https://en.wikipedia.org/wiki/PCI_Express) is a high-speed serial computer expansion bus standard that can be found even on the cheapest computer desktop.
 
 | Interconnect  | Lane/Direction   |   Lanes | Unidirection   | Duplex     |
 | :------------ | ---------------: | ------: | -------------: | ---------: |
@@ -265,7 +272,7 @@ On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardw
 | PCIe 6        | ~7.5 GBps        |      16 | 121 GBps       | 241 GBps   |
 | PCIe 7        | ~15.0 GBps       |      16 | 242 GBps       | 484 GBps   |
 
-
+If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
 ### NVLink
 
@@ -273,8 +280,6 @@ On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardw
 - [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post.
 
 I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
-
-footnote: Pay attention that 1 GBps = 8 Gbps
 
 Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
