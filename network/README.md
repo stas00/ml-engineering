@@ -25,6 +25,7 @@ This article covers both types of networking hardware, reports their theoretical
 - RoE: RDMA over Ethernet
 - VPI: Virtual Protocol Interconnect
 - RDMA: Remote Direct Memory Access
+- xGMI: Socket to Socket Global Memory Interface
 
 Speed-related:
 - Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
@@ -254,7 +255,7 @@ There are multiple platforms/solutions out there that provide intra-node network
 
 1. Generic: [PCIe](#pcie)
 2. NVIDIA: [NVLink](#nvlink) and [NVSwitch](#nvswitch)
-3. AMD: [Infinity Fabric](#infinity-fabric)
+3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2)
 
 footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
@@ -352,9 +353,9 @@ NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
 
 
 
-# Infinity Fabric
+### Infinity Fabric / xGMI
 
-Intra-node communication AMD Infinity Fabric comes with AMD MI* Accelerators.
+Intra-node communication AMD Infinity Fabric comes with AMD MI* Accelerators. xGMI is another name for it.
 
 This is AMD's answer to [NVLink](#nvlink).
 
