@@ -360,12 +360,15 @@ This is AMD's answer to [NVLink](#nvlink).
 
 | Interconnect  | Link     | Links | Unidirection | Duplex     |
 | :------------ | -------: | ----: | -----------: | ---------: |
+| MI250x        | 100 GBps | 7     | 350 GBps     | 700 GBps   |
 | MI300x        | 128 GBps | 7     | 448 GBps     | 896 GBps   |
 |               |          |       |              |            |
 
 ![AMD Infinity Platform Architecture](images/amd-infinity-arch-MI300X.png)
 
-[MI300x platform specs](https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html)
+Platform specs:
+- [MI250X](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250x.html)
+- [MI300x](https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html)
 
 
 
