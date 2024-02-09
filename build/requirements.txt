@@ -1,3 +1,4 @@
 mdit-py-plugins
 markdown-it-py
 linkchecker
+codespell
