@@ -339,6 +339,25 @@ NVIDIA DGX A100 has 6 switches of 12 NVlinks => 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 GBps per node, for a total of 57.6 GBps in total.
 
+
+
+# AMD Infinity Fabric
+
+Intra-node communication AMD Infinity Fabric comes with AMD MI* Accelerators.
+
+This is AMD's answer to [NVLink](#nvlink).
+
+| Interconnect  | Link     | Links | Unidirection | Duplex     |
+| :------------ | -------: | ----: | -----------: | ---------: |
+| MI300x        | 128 GBps | 7     | 448 GBps     | 896 GBps   |
+|               |          |       |              |            |
+
+![AMD Infinity Platform Architecture](images/amd-infinity-arch-MI300X.png)
+
+[MI300x platform specs](https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html)
+
+
+
 ### Gaudi2
 
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps and each card connected with each of the other 7 cards at 262.5 GBps.
