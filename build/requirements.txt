@@ -1,4 +1,4 @@
-mdit-py-plugins
-markdown-it-py
-linkchecker
 codespell
+linkchecker
+markdown-it-py
+mdit-py-plugins
