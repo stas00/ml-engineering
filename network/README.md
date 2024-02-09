@@ -250,13 +250,25 @@ case study: for a while I couldn't understand why when I run the nccl-tests all_
 
 ## Intra-node networking
 
-Note to the reader: my notes currently include only NVIDIA intra-node hardware, since I'm yet to find access to AMD MI* nodes - if you are with AMD and you want me to extend this writing to AMD hardware please contact me with access to such hardware as it seems impossible to find.
+
 
 On the server nodes with NVIDIA GPUs there is pretty much just 2 pieces of hardware - NVLink and NVSwitch. There is of course PCIe but it's about an order of magnitude slower so it's never used on modern GPU servers to perform GPU-to-GPU communications.
 
-### NVLink
+### PCIe
 
 - [PCIe](https://en.wikipedia.org/wiki/PCI_Express)
+
+| Interconnect  | Lane/Direction   |   Lanes | Unidirection   | Duplex     |
+| :------------ | ---------------: | ------: | -------------: | ---------: |
+| PCIe 4        | ~2.0 GBps        |      16 | 31 GBps        | 62 GBps    |
+| PCIe 5        | ~4.0 GBps        |      16 | 63 GBps        | 126 GBps   |
+| PCIe 6        | ~7.5 GBps        |      16 | 121 GBps       | 241 GBps   |
+| PCIe 7        | ~15.0 GBps       |      16 | 242 GBps       | 484 GBps   |
+
+
+
+### NVLink
+
 - [NVLink](https://en.wikipedia.org/wiki/NVLink)
 - [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post.
 
@@ -272,12 +284,6 @@ Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 | NVlink 3     | 6.250 GBps     |     4 |    12 | 300 GBps     | 600 GBps |
 | NVlink 4     | 6.250 GBps     |     4 |    18 | 450 GBps     | 900 GBps |
 
-| Interconnect | Lane/Direction | Lanes | Unidirection | Duplex   |
-|:------------ |---------------:|------:|-------------:|---------:|
-| PCIe 4       |  ~2.0 GBps     |    16 |  31 GBps     |  62 GBps |
-| PCIe 5       |  ~4.0 GBps     |    16 |  63 GBps     | 126 GBps |
-| PCIe 6       |  ~7.5 GBps     |    16 | 121 GBps     | 241 GBps |
-| PCIe 7       | ~15.0 GBps     |    16 | 242 GBps     | 484 GBps |
 
 NVlink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
 
