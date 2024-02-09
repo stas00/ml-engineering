@@ -259,7 +259,7 @@ There are multiple platforms/solutions out there that provide intra-node network
 
 footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
-footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if it doesn't say anything look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information.
+footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
 
 ### PCIe
 
@@ -338,21 +338,21 @@ Of course, other A100 and H100s servers may be different, e.g. different number 
 
 ### NVSwitch
 
-[NVSwitch](https://www.nvidia.com/en-us/data-center/nvlink/) can connect more than 8 GPUs at the speed of NVLink. It's advertised to connect up to 256 GPUs in the future generations of the switch.
+[NVSwitch](https://www.nvidia.com/en-us/data-center/nvlink/) can connect more than 8 GPUs at the speed of [NVLink](#nvlink). It's advertised to connect up to 256 GPUs in the future generations of the switch.
 
 The benefit of connecting more than 8 GPUs at the speed of NVLink is that it allows all-to-all GPU communications at a much faster speed than any intra-node hardware can provide. And with ever increasing compute speeds the network is the likely bottleneck leading to underutilized super-expensive GPUs.
 
 For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Depspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
-The current [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
+The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
-NVIDIA DGX A100 has 6 switches of 12 NVlinks => 72.
+NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 GBps per node, for a total of 57.6 GBps in total.
 
 
 
-# AMD Infinity Fabric
+# Infinity Fabric
 
 Intra-node communication AMD Infinity Fabric comes with AMD MI* Accelerators.
 
@@ -374,7 +374,7 @@ This is AMD's answer to [NVLink](#nvlink).
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps and each card connected with each of the other 7 cards at 262.5 GBps.
 
 
-### NUMA Affinity
+## NUMA Affinity
 
 [Non-uniform memory access (NUMA)](https://en.wikipedia.org/wiki/Non-uniform_memory_access) is a computer memory design used in multiprocessing, where the memory access time depends on the memory location relative to the processor.
 As modern servers have more than one CPU to get the best performance GPUs residing in the same block as the corresponding CPU should have the processes bound to that NUMA node.
@@ -403,16 +403,16 @@ Diagnostics: to take a snapshot of the server NUMA topology and save it as an im
 lstopo a100.png
 ```
 
-NUME node binding: `hwloc-bind` - binding processes, threads and memory
+NUMA node binding: `hwloc-bind` - binding processes, threads and memory
 
-Bind an existing process to a specific numa node:
+Bind an existing process to a specific NUMA node:
 ```
 hwloc-bind --pid 1234 numa:0
 ```
 
-similar software: `numactl`/`libnuma`
+Similar software: `numactl`/`libnuma`
 
-some suggestions in [pytorch docs](https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#utilize-non-uniform-memory-access-numa-controls)
+Some useful suggestions in [pytorch docs](https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#utilize-non-uniform-memory-access-numa-controls)
 
 
 
