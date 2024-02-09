@@ -59,3 +59,11 @@ git checkout $dst
 make check-links-local
 
 ```
+
+## Resize images
+
+When included images are too large, make them smaller a bit:
+
+```
+mogrify -format jpg -resize 1024x1024\> *png
+```
