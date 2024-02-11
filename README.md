@@ -27,7 +27,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[CPU](./cpu/)** - cpus, affinities (WIP)
 
-1. **[CPU Memory](./cpu-memory/)** - how much CPU memory is enough - the shortest chapter ever.
+1. **[CPU Memory](compute/cpu-memory)** - how much CPU memory is enough - the shortest chapter ever.
 
 
 **Part 3. Performance**
