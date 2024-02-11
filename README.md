@@ -26,7 +26,13 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Network](./network/)** - intra- and inter-node networking.
 
 
-**Part 3. Performance**
+**Part 3. Scalability**
+
+1. **[Model parallelism](./model-parallelism/)**
+
+
+
+
 
 1. **[Fault Tolerance](./fault-tolerance/)**
 
@@ -34,7 +40,6 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[Multi-Node networking](./multi-node)**
 
-1. **[Model parallelism](./model-parallelism/)**
 
 
 **Part 4. Operating**
