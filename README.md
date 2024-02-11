@@ -17,17 +17,13 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[The AI Battlefield Engineering - What You Need To Know](./insights/ai-battlefield.md)**
 
-**Part 2. Key Hardware Components**
+**Part 2. Hardware**
 
-1. **[Accelerator](compute/accelerator)** - the work horses of ML - GPUs, TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs (WIP)
-
-1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
+1. **[Compute](compute)** - Accelerators, CPUs, CPU Memory.
 
 1. **[Storage](./storage/)** - local and distributed disks and file systems
 
-1. **[CPU](compute/cpu)** - cpus, affinities (WIP)
-
-1. **[CPU Memory](compute/cpu-memory)** - how much CPU memory is enough - the shortest chapter ever.
+1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
 
 **Part 3. Performance**

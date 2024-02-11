@@ -2,6 +2,7 @@
 
 ./insights/ai-battlefield.md
 
+./compute/README.md
 ./compute/accelerator/README.md
 ./compute/accelerator/nvidia/debug.md
 ./compute/cpu/README.md
