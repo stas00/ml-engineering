@@ -8,32 +8,36 @@
 ./compute/cpu/README.md
 ./compute/cpu-memory/README.md
 
-./network/README.md
-
 ./storage/README.md
 ./storage/results/hope-2023-12-20-14-37-02-331702-summary.md
 
+./network/README.md
 
-./performance/README.md
-./performance/hardware.md
-./performance/software.md
-
-./training/fault-tolerance/README.md
-
-./multi-node/README.md
-./multi-node/emulate-multi-node.md
-
-./scalability/model-parallelism/README.md
 
 ./orchestration/slurm/README.md
 ./orchestration/slurm/admin.md
 ./orchestration/slurm/users.md
 ./orchestration/slurm/performance.md
 
-./hparams/README.md
 
-./instabilities/README.md
-./instabilities/training-loss-patterns.md
+./training/README.md
+./training/fault-tolerance/README.md
+./training/instabilities/README.md
+./training/instabilities/training-loss-patterns.md
+./training/hparams.md
+./training/dtype.md
+
+
+
+./multi-node/README.md
+./multi-node/emulate-multi-node.md
+
+./scalability/model-parallelism/README.md
+
+./performance/README.md
+./performance/hardware.md
+./performance/software.md
+
 
 ./checkpoints/README.md
 
@@ -45,9 +49,9 @@
 ./debug/underflow_overflow.md
 
 
-./dtype/README.md
 
-./reproducibility/README.md
+
+./training/reproducibility/README.md
 
 ./transformers/README.md
 ./transformers/make-tiny-models.md

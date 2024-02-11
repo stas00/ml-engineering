@@ -39,15 +39,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 5. Training**
 
-1. **[Fault Tolerance](training/fault-tolerance)**
-
-1. **[Training hyper-parameters and model initializations](hparams)**
-
-1. **[Instabilities](instabilities)**
-
-1. **[Reproducibility](reproducibility)**
-
-1. **[Tensor precision / Data types](dtype)**
+1. **[Training](training)**
 
 
 
