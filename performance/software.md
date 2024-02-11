@@ -528,3 +528,8 @@ The full recommendations are:
 3. `b*s`, `h/a`, and `h/t` should be divisible by a power of 2
 4. `(b*a)/t` should be an integer
 5. `t` should be small as possible
+
+
+## Contributors
+
+[Quentin Anthony](https://github.com/Quentin-Anthony)

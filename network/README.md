@@ -355,15 +355,15 @@ NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
 
 ### Infinity Fabric / xGMI
 
-Intra-node communication AMD Infinity Fabric comes with AMD MI* Accelerators. xGMI is another name for it.
+AMD MI* Accelerators Intra-node communication is performed by AMD Infinity Fabric, which is also known as xGMI (Socket to Socket Global Memory Interface).
 
 This is AMD's answer to [NVLink](#nvlink).
 
-| Interconnect  | Link     | Links | Unidirection | Duplex     |
-| :------------ | -------: | ----: | -----------: | ---------: |
-| MI250x        | 100 GBps | 7     | 350 GBps     | 700 GBps   |
-| MI300x        | 128 GBps | 7     | 448 GBps     | 896 GBps   |
-|               |          |       |              |            |
+| Interconnect  | Link/Direction | Links | Unidirection | Duplex     |
+| :------------ | -------------: | ----: | -----------: | ---------: |
+| MI250x        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
+| MI300x        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
+|               |                |       |              |            |
 
 ![AMD Infinity Platform Architecture](images/amd-infinity-arch-MI300X.png)
 
