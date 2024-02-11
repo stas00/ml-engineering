@@ -50,13 +50,6 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[Performance](performance)**
 
-1. **[Multi-Node networking](network/benchmarks)**
-
-
-
-
-
-
 
 
 
