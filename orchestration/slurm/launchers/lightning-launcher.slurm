@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# this is a 2 node SLURM script for launching pytorch-lightning programs
+# this is a 2 node SLURM script for launching Lightning-based programs
 # you will most likely need to adapt setting where you see EDIT in the comments
 
 #SBATCH --job-name=lightning-launcher
