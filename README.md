@@ -19,11 +19,11 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 2. Hardware**
 
-1. **[Compute](compute)** - Accelerators, CPUs, CPU Memory.
+1. **[Compute](compute)** - accelerators, CPUs, CPU memory.
 
-1. **[Storage](./storage/)** - local and distributed disks and file systems
+1. **[Storage](./storage/)** - local, distributed and shared file systems.
 
-1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
+1. **[Network](./network/)** - intra- and inter-node networking.
 
 
 **Part 3. Performance**
