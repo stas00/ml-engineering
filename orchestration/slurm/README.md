@@ -10,3 +10,4 @@ These chapters will not try to exhaustively teach you SLURM as there are many ma
 - [SLURM For Users](./users.md) - everything you need to know to do your training in the SLURM environment.
 - [SLURM Administration](./admin.md) - if you're unlucky to need to also manage the SLURM cluster besides using it, there is a growing list of recipes in this document to get things done faster for you.
 - [Performance](./performance.md) - SLURM performance nuances.
+- [Launcher scripts](./launchers) - how to launch with `torchrun`, `accelerate`, pytorch-lightning, etc. in the SLURM environment
