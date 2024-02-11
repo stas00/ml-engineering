@@ -17,13 +17,14 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[The AI Battlefield Engineering - What You Need To Know](./insights/ai-battlefield.md)**
 
+
 **Part 2. Hardware**
 
 1. **[Compute](compute)** - accelerators, CPUs, CPU memory.
 
-1. **[Storage](./storage/)** - local, distributed and shared file systems.
+1. **[Storage](storage)** - local, distributed and shared file systems.
 
-1. **[Network](./network/)** - intra- and inter-node networking.
+1. **[Network](network)** - intra- and inter-node networking.
 
 
 **Part 3. Scalability**
@@ -31,51 +32,64 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Model parallelism](scalability/model-parallelism)**
 
 
-
-
-
-1. **[Fault Tolerance](./fault-tolerance/)**
-
-1. **[Performance](./performance/)**
-
-1. **[Multi-Node networking](./multi-node)**
-
-
-
-**Part 4. Operating**
+**Part 4. Orchestration**
 
 1. **[SLURM](orchestration/slurm)**
 
-1. **[Training hyper-parameters and model initializations](./hparams/)**
 
-1. **[Instabilities](./instabilities/)**
+**Part 5. Training**
+
+1. **[Fault Tolerance](fault-tolerance)**
+
+1. **[Training hyper-parameters and model initializations](hparams)**
+
+1. **[Instabilities](instabilities)**
+
+1. **[Reproducibility](reproducibility)**
+
+1. **[Tensor precision / Data types](dtype)**
+
+
+
+
+
+
+
+
+1. **[Performance](performance)**
+
+1. **[Multi-Node networking](multi-node)**
+
+
+
+
+
+
+
+
 
 
 **Part 5. Development**
 
-1. **[Debugging software and hardware failures](./debug/)**
+1. **[Debugging software and hardware failures](debug)**
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
 
-1. **[Reproducibility](./reproducibility/)**
-
-1. **[Tensor precision / Data types](./dtype/)**
-
-1. **[HF Transformers notes](./transformers/)** - making small models, tokenizers, datasets, and other tips
+1. **[HF Transformers notes](transformers)** - making small models, tokenizers, datasets, and other tips
 
 
 **Part 6. Miscellaneous**
 
-1. **[Resources](./resources/)** - LLM/VLM chronicles
+1. **[Resources](resources)** - LLM/VLM chronicles
 
 
 ## PDF version
 
 Download the [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true) version of the book.
 
-I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here](./build/).
+I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here](build).
 
-Thank you HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
+Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
 
 ## Shortcuts
 
@@ -83,14 +97,14 @@ Things that you are likely to need to find quickly and often.
 
 Tools:
 
-- [all_reduce_bench.py](./multi-node/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
-- [torch-distributed-gpu-test.py](./debug/torch-distributed-gpu-test.py) - a tool to quickly test your inter-node connectivity
+- [all_reduce_bench.py](multi-node/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
+- [torch-distributed-gpu-test.py](debug/torch-distributed-gpu-test.py) - a tool to quickly test your inter-node connectivity
 
 Guides:
 
-- [debugging pytorch applications](./debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
+- [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
-- [make tiny models/datasets/tokenizers](./transformers/make-tiny-models.md)
+- [make tiny models/datasets/tokenizers](transformers/make-tiny-models.md)
 - [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
 
 
@@ -107,7 +121,7 @@ If you found a bug, typo or would like to propose an improvement please don't he
 
 ## License
 
-The content of this site is distributed under [Attribution-ShareAlike 4.0 International](./LICENSE-CC-BY-SA).
+The content of this site is distributed under [Attribution-ShareAlike 4.0 International](LICENSE-CC-BY-SA).
 
 
 
