@@ -25,7 +25,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[Storage](./storage/)** - local and distributed disks and file systems
 
-1. **[CPU](./cpu/)** - cpus, affinities (WIP)
+1. **[CPU](compute/cpu)** - cpus, affinities (WIP)
 
 1. **[CPU Memory](compute/cpu-memory)** - how much CPU memory is enough - the shortest chapter ever.
 

@@ -4,14 +4,14 @@
 
 ./compute/accelerator/README.md
 ./compute/accelerator/nvidia/debug.md
+./compute/cpu/README.md
+./compute/cpu-memory/README.md
 
 ./network/README.md
 
 ./storage/README.md
 ./storage/results/hope-2023-12-20-14-37-02-331702-summary.md
 
-./cpu/README.md
-./compute/cpu-memory/README.md
 
 ./performance/README.md
 ./performance/hardware.md
