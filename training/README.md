@@ -1,14 +1,23 @@
 # Training
 
+**Subsections**:
 
-1. **[Fault Tolerance](fault-tolerance)**
+- [Fault Tolerance](fault-tolerance)
 
-1. **[Reproducibility](reproducibility)**
+- [Reproducibility](reproducibility)
 
-1. **[Instabilities](instabilities)**
+- [Instabilities](instabilities)
 
-1. **[Checkpoints](checkpoints)**
+- [Checkpoints](checkpoints)
 
-1. **[Training hyper-parameters and model initializations](hparams.md)**
+- [Training hyper-parameters and model initializations](hparams.md)
 
-1. **[Tensor precision / Data types](dtype.md)**
+- [Tensor precision / Data types](dtype.md)
+
+- [emulate-multi-node.md](emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
+
+**Tools**:
+
+- [printflock.py](tools/printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.
+
+- [multi-gpu-non-interleaved-print.py](tools/multi-gpu-non-interleaved-print.py) - a `flock`-based wrapper around `print` that prevents messages from getting interleaved when multiple processes print at the same time - which is the case with `torch.distributed` used with multiple-gpus.

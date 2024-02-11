@@ -157,5 +157,5 @@ AWS-based hardware
 
 ### Performance measurements
 
-- [all_reduce_bench.py](../multi-node/all_reduce_bench.py)
+- [all_reduce_bench.py](../network/benchmarks/all_reduce_bench.py)
 - `all_gather_perf` from [nccl-tests](https://github.com/NVIDIA/nccl-tests)

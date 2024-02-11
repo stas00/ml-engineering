@@ -525,7 +525,7 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around payload size of 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Let's run it on the same A100 node:
+Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on the same A100 node:
 
 ```
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py

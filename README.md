@@ -50,7 +50,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[Performance](performance)**
 
-1. **[Multi-Node networking](multi-node)**
+1. **[Multi-Node networking](network/benchmarks)**
 
 
 
@@ -89,7 +89,7 @@ Things that you are likely to need to find quickly and often.
 
 Tools:
 
-- [all_reduce_bench.py](multi-node/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
+- [all_reduce_bench.py](network/benchmarks/all_reduce_bench.py) - a much easier way to benchmark network throughput than nccl-tests.
 - [torch-distributed-gpu-test.py](debug/torch-distributed-gpu-test.py) - a tool to quickly test your inter-node connectivity
 
 Guides:
