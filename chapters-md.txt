@@ -22,8 +22,10 @@
 
 ./training/README.md
 ./training/fault-tolerance/README.md
+./training/reproducibility/README.md
 ./training/instabilities/README.md
 ./training/instabilities/training-loss-patterns.md
+./training/checkpoints/README.md
 ./training/hparams.md
 ./training/dtype.md
 
@@ -39,7 +41,6 @@
 ./performance/software.md
 
 
-./checkpoints/README.md
 
 ./debug/README.md
 ./debug/nccl-performance-debug.md
@@ -51,7 +52,6 @@
 
 
 
-./training/reproducibility/README.md
 
 ./transformers/README.md
 ./transformers/make-tiny-models.md
