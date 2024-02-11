@@ -19,7 +19,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 2. Key Hardware Components**
 
-1. **[Accelerator](./accelerator/)** - the work horses of ML - GPUs, TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs (WIP)
+1. **[Accelerator](compute/accelerator)** - the work horses of ML - GPUs, TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs (WIP)
 
 1. **[Network](./network/)** - intra-node and inter-node connectivity, calculating bandwidth requirements
 
