@@ -64,7 +64,7 @@ The two metrics for a high ROI for ML training are:
 1. the speed at which the training will finish, because if the training takes 2-3x longer than planned, your model could become irrelevant before it was released - time is everything in the current super-competitive ML market.
 2. the total $$ spent to train the model, because if the training takes 2-3x longer than planned, you will end up spending 2-3x times more.
 
-Unless the rest of the purchased/rented hardware isn't chosen carefully to match the required workload chances are very high that the accelerators will idle a lot and both time and $$ will be lost. The most critical component is [network](../network), then [storage](../storage/), and the least critical ones are ([CPU](../compute/cpu) and [CPU memory](../compute/compute/cpu-memory)).
+Unless the rest of the purchased/rented hardware isn't chosen carefully to match the required workload chances are very high that the accelerators will idle a lot and both time and $$ will be lost. The most critical component is [network](../../network), then [storage](../../storage/), and the least critical ones are ([CPU](../cpu) and [CPU memory](../cpu-memory)).
 
 If the compute is rented one usually doesn't have the freedom to choose - the hardware is either set in stone or some components might be replaceable but with not too many choices. Thus there are times when the chosen cloud provider doesn't provide a sufficiently well matched hardware, in which case it's best to seek out a different provider.
 
@@ -72,7 +72,7 @@ If you purchase your servers then I recommend to perform a very indepth due dili
 
 Besides hardware, you, of course, need software that can efficiently deploy the hardware.
 
-We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](../performance) and [here](../scalability/model-parallelism).
+We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](../../performance) and [here](../../scalability/model-parallelism).
 
 
 

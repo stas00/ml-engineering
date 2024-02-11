@@ -127,12 +127,13 @@ def md_expand_links(text, cwd_rel_path, repo_url=""):
     else:
         link = str(link)
 
-        # leave the images local for pdf rendering, but for the rest of the file (scripts,
-        # reports, etc.)
-        # prepend the repo base url, while removing ./ relative prefix if any
-        if not re.search(re_link_images, link):
-            link = resolve_rel_link(link, cwd_rel_path)
-            link = repo_url + "/" + link
+        if repo_url != "":
+            # leave the images local for pdf rendering, but for the rest of the file (scripts,
+            # reports, etc.)
+            # prepend the repo base url, while removing ./ relative prefix if any
+            if not re.search(re_link_images, link):
+                link = resolve_rel_link(link, cwd_rel_path)
+                link = repo_url + "/" + link
 
     return md_link_build(link_text, link, anchor)
 

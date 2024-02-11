@@ -160,7 +160,7 @@ Once you understand how to schedule watchdogs and you have a notification facili
 
 The most obvious watchdog is one which checks that there is a training SLURM job running or more are scheduled to run.
 
-Here is an example [slurm-status.py](orchestration/slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../../orchestration/slurm/users.md#crontab-emulation), we simply needed to drop  [slurm-status.slurm](orchestration/slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
+Here is an example [slurm-status.py](slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../../orchestration/slurm/users.md#crontab-emulation), we simply needed to drop  [slurm-status.slurm](slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
 
 The key part of the SLURM job is:
 ```

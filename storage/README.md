@@ -1,6 +1,6 @@
-# Filesystems and IO
+# Storage: File Systems and IO
 
-## 3 ML IO needs
+## 3 Machine Learning IO needs
 
 There are 3 distinct IO needs in the ML workload:
 

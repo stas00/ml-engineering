@@ -24,4 +24,4 @@ For example, for BLOOM-176B, where we did use PP, after doing throughput benchma
 
 ### STD Init
 
-This hyper parameter is super-important and it requires math to get it right. For details see [STD Init](../instabilities#std-init).
+This hyper parameter is super-important and it requires math to get it right. For details see [STD Init](instabilities#std-init).
