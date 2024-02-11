@@ -245,9 +245,9 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 - There is not much can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
-- If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../model-parallelism/) network becomes the bottleneck.
+- If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../scalability/model-parallelism) network becomes the bottleneck.
 
-- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
+- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../scalability/model-parallelism#tensor-parallelism) and [sequence parallelism](../scalability/model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
 
@@ -336,7 +336,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, so intra-node speed doesn't matter then
 
-- [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
+- [Tensor parallelism](../scalability/model-parallelism#tensor-parallelism) and [sequence parallelism](../scalability/model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
 
 NVIDIA:
 

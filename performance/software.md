@@ -338,9 +338,9 @@ First, there are usually two batch sizes:
 
 Model replica is how many gpus are needed to fit the full model.
 
-- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../model-parallelism#data-parallelism)
+- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../scalability/model-parallelism#data-parallelism)
 - If the model doesn't fit into a single GPU, it'd usually require some sort of sharding technique - it can be
- [Tensor Parallelism](../model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../model-parallelism#zero-data-parallelism) (ZeRO-DP).
+ [Tensor Parallelism](../scalability/model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../scalability/model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../scalability/model-parallelism#zero-data-parallelism) (ZeRO-DP).
 
 You can have as many data streams as there are replicas. Which is the same as the value of DP.
 - So in the simple case of a model fitting into a single GPU. There are as many data streams as there are GPUs. DP=N_GPUS
@@ -397,7 +397,7 @@ The idea behind gradient accumulation is to instead of calculating the gradients
 
 Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
 
-When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical).
+When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../scalability/model-parallelism/README.md#naive-model-parallelism-vertical).
 
 Since the optimizer step isn't performed as often with gradient accumulation there is an additional speed up here as well.
 
@@ -406,7 +406,7 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 - [RTX-3090](https://github.com/huggingface/transformers/issues/14608#issuecomment-1004392537)
 - [A100](https://github.com/huggingface/transformers/issues/15026#issuecomment-1005033957)
 
-When [data parallelism](../model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
+When [data parallelism](../scalability/model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
 ### Gradient checkpointing

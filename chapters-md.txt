@@ -23,7 +23,7 @@
 ./multi-node/README.md
 ./multi-node/emulate-multi-node.md
 
-./model-parallelism/README.md
+./scalability/model-parallelism/README.md
 
 ./orchestration/slurm/README.md
 ./orchestration/slurm/admin.md

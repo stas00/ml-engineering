@@ -6,7 +6,7 @@ The solution is simple:
 
 **Unless you're testing the quality of a model, always use a tiny random model with potentially tiny tokenizer.**
 
-Moreover, large models often require massive resources, which are typically expensive and can also can make a debugging process super complicated. For example any debugger can handle a single process, but if your model doesn't fit and require some sort of [parallelization](../model-parallelism/) that requires multiple processes - most debuggers will either break or have issue giving you what you need. The ideal development environment is one process and a tiny model is guaranteed to fit on an even cheapest single smallest consumer GPU available. You could even use the free [Google Colab](https://colab.research.google.com/) to do development in a pinch if you have no GPUs around.
+Moreover, large models often require massive resources, which are typically expensive and can also can make a debugging process super complicated. For example any debugger can handle a single process, but if your model doesn't fit and require some sort of [parallelization](../scalability/model-parallelism) that requires multiple processes - most debuggers will either break or have issue giving you what you need. The ideal development environment is one process and a tiny model is guaranteed to fit on an even cheapest single smallest consumer GPU available. You could even use the free [Google Colab](https://colab.research.google.com/) to do development in a pinch if you have no GPUs around.
 
 So the updated ML development mantra then becomes:
 

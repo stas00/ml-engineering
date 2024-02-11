@@ -28,7 +28,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 3. Scalability**
 
-1. **[Model parallelism](./model-parallelism/)**
+1. **[Model parallelism](scalability/model-parallelism)**
 
 
 
