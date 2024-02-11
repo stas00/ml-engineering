@@ -188,6 +188,7 @@ Here is an overview of what features can help to either improve speed or save me
 | Optimizer choice         | Yes    | Yes    |
 | DataLoader               | Yes    | No     |
 | DeepSpeed Zero           | No     | Yes    |
+| Flash Attention          | Yes    | Yes    |
 
 
 
