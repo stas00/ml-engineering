@@ -23,6 +23,13 @@ html-local: prep-html-files ## make html version w/ scripts remaining local
 pdf: html ## make pdf version (from html files)
 	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")
 
+pdf-upload: pdf ## upload pdf to the hub
+	cp "Stas Bekman - Machine Learning Engineering.pdf" ml-engineering-book/
+	cd ml-engineering-book/
+	git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf"
+	git push
+	cd -
+
 check-links-local: html-local ## check local links
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee linkchecker-local.txt
 
