@@ -37,7 +37,7 @@ TPU:
 Pods and racks:
 - Cerebras' WaferScale Engine (WSE)
 - SambaNova's DataScale
-- dozens of different pod and rack configs that compose the afformentioned GPUs with super-fast interconnects.
+- dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
 That's about it as Q4-2023.
 
