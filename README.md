@@ -1,10 +1,10 @@
 # Machine Learning Engineering Open Book
 
-An open collection of methodologies to help with successful training of large language models and multi-modal models.
+This is an open collection of methodologies, tools and step by step instructions to help with successful training of large language models and multi-modal models.
 
 This is a technical material suitable for LLM/VLM training engineers and operators. That is the content here contains lots of scripts and copy-n-paste commands to enable you to quickly address your needs.
 
-This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training open-source Retrieval Augmented models at [Contextual.AI](https://contextual.ai/).
+This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training open-source Retrieval Augmented Generation (RAG) models at [Contextual.AI](https://contextual.ai/).
 
 I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
 
@@ -15,8 +15,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 1. Insights**
 
-1. **[The AI Battlefield Engineering - What You Need To Know](./insights/ai-battlefield.md)**
-
+1. **[The AI Battlefield Engineering](./insights/ai-battlefield.md)** - what you need to know in order to succeed
 
 **Part 2. Hardware**
 
@@ -27,24 +26,19 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Network](network)** - intra- and inter-node networking.
 
 
-**Part 3. Scalability**
+**Part 3. Orchestration**
 
-1. **[Model parallelism](training/model-parallelism)**
-
-
-**Part 4. Orchestration**
-
-1. **[SLURM](orchestration/slurm)**
+1. **[SLURM](orchestration/slurm)** - the main orchestration environment
 
 
-**Part 5. Training**
+**Part 4. Training**
 
-1. **[Training](training)**
+1. **[Training](training)** - model training related guides
 
 
 **Part 5. Development**
 
-1. **[Debugging](debug)**
+1. **[Debugging](debug)** - how to debug easy and difficult issues
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
 
@@ -76,7 +70,7 @@ Guides:
 - [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
 - [make tiny models/datasets/tokenizers](debug/make-tiny-models-tokenizers-datasets.md)
-- [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
+- [LLM/VLM chronicles collection](resources#publicly-available-training-llmvlm-logbooks)
 
 
 ## Gratitude
