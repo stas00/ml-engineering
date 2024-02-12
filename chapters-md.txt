@@ -43,7 +43,6 @@ training/emulate-multi-node.md
 scalability/model-parallelism/README.md
 
 performance/README.md
-performance/hardware.md
 performance/software.md
 
 
