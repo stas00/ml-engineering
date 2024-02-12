@@ -28,6 +28,7 @@ orchestration/slurm/launchers/README.md
 
 
 training/README.md
+training/model-parallelism/README.md
 training/performance/README.md
 training/fault-tolerance/README.md
 training/reproducibility/README.md
@@ -40,13 +41,6 @@ training/emulate-multi-node.md
 
 
 
-
-training/model-parallelism/README.md
-
-
-
-
-
 debug/README.md
 debug/nccl-performance-debug.md
 debug/pytorch.md
@@ -54,14 +48,12 @@ debug/tools.md
 debug/torch-distributed-hanging-solutions.md
 debug/underflow_overflow.md
 
+debug/make-tiny-models-tokenizers-datasets.md
+debug/tiny-scripts/README.md
 
 
 
-
-transformers/README.md
-transformers/make-tiny-models.md
-transformers/re-train-hub-models.md
-transformers/tiny-scripts/README.md
+training/re-train-hub-models.md
 
 resources/README.md
 

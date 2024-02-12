@@ -48,8 +48,6 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
 
-1. **[HF Transformers notes](transformers)** - making small models, tokenizers, datasets, and other tips
-
 
 **Part 6. Miscellaneous**
 
@@ -77,7 +75,7 @@ Guides:
 
 - [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
-- [make tiny models/datasets/tokenizers](transformers/make-tiny-models.md)
+- [make tiny models/datasets/tokenizers](debug/make-tiny-models-tokenizers-datasets.md)
 - [LLM/VLM chronicles collection](https://github.com/stas00/ml-engineering/tree/master/resources#publicly-available-training-llmvlm-logbooks)
 
 
