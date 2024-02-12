@@ -267,6 +267,8 @@ footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
 footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
 
+
+
 ### PCIe
 
 [PCIe](https://en.wikipedia.org/wiki/PCI_Express) is a high-speed serial computer expansion bus standard that can be found even on the cheapest computer desktop.
@@ -280,10 +282,11 @@ footnote: also pay close attention to when the spec says unidirectional vs bidir
 
 If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
+
+
 ### NVLink
 
-- [NVLink](https://en.wikipedia.org/wiki/NVLink)
-- [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post.
+- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post with more background on it.
 
 I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
 
@@ -306,7 +309,51 @@ The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 l
 
 As of this writing NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVlink is 7x faster than PCIe.
 
-Let's look at some actual A100 and H100 nodes and correlate the theory with reality.
+Let's look at several examples of nodes and correlate the theory with reality.
+
+If you use multiple GPUs the way cards are inter-connected can have a huge impact on the total training time. If the GPUs are on the same physical node, you can run:
+
+```
+nvidia-smi topo -m
+```
+
+and it will tell you how the GPUs are inter-connected.
+
+On a machine with dual-GPU and which are connected with NVLink, you will most likely see something like:
+
+```
+        GPU0    GPU1    CPU Affinity    NUMA Affinity
+GPU0     X      NV2     0-23            N/A
+GPU1    NV2      X      0-23            N/A
+```
+
+on a different machine w/o NVLink you may see:
+```
+        GPU0    GPU1    CPU Affinity    NUMA Affinity
+GPU0     X      PHB     0-11            N/A
+GPU1    PHB      X      0-11            N/A
+```
+
+The report includes this legend:
+
+```
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+```
+
+So the first report `NV2` tells us the GPUs are interconnected with 2 NVLinks, and the second report `PHB` we have a typical consumer-level PCIe+Bridge setup.
+
+Check what type of connectivity you have on your setup. Some of these will make the communication between cards faster (e.g. NVLink), others slower (e.g. PHB).
+
+Depending on the type of scalability solution used, the connectivity speed could have a major or a minor impact. If the GPUs need to sync rarely, as in DDP, the impact of a slower connection will be less significant. If the GPUs need to send messages to each other often, as in ZeRO-DP, then faster connectivity becomes super important to achieve faster training.
+
+Now, let's look at the topology of the A100 and H100 nodes:
+
 
 - A100 topology:
 
@@ -339,7 +386,9 @@ GPU7  NV18  NV18  NV18  NV18  NV18  NV18  NV18   X    52-103        1
 ```
 You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
-Of course, other A100 and H100s servers may be different, e.g. different number of cpu cores.
+Of course, other A100 and H100s node reports may vary, e.g. different number of cpu cores.
+
+
 
 
 ### NVSwitch
@@ -433,6 +482,8 @@ As inter-node hardware is about of an order of magnitude slower than intra-node 
 
 When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (EFA, and others not yet disclosed).
 
+
+
 ### EFA
 
 [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent technology created by AWS.
@@ -440,11 +491,13 @@ When it comes to inter-node networking hardware, there are the well established 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
 
+
+
 ### InfiniBand
 
-Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the rate and the number of IB links.
+Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the signaling rate and the number of IB links.
 
-Here the most recent signaling rates which you are likely to see in the current hardware offerings:
+Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
 
 Signaling rate of uni-directional links in Gbps:
 | Links | EDR | HDR |  NDR |  XDR |  GDR |
@@ -461,7 +514,6 @@ Latency in usecs:
 
 `??` = NDR and later didn't publish latency data
 
-
 InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
 Here are some examples of NVIDIA devices with the fastest IB:
@@ -469,17 +521,23 @@ Here are some examples of NVIDIA devices with the fastest IB:
 - One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
+
+
 ### Gaudi2
 
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 24 NICs of 100GbE RoCE v2 ROMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 servers.
+
+
 
 ### HPE Slingshot interconnect
 
 [HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of this writing it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
 
-### OPA
 
-[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path). Originally by Intel, the technology got sold to Cornelis Networks.
+
+### OmniPath
+
+[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks.
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
