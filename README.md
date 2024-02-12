@@ -38,9 +38,11 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 5. Development**
 
-1. **[Debugging](debug)** - how to debug easy and difficult issues
+1. **[Debugging and Troubleshooting](debug)** - how to debug easy and difficult issues
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
+
+1. **[Testing](testing)** - make the testing easier
 
 
 **Part 6. Miscellaneous**

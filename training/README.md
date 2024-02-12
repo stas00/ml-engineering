@@ -20,6 +20,8 @@
 
 - [Emulate a multi-node setup using just a single node](emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
 
+- [Re-train HF hub models from scratch using finetuning examples](re-train-hub-models.md)
+
 **Tools**:
 
 - [printflock.py](tools/printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.

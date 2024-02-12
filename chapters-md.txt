@@ -38,6 +38,7 @@ training/checkpoints/README.md
 training/hparams.md
 training/dtype.md
 training/emulate-multi-node.md
+training/re-train-hub-models.md
 
 
 
@@ -51,9 +52,9 @@ debug/underflow_overflow.md
 debug/make-tiny-models-tokenizers-datasets.md
 debug/tiny-scripts/README.md
 
+testing/README.md
 
 
-training/re-train-hub-models.md
 
 resources/README.md
 
