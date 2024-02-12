@@ -388,13 +388,15 @@ Here are some tests that use it:
 - [test_trainer_distributed.py](https://github.com/huggingface/transformers/blob/58e3d23e97078f361a533b9ec4a6a2de674ea52a/tests/trainer/test_trainer_distributed.py)
 - [test_deepspeed.py](https://github.com/huggingface/transformers/blob/58e3d23e97078f361a533b9ec4a6a2de674ea52a/tests/deepspeed/test_deepspeed.py)
 
-To jump right into the execution point, search for the `execute_subprocess_async` call in those tests.
+To jump right into the execution point, search for the `execute_subprocess_async` call in those tests, which you will find inside [testing_utils.py](testing_utils.py).
 
 You will need at least 2 GPUs to see these tests in action:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 RUN_SLOW=1 pytest -sv tests/test_trainer_distributed.py
 ```
+
+(`RUN_SLOW` is a special decorator used by HF Transformers to normally skip heavy tests)
 
 ### Output capture
 
@@ -552,7 +554,7 @@ as in the previous example.
 
 
 
-## Files and directories
+### Files and directories
 
 In tests often we need to know where things are relative to the current test file, and it's not trivial since the test could be invoked from more than one directory or could reside in sub-directories with different depths. A helper class `testing_utils.TestCasePlus` solves this problem by sorting out all the basic paths and provides easy accessors to them:
 
@@ -597,7 +599,7 @@ class PathExampleTest(TestCasePlus):
         examples_dir = self.examples_dir_str
 ```
 
-### Temporary files and directories
+#### Temporary files and directories
 
 Using unique temporary files and directories are essential for parallel test running, so that the tests won't overwrite each other's data. Also we want to get the temporary files and directories removed at the end of each test that created them. Therefore, using packages like `tempfile`, which address these needs is essential.
 
@@ -649,7 +651,7 @@ footnote: In order to run the equivalent of `rm -r` safely, only subdirs of the 
 footnote: Each test can register multiple temporary directories and they all will get auto-removed, unless requested otherwise.
 
 
-### Temporary sys.path override
+#### Temporary sys.path override
 
 If you need to temporary override `sys.path` to import from another test for example, you can use the
 `ExtendSysPath` context manager. Example:
@@ -664,7 +666,7 @@ with ExtendSysPath(f"{bindir}/.."):
     from test_trainer import TrainerIntegrationCommon  # noqa
 ```
 
-## Skipping tests
+### Skipping tests
 
 This is useful when a bug is found and a new test is written, yet the bug is not fixed yet. In order to be able to
 commit it to the main repository we need make sure it's skipped during `make test`.
@@ -678,7 +680,7 @@ Methods:
 One of the important differences between the two is that `skip` doesn't run the test, and `xfail` does. So if the
 code that's buggy causes some bad state that will affect other tests, do not use `xfail`.
 
-### Implementation
+#### Implementation
 
 - Here is how to skip whole test unconditionally:
 
@@ -756,9 +758,9 @@ More details, example and ways are [here](https://docs.pytest.org/en/latest/skip
 
 
 
-## Capturing output
+### Capturing outputs
 
-### Testing the stdout/stderr output
+#### Capturing the stdout/stderr output
 
 In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/latest/capture.html). Here is how this is accomplished:
 
@@ -874,7 +876,7 @@ print(cs.err, cs.out)
 Also, to aid debugging test issues, by default these context managers automatically replay the captured streams on exit from the context.
 
 
-### Capturing logger stream
+#### Capturing logger stream
 
 If you need to validate the output of a logger, you can use `CaptureLogger`:
 
@@ -890,7 +892,7 @@ with CaptureLogger(logger) as cl:
 assert cl.out, msg + "\n"
 ```
 
-## Testing with environment variables
+### Testing with environment variables
 
 If you want to test the impact of environment variables for a specific test you can use a helper decorator `transformers.testing_utils.mockenv`
 
@@ -921,7 +923,7 @@ Depending on whether the test file was under the `tests` test suite or `examples
 This helper method creates a copy of the `os.environ` object, so the original remains intact.
 
 
-## Getting reproducible results
+### Getting reproducible results
 
 In some situations you may want to remove randomness for your tests. To get identical reproducible results set, you
 will need to fix the seed:
@@ -960,7 +962,7 @@ pytest tests/utils/test_logging.py -W error::UserWarning --pdb
 ```
 
 
-## Hacking the pytest reports
+## A massive hack to create multiple pytest reports
 
 Here is a massive `pytest` patching that I have done many years ago to aid with understanding CI reports better.
 
