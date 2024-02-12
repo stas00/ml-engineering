@@ -1,4 +1,4 @@
-
+import argparse
 import datetime
 import re
 
@@ -18,20 +18,18 @@ mdit = (
 
 my_repo_url = "https://github.com/stas00/ml-engineering/blob/master"
 
-#md_expand_links_my_repo = partial(md_expand_links, repo_url=my_repo_url)
-
-def convert_markdown_to_html(markdown_path):
+def convert_markdown_to_html(markdown_path, args):
     md_content = markdown_path.read_text()
 
     cwd_rel_path = markdown_path.parent
-    # md_content = md_process_local_links(md_content, cwd_rel_path, md_expand_links_my_repo)
-    # md_content = md_process_local_links(md_content, cwd_rel_path, md_convert_md_target_to_html)
-    md_content = md_process_local_links(md_content, md_expand_links, cwd_rel_path=cwd_rel_path, repo_url=my_repo_url)
+
+    repo_url = my_repo_url if not args.local else ""
+    md_content = md_process_local_links(md_content, md_expand_links, cwd_rel_path=cwd_rel_path, repo_url=repo_url)
     md_content = md_process_local_links(md_content, md_convert_md_target_to_html)
 
     #tokens = mdit.parse(md_content)
     html_content = mdit.render(md_content)
-    # we don't want <br />, since github doesn't use it in presentation
+    # we don't want <br />, since github doesn't use it in its md presentation
     html_content = re.sub('<br />', '', html_content)
 
     html_file = markdown_path.with_suffix(".html")
@@ -59,6 +57,10 @@ def write_html_index(html_chapters_file, markdown_files):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--local',  action="store_true", help="all local files remain local")
+    args = parser.parse_args()
+
     date = datetime.datetime.now().strftime("%Y-%m-%d")
 
     cover_md_file = "book-front.md"
@@ -72,6 +74,6 @@ if __name__ == "__main__":
 
     pdf_files = []
     for markdown_file in markdown_files:
-        convert_markdown_to_html(markdown_file)
+        convert_markdown_to_html(markdown_file, args)
 
     write_html_index(html_chapters_file, markdown_files)

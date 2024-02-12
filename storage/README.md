@@ -1,6 +1,6 @@
-# Filesystems and IO
+# Storage: File Systems and IO
 
-## 3 ML IO needs
+## 3 Machine Learning IO needs
 
 There are 3 distinct IO needs in the ML workload:
 
@@ -289,7 +289,7 @@ Adapt `path_to_test` to point to the partition path you want to benchmark.
 
 note: the log parser uses python3. if `fio-scan` fails it's most likely because you run it on a system with python2 installed by default. It expects `python --version` to be some python 3.x version. You can edit `fio-scan` to point to the right `python`.
 
-Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](results/hope-2023-12-20-14-37-02-331702-summary.md)):
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](benchmarks/results/hope-2023-12-20-14-37-02-331702-summary.md)):
 
 * filesize=16k read
 

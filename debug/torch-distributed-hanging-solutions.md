@@ -435,7 +435,7 @@ print(f"{dist.get_rank()}: passed stage 0")
 
 What you will quickly discover is that if you have multiple GPUs these prints will be badly interleaved and you will have a hard time making sense of the debug data. So let's fix this. We are going to override `print` with a custom version of the same, but which uses `flock` to ensure that only one process can write to stdout at the same time.
 
-The helper module `printflock.py` is included [here](../multi-node/printflock.py). To activate it just run this at the top of the module you're debugging:
+The helper module `printflock.py` is included [here](../training/tools/printflock.py). To activate it just run this at the top of the module you're debugging:
 
 ```
 from printflock import printflock as print

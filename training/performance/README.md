@@ -10,75 +10,6 @@ In certain situations your modeling team may ask you to choose some hyper parame
 
 
 
-## Crucial reproducibility requirements
-
-The most important requirements for a series of successful experiments is to be able to reproduce the experiment environment again and again while changing only one or a few setup variables.
-
-Therefore when you try to figure out whether some change will improve performance or make it worse, you must figure out how to keep things stable.
-
-For example, you need to find a way to prevent the network usage from fluctuations. When we were doing performance optimizations for [108B pre-BLOOM experiments](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide) it was close to impossible to perform, since we were on a shared internode network and the exact same setup would yield different throughput depending on how many other users used the network. It was not working. During BLOOM-176B we were given a dedicated SLURM partition with an isolated network where the only traffic was ours. Doing the performance optimization in such environment was just perfect.
-
-## Network throughput
-
-It's critical to understand your particular model size and framework requirements with regard to network bandwidth, throughput and latency. If you underpay for network you will end up having idle gpus and thus you wasted money and time. If you overpay for very fast network, but your gpus are slow, then again you wasted money and time.
-
-If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
-
-Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [communication benchmarks](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/communication) for each collective that you can use to quickly measure the throughput of your internode or intranode network.
-
-Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
-
-[all_reduce_bench.py](../multi-node/all_reduce_bench.py)
-
-Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
-
-To run it on 4 nodes:
-
-```
-GPUS_PER_NODE=8
-NNODES=4
-MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-MASTER_PORT=6000
-python -u -m torch.distributed.run \
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
-    --rdzv_backend c10d \
-    --max_restarts 0 \
-    --role `hostname -s`: \
-    --tee 3 \
-    all_reduce_bench.py
-```
-
-Notes:
-- adapt `MASTER_ADDR` to rank 0 hostname if it's not a SLURM environment where it's derived automatically.
-
-Here is how to run launch it in a SLURM env with 4 nodes:
-```
-salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
-srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d all_reduce_bench.py
-```
-
-Notes:
-- You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
-- You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
-
-You may get results anywhere between 5Gbps and 1600Gbps (as of this writing). The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
-
-Frameworks that shard weights and optim stages like [Deepspeed](https://github.com/microsoft/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
-
-Of course, an efficient framework will overlap communications and compute, so that while one stage is fetching data, the other stage in parallel runs computations. So as long as the communication overhead is smaller than compute the network requirements are satisfied and don't have to be super fantastic.
-
-To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed ZeRO Stage 3 with V100s
-
-1. 100Gbps is not enough
-2. 200-400 Gbps is ok
-3. 800-1000 Gbps is ideal
-
-[full details](https://github.com/microsoft/DeepSpeed/issues/2928#issuecomment-1463041491)
-
-Of course, the requirements are higher for A100 gpu nodes and even higher for H100s (but no such benchmark information has been shared yet).
-
 
 ## MACs vs FLOP vs FLOPS vs FLOP/s
 
@@ -339,9 +270,9 @@ First, there are usually two batch sizes:
 
 Model replica is how many gpus are needed to fit the full model.
 
-- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../model-parallelism#data-parallelism)
+- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../../training/model-parallelism#data-parallelism)
 - If the model doesn't fit into a single GPU, it'd usually require some sort of sharding technique - it can be
- [Tensor Parallelism](../model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../model-parallelism#zero-data-parallelism) (ZeRO-DP).
+ [Tensor Parallelism](../../training/model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../../training/model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../../training/model-parallelism#zero-data-parallelism) (ZeRO-DP).
 
 You can have as many data streams as there are replicas. Which is the same as the value of DP.
 - So in the simple case of a model fitting into a single GPU. There are as many data streams as there are GPUs. DP=N_GPUS
@@ -398,7 +329,7 @@ The idea behind gradient accumulation is to instead of calculating the gradients
 
 Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
 
-When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../model-parallelism/README.md#naive-model-parallelism-vertical).
+When using Pipeline parallelism a very large Gradient Accumulation is a must to keep the [pipeline's bubble to the minimum](../../training/model-parallelism/README.md#naive-model-parallelism-vertical).
 
 Since the optimizer step isn't performed as often with gradient accumulation there is an additional speed up here as well.
 
@@ -407,7 +338,7 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 - [RTX-3090](https://github.com/huggingface/transformers/issues/14608#issuecomment-1004392537)
 - [A100](https://github.com/huggingface/transformers/issues/15026#issuecomment-1005033957)
 
-When [data parallelism](../model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
+When [data parallelism](../../training/model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
 ### Gradient checkpointing

@@ -1,16 +1,21 @@
 # Inter-node and intra-node Networking Hardware
 
+**Subsections**:
+
+- [Benchmarks](benchmarks)
+
+
 This chapter is a WIP
 
-It's not enough to buy/rent expensive GPUs to train/infer models fast. You need to ensure that your IO, CPU and Network are fast enough to "feed the GPU furnace". If this is not ensured then the expensive GPUs will be underutilized leading to lost $$, slower training time and inference. While it can be any other of the mentioned components, the network is most of the time what causes the bottleneck in the training (assume your DataLoader is fast).
+It's not enough to buy/rent expensive accelerators to train and infer models fast. You need to ensure that your [storage IO](../storage), [CPU](../compute/cpu) and network are fast enough to "feed the accelerator furnace". If this is not ensured then the expensive accelerators will be underutilized leading to lost $$, slower training time and inference throughput. While it can be any other of the mentioned components, the network is often the bottleneck during the training (assume your DataLoader is fast).
 
-If your model fits on a single GPU, you have little to worry about. But nowadays most models require several GPUs to load and LLM/VLM models require multiple GPU nodes for training and some even for inference.
+If your model fits on a single accelerator, you have little to worry about. But nowadays most models require several accelerators to load and LLM/VLM models require multiple compute nodes for training and some even for inference.
 
-Most GPU nodes contain 8 GPUs, some 4 and recently there are some that have one super-GPU per node.
+Most compute nodes contain 8 accelerators, some 4, others 16, and even more accelerators and recently there are some that have one super-accelerator per node.
 
-When the model spans several GPUs and doesn't leave a single node all you need to worry about is fast [Intra-node networking](#intra-node-networking). As soon as the model requires several nodes, which is often the case for training as one can use multiple replicas to parallelize and speed up the training, then fast [Inter-node networking](#inter-node-networking) becomes the key.
+When the model spans several accelerators and doesn't leave a single node all you need to worry about is fast [Intra-node networking](#intra-node-networking). As soon as the model requires several nodes, which is often the case for training as one can use multiple replicas to parallelize and speed up the training, then fast [Inter-node networking](#inter-node-networking) becomes the key.
 
-This article covers both types of networking hardware, reports their theoretical and effective speeds and explains how they inter-play with each other.
+This article covers both types of networking hardware, reports their theoretical and effective bandwidths and explains how they inter-play with each other.
 
 ## Glossary
 
@@ -48,7 +53,7 @@ If your model is 80B parameter large, and you need to transmit every parameter o
 
 ### 1-GPU training
 
-Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../performance/software.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
+Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../training/performance/README.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
 
 We then assume for the moment that the DataLoader is fast enough to be negligible in duration compared to the compute time. And thus we get a close to a perfect MFU (Model FLOPs Utilization):
 
@@ -155,7 +160,7 @@ Here is how many TFLOP are processed per second:
 tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)
 ```
 
-This formula assume one uses [activation recomputation](../performance/software.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
+This formula assume one uses [activation recomputation](../training/performance/README.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
 
 footnote: activation recomputation and gradient checkpointing both refer to the same technique.
 
@@ -232,9 +237,9 @@ Now do the same math with 20B and 200B parameter model and you will see that you
 
 ### Large model training
 
-Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single gpu so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
+Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single gpu so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
 
-It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../performance) and improve your MFU even more.
+It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../training/performance) and improve your MFU even more.
 
 As I have shown in these sections it should be possible to be able to do a back-of-envelope calculations once you understand the specific scalability technique and its networking costs, so that you could know ahead of time which Inter-node network speed you need to require from your acquisition manager. Of course, you also need to understand the particular model architecture and calculate how many TFLOP it will take to do a single iteration.
 
@@ -262,6 +267,8 @@ footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
 footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
 
+
+
 ### PCIe
 
 [PCIe](https://en.wikipedia.org/wiki/PCI_Express) is a high-speed serial computer expansion bus standard that can be found even on the cheapest computer desktop.
@@ -275,10 +282,11 @@ footnote: also pay close attention to when the spec says unidirectional vs bidir
 
 If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
+
+
 ### NVLink
 
-- [NVLink](https://en.wikipedia.org/wiki/NVLink)
-- [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post.
+- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post with more background on it.
 
 I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
 
@@ -301,7 +309,51 @@ The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 l
 
 As of this writing NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVlink is 7x faster than PCIe.
 
-Let's look at some actual A100 and H100 nodes and correlate the theory with reality.
+Let's look at several examples of nodes and correlate the theory with reality.
+
+If you use multiple GPUs the way cards are inter-connected can have a huge impact on the total training time. If the GPUs are on the same physical node, you can run:
+
+```
+nvidia-smi topo -m
+```
+
+and it will tell you how the GPUs are inter-connected.
+
+On a machine with dual-GPU and which are connected with NVLink, you will most likely see something like:
+
+```
+        GPU0    GPU1    CPU Affinity    NUMA Affinity
+GPU0     X      NV2     0-23            N/A
+GPU1    NV2      X      0-23            N/A
+```
+
+on a different machine w/o NVLink you may see:
+```
+        GPU0    GPU1    CPU Affinity    NUMA Affinity
+GPU0     X      PHB     0-11            N/A
+GPU1    PHB      X      0-11            N/A
+```
+
+The report includes this legend:
+
+```
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+```
+
+So the first report `NV2` tells us the GPUs are interconnected with 2 NVLinks, and the second report `PHB` we have a typical consumer-level PCIe+Bridge setup.
+
+Check what type of connectivity you have on your setup. Some of these will make the communication between cards faster (e.g. NVLink), others slower (e.g. PHB).
+
+Depending on the type of scalability solution used, the connectivity speed could have a major or a minor impact. If the GPUs need to sync rarely, as in DDP, the impact of a slower connection will be less significant. If the GPUs need to send messages to each other often, as in ZeRO-DP, then faster connectivity becomes super important to achieve faster training.
+
+Now, let's look at the topology of the A100 and H100 nodes:
+
 
 - A100 topology:
 
@@ -334,7 +386,9 @@ GPU7  NV18  NV18  NV18  NV18  NV18  NV18  NV18   X    52-103        1
 ```
 You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
-Of course, other A100 and H100s servers may be different, e.g. different number of cpu cores.
+Of course, other A100 and H100s node reports may vary, e.g. different number of cpu cores.
+
+
 
 
 ### NVSwitch
@@ -428,6 +482,8 @@ As inter-node hardware is about of an order of magnitude slower than intra-node 
 
 When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (EFA, and others not yet disclosed).
 
+
+
 ### EFA
 
 [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent technology created by AWS.
@@ -435,11 +491,13 @@ When it comes to inter-node networking hardware, there are the well established 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
 
+
+
 ### InfiniBand
 
-Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the rate and the number of IB links.
+Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the signaling rate and the number of IB links.
 
-Here the most recent signaling rates which you are likely to see in the current hardware offerings:
+Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
 
 Signaling rate of uni-directional links in Gbps:
 | Links | EDR | HDR |  NDR |  XDR |  GDR |
@@ -456,7 +514,6 @@ Latency in usecs:
 
 `??` = NDR and later didn't publish latency data
 
-
 InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
 Here are some examples of NVIDIA devices with the fastest IB:
@@ -464,17 +521,23 @@ Here are some examples of NVIDIA devices with the fastest IB:
 - One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
+
+
 ### Gaudi2
 
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 24 NICs of 100GbE RoCE v2 ROMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 servers.
+
+
 
 ### HPE Slingshot interconnect
 
 [HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of this writing it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
 
-### OPA
 
-[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path). Originally by Intel, the technology got sold to Cornelis Networks.
+
+### OmniPath
+
+[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks.
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
@@ -525,7 +588,7 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MB the throughput is very low - and it starts saturating around payload size of 536MB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](./all_reduce_latency_comp.py). Let's run it on the same A100 node:
+Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on the same A100 node:
 
 ```
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py

@@ -7,7 +7,7 @@
 
 - [Diagnosing Hangings and Deadlocks in Multi-Node Multi-GPU Python Programs](./torch-distributed-hanging-solutions.md)
 
-- [Troubleshooting NVIDIA GPUs](../accelerator/nvidia/debug.md)
+- [Troubleshooting NVIDIA GPUs](../compute/accelerator/nvidia/debug.md)
 
 - [Underflow and Overflow Detection](./underflow_overflow.md)
 

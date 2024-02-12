@@ -33,7 +33,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
-[More details](../accelerator/).
+[More details](../compute/accelerator).
 
 ### AI driving entities
 
@@ -198,7 +198,7 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 ### TFLOPS
 
-- Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../performance/software.md#tflops-as-a-performance-metric).
+- Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../training/performance/README.md#tflops-as-a-performance-metric).
 
 - All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
@@ -245,9 +245,9 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 - There is not much can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
-- If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../model-parallelism/) network becomes the bottleneck.
+- If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../training/model-parallelism) network becomes the bottleneck.
 
-- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
+- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../training/model-parallelism#tensor-parallelism) and [sequence parallelism](../training/model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
 
@@ -336,7 +336,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, so intra-node speed doesn't matter then
 
-- [Tensor parallelism](../model-parallelism#tensor-parallelism) and [sequence parallelism](../model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
+- [Tensor parallelism](../training/model-parallelism#tensor-parallelism) and [sequence parallelism](../training/model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
 
 NVIDIA:
 
@@ -440,7 +440,7 @@ For example: Let's take an 80B param model and 80GB GPUs and calculate how many 
 - Training: at least 23 GPUs `80*18*1.25/80`
 - Inference: at least 3 GPUs `80*2*1.25/80`
 
-[More details](../performance/software.md#anatomy-of-models-memory-usage).
+[More details](../training/performance/README.md#anatomy-of-models-memory-usage).
 
 
 
