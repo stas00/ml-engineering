@@ -29,7 +29,7 @@ Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set 
 
 Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
 
-[all_reduce_bench.py](../network/benchmarks/all_reduce_bench.py)
+[all_reduce_bench.py](all_reduce_bench.py)
 
 Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
 

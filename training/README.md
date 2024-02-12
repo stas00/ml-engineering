@@ -4,6 +4,8 @@
 
 - [Fault Tolerance](fault-tolerance)
 
+- [Performance](performance)
+
 - [Reproducibility](reproducibility)
 
 - [Instabilities](instabilities)

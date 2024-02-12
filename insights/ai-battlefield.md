@@ -198,7 +198,7 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 ### TFLOPS
 
-- Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../performance/software.md#tflops-as-a-performance-metric).
+- Once you choose the architecture and the size of the model and how many tokens you want to train the model for you immediately know how much compute will be required to accomplish this goal. Specifically you can now calculate [how many floating point operations will be needed](../training/performance/README.md#tflops-as-a-performance-metric).
 
 - All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
@@ -440,7 +440,7 @@ For example: Let's take an 80B param model and 80GB GPUs and calculate how many 
 - Training: at least 23 GPUs `80*18*1.25/80`
 - Inference: at least 3 GPUs `80*2*1.25/80`
 
-[More details](../performance/software.md#anatomy-of-models-memory-usage).
+[More details](../training/performance/README.md#anatomy-of-models-memory-usage).
 
 
 

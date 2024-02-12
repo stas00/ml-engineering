@@ -44,16 +44,6 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 
 
-
-
-
-
-1. **[Performance](performance)**
-
-
-
-
-
 **Part 5. Development**
 
 1. **[Debugging software and hardware failures](debug)**

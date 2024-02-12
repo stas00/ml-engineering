@@ -28,6 +28,7 @@ orchestration/slurm/launchers/README.md
 
 
 training/README.md
+training/performance/README.md
 training/fault-tolerance/README.md
 training/reproducibility/README.md
 training/instabilities/README.md
@@ -42,8 +43,7 @@ training/emulate-multi-node.md
 
 scalability/model-parallelism/README.md
 
-performance/README.md
-performance/software.md
+
 
 
 
