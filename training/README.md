@@ -2,9 +2,11 @@
 
 **Subsections**:
 
-- [Fault Tolerance](fault-tolerance)
+- [Model parallelism](model-parallelism)
 
 - [Performance](performance)
+
+- [Fault Tolerance](fault-tolerance)
 
 - [Reproducibility](reproducibility)
 
@@ -16,7 +18,7 @@
 
 - [Tensor precision / Data types](dtype.md)
 
-- [emulate-multi-node.md](emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
+- [Emulate a multi-node setup using just a single node](emulate-multi-node.md) - instructions on how to emulate a multi-node setup using just a single node - we use the `deepspeed` launcher here.
 
 **Tools**:
 

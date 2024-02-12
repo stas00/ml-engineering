@@ -41,7 +41,7 @@ training/emulate-multi-node.md
 
 
 
-scalability/model-parallelism/README.md
+training/model-parallelism/README.md
 
 
 

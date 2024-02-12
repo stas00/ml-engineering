@@ -29,7 +29,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 3. Scalability**
 
-1. **[Model parallelism](scalability/model-parallelism)**
+1. **[Model parallelism](training/model-parallelism)**
 
 
 **Part 4. Orchestration**
@@ -42,11 +42,9 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Training](training)**
 
 
-
-
 **Part 5. Development**
 
-1. **[Debugging software and hardware failures](debug)**
+1. **[Debugging](debug)**
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
 

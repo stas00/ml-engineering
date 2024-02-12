@@ -72,7 +72,7 @@ If you purchase your servers then I recommend to perform a very indepth due dili
 
 Besides hardware, you, of course, need software that can efficiently deploy the hardware.
 
-We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](../../training/performance) and [here](../../scalability/model-parallelism).
+We will discuss both the hardware and the software aspects in various chapters of this book. You may want to start [here](../../training/performance) and [here](../../training/model-parallelism).
 
 
 
