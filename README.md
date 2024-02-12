@@ -42,7 +42,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 1. **[And more debugging](https://github.com/stas00/the-art-of-debugging)**
 
-1. **[Testing](testing)** - make the testing easier
+1. **[Testing](testing)** - numerous tips and tools to make test writing enjoyable
 
 
 **Part 6. Miscellaneous**
