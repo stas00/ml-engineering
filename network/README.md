@@ -629,6 +629,23 @@ Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
 
 As you can see in the Unidirectional section of the report we do get 274 GBps out of the advertised 300GBps (~91%).
 
+Please note that when I re-run this same test on H100s (NVLink 4.0) I got a much worse efficiency:
+
+```
+Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
+   D\D     0      1      2      3      4      5      6      7
+     0 2494.51 364.13 375.99 378.03 376.77 376.71 374.85 375.66
+     1 375.18 2533.95 376.08 374.98 376.21 375.96 375.76 375.12
+     2 363.43 393.28 2532.67 376.35 377.14 376.47 375.76 375.48
+     3 369.90 375.92 393.63 2525.38 376.58 375.88 376.13 377.01
+     4 376.20 376.28 375.20 393.52 2526.02 375.82 375.05 376.10
+     5 376.26 376.60 375.54 375.52 376.81 2521.18 376.37 376.60
+     6 374.31 376.19 376.80 376.32 376.83 376.44 2529.85 376.39
+     7 376.17 376.49 376.53 374.95 376.30 376.82 375.71 2519.78
+```
+
+So 376GBps out of 450GBps is 83% (not very good).
+
 Bottom line - in this particular setup:
 1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
 2. if the payload of each communication is smallish it could be far far lower.
