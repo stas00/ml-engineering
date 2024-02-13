@@ -662,7 +662,7 @@ footnote: while `/scratch` is quite common - the mounted local SSD disk mount po
 You can also arrange for the SLURM setup to automatically clean up such folders on job's termination.
 
 
-### Find users who consume a lot of disk space
+### How to find users who consume a lot of disk space
 
 Do you have a problem when your team trains models and you constantly have to buy more storage because huge model checkpoints aren't being offloaded to bucket storage fast enough?
 
@@ -691,6 +691,21 @@ END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
+
+### How to automatically delete old checkpoints
+
+Continuing the item from above, if you want to automatically delete old checkpoints instead (e.g. those older than 30 days).
+
+First try to ensure the candidates are indeed good to delete:
+
+```
+find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30
+```
+
+and when you feel it's safe to delete, only then add `rm`
+```
+find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30 -exec rm {} +
+```
 
 ## Contributors
 
