@@ -655,7 +655,7 @@ This graph is also helpful to demonstrate how the actual bandwidth changes with 
 ![Low-level Uni-directional Bandwidth Measurements](images/ccgrid11-uni-direction-bandwidth.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
-
+Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
 
 ### Latency
 
