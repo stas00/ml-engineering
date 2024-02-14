@@ -26,10 +26,11 @@ This article covers both types of networking hardware, reports their theoretical
 - MFU: Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPs, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
 - NIC: Network Interface Card
 - OPA: Omni-Path Architecture
+- RDMA: Remote Direct Memory Access
 - RoCE: RDMA over Converged Ethernet
 - RoE: RDMA over Ethernet
+- SHARP: Scalable Hierarchical Aggregation Reduction Protocol
 - VPI: Virtual Protocol Interconnect
-- RDMA: Remote Direct Memory Access
 - xGMI: Socket to Socket Global Memory Interface
 
 Speed-related:
@@ -405,6 +406,7 @@ NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 GBps per node, for a total of 57.6 GBps in total.
 
+Additionally, NVSwitch comes with NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP) which can boost both the intra- and inter-node speeds. For example, NCCL is working on `NCCL_ALGO=NVLS` which already boosts the intra-node bandwidth above the normal spec and work is being done to boost inter-node as well.
 
 
 ### Infinity Fabric / xGMI
