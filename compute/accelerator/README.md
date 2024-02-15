@@ -90,13 +90,15 @@ As mentioned earlier most of the work that ML training and inference do is matri
 
 This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many trillions of FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
 
-| Data type              | TFLOPS | w/ Sparsity |
-| :---                   |   --: |         --: |
-| FP32                   |  19.5 |         n/a |
-| Tensor Float 32 (TF32) |   156 |         312 |
-| BFLOAT16 Tensor Core   |   312 |         624 |
-| FP16 Tensor Core       |   312 |         624 |
-| INT8 Tensor Core       |   624 |        1248 |
+
+| Data type \ TFLOPS     | w/o Sparsity | w/ Sparsity |
+| :--------------------  | -----------: | ----------: |
+| FP32                   |         19.5 |         n/a |
+| Tensor Float 32 (TF32) |          156 |         312 |
+| BFLOAT16 Tensor Core   |          312 |         624 |
+| FP16 Tensor Core       |          312 |         624 |
+| FP8 Tensor Core        |          624 |        1248 |
+| INT8 Tensor Core       |          624 |        1248 |
 
 footnote: INT8 is measured in TeraOperations as it's not a floating operation.
 

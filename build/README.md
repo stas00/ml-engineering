@@ -65,5 +65,5 @@ make check-links-local
 When included images are too large, make them smaller a bit:
 
 ```
-mogrify -format jpg -resize 1024x1024\> *png
+mogrify -format png -resize 1024x1024\> *png
 ```
