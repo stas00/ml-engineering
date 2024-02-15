@@ -90,7 +90,6 @@ As mentioned earlier most of the work that ML training and inference do is matri
 
 This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many trillions of FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries for A100:
 
-
 | Data type \ TFLOPS     | w/o Sparsity | w/ Sparsity |
 | :--------------------  | -----------: | ----------: |
 | FP32                   |         19.5 |         n/a |
@@ -112,25 +111,28 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 [source](https://developer.nvidia.com/blog/cuda-11-features-revealed/)
 
-As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization).
+As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
 
-Let's look at the TFLOPS specs across the high end accelerators:
+Let's look at the TFLOPS specs across the high end accelerators (w/o sparsity):
 
-| Accelerator / TFLOPS |  fp32 | fp16 |  fp8 | int8 |
-| :---------------     |   --: | ---: | ---: | ---: |
-| NVIDIA A100 SXM      |  19.5 |  312 |  624 |  624 |
-| AMD MI250            |  45.3 |  362 |    X |  362 |
-| AMD MI250X           |  47.9 |  383 |    X |  383 |
-|                      |       |      |      |      |
-| NVIDIA H100 SXM      |  67.0 |  989 | 1979 | 1979 |
-| NVIDIA H100 PCIe     |  51.0 |  756 | 1513 | 1513 |
-| NVIDIA H100 dual NVL | 134.0 |  989 | 3958 | 3958 |
-| AMD MI300            |    ?  |  ?   |    ? |   ?  |
-|                      |       |      |      |      |
+| Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
+| :---------------     | ----: | ----: | --------: | ---: | ---: |
+| NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |  624 |  624 |
+| AMD MI250            |  45.3 |     X |       362 |    X |  362 |
+| AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
+|                      |       |       |           |      |      |
+| NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
+| NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
+| NVIDIA H100 dual NVL | 134.0 | 989.5 |       989 | 3958 | 3958 |
+| AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
+|                      |       |       |           |      |      |
 
 * Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing
 
+** when looking at specs be very careful at which numbers you're breading - many vendors often publish TFLOPS with sparsity, as they are 2x larger, but if they even indicate this they do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/o sparsity as they originally didn't bother to mention this important fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs are w/o sparsity (the table above).
+
+*** also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 
 
 
@@ -228,11 +230,18 @@ Cerebras:
 
 
 
-### Prices
+### How to get the best price
 
-Remember that the advertised prices are almost always open to negotiations as long as you're willing to buy/rent in bulk and if renting then for a long time (i.e. years!). When do you will discover that the actual price that you end up paying could be many times less than the original public price. Some cloud providers already include the discount as you choose a longer commitment on their website, but it's always the best to negotiate directly with their sales team. In addition or instead of a $$-discount you could be offered some useful features/upgrades for free.
+Remember that the advertised prices are almost always open to negotiations as long as you're willing to buy/rent in bulk or if renting for a 1-3 years. What you will discover is that the actual price that you end up paying could be many times less than the advertised "public" price. Some cloud providers already include the discount as you choose a longer commitment on their website, but it's always the best to negotiate directly with their sales team. In addition or instead of a $$-discount you could be offered some useful features/upgrades for free.
+
+If your company has venture capital investors - it could help a lot to mention that, as then the cloud provider knows you are likely to buy more compute down the road and more likely to discount more.
+
+Tier 2 clouds are likely to give better prices than Tier 1. Tier 1 as of this writing is AWS, OCI, Azure and GCP.
 
 For the baseline prices it should be easy to find a few good sites that provide an up-to-date public price comparisons across clouds - just search for something like [cloud gpu pricing comparison](https://www.google.com/search?q=cloud+gpu+pricing+comparison).
+
+When shopping for a solution please remember that it's not enough to rent the most powerful accelerator. You also need fast [intra-node](../../network#intra-node-networking) and [inter-node](../../network#inter-node-networking) connectivity and sufficiently fast [storage](../../storage) - without which the expensive accelerators will idle waiting for data to arrive and you could be wasting a lot money and losing time.
+
 
 
 ## Accelerators in detail
@@ -253,6 +262,9 @@ For example, A100-80GB has:
 - 6912 CUDA Cores
 - 432 Tensor Cores (Gen 3)
 - 108 Streaming Multiprocessors (SM)
+
+
+
 
 
 ### AMD
@@ -285,18 +297,16 @@ Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
 ## API
 
+Which software is needed to deploy the high end GPUs?
+
 
 ### NVIDIA
 
-uses CUDA
-
-
+NVIDIA GPUs run on [CUDA](https://developer.nvidia.com/cuda-toolkit)
 
 ### AMD
 
-uses ROCm
-
-
+AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - note that PyTorch you can use CUDA-based software on ROCm-based GPUs! So it should be trivial to switch to the recent AMD MI250, MI300X, and other emerging ones.
 
 ### Intel Gaudi
 
