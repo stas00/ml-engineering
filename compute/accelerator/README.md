@@ -128,7 +128,7 @@ Let's look at the TFLOPS specs across the high end accelerators (w/o sparsity):
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
 |                      |       |       |           |      |      |
 
-* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing
+* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing but it does support FP32, TF32, BF16, FP16 & FP8.
 
 ** when looking at specs be very careful at which numbers you're breading - many vendors often publish TFLOPS with sparsity, as they are 2x larger, but if they even indicate this they do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/o sparsity as they originally didn't bother to mention this important fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs are w/o sparsity (the table above).
 
@@ -164,6 +164,7 @@ Current high end accelerators (some aren't GA yet):
 | AMD MI250            |               128 | HBM2e |              3.28 |
 | AMD MI250X           |               128 | HBM2e |              3.28 |
 | AMD MI300X           |               192 | HBM3  |              5.30 |
+| Intel Gaudi2         |                96 | HBM2e |              2.45 |
 |                      |                   |       |                   |
 
 - XXX: add other accelerators
@@ -199,7 +200,7 @@ AMD:
 - [MI300](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - just starting to emerge - and mainly on Tier-2 clouds (lots of new startups).
 
 Intel:
-- [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - Currently there is a very low availability on [cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/).
+- [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/).
 
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)
