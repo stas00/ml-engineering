@@ -124,13 +124,13 @@ Let's look at the TFLOPS specs across the high end accelerators (w/o sparsity):
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
 | NVIDIA H100 dual NVL | 134.0 | 989.5 |       989 | 3958 | 3958 |
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
-|                      |       |       |           |      |      |
+| Intel Gaudi          |     V |     V |         V |    V |    V |
 
-* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing but it does support FP32, TF32, BF16, FP16 & FP8.
+footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16.
 
-** when looking at specs be very careful at which numbers you're breading - many vendors often publish TFLOPS with sparsity, as they are 2x larger, but if they even indicate this they do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/o sparsity as they originally didn't bother to mention this important fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs are w/o sparsity (the table above).
+footnote: when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
-*** also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
+footnote: also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 
 
 
@@ -169,7 +169,7 @@ Current high end accelerators (some aren't GA yet):
 
 Memory speed is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
-The GPUs use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps.
+The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps.
 
 
 
