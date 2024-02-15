@@ -112,7 +112,7 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
 
-Let's look at the TFLOPS specs across the high end accelerators (w/o sparsity):
+Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity):
 
 | Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
@@ -124,9 +124,9 @@ Let's look at the TFLOPS specs across the high end accelerators (w/o sparsity):
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
 | NVIDIA H100 dual NVL | 134.0 | 989.5 |       989 | 3958 | 3958 |
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
-| Intel Gaudi          |     V |     V |         V |    V |    V |
+| Intel Gaudi2         |     V |     V |         V |    V |    V |
 
-footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16.
+footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16.
 
 footnote: when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
