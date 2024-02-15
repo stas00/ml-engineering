@@ -17,14 +17,14 @@ The other computational difference is that while both training and inference hav
 
 ## Bird's eye view on the high end accelerator reality
 
-While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few GPUs to offer.
+While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
 - As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
-- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. From a recent discussion with an AMD representative MI300 is not planned to be in general availability until some time in 2025, though some HPCs already plan to get them some time in 2024.
+- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is promised to start being available already in March 2024 at some Tier 2 cloud providers.
 
 HPU:
-- Intel's Gaudi2 are starting to slowly emerge on Intel's cloud
+- Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup.
 
 IPU:
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
@@ -37,7 +37,7 @@ Pods and racks:
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as Q4-2023.
+That's about it as Q1-2024.
 
 
 ## Glossary
