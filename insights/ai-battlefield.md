@@ -275,9 +275,9 @@ Emerging to general availability:
 
   * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8
 
-  * AMD MI250 ~= A100 - very few clouds have them
+  * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
-  * AMD MI300 ~= H100 - don't expect until 1.5-2 years from now to be GA
+  * AMD MI300X ~= H100 - a few clouds will have those in March, 2024
 
   * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud
 

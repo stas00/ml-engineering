@@ -189,12 +189,12 @@ Most common accelerators that can be either rented on compute clouds or purchase
 
 NVIDIA:
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated.
-- [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, slowly emerging on all major clouds.
-- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - availability is unknown.
+- [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, becoming available on all Tier-1 compute clouds.
+- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - first units have been reported to become available.
 
 AMD:
 - [MI250](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250.html) ~= A100 - very few clouds have them
-- MI300 ~= H100 - don’t expect until late-2024 or even 2025 to be GA
+- [MI300](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - just starting to emerge - and mainly on Tier-2 clouds (lots of new startups).
 
 Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - Currently there is a very low availability on [cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/).
