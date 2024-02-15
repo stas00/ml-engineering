@@ -155,22 +155,22 @@ Typically the more on-chip memory the accelerator has the better. At any given t
 
 Current high end accelerators (some aren't GA yet):
 
-| Accelerator          | Memory<br> in GBs | Type  | Speed<b> in TB/s |
-| :---------------     |     ------------: | :--   | ------------:    |
-| NVIDIA A100 SXM      |                80 | HBM2e |                2 |
-| NVIDIA H100 SXM      |                80 | HBM3  |             3.35 |
-| NVIDIA H100 PCIe     |                80 | HBM3  |                2 |
-| NVIDIA H100 dual NVL |               188 | HBM3  |              7.8 |
-| AMD MI250            |               128 | HBM2e |             3.28 |
-| AMD MI250X           |               128 | HBM2e |             3.28 |
-| AMD MI300            |               192 | HBM3  |                  |
-|                      |                   |       |                  |
+| Accelerator          | Memory<br> in GBs | Type  | Speed<br> in TBps |
+| :------------------- | ----------------: | :---- |  ---------------: |
+| NVIDIA A100 SXM      |                80 | HBM2e |              2.00 |
+| NVIDIA H100 SXM      |                80 | HBM3  |              3.35 |
+| NVIDIA H100 PCIe     |                80 | HBM3  |              2.00 |
+| NVIDIA H100 dual NVL |               188 | HBM3  |              7.80 |
+| AMD MI250            |               128 | HBM2e |              3.28 |
+| AMD MI250X           |               128 | HBM2e |              3.28 |
+| AMD MI300X           |               192 | HBM3  |              5.30 |
+|                      |                   |       |                   |
 
 - XXX: add other accelerators
 
 Memory speed is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
-The GPUs use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TB/sec, and H100-SXM comes with HBM3 at 3.35TB/s.
+The GPUs use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps.
 
 
 
