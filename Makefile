@@ -25,10 +25,7 @@ pdf: html ## make pdf version (from html files)
 
 pdf-upload: pdf ## upload pdf to the hub
 	cp "Stas Bekman - Machine Learning Engineering.pdf" ml-engineering-book/
-	cd ml-engineering-book/
-	git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf"
-	git push
-	cd -
+	cd ml-engineering-book/ && git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf" && git push
 
 check-links-local: html-local ## check local links
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee linkchecker-local.txt
