@@ -275,7 +275,7 @@ footnote: don't do this unless you really have to, since caching makes things fa
 footnote: this simplified example would work for a single node. For multiple nodes you'd need to gather the stats from all participating nodes and find the one that has the least amount of memory left and act upon that.
 
 
-## Dealing with forced resource preemption
+## Dealing with forced job preemption
 
 Earlier you have seen how the training can be gracefully stopped with a [kill switch solution](#kill-switch) and it's useful when you need to stop or pause the training on demand.
 
@@ -299,7 +299,7 @@ So, for example, let's say your HPC allows 100 hour jobs, and then your slurm sc
 #SBATCH --time=100:00:00
 ```
 
-**Approach A**. Tell the program at launch time when it should start the exiting process:
+### Approach A. Tell the program at launch time when it should start the exiting process:
 ```
 srun ... torchrun ... --exit-duration-in-mins 5990
 ```
@@ -338,17 +338,16 @@ $ scontrol show -d job $SLURM_JOB_ID | grep Time
 ```
 and then comparing with the current time in the program and instead setting the graceful exit period. There are other timestamps and durations that can be retrieved as it can be seen from the output.
 
-**Approach B**. Sending a signal X minutes before the end
+### Approach B.1. Sending a custom signal X minutes before the end
 
-In your sbatch script you could set
+In your sbatch script you could set:
 
 ```
 #SBATCH --signal=USR1@600
 ```
 and then SLURM will send a `SIGUSR1` signal to your program 10min before job's end time.
 
-footnote: normally SLURM schedulers send a `SIGTERM` signal about 30-60 seconds before the job's time is up, and just as the time is up it will send a `SIGKILL` signal if the job is still running. `SIGTERM` can be caught and acted upon but 30 seconds is not enough time to gracefully exit a large model training program.
-
+footnote: normally SLURM schedulers send a `SIGCONT`+`SIGTERM` signal about 30-60 seconds before the job's time is up, and just as the time is up it will send a `SIGCONT`+`SIGTERM`+`SIGKILL` signal if the job is still running. `SIGTERM` can be caught and acted upon but 30 seconds is not enough time to gracefully exit a large model training program.
 
 Let's demonstrate how the signal sending and trapping works. In terminal A, run:
 ```
@@ -419,7 +418,140 @@ which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exit
 Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in Approach A above.
 
 
+### Approach B.2. Choosing which process to send the signal to
+
+Now what if your main program isn't the one launched with `srun` - if you were to use an intermediate launcher like `torchrun` or `accelerate` the above recipe won't work, because most likely `SIGUSR1` won't be propagated from the launcher to its children. In this case we need a slightly more complicated slurm script than
+
+We have to replace:
+```
+#SBATCH --signal=USR1@600
+```
+with:
+```
+#SBATCH --signal=B:USR1@600
+```
+
+The added `B:` tells SLURM not to send the signal to the `srun` process (launcher) but to the `sbatch` shell.
+
+And now we have to change the end of the SLURM script from a typical launcher-based code like:
+
+```
+CMD="python -u -m torch.distributed.run ... train.py ..." # real command here
+LOG_FILE=/path/to/logs/main_log.txt
+srun --jobid $SLURM_JOBID bash -c "$CMD" 2>&1 | tee -a $LOG_FILE
+
+```
+to this:
+```
+trap 'echo "SIGUSR1 received!"; \
+pid=$(pgrep -f "^python.*(accelerate|deepspeed|torchrun|distributed.run)"); \
+pgrep -P $pid | xargs -r kill -USR1; \
+wait;' SIGUSR1
+
+CMD="python -u -m torch.distributed.run ... train.py ..." # real command here
+LOG_FILE=/path/to/logs/main_log.txt
+srun --jobid $SLURM_JOBID bash -c "$CMD" 2>&1 | tee -a $LOG_FILE &
+
+wait
+```
+
+Since `--signal=B:USR1@600` earlier will now send the signal to the `sbatch` shell we can trap it and do something about it, and that's what the `trap` line does.
+
+The magical code inside the signal handler passed to `trap` finds all processes that are immediate children of any of the launchers like `accelerate`, `deepspeed`, `torchrun` or `torch.distributed.run` and sends the `SIGUSR1` signal to them.
+
+Finally the last change is that in order for `trap` to work we need to run `srun` in the background - so we added `&`  at the end of the `srun` command and we needed to add `wait` so that the `sbatch` shell won't exit until `srun` finishes.
+
+Your python code that catches the signal handler remains the same as in Approach B.1.
+
+Here are the important parts of the SLURM script together:
+
+```
+$ cat launch.slurm
+#!/bin/bash
+[...]
+#SBATCH --partition=dev
+#SBATCH --signal=B:USR1 # Custom preemption signal
+[...]
+
+trap 'echo "SIGUSR1 received!"; \
+pid=$(pgrep -f "^python.*(accelerate|torchrun|deepspeed|distributed.run)"); \
+pgrep -P $pid | xargs -r kill -USR1; wait;' SIGUSR1
+
+CMD="python -u -m torch.distributed.run ... train.py ..." # real command here
+LOG_FILE=/path/to/logs/main_log.txt
+srun --jobid $SLURM_JOBID bash -c "$CMD" 2>&1 | tee -a $LOG_FILE &
+
+wait
+```
+
+And your training loop that may have originally looked like this:
+```
+$ cat train.py
+
+for batch in dl:
+    train_iteration(batch)
+```
+
+Now it'll become:
+```
+$ cat train.py
+
+import signal
+import sys
+
+pre_emption_activated = False
+def activate_pre_emption(sig, frame):
+    global pre_emption_activated
+    print("SIGUSR1 received, saving checkpoint")
+    pre_emption_activated = True
+
+signal.signal(signal.SIGUSR1, activate_pre_emption)
+
+for batch in dl:
+    train_iteration(batch)
+
+    if pre_emption_activated:
+        save_checkpoint()
+        sys.exit()
+```
+
+Of course, you will probably set a flag in the trainer object in the real software and not use a `global`, but for the sake of the short demo that's good enough.
+
+If you want to test this solution, simply change your SLURM script header to:
+
+```
+#SBATCH --time=0:05:00
+#SBATCH --signal=B:USR1@60
+```
+
+Here we tell SLURM to run the job for 5 minutes only (`--time=0:05:00`) and we ask it to send `SIGUSR1` to our `sbatch` script `60` seconds before 5 minutes expires, i.e. 4 minutes after the job started.
+
+
+
+### QoS-based SLURM preemption
+
+We haven't discussed so far what happens when Quality of Service (QoS) is used, which may also forcefully pre-empt an existing job. The functionality is the same as job's-allocated-time-is-about-to-end sort of pre-emption, except it can happen any time and not X seconds before the end of the job.
+
+Consider a SLURM setup where you have `--qos=high` which can pre-empt `--qos=low` jobs and the low priority job has grace time of 10 minutes to shut down:
+
+```
+$ sacctmgr show qos format=name,priority,preempt,MaxTRESPerUser,GraceTime,Preempt,Flags
+      Name   Priority     MaxTRESPU  GraceTime    Preempt                Flags
+---------- ---------- ------------- ---------- ---------- --------------------
+       low          0                 00:10:00
+      high          0                 00:00:00        low
+```
+
+This is very similar to the time-based pre-emption except here the grace time is hardcoded and can't be modified by the user.
+
+If a job is launched with `--qos=high` and there aren't enough nodes, SLURM will kick out a few low priority jobs to make the nodes available for the high priority job.
+
+By default `GraceTime` could be very short an insufficient for your program to wind down safely if it gets pre-empted - in which case ask your sysadmin to raise its duration to what will work for your needs.
+
+Otherwise the same solutions described in Approaches B.1 and B.2 will work for this type of forced pre-emption.
+
 
 ## Contributors
 
 [Adam Moody](https://github.com/adammoody),
+[Shikib Mehri](https://github.com/Shikib),
