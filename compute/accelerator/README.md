@@ -24,7 +24,7 @@ GPUs:
 - AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is promised to start being available already in March 2024 at some Tier 2 cloud providers.
 
 HPU:
-- Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup.
+- Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup. It's also available on-premise simplementations via Supermicro, WiWynn, and soon others.
 
 IPU:
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
@@ -32,7 +32,7 @@ IPU:
 TPU:
 - Google's TPUs are, of course, available but they aren't the most desirable accelerators because you can only rent them, and the software isn't quite easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked into a hardware which is a Google monopoly.
 
-Pods and racks:
+On Pods and racks:
 - Cerebras' WaferScale Engine (WSE)
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
@@ -121,12 +121,13 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
 |                      |       |       |           |      |      |
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
+| NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
 | NVIDIA H100 dual NVL | 134.0 | 989.5 |       989 | 3958 | 3958 |
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
 | Intel Gaudi2         |     V |     V |         V |    V |    V |
 
-footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16.
+footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16.
 
 footnote: when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
@@ -134,13 +135,22 @@ footnote: also beware that if accelerator A publishes a higher TFLOPS than accel
 
 
 
-#### Achievable peak TFLOPS
+#### Maximum Achievable FLOPS
 
-The problem with the advertised peak TFLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic TFLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
+Theoretical peak FLOPS is what gets published on the accelerator's spec. And it's calculated as:
+
+`Theoretical FLOPS = compute_unit_clock_speed * flops_per_clock_cycle_per_compute_unit * num_compute_units`
+
+where:
+- `compute_unit_clock_speed` - how many times the compute unit clock ticks per second in Hz
+- `flops_per_clock_cycle_per_compute_unit` - the number of operations the compute unit can execute per clock cycle.
+- `num_compute_units` - how many units there is in the device
+
+The problem with the advertised theoretical peak FLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic FLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
 
 If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end accelerators discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
 
-To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for half precision mixed precision, with FlashAttention, it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the peak performance probably lays somewhere between 200 and 300 TFLOPS.
+To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision regime. And with FlashAttention it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
 It should be possible to calculate the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator.
 
@@ -173,6 +183,8 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
 | NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
 | NVIDIA H100 dual NVL |               188 | HBM3  |                 7.80 |
+| NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
+| NVIDIA GH200 SXM (2) |               141 | HBM3e |                 4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                 4.80 |
 | AMD MI250            |               128 | HBM2e |                 3.28 |
 | AMD MI250X           |               128 | HBM2e |                 3.28 |
@@ -181,7 +193,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 |                      |                   |       |                      |
 
 
-Memory speed is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
+Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
 
 

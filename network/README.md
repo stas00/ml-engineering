@@ -268,18 +268,31 @@ footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
 footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
 
+Here is intra-node theoretical peak bandwidth cross-comparison for current technologies (unidirectional bandwidth) sorted by bandwidth:
+
+| Interconnect |  GBps |
+| :----------- | ----: |
+| NVlink 4     | 450.0 |
+| MI300X       | 448.0 |
+| NVlink 3     | 300.0 |
+| MI250X       | 350.0 |
+| Gaudi2       | 262.5 |
+| PCIe 5       | 126.0 |
+| PCIe 4       |  62.0 |
+
+You will find the details analyses of each in the following sections.
 
 
 ### PCIe
 
 [PCIe](https://en.wikipedia.org/wiki/PCI_Express) is a high-speed serial computer expansion bus standard that can be found even on the cheapest computer desktop.
 
-| Interconnect  | Lane/Direction   |   Lanes | Unidirection   | Duplex     |
-| :------------ | ---------------: | ------: | -------------: | ---------: |
-| PCIe 4        | ~2.0 GBps        |      16 | 31 GBps        | 62 GBps    |
-| PCIe 5        | ~4.0 GBps        |      16 | 63 GBps        | 126 GBps   |
-| PCIe 6        | ~7.5 GBps        |      16 | 121 GBps       | 241 GBps   |
-| PCIe 7        | ~15.0 GBps       |      16 | 242 GBps       | 484 GBps   |
+| Interconnect | Lane/Direction | Lanes | Unidirection | Duplex   |
+| :----------  | -------------: |  ---: | ----------:  | ------:  |
+| PCIe 4       | ~2.0 GBps      |    16 | 31 GBps      | 62 GBps  |
+| PCIe 5       | ~4.0 GBps      |    16 | 63 GBps      | 126 GBps |
+| PCIe 6       | ~7.5 GBps      |    16 | 121 GBps     | 241 GBps |
+| PCIe 7       | ~15.0 GBps     |    16 | 242 GBps     | 484 GBps |
 
 If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
@@ -431,7 +444,8 @@ Platform specs:
 
 ### Gaudi2
 
-According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps and each card connected with each of the other 7 cards at 262.5 GBps.
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide 8x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1Tbps intra-node connectivity and each card connected with the other 7 cards at 262.5 GBps.
+
 
 
 ## NUMA Affinity
@@ -484,16 +498,22 @@ As inter-node hardware is about of an order of magnitude slower than intra-node 
 
 When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (EFA, and others not yet disclosed).
 
+Here is inter-node theoretical peak bandwidth cross-comparison for current technologies (unidirectional bandwidth) sorted by bandwidth:
 
+| Interconnect         |  Gbps |
+| :----------------    | ----: |
+| InfiniBand GDR/8     |  3200 |
+| EFA v2               |  3200 |
+| Gaudi2               |  2400 |
+| InfiniBand XDR/8     |  1600 |
+| OPA (MI250)          |  1600 |
+| GPUDirect-TCPX       |   800 |
+| HPE Slingshot        |   800 |
+| EFA v1               |   400 |
+|                      |       |
+| OPA (MI300X Q3-2024) |  3200 |
 
-### EFA
-
-[Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent technology created by AWS.
-
-- EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
-- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
-
-
+You will find the details analyses of each in the following sections.
 
 ### InfiniBand
 
@@ -525,15 +545,31 @@ Here are some examples of NVIDIA devices with the fastest IB:
 
 
 
-### Gaudi2
 
-According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these servers provide 24 NICs of 100GbE RoCE v2 ROMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 servers.
+### EFA
+
+[Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent technology created by AWS.
+
+- EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
+- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
+
+
+
+### Gaudi2 (inter-node)
+
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide `3*8=24` NICs of 100GbE RoCE v2 RDMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 nodes.
 
 
 
 ### HPE Slingshot interconnect
 
 [HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of this writing it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
+
+
+
+### GPUDirect-TCPX
+
+GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 instances of GCP. The docs are scarce, but here is [some information](https://cloud.google.com/compute/docs/gpus/gpudirect)
 
 
 
@@ -544,6 +580,9 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
 As of this writing I see that the product comes with either 100 or 200Gbps bandwidth. So it's unlikely you will see anybody offering this solution for ML workloads, unless they manage to install many NICs perhaps?
+
+
+Cornelis networks promised to launch 400Gbps NICs in Q3-2024.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
