@@ -168,7 +168,9 @@ Cons:
 
 
 
+### Managing compute
 
+- Unless you use a fully managed HPC compute you absolutely need to hire a sysadmin. It may feel that your ML engineers can swing that between their training jobs, but they will be losing a lot of time to managing disk space, dealing with problematic nodes, asking users to behave, etc.
 
 
 
