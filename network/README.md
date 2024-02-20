@@ -1,11 +1,10 @@
-# Inter-node and intra-node Networking Hardware
+# Inter-node and Intra-Node Networking Hardware
 
 **Subsections**:
 
 - [Benchmarks](benchmarks)
 
-
-This chapter is a WIP
+## Introduction
 
 It's not enough to buy/rent expensive accelerators to train and infer models fast. You need to ensure that your [storage IO](../storage), [CPU](../compute/cpu) and network are fast enough to "feed the accelerator furnace". If this is not ensured then the expensive accelerators will be underutilized leading to lost $$, slower training time and inference throughput. While it can be any other of the mentioned components, the network is often the bottleneck during the training (assume your DataLoader is fast).
 
