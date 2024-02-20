@@ -164,7 +164,7 @@ Here are the specs:
 
 Typically the more on-chip memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
-Current high end accelerators (some aren't GA yet):
+Here are the memory specs for the recent high end accelerators (some aren't GA yet):
 
 | Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
