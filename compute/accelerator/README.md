@@ -161,6 +161,7 @@ Here are the specs:
 | HBM3  | 6.4 |   819 | 16 |  4 | 64 |
 | HBM3e | 9.6 |  1229 | 16 |  4 | 64 |
 
+Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how many chips are per device.
 
 Typically the more on-chip memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
