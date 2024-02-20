@@ -17,7 +17,7 @@ When the model spans several accelerators and doesn't leave a single node all yo
 
 This article covers both types of networking hardware, reports their theoretical and effective bandwidths and explains how they inter-play with each other.
 
-## Glossary
+## Glossary and concepts
 
 - DMA: Direct Memory Access
 - EFA: Elastic Fabric Adapter
@@ -39,210 +39,6 @@ Speed-related:
 - GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
 - Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
 - Unidirectional: a transmission from one point to another in one direction A -> B
-
-
-
-## Understanding why inter-node network speed is of a huge importance
-
-This is probably one of the most important multi-segment section that you really want to understand well. While it seeks out to show how important the inter-node speed is, to build up the case it'll teach on the way many important training-related concepts.
-
-### The basics
-
-First, let's get a bit of a feeling what all those Gbps/GBps practically mean.
-
-If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send `80*4` 320GB of data, or 2560Gb (`*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds. Why does it matter?
-
-### 1-GPU training
-
-Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../training/performance/README.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
-
-We then assume for the moment that the DataLoader is fast enough to be negligible in duration compared to the compute time. And thus we get a close to a perfect MFU (Model FLOPs Utilization):
-
-```
-[DL][  compute  ][DL][  compute  ][DL][  compute  ]
----------------------------------------------------> time
-|<--iteration-->||<--iteration-->||<--iteration-->|
-```
-
-which means that the GPU just needs to do many matmuls and it'd do it amazing fast. In this situation you get the highest ROI (Return on Investment).
-
-### Single node training
-
-The previous situation was fantastic due to the close to perfect MFU, but you realize that the training on a single GPU is going to take quite some time, since we are in AI race you'd probably want to finish the training sooner than later. So you'd ask - can I train the model on 8 GPUs instead, and the answer would be - yes, of course. With one caveat - at the end of each iteration you'd need to sync the gradients between the 8 processes (each process for a single GPU), so that each participating process of the training can benefit from what the other 7 have learned during the last iteration.
-
-footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
-
-footnote: in the ideal world the training on 1 gpu for 8 durations of time, should cost the same as training on 8 gpus for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements.
-
-If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2G * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each gpu, computing the sum of gradients and send this value back to each participating gpu so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
-
-Here is the all-reduce collective visualized:
-
-![all-reduce](images/all-reduce-collective.png)
-
-([source](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication))
-
-So we need to send 8GB twice, which means we need to send 16GB of data.
-
-footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating gpus. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75` and it becomes already very close to 2 at n=64.
-
-footnote: there is also the important issue of latency of the network - which is multiplied several times due to how data is gathered from all participating gpus. But, given that here we are moving a very large payload the latency contributes a very small overhead and for simplicity can be ignored.
-
-How long will it take to send 16GB of data?
-
-- A100 @ 300GBps: `16/300` = 0.053 secs
-- H100 @ 450GBps: `16/450` = 0.035 secs
-
-which is incredibly fast!
-
-And here is how our timeline will look like:
-
-```
-[DL][  compute ][comms][DL][  compute ][comms][DL][  compute ][comms]|
------------------------------------------------------------------------> time
-|<---- iteration ---->||<---- iteration ---->||<---- iteration ----->|
-```
-
-oh and this whole synchronization protocol is called DDP ([DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)) in the PyTorch lingo.
-
-#### Comms and compute overlap
-
-Even with this really fast comms the network still creates a bottleneck and leads to a short idling of the gpus. To solve this issue the advanced algorithms implement an overlap of comms and compute. Until now we approached the problem as one single transmission, but in reality each model is made of many layers and each layer can transmit the gradients it has computed, while the next layer is computing its gradients. So if you look at the level of the model, what happens in the `backward` path is:
-
-
-```
-[   compute   ][   compute   ][   compute   ]
-               [comms]        [comms]        [comms]
----------------------------------------------> time
-<- layer -1 ->|<- layer -2 ->|<- layer -3 ->|
-```
-
-so once the last layer (-1) computed its gradients it all-reduces them while the 2nd to last layer performs its `backward`, and so on, until the first layer finished with gradients and it finally sends its gradients out.
-
-So now you understand how overlapping works, So we can now update our bigger picture diagram to be:
-
-Now our timing diagram becomes very similar to the diagram we had for a single gpu:
-
-```
-[DL][  compute  ][DL][  compute  ][DL][  compute  ]
-[  comms ]       [  comms]        [  comms]
----------------------------------------------------> time
-|<--iteration-->||<--iteration-->||<--iteration-->|
-```
-
-and we hope that comms are faster than DL+compute, since if they aren't faster than we have the following gpu idling gaps:
-
-```
-[DL][  compute  ][idle][DL][  compute  ][idle][DL][  compute  ][idle]
-[         comms       ][         comms       ][         comms       ]
-----------------------------------------------------------------------> time
-|<---  iteration  --->||<---  iteration  --->||<---  iteration  --->|
-```
-
-#### Calculating TFLOPS
-
-Calculating TFLOPS answers the question of how long will it take to perform a compute.
-
-There is a bit of nomenclature confusion here as TFLOPS as the final `s` sometimes means `sec` and at other times just `ops`.
-
-For example, when you read, the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/#specifications) the TFLOPS there means TeraFloatingPointOperations per second.
-
-So let's define these abbreviations exactly:
-
-- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s)
-- TFLOP - TeraFLoatingpointOPerations (or TFLOPs - lower case `s` but it's already confusing)
-
-Also see the [wiki page](https://en.wikipedia.org/wiki/FLOPS) for more clarifications.
-
-For GPT-family of decoder transformers models we can use the math described in this [BLOOM-176 docs](https://github.com/bigscience-workshop/bigscience/tree/master/math#calculate-tflops):
-
-Here is how many TFLOP are processed per second:
-```
-tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)
-```
-
-This formula assume one uses [activation recomputation](../training/performance/README.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
-
-footnote: activation recomputation and gradient checkpointing both refer to the same technique.
-
-so let's remove the time component, which will give us the total TFLOP
-
-```
-tflop = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (total_gpus * 1e3)
-```
-
-So let's say we have:
-- `seqlen=2048` (sequence length)
-- `global_batch_size=16`
-
-and we already defined:
-- `total_gpus=8`
-- `model_size_in_B=2`
-
-This gives us:
-
-```
-tflops = 2 * 4 * 2 * 2048 * 16 / (8 * 1e3) = 65.536 TFLOP
-```
-
-So if we do a mixed half-precision training and most of the operations are done in half-precision then we can roughly say that we do [312 TFLOPS on A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) and usually a well optimized framework on a well-tuned hardware will do at least 50% MFU - that is it'll be able to compute at about 1/2 peak performance.
-
-footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
-
-So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
-
-Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
-
-And we measured our compute to be 0.42 secs, so here we have a problem as `0.053 > 0.42` so the comms will be slower than compute and the network is a bottleneck.
-
-You can now do several thought experiments - for example if you halve the batch size or the sequence length you will halve the compute time.
-
-footnote: this is a very rough suggestions since GPUs work the fastest when the matrices they multiple are huge. But this is good enough for a simplified thought experiment we are having here. In reality halving the dimension will not halve the compute time.
-
-OK, but hopefully at this point it's quite clear that if you remain at the boundaries of a single node, you don't need to worry about your GPUs idling.
-
-But what if you want to speed up the training even more and throw say 4x 8-gpu nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become an even bigger bottleneck.
-
-
-
-### Multiple node training
-
-So here we are continuing with the idea of 2B param model and we will now use 32 gpus across 4 nodes to speed up the training even more.
-
-While each group of 8 gpus is still connected with super-fast NVLink technology, the inter-node connections are usually in an order of magnitude slower.
-
-Let's say you have a 200Gbps connection. Let's repeat the math from the previous section of how long it'll take to reduce 16GB of gradients.
-
-16GB is 128Gb, and so at 200Gbps this will take 0.64 seconds.
-
-And if stick to the compute taking 0.42 seconds, here we end up with comms taking longer than compute since `0.64 > 0.42`.
-
-Let's bring both use cases together:
-
-| nodes | comms | compute | comms is a bottleneck |
-|-------|-------|---------|-----------------------|
-|     1 | 0.027 |    0.42 | no                    |
-|     4 |  0.64 |    0.42 | yes                   |
-
-on this 200Gbps inter-node setup the comms are 23x slower than the same performed on an intra-node NVlink connections.
-
-In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
-
-So in this particular situation if you were able to get a 400Gbps inter-node the speed would double and the comms will finish in 0.32 secs and thus will be faster than that 0.42 secs the compute would take.
-
-footnote: you will never be able to get the advertised speed fully on the application level, so if it's advertised as 400Gbps in the best case expect to get 320Gbps (about 80%). So make sure to take this into the account as well. Moreover, depending on the payload of each collective - the smaller the payload the smaller the actual network throughput will be.
-
-And remember this was all handling a pretty tiny as considered these days 2B param model.
-
-Now do the same math with 20B and 200B parameter model and you will see that you need to have a much much faster inter-node connectivity to efficiently scale.
-
-### Large model training
-
-Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single gpu so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
-
-It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../training/performance) and improve your MFU even more.
-
-As I have shown in these sections it should be possible to be able to do a back-of-envelope calculations once you understand the specific scalability technique and its networking costs, so that you could know ahead of time which Inter-node network speed you need to require from your acquisition manager. Of course, you also need to understand the particular model architecture and calculate how many TFLOP it will take to do a single iteration.
 
 
 ### Unidirectional vs Bidirectional (Duplex)
@@ -541,6 +337,223 @@ As of this writing I see that the product comes with either 100 or 200Gbps bandw
 Cornelis networks promised to launch 400Gbps NICs in Q3-2024.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
+
+
+
+
+
+
+
+
+
+
+## Understanding why inter-node network speed is of a huge importance
+
+This is probably one of the most important multi-segment section that you really want to understand well. While it seeks out to show how important the inter-node speed is, to build up the case it'll teach on the way many important training-related concepts.
+
+### The basics
+
+First, let's get a bit of a feeling what all those Gbps/GBps practically mean.
+
+If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send `80*4` 320GB of data, or 2560Gb (`*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds. Why does it matter?
+
+### 1-GPU training
+
+Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../training/performance/README.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
+
+We then assume for the moment that the DataLoader is fast enough to be negligible in duration compared to the compute time. And thus we get a close to a perfect MFU (Model FLOPs Utilization):
+
+```
+[DL][  compute  ][DL][  compute  ][DL][  compute  ]
+---------------------------------------------------> time
+|<--iteration-->||<--iteration-->||<--iteration-->|
+```
+
+which means that the GPU just needs to do many matmuls and it'd do it amazing fast. In this situation you get the highest ROI (Return on Investment).
+
+### Single node training
+
+The previous situation was fantastic due to the close to perfect MFU, but you realize that the training on a single GPU is going to take quite some time, since we are in AI race you'd probably want to finish the training sooner than later. So you'd ask - can I train the model on 8 GPUs instead, and the answer would be - yes, of course. With one caveat - at the end of each iteration you'd need to sync the gradients between the 8 processes (each process for a single GPU), so that each participating process of the training can benefit from what the other 7 have learned during the last iteration.
+
+footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
+
+footnote: in the ideal world the training on 1 gpu for 8 durations of time, should cost the same as training on 8 gpus for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements.
+
+If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2G * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each gpu, computing the sum of gradients and send this value back to each participating gpu so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
+
+Here is the all-reduce collective visualized:
+
+![all-reduce](images/all-reduce-collective.png)
+
+([source](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication))
+
+So we need to send 8GB twice, which means we need to send 16GB of data.
+
+footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating gpus. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75` and it becomes already very close to 2 at n=64.
+
+footnote: there is also the important issue of latency of the network - which is multiplied several times due to how data is gathered from all participating gpus. But, given that here we are moving a very large payload the latency contributes a very small overhead and for simplicity can be ignored.
+
+How long will it take to send 16GB of data?
+
+- A100 @ 300GBps: `16/300` = 0.053 secs
+- H100 @ 450GBps: `16/450` = 0.035 secs
+
+which is incredibly fast!
+
+And here is how our timeline will look like:
+
+```
+[DL][  compute ][comms][DL][  compute ][comms][DL][  compute ][comms]|
+-----------------------------------------------------------------------> time
+|<---- iteration ---->||<---- iteration ---->||<---- iteration ----->|
+```
+
+oh and this whole synchronization protocol is called DDP ([DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)) in the PyTorch lingo.
+
+#### Comms and compute overlap
+
+Even with this really fast comms the network still creates a bottleneck and leads to a short idling of the gpus. To solve this issue the advanced algorithms implement an overlap of comms and compute. Until now we approached the problem as one single transmission, but in reality each model is made of many layers and each layer can transmit the gradients it has computed, while the next layer is computing its gradients. So if you look at the level of the model, what happens in the `backward` path is:
+
+
+```
+[   compute   ][   compute   ][   compute   ]
+               [comms]        [comms]        [comms]
+---------------------------------------------> time
+<- layer -1 ->|<- layer -2 ->|<- layer -3 ->|
+```
+
+so once the last layer (-1) computed its gradients it all-reduces them while the 2nd to last layer performs its `backward`, and so on, until the first layer finished with gradients and it finally sends its gradients out.
+
+So now you understand how overlapping works, So we can now update our bigger picture diagram to be:
+
+Now our timing diagram becomes very similar to the diagram we had for a single gpu:
+
+```
+[DL][  compute  ][DL][  compute  ][DL][  compute  ]
+[  comms ]       [  comms]        [  comms]
+---------------------------------------------------> time
+|<--iteration-->||<--iteration-->||<--iteration-->|
+```
+
+and we hope that comms are faster than DL+compute, since if they aren't faster than we have the following gpu idling gaps:
+
+```
+[DL][  compute  ][idle][DL][  compute  ][idle][DL][  compute  ][idle]
+[         comms       ][         comms       ][         comms       ]
+----------------------------------------------------------------------> time
+|<---  iteration  --->||<---  iteration  --->||<---  iteration  --->|
+```
+
+#### Calculating TFLOPS
+
+Calculating TFLOPS answers the question of how long will it take to perform a compute.
+
+There is a bit of nomenclature confusion here as TFLOPS as the final `s` sometimes means `sec` and at other times just `ops`.
+
+For example, when you read, the [A100 spec](https://www.nvidia.com/en-us/data-center/a100/#specifications) the TFLOPS there means TeraFloatingPointOperations per second.
+
+So let's define these abbreviations exactly:
+
+- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s)
+- TFLOP - TeraFLoatingpointOPerations (or TFLOPs - lower case `s` but it's already confusing)
+
+Also see the [wiki page](https://en.wikipedia.org/wiki/FLOPS) for more clarifications.
+
+For GPT-family of decoder transformers models we can use the math described in this [BLOOM-176 docs](https://github.com/bigscience-workshop/bigscience/tree/master/math#calculate-tflops):
+
+Here is how many TFLOP are processed per second:
+```
+tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)
+```
+
+This formula assume one uses [activation recomputation](../training/performance/README.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
+
+footnote: activation recomputation and gradient checkpointing both refer to the same technique.
+
+so let's remove the time component, which will give us the total TFLOP
+
+```
+tflop = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (total_gpus * 1e3)
+```
+
+So let's say we have:
+- `seqlen=2048` (sequence length)
+- `global_batch_size=16`
+
+and we already defined:
+- `total_gpus=8`
+- `model_size_in_B=2`
+
+This gives us:
+
+```
+tflops = 2 * 4 * 2 * 2048 * 16 / (8 * 1e3) = 65.536 TFLOP
+```
+
+So if we do a mixed half-precision training and most of the operations are done in half-precision then we can roughly say that we do [312 TFLOPS on A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) and usually a well optimized framework on a well-tuned hardware will do at least 50% MFU - that is it'll be able to compute at about 1/2 peak performance.
+
+footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
+
+So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
+
+Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
+
+And we measured our compute to be 0.42 secs, so here we have a problem as `0.053 > 0.42` so the comms will be slower than compute and the network is a bottleneck.
+
+You can now do several thought experiments - for example if you halve the batch size or the sequence length you will halve the compute time.
+
+footnote: this is a very rough suggestions since GPUs work the fastest when the matrices they multiple are huge. But this is good enough for a simplified thought experiment we are having here. In reality halving the dimension will not halve the compute time.
+
+OK, but hopefully at this point it's quite clear that if you remain at the boundaries of a single node, you don't need to worry about your GPUs idling.
+
+But what if you want to speed up the training even more and throw say 4x 8-gpu nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become an even bigger bottleneck.
+
+
+
+### Multiple node training
+
+So here we are continuing with the idea of 2B param model and we will now use 32 gpus across 4 nodes to speed up the training even more.
+
+While each group of 8 gpus is still connected with super-fast NVLink technology, the inter-node connections are usually in an order of magnitude slower.
+
+Let's say you have a 200Gbps connection. Let's repeat the math from the previous section of how long it'll take to reduce 16GB of gradients.
+
+16GB is 128Gb, and so at 200Gbps this will take 0.64 seconds.
+
+And if stick to the compute taking 0.42 seconds, here we end up with comms taking longer than compute since `0.64 > 0.42`.
+
+Let's bring both use cases together:
+
+| nodes | comms | compute | comms is a bottleneck |
+|-------|-------|---------|-----------------------|
+|     1 | 0.027 |    0.42 | no                    |
+|     4 |  0.64 |    0.42 | yes                   |
+
+on this 200Gbps inter-node setup the comms are 23x slower than the same performed on an intra-node NVlink connections.
+
+In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
+
+So in this particular situation if you were able to get a 400Gbps inter-node the speed would double and the comms will finish in 0.32 secs and thus will be faster than that 0.42 secs the compute would take.
+
+footnote: you will never be able to get the advertised speed fully on the application level, so if it's advertised as 400Gbps in the best case expect to get 320Gbps (about 80%). So make sure to take this into the account as well. Moreover, depending on the payload of each collective - the smaller the payload the smaller the actual network throughput will be.
+
+And remember this was all handling a pretty tiny as considered these days 2B param model.
+
+Now do the same math with 20B and 200B parameter model and you will see that you need to have a much much faster inter-node connectivity to efficiently scale.
+
+### Large model training
+
+Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single gpu so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
+
+It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../training/performance) and improve your MFU even more.
+
+As I have shown in these sections it should be possible to be able to do a back-of-envelope calculations once you understand the specific scalability technique and its networking costs, so that you could know ahead of time which Inter-node network speed you need to require from your acquisition manager. Of course, you also need to understand the particular model architecture and calculate how many TFLOP it will take to do a single iteration.
+
+
+
+
+
+
 
 
 ## NUMA Affinity
