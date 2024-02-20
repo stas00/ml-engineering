@@ -159,6 +159,7 @@ Current high end accelerators (some aren't GA yet):
 | NVIDIA H100 SXM      |                80 | HBM3  |              3.35 |
 | NVIDIA H100 PCIe     |                80 | HBM3  |              2.00 |
 | NVIDIA H100 dual NVL |               188 | HBM3  |              7.80 |
+| NVIDIA H200 SXM      |               141 | HBM3e |              4.80 |
 | AMD MI250            |               128 | HBM2e |              3.28 |
 | AMD MI250X           |               128 | HBM2e |              3.28 |
 | AMD MI300X           |               192 | HBM3  |              5.30 |
