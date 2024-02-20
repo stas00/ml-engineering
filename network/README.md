@@ -63,14 +63,14 @@ footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
 footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
 
-Here is intra-node theoretical peak bandwidth cross-comparison for current technologies (unidirectional bandwidth) sorted by bandwidth:
+Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
 | Interconnect |  GBps |
 | :----------- | ----: |
 | NVlink 4     | 450.0 |
-| MI300X       | 448.0 |
+| XGMI MI300X  | 448.0 |
 | NVlink 3     | 300.0 |
-| MI250X       | 350.0 |
+| XGMI MI250X  | 350.0 |
 | Gaudi2       | 262.5 |
 | PCIe 5       | 126.0 |
 | PCIe 4       |  62.0 |
@@ -249,20 +249,21 @@ As inter-node hardware is about of an order of magnitude slower than intra-node 
 
 When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (EFA, and others not yet disclosed).
 
-Here is inter-node theoretical peak bandwidth cross-comparison for current technologies (unidirectional bandwidth) sorted by bandwidth:
+Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
-| Interconnect         |  Gbps |
-| :----------------    | ----: |
-| InfiniBand GDR/8     |  3200 |
-| EFA v2               |  3200 |
-| Gaudi2               |  2400 |
-| InfiniBand XDR/8     |  1600 |
-| OPA (MI250)          |  1600 |
-| GPUDirect-TCPX       |   800 |
-| HPE Slingshot        |   800 |
-| EFA v1               |   400 |
-|                      |       |
-| OPA (MI300X Q3-2024) |  3200 |
+| Interconnect              |  Gbps |
+| :----------------         | ----: |
+| InfiniBand GDR/8          |  3200 |
+| EFA v2                    |  3200 |
+| Gaudi2                    |  2400 |
+| InfiniBand XDR/8          |  1600 |
+| OmniPath (MI250)          |  1600 |
+| GPUDirect-TCPX            |   800 |
+| HPE Slingshot             |   800 |
+| EFA v1                    |   400 |
+|                           |       |
+| OmniPath (MI300X Q3-2024) |  3200 |
+|                           |       |
 
 You will find the details analyses of each in the following sections.
 
@@ -299,10 +300,10 @@ Here are some examples of NVIDIA devices with the fastest IB:
 
 ### EFA
 
-[Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent technology created by AWS.
+[Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent inter-node networking technology created by AWS.
 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
-- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances)
+- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 NICs!)
 
 
 
