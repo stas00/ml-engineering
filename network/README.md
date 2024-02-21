@@ -75,6 +75,8 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 | PCIe 5       | 126.0 |
 | PCIe 4       |  62.0 |
 
+footnote: NVSwitch operates at the same speed as NVLink of that generation - it's unclear whether it belongs to intra- or inter-node group as it creates a super-node of up to 256 GPUs.
+
 You will find the details analyses of each in the following sections.
 
 
