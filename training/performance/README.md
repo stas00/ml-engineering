@@ -1,7 +1,5 @@
 # Software Tune Up For The Best Performance
 
-
-
 The faster you can make your model to train the sooner the model will finish training, which is important not only to being first to publish something, but also potentially saving a lot of money.
 
 In general maximizing throughput is all about running many experiments and measuring the outcome and choosing the one that is superior.
@@ -9,9 +7,12 @@ In general maximizing throughput is all about running many experiments and measu
 In certain situations your modeling team may ask you to choose some hyper parameters that will be detrimental to throughput but overall beneficial for the overall model's success.
 
 
+## Glossary and concepts
 
+- HFU: Hardware FLOPS Utilization
+- MFU: Model FLOPS Utilization
 
-## MACs vs FLOP vs FLOPS vs FLOP/s
+### MACs vs FLOP vs FLOPS vs FLOP/s
 
 This section is here to try to disambiguate the common performance metric definitions and their relationship to each other.
 
@@ -48,7 +49,7 @@ If the definition is ambiguous try to search for context which should help to de
 - If it talks about the amount of compute required to do something it refers to the total amount of operations.
 
 
-## TFLOPS as a performance metric
+### TFLOPS as a performance metric
 
 Before you start optimizing the performance of your training setup you need a metric that you can use to see whether the throughput is improving or not. You can measure seconds per iteration, or iterations per second, or some other such timing, but there is a more useful metric that measures TFLOPS.
 
@@ -98,6 +99,14 @@ The exact formula is in Equation 3 of Section 5.1 of the [Efficient Large-Scale 
 
 footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operations per layer.
 
+
+### MFU vs HFU
+
+Model FLOPS Utilization (MFU) and Hardware FLOPS Utilization (HFU) estimate how well the hardware is being utilized during `forward` and `backward` passes of the model (including any syncing networking overhead and possibly DataLoader IO).
+
+HFU measures the actual FLOPS. For example, the concept [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all of parts of the `forward` pass a second time, so factually more FLOPS are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
+
+[Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
 
 
