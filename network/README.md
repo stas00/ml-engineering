@@ -55,7 +55,7 @@ case study: for a while I couldn't understand why when I run the nccl-tests all_
 There are multiple platforms/solutions out there that provide intra-node networking:
 
 1. Generic: [PCIe](#pcie)
-2. NVIDIA: [NVLink](#nvlink) and [NVSwitch](#nvswitch)
+2. NVIDIA: [NVLink](#nvlink) and [NVSwitch L1](#nvswitch-l1)
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2)
 
@@ -75,7 +75,7 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 | PCIe 5       | 126.0 |
 | PCIe 4       |  62.0 |
 
-footnote: NVSwitch operates at the same speed as NVLink of that generation - it's unclear whether it belongs to intra- or inter-node group as it creates a super-node of up to 256 GPUs.
+footnote: NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch L1](#nvswitch-l1) and for inter-node [NVSwitch L2](#nvswitch-l2).
 
 You will find the details analyses of each in the following sections.
 
@@ -202,7 +202,7 @@ Of course, other A100 and H100s node reports may vary, e.g. different number of 
 
 
 
-### NVSwitch
+### NVSwitch L1
 
 [NVSwitch](https://www.nvidia.com/en-us/data-center/nvlink/) can connect more than 8 GPUs at the speed of [NVLink](#nvlink). It's advertised to connect up to 256 GPUs in the future generations of the switch.
 
@@ -210,7 +210,9 @@ The benefit of connecting more than 8 GPUs at the speed of NVLink is that it all
 
 For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Depspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
-There are 2 types of NVSwitch - one that is used for intra-node (L1 switch) and another for inter-node (L2 switch).
+There are 2 types of NVSwitch:
+1. NVSwitch L1 that is used for intra-node
+2. [NVSwitch L2](#nvswitch-l2) that is used for inter-node
 
 The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
@@ -272,9 +274,11 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 You will find the details analyses of each in the following sections.
 
-### NVSwitch (inter-node)
+### NVSwitch L2
 
-In addition to [NVSwitch](#nvswitch) intra-node a similarly named but slightly different type of NVSwitch is also used for inter-node.
+While [NVSwitch L1](#nvswitch-l1) is used for intra-node communications, NVSwitch L2 is used for inter-node communications. The links use the same speeds as NVLink - so when both are used inter- and intra-node bandwidth is the same.
+
+For the actual bandwidth see [NVLink](#nvlink)
 
 
 ### InfiniBand
