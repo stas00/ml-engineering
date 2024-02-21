@@ -109,6 +109,17 @@ HFU measures the actual FLOPS. For example, the concept [Gradient checkpointing/
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
 
+For example [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) published the following stats for A100-80GB:
+
+| Model Size | Model FLOPs Utilization | Hardware FLOPs Utilization |
+| :---: | :---: | :---: |
+| 22B   | 41.5% | 43.7% |
+| 175B  | 51.4% | 52.8% |
+| 530B  | 56.0% | 57.0% |
+| 1T    | 56.3% | 57.0% |
+
+More recent H100+A100 MFU/HFU numbers have been published [here](https://github.com/mosaicml/llm-foundry/tree/main/scripts/train/benchmarking#mfu-and-hfu).
+
 
 ## How To Improve Speed and Save Memory
 
