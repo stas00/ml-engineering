@@ -508,7 +508,7 @@ So continuing this train of thought it means that the setup will have about 156T
 
 Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
 
-And we measured our compute to be 0.42 secs, so here we have a problem as `0.053 > 0.42` so the comms will be slower than compute and the network is a bottleneck.
+And we measured our compute to be 0.42 secs, so here the network isn't a bottleneck as `0.42 > 0.053` so the compute will be slower than communication.
 
 You can now do several thought experiments - for example if you halve the batch size or the sequence length you will halve the compute time.
 
