@@ -103,7 +103,12 @@ The following env vars are used primarily to tune up performance.
 
 #### `NCCL_ALGO`
 
-This one defines which algorithms NCCL will use. Typically it's one of tree, ring, collnetdirect and collnetchain.
+This one defines which algorithms NCCL will use. Typically it's one of:
+
+1. Tree
+2. Ring
+3. CollnetDirect and CollnetChain (IB SHARP)
+4. NVLS (NVLink SHARP)
 
 I was asking questions about how a user can do the optimization and was told at [this NCCL Issue](https://github.com/NVIDIA/nccl/issues/790) that basically the user shouldn't try to optimize anything as NCCL has a ton of smart algorithms inside that will try to automatically switch from one algorithm to another depending on a concrete situation.
 
@@ -116,7 +121,6 @@ If you use `NCCL_ALGO` you need to list the algorithms to consider, but otherwis
 When asking about which algorithm is better, I received:
 
 > Roughly speaking, ring is superior in terms of peak bandwidth (except on 2 nodes), tree is superior in terms of base latency (especially as we scale). `Bandwidth = Size / Time`, so whether you look at the time or the bandwidth for a given size, it will be a combination of both the peak bandwidth and the base latency. For a fixed size, as you scale, the base latency of ring will become prevalent and tree will be better.
-
 
 There is also a new algo, named `NVLS`, which if NVLink SHARP is available will run faster than NVLink itself, e.g. with NVLink 4.0 (450GBps) one can clock 480GBps doing all-reduce benchmarks. They are working on the inter-node version of that which [requires IB or RoCE](https://github.com/NVIDIA/nccl/issues/1031#issuecomment-1773965518) - this new algo is not documented anywhere as of this writing.
 
