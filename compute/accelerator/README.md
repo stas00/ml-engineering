@@ -98,9 +98,11 @@ This is one of the key characteristics that the accelerators are judged by. The 
 | FP8 Tensor Core        |          624 |        1248 |
 | INT8 Tensor Core       |          624 |        1248 |
 
-footnote: INT8 is measured in TeraOperations as it's not a floating operation.
+Notes:
 
-footnote: the term FLOPS could mean either the total number of FloatingPointOperations, e.g. when counting how many FLOPS a single Transformer iteration takes, and it could also mean FloatingPointOperations per second - so watch out for the context. When you read an accelerator spec it's almost always a per second definition. When model architectures are discussed it's usually just the total number of FloatingPointOperations.
+* INT8 is measured in TeraOperations as it's not a floating operation.
+
+* the term FLOPS could mean either the total number of FloatingPointOperations, e.g. when counting how many FLOPS a single Transformer iteration takes, and it could also mean FloatingPointOperations per second - so watch out for the context. When you read an accelerator spec it's almost always a per second definition. When model architectures are discussed it's usually just the total number of FloatingPointOperations.
 
 So you can see that int8 is 2x faster than bf16 which in turn is 2x faster than tf32.
 
@@ -123,13 +125,15 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | Intel Gaudi2         |     V |     V |    V |    V |    V |    V |
 | Google TPU v5p       |     X |     X |    X |  459 |    X |  918 |
 | AMD MI250X           |  47.9 |     X |  383 |  383 |    X |  383 |
-| AMD MI250            |  45.3 |     X |  362 |  362 |    X |  362 |
 | NVIDIA L40S          |  91.6 | 183.0 |  362 |  362 |  733 |  733 |
+| AMD MI250            |  45.3 |     X |  362 |  362 |    X |  362 |
 | NVIDIA A100 SXM      |  19.5 | 156.0 |  312 |  312 |    X |  624 |
 | Google TPU v4        |     X |     X |    X |  275 |    X |    X |
 | Google TPU v5e       |     X |     X |    X |  197 |    X |  394 |
 
 Notes:
+
+* int8 is measured in TeraOperations as it's not a floating operation.
 
 * Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
 
