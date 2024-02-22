@@ -116,7 +116,6 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 
 | Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
-| NVIDIA H100 dual NVL | 134.0 | 989.5 |      1978 | 3958 | 3958 |
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 2600 | 2600 |
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
@@ -127,8 +126,9 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA L40S          |  91.6 | 183.0 |       362 |  733 |  733 |
 | NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |  624 |  624 |
 
-
 footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
+
+footnote: didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same as H100 but 2x everything.
 
 footnote: when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
@@ -181,7 +181,6 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
 | AMD MI300X           |               192 | HBM3  |                 5.30 |
-| NVIDIA H100 dual NVL |               188 | HBM3  |                 7.80 |
 | NVIDIA GH200 SXM (2) |               141 | HBM3e |                 4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                 4.80 |
 | AMD MI250            |               128 | HBM2e |                 3.28 |
@@ -192,6 +191,9 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
 | NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
 | NVIDIA L40S          |                48 | GDDR6 |                 0.86 |
+
+footnote: didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same as H100 but 2x everything.
+
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
