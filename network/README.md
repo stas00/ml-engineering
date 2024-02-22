@@ -260,16 +260,21 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 | Interconnect        | NICs x Gbps | Total Gbps | Notes   |
 | :------------------ | ----------: | ---------: | :------ |
 | NVSwitch (NVlink-4) |       8x450 |       3600 |         |
-| InfiniBand GDR      |       8x400 |       3200 |         |
+| InfiniBand GDR3200  |       8x400 |       3200 |         |
 | EFA v2              |      32x100 |       3200 |         |
 | Gaudi2              |      24x100 |       2400 |         |
-| InfiniBand XDR      |       8x200 |       1600 |         |
+| InfiniBand XDR1600  |       8x200 |       1600 |         |
 | GPUDirect-TCPX      |       4x200 |        800 |         |
 | HPE Slingshot       |       4x200 |        800 |         |
 | Omni-Path CN100     |       8x100 |        800 |         |
 | EFA v1              |       4x100 |        400 |         |
+| InfiniBand NDR400   |       4x100 |        400 |         |
 |                     |             |            |         |
 | Omni-Path CN5000    |       8x400 |       3200 | Q3-2024 |
+
+Notes:
+
+* these are common/popular node setups - some custom nodes may have a different configuration with less NICs and in rare cases more NICs.
 
 You will find the details analyses of each in the following sections.
 
@@ -770,4 +775,5 @@ case study: we had this issue at JeanZay HPC when we were doing preliminary expe
 
 ## Contributors
 
-[Oren Leung](https://github.com/OrenLeung)
+[Oren Leung](https://github.com/OrenLeung),
+[Stéphane Requena](https://twitter.com/s_requena),
