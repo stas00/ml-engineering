@@ -114,17 +114,21 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by fp16/bf16 column.
 
-| Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 | fp8  | int8 |
+| Accelerator \ TFLOPS |  fp32 | tf32  | fp16/bf16 | fp8  | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
 | AMD MI300X           | 163.4 | 653.7 |      1300 | 2600 | 2600 |
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
-| Intel Gaudi2         |     V |     V |         V | V    |    V |
-| AMD MI250X           |  47.9 |     X |       383 | X    |  383 |
-| AMD MI250            |  45.3 |     X |       362 | X    |  362 |
-| NVIDIA L40S          |  91.6 | 183.0 |       362 | 733  |  733 |
-| NVIDIA A100 SXM      |  19.5 | 156.0 |       312 | X    |  624 |
+| Intel Gaudi2         |     V |     V |         V |    V |    V |
+| Google TPU v5p       |     X |     X |       459 |    X |  918 |
+| AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
+| AMD MI250            |  45.3 |     X |       362 |    X |  362 |
+| NVIDIA L40S          |  91.6 | 183.0 |       362 |  733 |  733 |
+| NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |    X |  624 |
+| Google TPU v4        |     X |     X |       275 |    X |    X |
+| Google TPU v5e       |     X |     X |       197 |    X |  394 |
+
 
 
 footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
@@ -177,7 +181,7 @@ Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how ma
 
 Typically the more on-device memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
-Here are the memory specs for the recent high end accelerators (some aren't GA yet):
+Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size:
 
 | Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
@@ -188,10 +192,13 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | AMD MI250X           |               128 | HBM2e |                 3.28 |
 | NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
 | Intel Gaudi2         |                96 | HBM2e |                 2.45 |
+| Google TPU v5p       |                95 | HBM2e |                 4.80 |
 | NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
 | NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
 | NVIDIA L40S          |                48 | GDDR6 |                 0.86 |
+| Google TPU v4        |                32 | HBM2  |                 2.40 |
+| Google TPU v5e       |                16 | HBM2  |                 1.60 |
 
 footnote: didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same as H100 but 2x everything.
 
