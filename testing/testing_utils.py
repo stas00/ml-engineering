@@ -767,12 +767,14 @@ class TestCasePlus(unittest.TestCase):
 
 def mockenv(**kwargs):
     """
-    this is a convenience wrapper, that allows this ::
+    this is a convenience wrapper, that allows this:
 
     @mockenv(RUN_SLOW=True, USE_TF=False)
     def test_something():
         run_slow = os.getenv("RUN_SLOW", False)
         use_tf = os.getenv("USE_TF", False)
+
+    Additionally see `mockenv_context` to use a context manager
 
     """
     return mock.patch.dict(os.environ, kwargs)
@@ -789,6 +791,11 @@ def mockenv_context(*remove, **update):
     Args:
       remove: Environment variables to remove.
       update: Dictionary of environment variables and values to add/update.
+
+    Example:
+
+    with mockenv_context(FOO="1"):
+        execute_subprocess_async(cmd, env=self.get_env())
     """
     env = os.environ
     update = update or {}
