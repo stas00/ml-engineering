@@ -112,7 +112,7 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
 
-Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity):
+Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by fp16/bf16 column.
 
 | Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
@@ -121,10 +121,10 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
-| NVIDIA L40S          |  91.6 | 183.0 |       362 |  733 |  733 |
 | Intel Gaudi2         |     V |     V |         V |    V |    V |
 | AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
 | AMD MI250            |  45.3 |     X |       362 |    X |  362 |
+| NVIDIA L40S          |  91.6 | 183.0 |       362 |  733 |  733 |
 | NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |  624 |  624 |
 
 
