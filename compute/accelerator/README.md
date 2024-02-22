@@ -216,7 +216,8 @@ The only important practical understanding for heat is that if the accelerators 
 
 ## High end accelerators for LLM/VLM workloads
 
-### Cloud and in-house accelerators
+### Cloud and on-premises  accelerator clusters
+ accelerators
 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
@@ -234,7 +235,6 @@ AMD:
 Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 
-
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)
 
@@ -242,7 +242,7 @@ SambaNova:
 - [DataScale SN30](https://sambanova.ai/products/datascale/)
 
 
-### In-house accelerator clusters
+### On-premises accelerator clusters
 
 Cerebras:
 - [clusters](https://www.cerebras.net/product-cluster/)
@@ -257,7 +257,7 @@ based on WaferScale Engine (WSE).
 These can be only used via clouds:
 
 Google
-- [TPUs](https://cloud.google.com/tpu) - lock-in, can't switch to another vendor like NVIDIA -> AMD
+- [TPUs](https://cloud.google.com/tpu), [specs])(https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) - lock-in, can't switch to another vendor like NVIDIA -> AMD
 
 Cerebras:
 - [Cloud](https://www.cerebras.net/product-cloud/)
