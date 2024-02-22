@@ -120,14 +120,14 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA H100 SXM      |  67.0 | 494.5 |  989 |  989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |  989 |  989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |  756 |  756 | 1513 | 1513 |
-| Intel Gaudi2         |     V | V     |    V |    V | V    |    V |
-| Google TPU v5p       |     X | X     |    X |  459 | X    |  918 |
-| AMD MI250X           |  47.9 | X     |  383 |  383 | X    |  383 |
-| AMD MI250            |  45.3 | X     |  362 |  362 | X    |  362 |
-| NVIDIA L40S          |  91.6 | 183.0 |  362 |  362 | 733  |  733 |
-| NVIDIA A100 SXM      |  19.5 | 156.0 |  312 |  312 | X    |  624 |
-| Google TPU v4        |     X | X     |    X |  275 | X    |    X |
-| Google TPU v5e       |     X | X     |    X |  197 | X    |  394 |
+| Intel Gaudi2         |     V |     V |    V |    V |    V |    V |
+| Google TPU v5p       |     X |     X |    X |  459 |    X |  918 |
+| AMD MI250X           |  47.9 |     X |  383 |  383 |    X |  383 |
+| AMD MI250            |  45.3 |     X |  362 |  362 |    X |  362 |
+| NVIDIA L40S          |  91.6 | 183.0 |  362 |  362 |  733 |  733 |
+| NVIDIA A100 SXM      |  19.5 | 156.0 |  312 |  312 |    X |  624 |
+| Google TPU v4        |     X |     X |    X |  275 |    X |    X |
+| Google TPU v5e       |     X |     X |    X |  197 |    X |  394 |
 
 
 
