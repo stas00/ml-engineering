@@ -116,7 +116,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 
 | Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
-| AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
+| AMD MI300X           | 163.4 | 653.7 |      1300 | 2600 | 2600 |
 | NVIDIA H100 dual NVL | 134.0 | 989.5 |      1978 | 3958 | 3958 |
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
