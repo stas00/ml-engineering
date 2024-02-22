@@ -111,7 +111,6 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
-
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by bf16.
 
 | Accelerator \ TFLOPS |  fp32 | tf32  | fp16 | bf16 | fp8  | int8 |
@@ -128,8 +127,6 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA A100 SXM      |  19.5 | 156.0 |  312 |  312 |    X |  624 |
 | Google TPU v4        |     X |     X |    X |  275 |    X |    X |
 | Google TPU v5e       |     X |     X |    X |  197 |    X |  394 |
-
-
 
 footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
 
