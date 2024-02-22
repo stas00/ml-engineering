@@ -116,16 +116,17 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 
 | Accelerator \ TFLOPS |  fp32 |  tf32 | fp16/bf16 |  fp8 | int8 |
 | :---------------     | ----: | ----: | --------: | ---: | ---: |
-| NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |  624 |  624 |
-| AMD MI250            |  45.3 |     X |       362 |    X |  362 |
-| AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
-|                      |       |       |           |      |      |
+| AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
+| NVIDIA H100 dual NVL | 134.0 | 989.5 |      1978 | 3958 | 3958 |
 | NVIDIA H100 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H200 SXM      |  67.0 | 494.5 |       989 | 1979 | 1979 |
 | NVIDIA H100 PCIe     |  51.0 | 378.0 |       756 | 1513 | 1513 |
-| NVIDIA H100 dual NVL | 134.0 | 989.5 |       989 | 3958 | 3958 |
-| AMD MI300X           | 163.4 | 653.7 |      1300 | 5220 | 2600 |
+| NVIDIA L40S          |  91.6 | 183.0 |       362 |  733 |  733 |
 | Intel Gaudi2         |     V |     V |         V |    V |    V |
+| AMD MI250X           |  47.9 |     X |       383 |    X |  383 |
+| AMD MI250            |  45.3 |     X |       362 |    X |  362 |
+| NVIDIA A100 SXM      |  19.5 | 156.0 |       312 |  624 |  624 |
+
 
 footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
 
@@ -179,19 +180,18 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 
 | Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
-| NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
-| NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
-| NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
+| AMD MI300X           |               192 | HBM3  |                 5.30 |
 | NVIDIA H100 dual NVL |               188 | HBM3  |                 7.80 |
-| NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
 | NVIDIA GH200 SXM (2) |               141 | HBM3e |                 4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                 4.80 |
 | AMD MI250            |               128 | HBM2e |                 3.28 |
 | AMD MI250X           |               128 | HBM2e |                 3.28 |
-| AMD MI300X           |               192 | HBM3  |                 5.30 |
+| NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
 | Intel Gaudi2         |                96 | HBM2e |                 2.45 |
-|                      |                   |       |                      |
-
+| NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
+| NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
+| NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
+| NVIDIA L40S          |                48 | GDDR6 |                 0.86 |
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
@@ -217,6 +217,7 @@ NVIDIA:
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability but already getting outdated.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, becoming available on all Tier-1 compute clouds.
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - first units have been reported to become available.
+- [L40S](https://www.nvidia.com/en-us/data-center/l40s/) - a powerful
 
 AMD:
 - [MI250](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250.html) ~= A100 - very few clouds have them
