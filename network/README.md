@@ -257,20 +257,19 @@ When it comes to inter-node networking hardware, there are the well established 
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
-| Interconnect              |  Gbps |
-| :----------------         | ----: |
-| NVSwitch (NVlink-4)       |  3600 |
-| InfiniBand GDR/8          |  3200 |
-| EFA v2                    |  3200 |
-| Gaudi2                    |  2400 |
-| InfiniBand XDR/8          |  1600 |
-| OmniPath (MI250)          |  1600 |
-| GPUDirect-TCPX            |   800 |
-| HPE Slingshot             |   800 |
-| EFA v1                    |   400 |
-|                           |       |
-| OmniPath (MI300X Q3-2024) |  3200 |
-|                           |       |
+| Interconnect        | NICs x Gbps | Total Gbps | Notes   |
+| :------------------ | ----------: | ---------: | :------ |
+| NVSwitch (NVlink-4) |       8x450 |       3600 |         |
+| InfiniBand GDR      |       8x400 |       3200 |         |
+| EFA v2              |      32x100 |       3200 |         |
+| Gaudi2              |      24x100 |       2400 |         |
+| InfiniBand XDR      |       8x200 |       1600 |         |
+| GPUDirect-TCPX      |       4x200 |        800 |         |
+| HPE Slingshot       |       4x200 |        800 |         |
+| Omni-Path CN100     |       8x100 |        800 |         |
+| EFA v1              |       4x100 |        400 |         |
+|                     |             |            |         |
+| Omni-Path CN5000    |       8x400 |       3200 | Q3-2024 |
 
 You will find the details analyses of each in the following sections.
 
@@ -335,20 +334,21 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 ### GPUDirect-TCPX
 
-GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 instances of GCP. The docs are scarce, but here is [some information](https://cloud.google.com/compute/docs/gpus/gpudirect)
+GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 instances of GCP. The docs are scarce, but here is [some information](https://cloud.google.com/compute/docs/gpus/gpudirect).
 
 
 
-### OmniPath
+### Omni-Path
 
-[OmniPath Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks.
+[Omni-Path Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks.
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
 As of this writing I see that the product comes with either 100 or 200Gbps bandwidth. So it's unlikely you will see anybody offering this solution for ML workloads, unless they manage to install many NICs perhaps?
 
+[CN-100](Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA) 100Gbps NICs have been around for many years now.
 
-Cornelis networks promised to launch 400Gbps NICs in Q3-2024.
+[CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs will be launched by Cornelis Networks in Q3-2024. One upcoming MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
