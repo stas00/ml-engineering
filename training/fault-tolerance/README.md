@@ -530,9 +530,9 @@ Here we tell SLURM to run the job for 5 minutes only (`--time=0:05:00`) and we a
 
 ### QoS-based SLURM preemption
 
-We haven't discussed so far what happens when Quality of Service (QoS) is used, which may also forcefully pre-empt an existing job. The functionality is the same as job's-allocated-time-is-about-to-end sort of pre-emption, except it can happen any time and not X seconds before the end of the job.
+We haven't discussed so far what happens when Quality of Service (QoS) is used, which may also forcefully preempt an existing job. The functionality is the same as job's-allocated-time-is-about-to-end sort of pre-emption, except it can happen any time and not X seconds before the end of the job.
 
-Consider a SLURM setup where you have `--qos=high` which can pre-empt `--qos=low` jobs and the low priority job has grace time of 10 minutes to shut down:
+Consider a SLURM setup where you have `--qos=high` which can preempt `--qos=low` jobs and the low priority job has grace time of 10 minutes to shut down:
 
 ```
 $ sacctmgr show qos format=name,priority,preempt,MaxTRESPerUser,GraceTime,Preempt,Flags

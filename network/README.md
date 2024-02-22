@@ -18,6 +18,7 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary and concepts
 
+- ALU: Arithmetic Logic Units
 - DMA: Direct Memory Access
 - EFA: Elastic Fabric Adapter
 - HCA: Host Channel Adapter
@@ -55,7 +56,7 @@ case study: for a while I couldn't understand why when I run the nccl-tests all_
 There are multiple platforms/solutions out there that provide intra-node networking:
 
 1. Generic: [PCIe](#pcie)
-2. NVIDIA: [NVLink](#nvlink) and [NVSwitch L1](#nvswitch-l1)
+2. NVIDIA: [NVLink](#nvlink) and [NVSwitch](#nvswitch)
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2)
 
@@ -75,7 +76,7 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 | PCIe 5       | 126.0 |
 | PCIe 4       |  62.0 |
 
-footnote: NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch L1](#nvswitch-l1) and for inter-node [NVSwitch L2](#nvswitch-l2).
+footnote: NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
 
 You will find the details analyses of each in the following sections.
 
@@ -202,7 +203,7 @@ Of course, other A100 and H100s node reports may vary, e.g. different number of 
 
 
 
-### NVSwitch L1
+### NVSwitch
 
 [NVSwitch](https://www.nvidia.com/en-us/data-center/nvlink/) can connect more than 8 GPUs at the speed of [NVLink](#nvlink). It's advertised to connect up to 256 GPUs in the future generations of the switch.
 
@@ -211,8 +212,10 @@ The benefit of connecting more than 8 GPUs at the speed of NVLink is that it all
 For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Depspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
 There are 2 types of NVSwitch:
-1. NVSwitch L1 that is used for intra-node
-2. [NVSwitch L2](#nvswitch-l2) that is used for inter-node
+1. NVSwitch that is used for intra-node connectivity (L1)
+2. [NVLink Switch](#nvlink-switch) that is used for inter-node connectivity (L2)
+
+NVSwitch gen 1 came out with V100, gen 2 with A100, and gen 3 with H100 - the speed corresponds to the NVLink version of the same technology.
 
 The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
@@ -220,7 +223,7 @@ NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 GBps per node, for a total of 57.6 GBps in total.
 
-Additionally, NVSwitch comes with NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP) which can boost both the intra- and inter-node speeds. For example, NCCL is working on `NCCL_ALGO=NVLS` which already boosts the intra-node bandwidth above the normal spec and work is being done to boost inter-node as well.
+Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds. For example, NCCL is working on `NCCL_ALGO=NVLS` which already boosts the intra-node bandwidth above the normal spec and as of this writing work is being done to boost inter-node bandwidth as well.
 
 
 ### Infinity Fabric / xGMI
@@ -259,16 +262,20 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect        | NICs x Gbps | Total Gbps | Notes   |
 | :------------------ | ----------: | ---------: | :------ |
-| NVSwitch (NVlink-4) |       8x450 |       3600 |         |
+| NVLink Switch gen3  |       8x450 |       3600 | H100    |
 | InfiniBand GDR3200  |       8x400 |       3200 |         |
 | EFA v2              |      32x100 |       3200 |         |
+| NVLink Switch gen2  |       8x300 |       2400 | A100    |
 | Gaudi2              |      24x100 |       2400 |         |
 | InfiniBand XDR1600  |       8x200 |       1600 |         |
+| NVLink Switch gen1  |       8x150 |       1200 | V100    |
 | GPUDirect-TCPX      |       4x200 |        800 |         |
 | HPE Slingshot       |       4x200 |        800 |         |
 | Omni-Path CN100     |       8x100 |        800 |         |
 | EFA v1              |       4x100 |        400 |         |
 | InfiniBand NDR400   |       4x100 |        400 |         |
+|                     |             |            |         |
+| in the future:      |             |            |         |
 |                     |             |            |         |
 | Omni-Path CN5000    |       8x400 |       3200 | Q3-2024 |
 
@@ -278,16 +285,17 @@ Notes:
 
 You will find the details analyses of each in the following sections.
 
-### NVSwitch L2
+### NVLink Switch
 
-While [NVSwitch L1](#nvswitch-l1) is used for intra-node communications, NVSwitch L2 is used for inter-node communications. The links use the same speeds as NVLink - so when both are used inter- and intra-node bandwidth is the same.
+While [NVSwitch](#nvswitch) (Layer 1 switch) is used for intra-node communications (L1), NVLink Switch (Layer 2 switch) is used for inter-node communications. The links use the same speeds as NVLink - so when both are used inter- and intra-node bandwidth per link is the same.
 
-For the actual bandwidth see [NVLink](#nvlink)
+For the actual bandwidth see [NVLink](#nvlink).
 
+NVLinks Switch gen3 replaces the normal network with [NVLink Network](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (scroll down to NVLink Network) which enabled
 
 ### InfiniBand
 
-Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the signaling rate and the number of IB links.
+[InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the signaling rate and the number of IB links.
 
 Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
 
@@ -316,8 +324,10 @@ Here are some examples of NVIDIA devices with the fastest IB:
 - One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
+According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox).
 
-
+Useful links:
+- [InfiniBand Utilities](https://docs.nvidia.com/networking/display/ofedv512580/infiniband+fabric+utilities) (the link could be outdated as it's versioned)
 
 ### EFA
 
@@ -364,9 +374,19 @@ Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_acc
 
 
 
+## Other essential network technologies
 
+### SHARP
 
+NVIDIA [Scalable Hierarchical Aggregation and Reduction Protocol (SHARP)](https://docs.nvidia.com/networking/display/sharpv300) - allows performing data reductions and aggregations on the network itself (in-network computing). This is very useful if you do a lot of MPI, NCCL and other network collectives that support SHARP, as those should get their latencies much improved.
 
+To understand the importance of this technology - for all-reduce operations, instead of 2N sends, it will only need N+1 sends - so for a large N - it almost doubles the effective all-reduce throughput. (N is the number of communicating ranks/gpus). For details see [all-reduce operation compatibility](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (you'd have to scoll down to get to that section).
+
+Recent NCCL versions will automatically use this technology if it is available.
+
+The SHARP hardware that is part of the NVSwitch or Infiniband switches includes arithmetic logic units (ALU) that perform the compute directly rather than using GPUs. It's said that it can peform math in FP64, FP32, FP16 and BF16 dtypes.
+
+case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo as it detected Infiniband SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed.
 
 
 ## Understanding why inter-node network speed is of a huge importance
