@@ -292,17 +292,20 @@ Now [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around 
 Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
 
 Signaling rate of uni-directional links in Gbps:
-| Links | EDR | HDR |  NDR |  XDR |  GDR |
-| ----: | --: | --: |  --: |  --: |  --: |
-|     1 |  25 |  50 |  100 |  200 |  400 |
-|     4 | 100 | 200 |  400 |  800 | 1600 |
-|     8 | 200 | 400 |  800 | 1600 | 3200 |
-|    12 | 300 | 600 | 1200 | 2400 | 4800 |
+| Links | EDR | HDR |  NDR |  XDR |  GDR |  LDR |
+| ----: | --: | --: |  --: |  --: |  --: |  --: |
+|     1 |  25 |  50 |  100 |  200 |  400 |  800 |
+|     4 | 100 | 200 |  400 |  800 | 1600 | 3200 |
+|     8 | 200 | 400 |  800 | 1600 | 3200 | 4800 |
+|    12 | 300 | 600 | 1200 | 2400 | 4800 | 9600 |
+
+Notes:
+* the LDR line isn't not being manufactured yet
 
 Latency in usecs:
-| EDR | HDR | NDR | XDR | GDR |
-| --: | --: | --: | --: | --: |
-| 0.5 | 0.6 | ??  | ??  | ??  |
+| EDR | HDR | NDR | XDR | GDR | LDR |
+| --: | --: | --: | --: | --: | --: |
+| 0.5 | 0.6 | ??  | ??  | ??  | ??  |
 
 `??` = NDR and later didn't publish latency data
 
