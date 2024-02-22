@@ -44,6 +44,7 @@ That's about it as Q1-2024.
 
 - CPU: Central Processing Unit
 - FPGA: Field Programmable Gate Arrays
+- GCD: Graphics Compute Die
 - GPU: Graphics Processing Unit
 - HBM: High Bandwidth Memory
 - HPC: High-performance Computing
@@ -128,13 +129,15 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | Google TPU v4        |     X |     X |    X |  275 |    X |    X |
 | Google TPU v5e       |     X |     X |    X |  197 |    X |  394 |
 
-footnote: Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
+Notes:
 
-footnote: didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same as H100 but 2x everything.
+* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
 
-footnote: when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
+* I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
 
-footnote: also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
+* when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
+
+* also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 
 
 
@@ -197,8 +200,9 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | Google TPU v4        |                32 | HBM2  |                 2.40 |
 | Google TPU v5e       |                16 | HBM2  |                 1.60 |
 
-footnote: didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same as H100 but 2x everything.
+Notes:
 
+* I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
