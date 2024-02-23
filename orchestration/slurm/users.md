@@ -425,7 +425,7 @@ If it's important to have the log-file contain the array id, add `%A_%a`:
 More details https://slurm.schedmd.com/job_array.html
 
 
-## Job Array Trains and their Suspend and Release
+## Job array trains and their suspend and release
 
 In this recipe we accomplish 2 things:
 
@@ -488,7 +488,31 @@ and then when ready to continue release the job:
 scontrol release <jobid>
 ```
 
+## How to rejoin the allocated node interactively
 
+To have multiple shells into the same job `--overlap` should be used.
+
+For example, in console A, let's allocate a single node:
+```
+$ salloc --partition=dev --nodes=1 --ntasks-per-node=1 --cpus-per-task=26 --gres=gpu:1 --time=2:00:00 bash
+salloc: Granted job allocation 1916
+salloc: Nodes my-node-1 are ready for job
+```
+
+In console B:
+```
+$ srun --overlap --pty --jobid 101 bash
+```
+and can repeat the above in as many consoles as wanted.
+
+If it's the first pseudo terminal shell you don't even need `--overlap`, but you need it for the additional shells.
+
+It works the same if you initially allocated the node via `srun --pty`
+```
+srun --pty -p dev --gpus 8 --time=2:00:00 bash
+```
+
+You can, of course, also access the node via `ssh` but if your SLURM has been setup to do all kinds of virtualizations (e.g. give only a few GPUs to each user, or virtualize `/tmp/` or `/scratch`), the view from `ssh` won't be the same. For example if the job allocated 2 GPUs, the ssh shell will show all of the GPUs.
 
 
 
