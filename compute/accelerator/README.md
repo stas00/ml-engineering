@@ -244,7 +244,7 @@ Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) ~= H100 - [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 
 Graphcore:
-- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore)
+- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://thytu.com/posts/ipus-101/).
 
 SambaNova:
 - [DataScale SN30](https://sambanova.ai/products/datascale/)
