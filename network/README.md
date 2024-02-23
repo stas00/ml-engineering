@@ -20,7 +20,7 @@ This article covers both types of networking hardware, reports their theoretical
 
 You can safely ignore the many concepts and abbreviations listed here until you need to understand one.
 
-- AR: Aggregation Router
+- AR: Adaptive Routing (but also could mean Aggregation Router)
 - ALU: Arithmetic Logic Units
 - DMA: Direct Memory Access
 - EFA: Elastic Fabric Adapter
@@ -43,6 +43,11 @@ Speed-related:
 - GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
 - Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
 - Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
+- Adaptive Routing improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
+-  Remote Direct Memory Access is like DMA on the node, but across nodes. It allows data exchange between nodes w/o the overhead using the local processor, OS kernel and caches, which is what TCP/IP uses. The 3 main implementations are (1) Infiniband, (2) RDMA over Converged Ethernet (RoCE) (IB or UDP-based RDMA), and (3) iWARP (TCP-based RDMA). here is a [good overview article](https://community.fs.com/article/roce-vs-infiniband-vs-tcp-ip.html).
+
+footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
+
 
 ### Unidirectional vs Bidirectional (Duplex)
 
@@ -63,10 +68,6 @@ There are multiple platforms/solutions out there that provide intra-node network
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2)
 
-footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
-
-footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
-
 Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
 | Interconnect    |  GBps |
@@ -82,6 +83,7 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 Notes:
 
 * NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
+* Pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
 
 You will find the details analysis of each technology in the following sections.
 
@@ -302,6 +304,8 @@ NVLinks Switch gen3 replaces the normal network with [NVLink Network](https://de
 ### InfiniBand
 
 [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) (IB) has been around for a few decades so there are many available configurations that can be found out there. So that if someone says they have InfiniBand that is insufficient information. What you need to know is the signaling rate and the number of IB links.
+
+InfiniBand is a complete network protocol that implements RDMA (bypasses TCP/IP).
 
 Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
 
