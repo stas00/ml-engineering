@@ -514,6 +514,15 @@ srun --pty -p dev --gpus 8 --time=2:00:00 bash
 
 You can, of course, also access the node via `ssh` but if your SLURM has been setup to do all kinds of virtualizations (e.g. give only a few GPUs to each user, or virtualize `/tmp/` or `/scratch` with auto-cleanup on exit), the view from `ssh` won't be the same. For example, if a job allocated 2 GPUs, the ssh shell will show all of the GPUs and not just the 2 - so if you're sharing the node with others this won't work well.
 
+This works for multi-node allocations and by default you will get an interactive shell on the first node of the allocation. If you want to enter a specific node use `-w` to specify it. For example, say you got `node-[1-4]` allocated and you want to enter `node-3`, then specify:
+```
+srun --pty -p dev --gpus 8 --time=2:00:00 -w node-3 bash
+```
+and if it fails with:
+```
+srun: error: Unable to create step for job 1930: Invalid generic resource (gres) specification
+```
+add back the `--gres=gpu:8` setting. You won't need to do it if your original allocation command used this flag already.
 
 
 
