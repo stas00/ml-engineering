@@ -490,7 +490,7 @@ scontrol release <jobid>
 
 ## How to rejoin the allocated node interactively
 
-To have multiple shells into the same job `--overlap` should be used.
+To have multiple interactive shells into the same job `--overlap` should be used.
 
 For example, in console A, let's allocate a single node:
 ```
@@ -503,7 +503,7 @@ In console B:
 ```
 $ srun --overlap --pty --jobid 101 bash
 ```
-and can repeat the above in as many consoles as wanted.
+and the above can be repeated in as many consoles as wanted.
 
 If it's the first pseudo terminal shell you don't even need `--overlap`, but you need it for the additional shells.
 
@@ -512,7 +512,7 @@ It works the same if you initially allocated the node via `srun --pty`
 srun --pty -p dev --gpus 8 --time=2:00:00 bash
 ```
 
-You can, of course, also access the node via `ssh` but if your SLURM has been setup to do all kinds of virtualizations (e.g. give only a few GPUs to each user, or virtualize `/tmp/` or `/scratch`), the view from `ssh` won't be the same. For example if the job allocated 2 GPUs, the ssh shell will show all of the GPUs.
+You can, of course, also access the node via `ssh` but if your SLURM has been setup to do all kinds of virtualizations (e.g. give only a few GPUs to each user, or virtualize `/tmp/` or `/scratch` with auto-cleanup on exit), the view from `ssh` won't be the same. For example, if a job allocated 2 GPUs, the ssh shell will show all of the GPUs and not just the 2 - so if you're sharing the node with others this won't work well.
 
 
 
