@@ -52,7 +52,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 ## Updates
 
-I announce any significant updates on my twitter channel https://twitter.com/StasBekman
+I announce any significant updates on my twitter channel [https://twitter.com/StasBekman](https://twitter.com/StasBekman).
 
 ## PDF version
 
