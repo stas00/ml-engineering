@@ -331,7 +331,7 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([su
 As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
 
 
-### Poor man's storage IO benchmark
+### Usability perception IO benchmarks
 
 Besides properly designed performance benchmarks which give you some numbers that you may or may not be able to appreciate there is a perception benchmark, and that is how does a certain functionality or a service feel. For example, when going to a website, does it feel like it's taking too long to load a webpage? or when going to a video service, does it take too long for the video to start playing and does it stop every few seconds to buffer the stream?
 
@@ -446,6 +446,25 @@ sys     0m0.734s
 You can see that the first time it wasn't cached and took ~3x longer, then when I run it the second time. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
+
+Another time I noticed that `git status` was taking multiple seconds. I use [bash-git-prompt](https://github.com/magicmonty/bash-git-prompt) and it runs `git status` before every return of the prompt when inside a git repo clone, and it was becoming super sluggish and difficult to work. So I benchmarked `git status`:
+
+```
+git clone https://github.com/pytorch/pytorch
+cd pytorch
+time git status
+```
+and it was taking 3.7secs on this slow file system and needed to be fixed (it was taking 0.02 secs on a local SSD). The good thing this actual perception benchmark was easy to pass to a sysadmin and them reproducing the problem instantly and then working on fixing it, while re-using this benchmark as a reference.
+
+Yet, another time I noticed, `pytest` was taking forever to start, so I measured its collection and it indeed was very slow:
+
+```
+time pytest --disable-warnings --collect-only -q
+```
+
+So now you have a plethora of examples to choose from and I trust you will find your own use cases which are easy to reliably reproduce and use as a reference point for what feels good and what doesn't and which need to be fixed.
+
+
 
 
 ### other tools
