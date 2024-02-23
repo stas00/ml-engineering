@@ -287,19 +287,18 @@ Emerging to general availability:
 
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
-
+For the full list see [Accelerators](../compute/accelator).
 
 
 #### Accelerator Interoperability
 
 In general most (all?) accelerators are supported by major frameworks like PyTorch or TensorFlow and the same code should run everywhere with small modifications as long as it doesn't use any accelerator-specific functionality.
 
-For example, if your PyTorch application includes custom CUDA kernels it'll only work on NVIDIA GPUs and may be on AMD MI-series.
-
+For example, if your PyTorch application calls `torch.mm` - it should work everywhere, but if it includes custom CUDA kernels it'll only work on NVIDIA GPUs and may be on the recent AMD MI-series.
 
 - NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda-toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
-- AMD MI250/MI300: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
+- AMD MI250/MI300X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
 - Gaudi2: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
