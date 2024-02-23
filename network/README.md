@@ -18,6 +18,7 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary and concepts
 
+- AR: Aggregation Router
 - ALU: Arithmetic Logic Units
 - DMA: Direct Memory Access
 - EFA: Elastic Fabric Adapter
@@ -39,7 +40,7 @@ Speed-related:
 - GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
 - Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
 - Unidirectional: a transmission from one point to another in one direction A -> B
-
+- Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
 
 ### Unidirectional vs Bidirectional (Duplex)
 
@@ -66,19 +67,21 @@ footnote: also pay close attention to when the spec says unidirectional vs bidir
 
 Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
-| Interconnect |  GBps |
-| :----------- | ----: |
-| NVlink 4     | 450.0 |
-| XGMI MI300X  | 448.0 |
-| NVlink 3     | 300.0 |
-| XGMI MI250X  | 350.0 |
-| Gaudi2       | 262.5 |
-| PCIe 5       | 126.0 |
-| PCIe 4       |  62.0 |
+| Interconnect    |  GBps |
+| :-----------    | ----: |
+| NVIDIA NVlink 4 | 450.0 |
+| AMD XGMI MI300X | 448.0 |
+| NVIDIA NVlink 3 | 300.0 |
+| AMD XGMI MI250X | 350.0 |
+| Intel Gaudi2    | 262.5 |
+| PCIe 5          | 126.0 |
+| PCIe 4          |  62.0 |
 
-footnote: NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
+Notes:
 
-You will find the details analyses of each in the following sections.
+* NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
+
+You will find the details analysis of each technology in the following sections.
 
 
 ### PCIe
@@ -260,30 +263,31 @@ When it comes to inter-node networking hardware, there are the well established 
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
-| Interconnect        | NICs x Gbps | Total Gbps | Notes   |
-| :------------------ | ----------: | ---------: | :------ |
-| NVLink Switch gen3  |       8x450 |       3600 | H100    |
-| InfiniBand GDR3200  |       8x400 |       3200 |         |
-| EFA v2              |      32x100 |       3200 |         |
-| NVLink Switch gen2  |       8x300 |       2400 | A100    |
-| Gaudi2              |      24x100 |       2400 |         |
-| InfiniBand XDR1600  |       8x200 |       1600 |         |
-| NVLink Switch gen1  |       8x150 |       1200 | V100    |
-| GPUDirect-TCPX      |       4x200 |        800 |         |
-| HPE Slingshot       |       4x200 |        800 |         |
-| Omni-Path CN100     |       8x100 |        800 |         |
-| EFA v1              |       4x100 |        400 |         |
-| InfiniBand NDR400   |       4x100 |        400 |         |
-|                     |             |            |         |
-| in the future:      |             |            |         |
-|                     |             |            |         |
-| Omni-Path CN5000    |       8x400 |       3200 | Q3-2024 |
+| Interconnect              | NICs x Gbps | Total Gbps | Notes   |
+| :-------------------      | ----------: | ---------: | :------ |
+| NVIDIA NVLink Switch gen3 |       8x450 |       3600 | H100    |
+| NVIDIA Quantum-2 IB       |       8x400 |       3200 | H100    |
+| AWS EFA v2                |      32x100 |       3200 | H100    |
+| NVLink Switch gen2        |       8x300 |       2400 | A100    |
+| Intel Gaudi2              |      24x100 |       2400 |         |
+| InfiniBand XDR1600        |       8x200 |       1600 |         |
+| NVIDIA NVLink Switch gen1 |       8x150 |       1200 | V100    |
+| Intel GPUDirect-TCPX      |       4x200 |        800 |         |
+| HPE Slingshot             |       4x200 |        800 |         |
+| Omni-Path CN100           |       8x100 |        800 |         |
+| AWS EFA v1                |       4x100 |        400 |         |
+| InfiniBand NDR400         |       4x100 |        400 |         |
+|                           |             |            |         |
+| in the future:            |             |            |         |
+|                           |             |            |         |
+| Omni-Path CN5000          |       8x400 |       3200 | Q3-2024 |
+| InfiniBand GDR3200        |       8x400 |       3200 | 2025    |
 
 Notes:
 
-* these are common/popular node setups - some custom nodes may have a different configuration with less NICs and in rare cases more NICs.
+* these are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
 
-You will find the details analyses of each in the following sections.
+You will find the details analysis of each technology in the following sections.
 
 ### NVLink Switch
 
@@ -308,7 +312,7 @@ Signaling rate of uni-directional links in Gbps:
 |    12 | 300 | 600 | 1200 | 2400 | 4800 | 9600 |
 
 Notes:
-* the LDR line isn't not being manufactured yet
+* the GDR is planned in 2025 and LDRs some years later
 
 Latency in usecs:
 | EDR | HDR | NDR | XDR | GDR | LDR |
@@ -324,10 +328,19 @@ Here are some examples of NVIDIA devices with the fastest IB:
 - One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
 
-According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox).
+According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox). Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
 
-Useful links:
-- [InfiniBand Utilities](https://docs.nvidia.com/networking/display/ofedv512580/infiniband+fabric+utilities) (the link could be outdated as it's versioned)
+Practical links:
+- [InfiniBand Utilities](https://docs.nvidia.com/networking/display/ofedv512580/infiniband+fabric+utilities) (the link could be outdated as it's versioned) - these are useful when debugging an IB setup.
+
+### NVIDIA Quantum-2 InfiniBand
+
+[NVIDIA Quantum-2 InfiniBand Platform](https://www.nvidia.com/en-us/networking/quantum2/) supports 400Gbps bandwidth per link, provides RDMA, includes in-network computing with [SHARP](#sharp), supports PCIe-5.
+
+The switches can connect 64 devices at 400Gbps.
+
+Besides [NVLink Switch](#nvlink-switch) this is the only other tech that powers the current fastest H100 nodes in the industry.
+
 
 ### EFA
 
@@ -335,7 +348,6 @@ Useful links:
 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 NICs!)
-
 
 
 ### Gaudi2 (inter-node)
