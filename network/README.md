@@ -18,6 +18,8 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary and concepts
 
+You can safely ignore the many concepts and abbreviations listed here until you need to understand one.
+
 - AR: Aggregation Router
 - ALU: Arithmetic Logic Units
 - DMA: Direct Memory Access
@@ -35,11 +37,11 @@ This article covers both types of networking hardware, reports their theoretical
 - xGMI: Socket to Socket Global Memory Interface
 
 Speed-related:
+- Unidirectional: a transmission from one point to another in one direction A -> B
 - Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
 - GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
 - GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
 - Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
-- Unidirectional: a transmission from one point to another in one direction A -> B
 - Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
 
 ### Unidirectional vs Bidirectional (Duplex)
@@ -63,7 +65,7 @@ There are multiple platforms/solutions out there that provide intra-node network
 
 footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
 
-footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors conveniently omit this crucial information. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger the better so almost always they will use the duplex number, which is 2x larger than unidirectional one.
+footnote: also pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
 
 Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
@@ -259,9 +261,9 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1 GBps = 8 Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
 
-When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (EFA, and others not yet disclosed).
+When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, Google GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
-Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
+Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
 
 | Interconnect              | NICs x Gbps | Total Gbps | Notes   |
 | :-------------------      | ----------: | ---------: | :------ |
