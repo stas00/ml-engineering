@@ -360,7 +360,7 @@ Intel Gaudi2:
 
 - You need to reduce gradients and other bits faster than compute to avoid idling accelerators
 
-- You typically get at most 80% of advertised speed. e.g., if you are told you get 800Gbps, expect ~480Gbps.
+- You typically get at most 60% of advertised speed. e.g., if you are told you get 800Gbps, expect ~480Gbps.
 
 - If moving to fp8 H100 is 18x faster than V100
 
