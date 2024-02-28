@@ -488,6 +488,25 @@ and then when ready to continue release the job:
 scontrol release <jobid>
 ```
 
+
+## How to keep the scalloc allocation while exiting its shell
+
+If you run allocated a node like so:
+
+```
+salloc --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00 bash
+```
+and you exited the shell, the allocation will be lost.
+
+If you want to open an allocation that should survive exiting the shell, use `--no-shell` and no `bash` like so:
+
+```
+salloc --no-shell --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00
+```
+and now if you need to join the session see [How to rejoin the allocated node interactively](#how-to-rejoin-the-allocated-node-interactively).
+
+
+
 ## How to rejoin the allocated node interactively
 
 To have multiple interactive shells into the same job `--overlap` should be used.
