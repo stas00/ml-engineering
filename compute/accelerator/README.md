@@ -114,6 +114,9 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
+
+#### TFLOPS comparison table
+
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by bf16.
 
 | Accelerator \ TFLOPS |  fp32 | tf32  | fp16 | bf16 | fp8  | int8 |
