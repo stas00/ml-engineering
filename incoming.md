@@ -82,6 +82,94 @@ https://mvapich.cse.ohio-state.edu/benchmarks/
 Those are MPI-based benchmarks.  Those can be run using GPUDirect RDMA so you can measure MPI performance between GPUs, either on the same node or between nodes.
 
 
+## Infiniband
+
+References:
+- [Sys Admin Pocket Survival Guide - InfiniBand](https://tin6150.github.io/psg/infiniband.html)
+
+
+### Diagnostics
+
+Not-IB specific
+- `ifconfig` - display the status of the currently active interfaces
+- `ip addr show` - display the addresses for every link configured on the system
+
+Display the local Host’s IB device status (3 different views).
+- `ibstat`
+- `ibstatus`
+- `ibv_devinfo`
+
+Scan IB network:
+- `ibnetdiscover` - scan topology
+- `ibroute` - display the unicast and multicast forwarding tables for the switches
+- `ibdiagnet` - IB diagnostic net
+
+Check for network errors:
+- `ibcheckerrors` - check if the error counters of a port/node are within predefined thresholds
+- `ibchecknet` - perform port/node/errors check on the subnet.
+
+Test IB network configuration:
+- `ibcheckport` - perform some basic tests on the specified port
+- `ibchecknode` - perform some basic tests on the specified node
+- `ibclearcounters` - clear port counters for the InfiniBand subnet
+
+Other checks:
+- `iblinkinfo`
+- `ibcheck`
+- `wwibcheck`
+- `ibswitch` - verify that an IB-QNEM is installed in the shelf
+- `ibhosts` - list all hosts in the IB network.
+`ibswitches` - list all ib switches
+
+Tracing:
+- `ibping` - ping/pong between InfiniBand nodes
+- `ibsysstat` - obtain basic information for remote nodes (hostname, cpus, memory, utilization)
+- `ibswitches` - scan the net or use existing net topology file and list all switches
+- `ibhosts` - scan the net or use existing net topology file and list all hosts
+
+Display network topology:
+- `iblinkinfo -R`
+
+Use `ifconfig` to discover `IPoIB` networks, e.g. if you get `ib0` device with `inet addr:100.1.1.102`, you can connect to it - e.g. `ping 100.1.1.102`
+
+Find the controller:
+`lspci | grep Mellanox`
+
+Print driver configuration (interface name comes from `ifconfig`):
+`ethtool -i enP49239s1`
+
+### Performance
+
+`perftest` Package includes:
+- `ib_send_bw`
+- `ib_send_lat`
+- `ib_write_bw`
+- `ib_write_lat`
+- `ib_read_bw`
+- `ib_read_lat`
+- `ib_atomic_bw`
+- `ib_atomic_lat`
+
+example: `ib_send_bw -a address` - test bandwith
+
+`qperf` measures bandwidth and latency between two nodes (TCP/IP and RDMA transports)
+
+
+
+If the network is much slower than it should be, might have to specify which HCAs to use (`ibv_devinfo` to get HCAs)
+```
+export NCCL_IB_HCA=mlx5
+```
+
+might need to install ib packages on the vms:
+
+```
+sudo apt-get install -y automake dh-make git libcap2 libnuma-dev libtool make pkg-config udev curl librdmacm-dev rdma-core \
+    libgfortran5 bison chrpath flex graphviz gfortran tk dpatch quilt swig tcl ibverbs-utils infiniband-diags
+sudo sed -i -e 's/# OS.EnableRDMA=y/OS.EnableRDMA=y/g' /etc/waagent.conf
+```
+
+- Verbs: allow command to be executed on feature-rich IB swtich.
 
 
 # Testing
