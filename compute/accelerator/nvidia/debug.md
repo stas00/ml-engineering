@@ -220,6 +220,14 @@ These UUIDs are unique to each GPU.
 
 When you then re-created your VM, run this command again - if the UUIDs are the same - you know you have the same broken GPUs.
 
+To automate this process so that you always have this data as it'd be too late if you already rebooted the VM, add somewhere in your startup process this:
+
+```
+nvidia-smi -q | grep UUID > nvidia-uuids.$(hostname).$(date '+%Y-%m-%d-%H:%M').txt
+```
+
+You'd want to save the log file on some persistent filesystem for it to survive reboot. If you do not have one make it local and immediately copy to the cloud. That way it'll always be there when you need it.
+
 Sometimes just rebooting the node will get new hardware. In some situations you get new hardware on almost every reboot, in other situations this doesn't happen. And this behavior may change from one provider to another.
 
 If you keep on getting the same broken node - one trick to overcoming this is allocating a new VM, while holding the broken VM running and when the new VM is running - discarding the broken one. That way you will surely get new GPUs - except there is no guarantee they won't be broken as well. If the use case fits consider getting a static cluster where it's much easier to keep the good hardware.
