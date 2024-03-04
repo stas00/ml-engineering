@@ -200,8 +200,8 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
 | Intel Gaudi2         |                96 | HBM2e |                 2.45 |
 | Google TPU v5p       |                95 | HBM2e |                 4.80 |
-| NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
+| NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
 | NVIDIA H100 PCIe     |                80 | HBM3  |                 2.00 |
 | NVIDIA L40S          |                48 | GDDR6 |                 0.86 |
 | Google TPU v4        |                32 | HBM2  |                 2.40 |
