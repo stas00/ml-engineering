@@ -1034,3 +1034,14 @@ Now, this doesn't always work. If the job is hanging, it'll never come to the po
 ## How to gracefully exit on SLURM job preemption
 
 There are several ways to gracefully handle time- and QoS-based SLURM pre-emption which are covered indepth in this section: [Dealing with forced job preemption](../../training/fault-tolerance/#dealing-with-forced-job-preemption).
+
+
+## How many gpus a job uses
+
+To figure out how many gpus are used by a job, parse the `JOB_GRES=gpu:` entry in `show job -d` output, e.g.:
+
+```
+$ TOTAL_JOB_GPUS=$(scontrol show job -d $SLURM_JOBID | perl -ne 'm|JOB_GRES=gpu:(\d+)| && print $1')
+$ echo $TOTAL_JOB_GPUS
+16
+```
