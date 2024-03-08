@@ -62,6 +62,12 @@ I will try to rebuild it once a week or so, but if you want the latest, the inst
 
 Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
 
+## Discussions
+
+If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
+
+
+
 ## Shortcuts
 
 Things that you are likely to need to find quickly and often.
