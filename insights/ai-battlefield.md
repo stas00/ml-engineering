@@ -287,7 +287,7 @@ Emerging to general availability:
 
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
-For the full list see [Accelerators](../compute/accelator).
+For the full list see [Accelerators](../compute/accelerator).
 
 
 #### Accelerator Interoperability
