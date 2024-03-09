@@ -216,7 +216,7 @@ Of course, other A100 and H100s node reports may vary, e.g. different number of 
 
 The benefit of connecting more than 8 GPUs at the speed of NVLink is that it allows all-to-all GPU communications at a much faster speed than any intra-node hardware can provide. And with ever increasing compute speeds the network is the likely bottleneck leading to underutilized super-expensive GPUs.
 
-For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Depspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
+For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Deepspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
 There are 2 types of NVSwitch:
 1. NVSwitch that is used for intra-node connectivity (L1)
