@@ -96,7 +96,7 @@ You will find the details analysis of each technology in the following sections.
 | :----------  | -------------: |  ---: | ----------:  | ------:  |
 | PCIe 4       | ~2.0 GBps      |    16 | 31 GBps      | 62 GBps  |
 | PCIe 5       | ~4.0 GBps      |    16 | 63 GBps      | 126 GBps |
-| PCIe 6       | ~7.5 GBps      |    16 | 121 GBps     | 241 GBps |
+| PCIe 6       | ~7.5 GBps      |    16 | 121 GBps     | 242 GBps |
 | PCIe 7       | ~15.0 GBps     |    16 | 242 GBps     | 484 GBps |
 
 If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
