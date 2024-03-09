@@ -226,7 +226,7 @@ NVSwitch gen 1 came out with V100, gen 2 with A100, and gen 3 with H100 - the sp
 
 The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
-NVIDIA DGX A100 has 6 switches of 12 NVlinks for a total of 72.
+NVIDIA DGX A100 has 6 switches of 12 NVLinks for a total of 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 TBps per node, for a total of 57.6 TBps in total.
 
