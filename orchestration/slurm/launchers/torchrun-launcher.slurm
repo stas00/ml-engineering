@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # this is a 2 node SLURM script using `torchrun` launcher
-# you will most likely need to adapt setting where you see EDIT in the comments
+# Important: you will need to adapt setting where you see EDIT in the comments
 
 #SBATCH --job-name=torchrun-launcher
 #SBATCH --nodes=2
@@ -25,7 +25,6 @@ set -x
 # source /path/to/start-xxx-user # if you have something to preload before the job
 # conda activate stas-xxx        # if you have conda env to activate
 
-
 LOG_PATH="main_log.txt"
 
 # EDIT if it's not 8-gpus per node
@@ -36,28 +35,41 @@ NNODES=$SLURM_NNODES
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 MASTER_PORT=6000
 
+# note `\$SLURM_PROCID` we don't want it interpolated till `srun` since otherwise all nodes will get
+# 0 and the launcher will hang
+#
+# same goes for `\$(hostname -s|tr -dc '0-9')` - we want it to interpolate at `srun` time
 LAUNCHER="python -u -m torch.distributed.run \
     --nproc_per_node $GPUS_PER_NODE \
     --nnodes $NNODES \
+    --node_rank \$SLURM_PROCID \
     --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
     --rdzv_backend c10d \
     --max_restarts 0 \
-    --role `hostname -s`: \
+    --role \$(hostname -s|tr -dc '0-9'): \
     --tee 3 \
     "
 
 # EDIT the path+name of the python script and whatever args it needs
-PROGRAM="\
-my_train_script.py \
-"
+PROGRAM="torch-distributed-gpu-test.py"
 
 export CMD="$LAUNCHER $PROGRAM"
 
 echo $CMD
 
-# useful for debug if needed
+# EDIT if you want to redirect /tmp to /scratch (some local SSD path) since /tmp is tiny on compute nodes
+# export TMPDIR=/scratch
+
+# EDIT: useful for debug if needed
+#
+# to debug NCCL issues
 # export NCCL_DEBUG=INFO
+#
+# to unravel async errors w/o the correct traceback - potentially makes everything very slower
 # export CUDA_LAUNCH_BLOCKING=1
+#
+# to force crashing on nccl issues like hanging broadcast
+# export NCCL_ASYNC_ERROR_HANDLING=1
 
 # srun error handling:
 # --wait=60: wait 60 sec after the first task terminates before terminating all remaining tasks
@@ -65,8 +77,10 @@ echo $CMD
 SRUN_ARGS=" \
     --wait=60 \
     --kill-on-bad-exit=1 \
+    --jobid $SLURM_JOB_ID \
     "
 
-srun $SRUN_ARGS --jobid $SLURM_JOB_ID bash -c "$CMD" 2>&1 | tee -a $LOG_PATH
+# bash -c is needed for the delayed interpolation of env vars to work
+srun $SRUN_ARGS bash -c "$CMD" 2>&1 | tee -a $LOG_PATH
 
 echo "END TIME: $(date)"

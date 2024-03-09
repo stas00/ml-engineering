@@ -1,17 +1,18 @@
 #!/bin/bash
 
-# this is a 2 node SLURM script for launching Lightning-based programs
+# this is a 2 node SLURM script for launching srun-based programs
 # Important: you will need to adapt setting where you see EDIT in the comments
 
-#SBATCH --job-name=lightning-launcher
+#SBATCH --job-name=srun-launcher
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=1          # crucial - only 1 task per node
-#SBATCH --cpus-per-task=96           # EDIT this to how many cpu cores the node has
+#SBATCH --ntasks-per-node=8          # EDIT this has to match the number of GPUs per node
+#SBATCH --cpus-per-task=10           # EDIT how many cpu cores per task (total-cores/tasks-per-node)
 #SBATCH --gres=gpu:8                 # EDIT this if it's not 8-gpus per node
 #SBATCH --time=0:10:00               # EDIT the desired runtime
 #SBATCH --exclusive
 #SBATCH --partition=xyz-cluster      # EDIT to the desired partition name
 #SBATCH --output=%x-%j.out
+
 
 echo "START TIME: $(date)"
 
@@ -27,7 +28,14 @@ set -x
 
 LOG_PATH="main_log.txt"
 
-# PTL doesn't need a special launcher
+# we are preparing for torch.distributed programs so it wants:
+# - MASTER_ADDR, MASTER_PORT, WORLD_SIZE - already known before `srun`
+# - RANK, LOCAL_RANK - will set at `srun` command
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=6000
+export WORLD_SIZE=$SLURM_NPROCS
+
+# srun acts as the launcher in this case, so just `python` is enough.
 LAUNCHER="python -u"
 
 # EDIT the path+name of the python script and whatever args it needs
@@ -61,6 +69,7 @@ SRUN_ARGS=" \
     "
 
 # bash -c is needed for the delayed interpolation of env vars to work
-srun $SRUN_ARGS bash -c "$CMD" 2>&1 | tee -a $LOG_PATH
+# we want $SLURM_PROCID and $SLURM_LOCALID values that get set at the actual process launch time
+srun $SRUN_ARGS bash -c "RANK=\$SLURM_PROCID LOCAL_RANK=\$SLURM_LOCALID $CMD" 2>&1 | tee -a $LOG_PATH
 
 echo "END TIME: $(date)"

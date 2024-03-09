@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # this is a 2 node SLURM script using `accelerate` launcher
-# you will most likely need to adapt setting where you see EDIT in the comments
+# Important: you will need to adapt setting where you see EDIT in the comments
 
 #SBATCH --job-name=accelerate-launcher
 #SBATCH --nodes=2
@@ -27,7 +27,7 @@ set -x
 
 LOG_PATH="main_log.txt"
 
-# EDIT the path to accelerate config file
+# EDIT the path to accelerate config file and fill it with actual Accelerate config
 ACCELERATE_CONFIG_FILE=accelerate.yaml
 
 # EDIT if it's not 8-gpus per node
@@ -38,6 +38,10 @@ NNODES=$SLURM_NNODES
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 MASTER_PORT=6000
 
+# note `\$SLURM_PROCID` we don't want it interpolated till `srun` since otherwise all nodes will get
+# 0 and the launcher will hang
+#
+# same goes for `\$(hostname -s|tr -dc '0-9')` - we want it to interpolate at `srun` time
 LAUNCHER="python -u -m accelerate.commands.launch \
     --rdzv_conf "rdzv_backend=c10d,rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT" \
     --config_file $ACCELERATE_CONFIG_FILE \
@@ -48,14 +52,13 @@ LAUNCHER="python -u -m accelerate.commands.launch \
     "
 
 # EDIT the path+name of the python script and whatever args it needs
-PROGRAM="\
-my_train_script.py \
-"
+PROGRAM="torch-distributed-gpu-test.py"
+
 export CMD="$LAUNCHER $PROGRAM"
 
 echo $CMD
 
-# EDIT if you want to redirect /tmp to /scratch since /tmp is tiny on compute nodes
+# EDIT if you want to redirect /tmp to /scratch (some local SSD path) since /tmp is tiny on compute nodes
 # export TMPDIR=/scratch
 
 # EDIT: useful for debug if needed
@@ -75,8 +78,10 @@ echo $CMD
 SRUN_ARGS=" \
     --wait=60 \
     --kill-on-bad-exit=1 \
+    --jobid $SLURM_JOB_ID \
     "
 
-srun $SRUN_ARGS --jobid $SLURM_JOB_ID bash -c "$CMD" 2>&1 | tee -a $LOG_PATH
+# bash -c is needed for the delayed interpolation of env vars to work
+srun $SRUN_ARGS bash -c "$CMD" 2>&1 | tee -a $LOG_PATH
 
 echo "END TIME: $(date)"

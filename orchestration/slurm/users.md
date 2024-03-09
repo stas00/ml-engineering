@@ -550,6 +550,64 @@ add back the `--gres=gpu:8` setting. You won't need to do it if your original al
 
 
 
+### `SLURM_PROCID` early interpolation
+
+When using SLURM with multi-node setup it's crucial that this is set correctly:
+```
+"--machine_rank \$SLURM_PROCID"
+```
+it must not be interpolated before time, since if this is set as `"--machine_rank $SLURM_PROCID"` the launcher will hang.
+
+It's best to isolate the launcher from the program like so:
+
+```
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=3333
+ACCELERATE_CONFIG_FILE=path/to/accelerate.config.yaml # edit me
+LAUNCHER="python -u -m accelerate.commands.launch \
+    --rdzv_conf "rdzv_backend=c10d,rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT" \
+    --config_file $ACCELERATE_CONFIG_FILE \
+    --main_process_ip $MASTER_ADDR \
+    --main_process_port $MASTER_PORT \
+    --machine_rank \$SLURM_PROCID \
+    --role \$(hostname -s|tr -dc '0-9'): --tee 3 \
+    "
+PROGRAM="myprogram.py"
+
+CMD="$LAUNCHER $PROGRAM"
+
+SRUN_ARGS=" \
+    --wait=60 \
+    --kill-on-bad-exit=1 \
+    --unbuffered \
+    --jobid $SLURM_JOBID \
+    "
+
+srun $SRUN_ARGS bash -c "$CMD" 2>&1 | tee -a main_log.txt
+```
+
+Now the launcher will always work and the users will only need to tweak the `PROGRAM` variable.
+
+With `torchrun`:
+
+```
+export $GPUS_PER_NODE=8
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=3333
+LAUNCHER="python -u -m torch.distributed.run \
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --node_rank \$SLURM_PROCID
+    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+    --rdzv_backend c10d \
+    --max_restarts 0 \
+    --role `hostname -s`:--tee 3 \
+    "
+```
+
+See [Single and Multi-node Launchers with SLURM](launchers/) for complete working examples.
+
+
 ### Mismatching nodes number
 
 If the pytorch launcher fails it often means that the number of SLURM nodes and the launcher nodes are mismatching, e.g.:
