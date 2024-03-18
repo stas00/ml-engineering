@@ -344,7 +344,6 @@ Of course, when using hundreds of GPUs your global batch size may become very la
 
 ### Gradient Accumulation
 
-
 The idea behind gradient accumulation is to instead of calculating the gradients for the whole batch at once to do it in smaller steps. The way we do that is to calculate the gradients iteratively in smaller batches by doing a forward and backward pass through the model and accumulating the gradients in the process. When enough gradients are accumulated we run the model's optimization step. This way we can easily increase the overall batch size to numbers that would never fit into the GPU's memory. In turn, however, the added forward and backward passes can slow down the training a bit.
 
 Gradient Accumulation Steps (GAS) is the definition of how many steps are done w/o updating the model weights.
@@ -361,9 +360,9 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 When [data parallelism](../../training/model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
-### Gradient checkpointing
+### Gradient Checkpointing
 
-Gradient Checkpointing is also known as Activation Recompution, Activation Checkpointing and Checkpoint Activations.
+**Gradient Checkpointing** is also known as **Activation Recompution** and **Activation Checkpointing**.
 
 This methodology is only relevant for training, and not during inference.
 
