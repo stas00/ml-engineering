@@ -666,14 +666,14 @@ footnote: while `/scratch` is quite common - the mounted local SSD disk mount po
 You can also arrange for the SLURM setup to automatically clean up such folders on job's termination.
 
 
-### How to find users who consume a lot of disk space
+### How to find users whose checkpoints consume a lot of disk space
 
 Do you have a problem when your team trains models and you constantly have to buy more storage because huge model checkpoints aren't being offloaded to bucket storage fast enough?
 
 Here is a one-liner that will recursively analyze a path of your choice, find all the checkpoints, sum up their sizes and print the totals sorted by the biggest user, so that you could tell them to clean up their act :) Just edit `/mypath` to the actual path
 
 ```
-find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
+find /mypath/ -type f -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
@@ -689,11 +689,24 @@ user_b   :      1.2TB
 Of course, you can change the regex to match other patterns or you can remove it altogether to measure all files:
 
 ```
-find /mypath/ | \
+find /mypath/ -type f | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
+
+If you want to exclude some sub-dirs efficiently:
+
+```
+find /mypath/ -regextype posix-egrep \
+-type d -regex "/mypath/(exlude_a|exclude_b|exclude_c)/.*" -prune -o \
+-type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
+perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
+END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+sort { $x{$b} <=> $x{$a} } keys %x }'
+```
+
+hint: the second line tells find to skip folders matching the `/mypath/(exlude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
 
 
 ### How to automatically delete old checkpoints
