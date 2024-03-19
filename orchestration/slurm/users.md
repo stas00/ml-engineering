@@ -1094,12 +1094,19 @@ Now, this doesn't always work. If the job is hanging, it'll never come to the po
 There are several ways to gracefully handle time- and QoS-based SLURM pre-emption which are covered indepth in this section: [Dealing with forced job preemption](../../training/fault-tolerance/#dealing-with-forced-job-preemption).
 
 
-## How many gpus a job uses
+## How many GPUs a job uses
 
-To figure out how many gpus are used by a job, parse the `JOB_GRES=gpu:` entry in `show job -d` output, e.g.:
+To figure out how many gpus are used by an already running job, parse the `JOB_GRES=gpu:` entry in `show job -d` output. For example, if the job was started with:
+
+```
+srun --pty --partition=dev --nodes=2 --ntasks-per-node=1 --gres=gpu:8 --time=8:00:00 bash
+```
+that is we allocated 16 GPUs, we can now get that number back programmatically via:
 
 ```
 $ TOTAL_JOB_GPUS=$(scontrol show job -d $SLURM_JOBID | perl -ne 'm|JOB_GRES=gpu:(\d+)| && print $1')
 $ echo $TOTAL_JOB_GPUS
 16
 ```
+
+Replace `$SLURM_JOBID` with the SLURM job id if it's not already set in the shell you run the command from ([`squeue`](#show-jobs)).
