@@ -20,6 +20,12 @@ sinfo -p prod
 
 Slurm configuration is at `/opt/slurm/etc/slurm.conf`.
 
+To see the configuration of all partitions:
+
+```
+scontrol show partition
+```
+
 ## Wait time for resource granting
 
 ```
