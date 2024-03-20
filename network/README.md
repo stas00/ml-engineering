@@ -77,7 +77,7 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 | AMD XGMI MI300X | 448.0 |
 | NVIDIA NVlink 3 | 300.0 |
 | AMD XGMI MI250X | 350.0 |
-| Intel Gaudi2    | 262.5 |
+| Intel Gaudi2    | 300.0 |
 | PCIe 5          | 126.0 |
 | PCIe 4          |  62.0 |
 
@@ -256,7 +256,7 @@ Platform specs:
 
 ### Gaudi2
 
-According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide 8x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1Tbps intra-node connectivity and each card connected with the other 7 cards at 262.5 GBps.
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide 8x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1Tbps intra-node connectivity and each card connected with the other 7 cards at 300GBps.
 
 
 
