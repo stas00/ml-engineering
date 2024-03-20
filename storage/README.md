@@ -723,7 +723,3 @@ and when you feel it's safe to delete, only then add `rm`
 ```
 find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30 -exec rm {} +
 ```
-
-## Contributors
-
-Ross Wightman

@@ -549,9 +549,3 @@ If a job is launched with `--qos=high` and there aren't enough nodes, SLURM will
 By default `GraceTime` could be very short an insufficient for your program to wind down safely if it gets pre-empted - in which case ask your sysadmin to raise its duration to what will work for your needs.
 
 Otherwise the same solutions described in Approaches B.1 and B.2 will work for this type of forced pre-emption.
-
-
-## Contributors
-
-[Adam Moody](https://github.com/adammoody),
-[Shikib Mehri](https://github.com/Shikib),

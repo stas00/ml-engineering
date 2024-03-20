@@ -636,11 +636,3 @@ Here is a very rough outline at which parallelism strategy to use when. The firs
 * when you have slow inter-node connectivity and still low on GPU memory:
 
     1. DP+PP+TP+ZeRO-1
-
-
-## Contributors
-
-[Samyam Rajbhandari](https://github.com/samyam),
-[Horace He](https://github.com/Chillee),
-[Siddharth Singh](https://github.com/siddharth9820),
-[Olatunji Ruwase](https://github.com/tjruwase),

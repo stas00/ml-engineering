@@ -58,4 +58,6 @@ testing/README.md
 
 resources/README.md
 
+contributors.md
+
 build/README.md

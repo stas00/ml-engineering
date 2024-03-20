@@ -97,9 +97,13 @@ Guides:
 
 ## Gratitude
 
-None of this would have been possible without me being entrusted with doing the specific LLM/VLM trainings I have learned this know-how from. This is a privilege that only a few enjoy due to the prohibitively expensive cost of renting huge ML compute clusters. So hopefully the rest of the ML community will vicariously learn from these notes.
+None of this would have been possible without me being entrusted with doing the specific LLM/VLM trainings I have learned the initial know-how from. This is a privilege that only a few enjoy due to the prohibitively expensive cost of renting huge ML compute clusters. So hopefully the rest of the ML community will vicariously learn from these notes.
 
 Special thanks go to [Thom Wolf](https://github.com/thomwolf) who proposed that I lead the BLOOM-176B training back when I didn't know anything about large scale training. This was the project that catapulted me into the intense learning process. And, of course, HuggingFace for giving me the opportunity to work full time on BLOOM-176B and later on IDEFICS-80B trainings.
+
+Currently, I'm continue expanding my knowledge and experience while training models and building systems at [Contextual.AI](https://contextual.ai/) and I'm grateful to that opportunity.
+
+I'd also like to say thanks to the numerous [contributors](contributors.md) who have been making this text awesome and error-free.
 
 ## Contributing
 
@@ -109,9 +113,6 @@ If you found a bug, typo or would like to propose an improvement please don't he
 ## License
 
 The content of this site is distributed under [Attribution-ShareAlike 4.0 International](LICENSE-CC-BY-SA).
-
-
-
 
 
 ## My repositories map
