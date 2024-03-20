@@ -66,7 +66,7 @@ Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF 
 
 If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
 
-## Important comparison tables
+## Key comparison tables
 
 High end accelerators:
 
