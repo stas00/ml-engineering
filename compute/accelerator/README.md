@@ -298,7 +298,7 @@ If your company has venture capital investors - it could help a lot to mention t
 
 Tier 2 clouds are likely to give better prices than Tier 1. Tier 1 as of this writing is AWS, OCI, Azure and GCP.
 
-For the baseline prices it should be easy to find a few good sites that provide an up-to-date public price comparisons across clouds - just search for something like [cloud gpu pricing comparison](https://www.google.com/search?q=cloud+gpu+pricing+comparison).
+For the baseline prices it should be easy to find a few good sites that provide an up-to-date public price comparisons across clouds - just search for something like [cloud gpu pricing comparison](https://www.google.com/search?q=cloud+gpu+pricing+comparison). Some good starting points: [vast.ai](https://cloud.vast.ai/create/) and specifically for clusters [gpulist.ai](https://gpulist.ai).
 
 When shopping for a solution please remember that it's not enough to rent the most powerful accelerator. You also need fast [intra-node](../../network#intra-node-networking) and [inter-node](../../network#inter-node-networking) connectivity and sufficiently fast [storage](../../storage) - without which the expensive accelerators will idle waiting for data to arrive and you could be wasting a lot money and losing time.
 
