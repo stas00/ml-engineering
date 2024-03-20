@@ -70,13 +70,13 @@ If you want to discuss something related to ML engineering this repo has the [co
 
 High end accelerators:
 
-- [Theoretical accelerator TFLOPS](https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#tflops-comparison-table)
-- [Accelerator memory size and speed](https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#accelerator-memory-size-and-speed)
+- [Theoretical accelerator TFLOPS](compute/accelerator#tflops-comparison-table)
+- [Accelerator memory size and speed](compute/accelerator#accelerator-memory-size-and-speed)
 
 Networks:
 
-- [Theoretical inter-node speed](https://github.com/stas00/ml-engineering/tree/master/network#intra-node-networking)
-- [Theoretical intra-node speed](https://github.com/stas00/ml-engineering/tree/master/network#inter-node-networking)
+- [Theoretical inter-node speed](network#intra-node-networking)
+- [Theoretical intra-node speed](network#inter-node-networking)
 
 ## Shortcuts
 
