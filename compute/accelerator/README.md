@@ -134,7 +134,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |          |
 | AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |          |
 | NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |          |
-| Google TPU v4        | X     |      X |    X |  275 | X    |    X | X    | X      |          |
+| Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |          |
 | Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |          |
 |                      |       |        |      |      |      |      |      |        |          |
 
