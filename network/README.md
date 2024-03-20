@@ -78,8 +78,8 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 | NVIDIA NVlink 3 | 300.0 |
 | AMD XGMI MI250X | 350.0 |
 | Intel Gaudi2    | 300.0 |
-| PCIe 5          | 126.0 |
-| PCIe 4          |  62.0 |
+| PCIe 5          |  63.0 |
+| PCIe 4          |  31.0 |
 
 Notes:
 
