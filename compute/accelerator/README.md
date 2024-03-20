@@ -117,36 +117,40 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 #### TFLOPS comparison table
 
-Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by bf16.
+Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS | fp32  |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes    |
-| :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | :----    |
-| NVIDIA GB200 SXM     | ??    | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  | per chip |
-| NVIDIA B200 SXM      | ??    | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |          |
-| NVIDIA B100 SXM      | ??    |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |          |
-| AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |          |
-| NVIDIA H100 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |          |
-| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |          |
-| NVIDIA H100 PCIe     | 51.0  |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |          |
-| Intel Gaudi2         | V     |      V |    V |    V | V    |    V | X    | X      |          |
-| Google TPU v5p       | X     |      X |    X |  459 | X    |  918 | X    | X      |          |
-| AMD MI250X           | 47.9  |      X |  383 |  383 | X    |  383 | X    | X      |          |
-| NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |          |
-| AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |          |
-| NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |          |
-| Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |          |
-| Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |          |
-|                      |       |        |      |      |      |      |      |        |          |
+| Accelerator \ TFLOPS | fp32  |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
+| :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
+| NVIDIA GB200 SXM     | ??    | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
+| NVIDIA B200 SXM      | ??    | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
+| NVIDIA B100 SXM      | ??    |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
+| AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     3 |
+| NVIDIA H100 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
+| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
+| NVIDIA H100 PCIe     | 51.0  |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
+| Intel Gaudi2         | V     |      V |    V |    V | V    |    V | X    | X      |     1 |
+| Google TPU v5p       | X     |      X |    X |  459 | X    |  918 | X    | X      |       |
+| AMD MI250X           | 47.9  |      X |  383 |  383 | X    |  383 | X    | X      |       |
+| NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
+| AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |       |
+| NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
+| Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |       |
+| Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |       |
+|                      |       |        |      |      |      |      |      |        |       |
 
-Notes:
+Row-specific notes:
+
+1. Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
+
+2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200.
+
+3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
+
+General notes:
 
 * int8 is measured in TeraOperations as it's not a floating operation.
 
-* Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
-
-* I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
-
-* Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200.
+* if you find numbers that are double of the above - it usually means with sparsity (which at the moment almost nobody can benefit from as our matrices are dense).
 
 * when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
