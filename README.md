@@ -66,17 +66,17 @@ Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF 
 
 If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
 
-## Important compilations
+## Important comparison tables
 
 High end accelerators:
 
-- [Theoretical TFLOPS comparison table](https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#tflops-comparison-table)
+- [Theoretical accelerator TFLOPS](https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#tflops-comparison-table)
 - [Accelerator memory size and speed](https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#accelerator-memory-size-and-speed)
 
 Networks:
 
-- [Theoretical inter-node comparison table](https://github.com/stas00/ml-engineering/tree/master/network#intra-node-networking)
-- [Theoretical intra-node comparison table](https://github.com/stas00/ml-engineering/tree/master/network#inter-node-networking)
+- [Theoretical inter-node speed](https://github.com/stas00/ml-engineering/tree/master/network#intra-node-networking)
+- [Theoretical intra-node speed](https://github.com/stas00/ml-engineering/tree/master/network#inter-node-networking)
 
 ## Shortcuts
 
