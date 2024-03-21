@@ -141,7 +141,7 @@ sbatch --nodelist=node-170 dcgmi-1n.slurm
 ```
 edit the nodelist argument to point to the node name to run.
 
-If the node is drained or downed and you can't launch a slurm job using this node, just ssh into the node and run the command directly on the node:
+If the node is drained or downed and you can't launch a slurm job using this node, just `ssh` into the node and run the command directly on the node:
 ```
 dcgmi diag -r 3
 ```
@@ -149,7 +149,6 @@ If the diagnostics didn't find any issue, but the application still fails to wor
 ```
 dcgmi diag -r 4
 ```
-
 
 For example, if you run into a repeating Xid 64 error it's likely that the diagnostics report will include:
 
@@ -164,15 +163,31 @@ For example, if you run into a repeating Xid 64 error it's likely that the diagn
 
 so you now know to RMA that problematic GPU, if remapping fails.
 
+But, actually, I found that most of the time `-r 2` already detects faulty GPUs. And it takes just a few minutes to complete. Here is an example of the `-r 2` output on a faulty node:
+
+```
+| GPU Memory                | Pass - GPUs: 1, 2, 3, 4, 5, 6, 7               |
+|                           | Fail - GPU: 0                                  |
+| Warning                   | GPU 0 Thermal violations totaling 13.3 second  |
+|                           | s started at 9.7 seconds into the test for GP  |
+|                           | U 0 Verify that the cooling on this machine i  |
+|                           | s functional, including external, thermal mat  |
+|                           | erial interface, fans, and any other componen  |
+|                           | ts.
+```
+
 The `dcgmi` tool contains various other levels of diagnostics, some of which complete in a matter of a few minutes and can be run as a quick diagnostic in the epilogue of SLURM jobs to ensure that the node is ready to work for the next SLURM job, rather than discovering that after the user started their job and it crashed.
 
 When filing an RMA report you will be asked to run `nvidia-bug-report` script, the output of which you will need to submit with the RMA request.
 
 I usually save the log as well for posterity using one of:
 ```
+dcgmi diag -r 2 | tee -a dcgmi-r2-`hostname`.txt
 dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
+
+
 ## How to detect if a node is missing GPUs
 
 If you got a new VM, there are odd cases where there is less than expected number of GPUs. Here is how you can quickly test you have got 8 of them:
