@@ -6,7 +6,9 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 2. Others did it via various other ways so I'm listing them explicitly here:
 
 - [Adam Moody](https://github.com/adammoody)
+- [Garrett Goon](https://github.com/garrett361)
 - [Horace He](https://github.com/Chillee)
+- [Ivan Yashchuk](https://github.com/IvanYashchuk)
 - [Mark Saroufim](https://github.com/msaroufim)
 - [Olatunji Ruwase](https://github.com/tjruwase)
 - [Oren Leung](https://github.com/OrenLeung)
@@ -16,6 +18,5 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 - [Shikib Mehri](https://github.com/Shikib)
 - [Siddharth Singh](https://github.com/siddharth9820)
 - [Stéphane Requena](https://twitter.com/s_requena)
-- [Ivan Yashchuk](https://github.com/IvanYashchuk)
 
 If you contributed to this text and for some reason you're not on one of these 2 lists - let's fix it by adding your name with a github or similar link here.
