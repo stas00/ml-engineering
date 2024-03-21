@@ -147,6 +147,16 @@ Main DeepSpeed ZeRO Resources:
 - [API docs](https://deepspeed.readthedocs.io/en/latest/index.html)
 - [Blog posts](https://www.microsoft.com/en-us/research/search/?q=deepspeed)
 
+#### Overcoming the huge global batch size issue
+
+If you use, say, 1024 accelerators, you'll have tiny shards per accelerator and a ton of free memory for micro-batch-size (MBS), let's say you can fit MBS=32 - you end up with GBS=32k - most likely not what you want.
+
+So you either need to deploy [Tensor Parallelism](#tensor-parallelism) which is non-trivial to implement, or often it's much simpler to deploy [Sequence Parallelism](#sequence-parallelism). I'm yet to try it in action, but so far what I gathered is for:
+
+- Deepspeed ZeRO use [Deepspeed-Ulysses](#deepspeed-ulysses-sp)
+- FSDP use [Paged Ring Attention](https://github.com/lucidrains/ring-attention-pytorch) ([paper](https://arxiv.org/abs/2402.08268))
+
+Please note that most likely it won't be as efficient as [Tensor Parallelism](#tensor-parallelism) - but I don't yet know of the actual additional overhead.
 
 #### ZeRO with multiple replicas
 
