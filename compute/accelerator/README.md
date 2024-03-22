@@ -20,7 +20,7 @@ The other computational difference is that while both training and inference hav
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs.
+- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - probably Q2-Q3-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till 2025 before we will be able to use those.
 - AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is promised to start being available already in March 2024 at some Tier 2 cloud providers.
 
 HPU:
@@ -38,6 +38,10 @@ On Pods and racks:
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
 That's about it as Q1-2024.
+
+As most of us rent the compute, and we never see what it looks like, here is a how an 8xH100 node looks like physically (this is the GPU tray of the Dell PowerEdge XE9680 Rack Server):
+
+![nvidia-a100-spec](images/8x-H100-node-Dell-PowerEdge-XE9680.png)
 
 
 ## Glossary
