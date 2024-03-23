@@ -23,7 +23,7 @@ srun myprogram
 
 and the program launched by `srun` would have received 48 cpu-cores because `srun` used to inherit the `--cpus-per-task=48` settings from `sbatch` or `salloc` settings, according to the quoted documentation since SLURM 22.05 this behavior is no longer true.
 
-footnote: I tested with SLURM@22.05.09 and the old behavior was still true, but this is definitely the case with 23.x series as reported [here](https://github.com/Lightning-AI/pytorch-lightning/issues/18650#issuecomment-1872577552). So the change might have happened in the later 22.05 series.
+footnote: I tested with SLURM@22.05.09 and the old behavior was still true, but this is definitely the case with 23.x series. So the change might have happened in the later 22.05 series.
 
 So if you leave things as is, now the program will receive just 1 cpu-core (unless the `srun` default has been modified).
 
@@ -70,6 +70,17 @@ or:
 SRUN_CPUS_PER_TASK=48
 srun myprogram
 ```
+
+or automate it with write-once-and-forget:
+```
+#SBATCH --cpus-per-task=48
+[...]
+
+SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
+srun myprogram
+```
+
+
 
 ## To enable Hyper-Threads or not
 
