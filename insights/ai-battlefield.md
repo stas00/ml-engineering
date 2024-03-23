@@ -275,7 +275,7 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8
+  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8 - H200 should be out soon as well (more faster HBM memory)
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
@@ -287,7 +287,7 @@ Emerging to general availability:
 
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
-For the full list see [Accelerators](../compute/accelerator).
+For the full list and more recently announced accelerators see [Accelerators](../compute/accelerator).
 
 
 #### Accelerator Interoperability
