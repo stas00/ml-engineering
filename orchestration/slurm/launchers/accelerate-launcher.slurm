@@ -33,6 +33,7 @@ ACCELERATE_CONFIG_FILE=accelerate.yaml
 # EDIT if it's not 8-gpus per node
 GPUS_PER_NODE=8
 NNODES=$SLURM_NNODES
+NUM_PROCESSES=$(($NNODES * $GPUS_PER_NODE))
 
 # define the node 0 hostname:port
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
@@ -45,6 +46,8 @@ MASTER_PORT=6000
 LAUNCHER="python -u -m accelerate.commands.launch \
     --rdzv_conf "rdzv_backend=c10d,rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT" \
     --config_file $ACCELERATE_CONFIG_FILE \
+    --num_processes $NUM_PROCESSES \
+    --num_machines $NNODES \
     --main_process_ip $MASTER_ADDR \
     --main_process_port $MASTER_PORT \
     --machine_rank \$SLURM_PROCID \
