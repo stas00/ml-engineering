@@ -33,7 +33,7 @@ ACCELERATE_CONFIG_FILE=accelerate.yaml
 # EDIT if it's not 8-gpus per node
 GPUS_PER_NODE=8
 NNODES=$SLURM_NNODES
-NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
+NUM_PROCESSES=$(($NNODES * $GPUS_PER_NODE))
 
 # define the node 0 hostname:port
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
