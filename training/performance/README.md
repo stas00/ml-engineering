@@ -616,6 +616,6 @@ This is an even more precise solution, since it'd assign each process its own gr
 
 Various launchers have support for NUMA affinity settings:
 
-- [HF Accelerate](https://github.com/huggingface/accelerate) has aflag `--enable_cpu_affinity` that you add to the `accelerate` launch command and it'll do this for you. Available since `accelerate>0.28.0`.
+- [HF Accelerate](https://github.com/huggingface/accelerate) has a flag `--enable_cpu_affinity` that you add to the `accelerate` launch command and it'll do this for you. Available since `accelerate>0.28.0`.
 - [torchrun](https://github.com/pytorch/pytorch) doesn't have it, but I showed how to do it in this [section](#numactl).
 - srun was covered [here](#srun).
