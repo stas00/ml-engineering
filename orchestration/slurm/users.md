@@ -106,7 +106,7 @@ srun --pty --partition=dev --nodes=1 --ntasks=1 --cpus-per-task=96 --gres=gpu:8 
 
 ## Hyper-Threads
 
-By default, if the cpu has hyper-threads (HT), SLURM will use it. If you don't want to use HT you have to specify `--hint=nomultithread`.
+By default, if the cpu has [Hyper-Threads](https://en.wikipedia.org/wiki/Hyper-threading) (HT) enabled, SLURM will use it. If you don't want to use HT you have to specify `--hint=nomultithread`.
 
 footnote: HT is Intel-specific naming, the general concept is simultaneous multithreading (SMT)
 
