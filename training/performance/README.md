@@ -633,9 +633,21 @@ The solution is to use the asynchronous `DataLoader` by setting `num_workers > 0
 DataLoader(..., num_workers=2, ...
 ```
 
-Now when `next(iter(dataloader))` is called the data should be already in the memory with all the transforms done.
+Now when `next(iter(dataloader))` is called the data should be already in the CPU memory with all the transforms done. It still needs to be copied to the accelerator memory - to speed that up see [Pinned memory and non blocking device copy](pinned-memory-and-non-blocking-device-copy).
 
-By measuring the performance of your workload you can finetune this number, by trying lower and higher values. But remember that each one of the workers may consume a lot of CPU memory. So on a node of 8 accelerators with 2 workers, that would be 16 additional processes. Nowadays, the compute nodes have often hundreds of cpu cores and a TBs of CPU memory so there should be plenty of resources for many workers to be supported. In the past it was a different story.
+Here is a benchmark which emulates a slow data transform: [num-workers-bench.py](dataloader/num-workers-bench.py)
+
+```
+num_workers=0: average time: 5.388
+num_workers=1: average time: 3.900
+num_workers=2: average time: 1.333
+num_workers=3: average time: 0.839
+num_workers=4: average time: 0.875
+```
+
+So you can see that in this particular case the speed was dramatically improving up to 3 workers. If the `DataLoader` is very light and does very little the difference will be much smaller, but 0 workers will always lead to the biggest overhead.
+
+By measuring the performance of your workload you can finetune this number by trying lower and higher values. But remember that each one of the workers may consume a lot of CPU memory. So on a node of 8 accelerators with 2 workers, that would be 16 additional processes. Nowadays, the compute nodes have often hundreds of cpu cores and a TBs of CPU memory so there should be plenty of resources for many workers to be supported. In the past it was a different story.
 
 Also note that because any data transforms are applied asynchronously and ahead of time, the CPU and memory speed don't matter much in this case. e.g. with 2 workers as long as the next iteration data preparation takes less than 2 compute iterations the `DataLoader` shouldn't be a bottleneck.
 
@@ -645,7 +657,7 @@ case study: during IDEFICS-80B training we were using a streaming `Dataloader` w
 
 
 
-### Pinned memory
+### Pinned memory and non blocking device copy
 
 A combination of:
 
