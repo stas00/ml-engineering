@@ -657,12 +657,14 @@ is likely to make the `DataLoader` less of a bottleneck.
 1. Enabling pinned memory allows for a more efficient data transfer from CPU to accelerator memory.
 2. non-blocking will further speed things up by allowing some overlap between compute and data movements
 
-Here is a small benchmark demonstrating the difference: [pin-memory-non-block-bench.py](dataloader/pin-memory-non-block-bench.py). When I run it on an A100 80GB PCIe, the output was:
+Here is a small benchmark demonstrating the difference: [pin-memory-non-block-bench.py](dataloader/pin-memory-non-block-bench.py). When I run it on an A100 80GB-PCIe, the output was:
 ```
-pin_memory= True: average time: 0.4290498779296878
-pin_memory=False: average time: 0.6372904296875002
+pin_memory= True, non_blocking= True: average time: 0.459
+pin_memory= True, non_blocking=False: average time: 0.522
+pin_memory=False, non_blocking= True: average time: 0.658
+pin_memory=False, non_blocking=False: average time: 0.646
 ```
-so you can see it's a worthy change. You can disable `non_blocking` to see that it'll become slower.
+so you can see that `pin_memory=True`+`non_blocking=True` is a worthy change.
 
 For more background you can read [1](https://pytorch.org/docs/stable/notes/cuda.html#use-pinned-memory-buffers) and [2](https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/).
 

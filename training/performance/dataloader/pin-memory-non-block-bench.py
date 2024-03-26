@@ -42,27 +42,30 @@ end_event = torch.cuda.Event(enable_timing=True)
 device = "cuda:0"
 
 for pm in [True, False]:
+    for nb in [True, False]:
 
-    ds = MyDataset()
-    dl = torch.utils.data.DataLoader(
-        ds,
-        batch_size=batch_size,
-        pin_memory=pm,
-        num_workers=n_workers,
-    )
-    duration = 0
-    for i in range(n_runs):
-        slept = 0
-        start_event.record()
-        for batch in dl:
-            # non_blocking=True would further speeds things up in addition to pinned memory
-            batch = batch.to(device=device, non_blocking=pm)
-            # emulate a compute delay to give workers a chance to reload, otherwise the benchmark
-            # will be measuring waiting for workers
-            time.sleep(0.2)
-            slept += 0.2 # will then subtract this delay from the time measurement
-        end_event.record()
-        torch.cuda.synchronize()
-        duration += start_event.elapsed_time(end_event) / 1000 - slept
-    duration /= n_runs
-    print(f"pin_memory={pm!s:>5}: average time:", duration)
+        ds = MyDataset()
+        dl = torch.utils.data.DataLoader(
+            ds,
+            batch_size=batch_size,
+            pin_memory=pm,
+            num_workers=n_workers,
+        )
+        duration = 0
+        for i in range(n_runs):
+            slept = 0
+            start_event.record()
+            for batch in dl:
+                # non_blocking=True would further speeds things up in addition to pinned memory
+                batch = batch.to(device=device, non_blocking=nb)
+                # emulate a compute delay to give workers a chance to reload, otherwise the benchmark
+                # will be measuring waiting for workers
+                time.sleep(0.2)
+                # will then subtract this artificial delay from the total to try to isolate
+                # the iterator's overhead
+                slept += 0.2
+            end_event.record()
+            torch.cuda.synchronize()
+            duration += start_event.elapsed_time(end_event) / 1000 - slept
+        duration /= n_runs
+        print(f"pin_memory={pm!s:>5}, non_blocking={nb!s:>5}: average time: {duration:0.3f}")
