@@ -150,7 +150,7 @@ Print driver configuration (interface name comes from `ifconfig`):
 - `ib_atomic_bw`
 - `ib_atomic_lat`
 
-example: `ib_send_bw -a address` - test bandwith
+example: `ib_send_bw -a address` - test bandwidth
 
 `qperf` measures bandwidth and latency between two nodes (TCP/IP and RDMA transports)
 
@@ -169,7 +169,7 @@ sudo apt-get install -y automake dh-make git libcap2 libnuma-dev libtool make pk
 sudo sed -i -e 's/# OS.EnableRDMA=y/OS.EnableRDMA=y/g' /etc/waagent.conf
 ```
 
-- Verbs: allow command to be executed on feature-rich IB swtich.
+- Verbs: allow command to be executed on feature-rich IB switch.
 
 
 # Testing
