@@ -642,3 +642,31 @@ Also note that because any data transforms are applied asynchronously and ahead 
 Beware that sometimes you may encounter problems using `num_workers > 0` - the pytorch Issues has a few related Issues that haven't been resolved in several years, where a worker would hang. In particular when having 2 `Dataloader`s. In fact we had this problem during BLOOM-176B training, where the training `Dataloader` worked fine with 2 workers, but once eval `Dataloader` was added it'd randomly hang - so we after failing to figure it out we resorted to a workaround of `num_workers=0` just for the eval and switch to doing it very rarely. Eventually, we stopped doing eval altogether and started doing lm-harness style async eval done to the saved intermediary checkpoints instead, which also sped up the training process.
 
 case study: during IDEFICS-80B training we were using a streaming `Dataloader` which worked really bad and it was consuming huge amounts of memory per worker, and it'd spike often, and we had about 1TB of CPU memory and we couldn't spawn enough workers - so the `Dataloader` was a bottleneck. We didn't have time to find a better solution at that time so we finished training with it.
+
+
+
+### Pinned memory
+
+A combination of:
+
+1. `DataLoader(pin_memory=True, ...)`
+2. `batch.to(device="cuda", non_blocking=True)`
+
+is likely to make the `DataLoader` less of a bottleneck.
+
+1. Enabling pinned memory allows for a more efficient data transfer from CPU to accelerator memory.
+2. non-blocking will further speed things up by allowing some overlap between compute and data movements
+
+Here is a small benchmark demonstrating the difference: [pin-memory-non-block-bench.py](dataloader/pin-memory-non-block-bench.py). When I run it on an A100 80GB PCIe, the output was:
+```
+pin_memory= True: average time: 0.4290498779296878
+pin_memory=False: average time: 0.6372904296875002
+```
+so you can see it's a worthy change. You can disable `non_blocking` to see that it'll become slower.
+
+For more background you can read [1](https://pytorch.org/docs/stable/notes/cuda.html#use-pinned-memory-buffers) and [2](https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/).
+
+Notes:
+- Pinned memory is treated specially by the OS, by preventing the paging out when the total available memory is low, so it reduces the total amount of available memory to other programs. Thus use with care.
+- I recall that a few times people reported problems when using pinned memory - I think it's mostly when the system doesn't have much CPU memory to start with or they used too much of pinned memory, so the OS can start swapping heavily.
+- If you measure your [per iteration TFLOPS](#tflops-as-a-performance-metric) you can compare the throughput with and w/o these changes and choose the one that works the best. It'd be even easier to see the impact if you measure the `DataLoader` overhead separately from the the `forward/backwards` and post-compute (usually logging, which can be surprisingly slow at times).
