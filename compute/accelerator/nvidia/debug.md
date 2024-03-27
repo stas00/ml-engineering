@@ -206,7 +206,7 @@ nvidia-smi --help-query-gpu
 
 ## How to check if your GPU's PCIe generation is supported
 
-Check the PCIe speed from the boot messages:
+Check the PCIe bandwidth reports from the system's boot messages:
 
 ```
 $ sudo dmesg | grep -i 'limited by'
@@ -215,9 +215,9 @@ $ sudo dmesg | grep -i 'limited by'
 [   13.301989] pci 0000:8b:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:87:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
 ```
 
-In this example, as PCIe 5 spec is 504Gbps, you can see that on this node only half of the possible bandwidth is usable, because the system is PCIe 4. For PCIe specs see [this](../../../network#pcie).
+In this example, as PCIe 5 spec is 504Gbps, you can see that on this node only half of the possible bandwidth is usable, because the PCIe switch is gen4. For PCIe specs see [this](../../../network#pcie).
 
-Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs this shouldn't matter for GPU to GPU comms, but it'd slow down any data movement between the GPU and the host.
+Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs to each other, this shouldn't matter for GPU to GPU comms, but it'd slow down any data movement between the GPU and the host, as the data speed is limited by the speed of the slowest link.
 
 
 

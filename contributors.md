@@ -6,6 +6,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 2. Others did it via various other ways so I'm listing them explicitly here:
 
 - [Adam Moody](https://github.com/adammoody)
+- [Bowei Liu](https://github.com/boweiliu)
 - [Garrett Goon](https://github.com/garrett361)
 - [Horace He](https://github.com/Chillee)
 - [Ivan Yashchuk](https://github.com/IvanYashchuk)
