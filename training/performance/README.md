@@ -503,6 +503,22 @@ If you're using Hyper-Threads then you want to use `lstopo -l` to see the HT cor
 
 You first get the physical cpu-core counts and then the remaining HT cores, hence the strange gap.
 
+If this is an NVIDIA node, the other way to easily see the CPU affinity is to run:
+
+```
+$ nvidia-smi topo -m
+        GPU0    GPU1    GPU2    GPU3    GPU4    GPU5    GPU6    GPU7    CPU Affinity    NUMA Affinity
+GPU0     X      NV18    NV18    NV18    NV18    NV18    NV18    NV18    0-51,104-155    0
+GPU1    NV18     X      NV18    NV18    NV18    NV18    NV18    NV18    0-51,104-155    0
+GPU2    NV18    NV18     X      NV18    NV18    NV18    NV18    NV18    0-51,104-155    0
+GPU3    NV18    NV18    NV18     X      NV18    NV18    NV18    NV18    0-51,104-155    0
+GPU4    NV18    NV18    NV18    NV18     X      NV18    NV18    NV18    52-103,156-207  1
+GPU5    NV18    NV18    NV18    NV18    NV18     X      NV18    NV18    52-103,156-207  1
+GPU6    NV18    NV18    NV18    NV18    NV18    NV18     X      NV18    52-103,156-207  1
+GPU7    NV18    NV18    NV18    NV18    NV18    NV18    NV18     X      52-103,156-207  1
+```
+On this H100 cluster you can see the `CPU Affinity` column which tells you which cores reside together with the first and the second group of GPUs, and the `NUMA Affinity` column.
+
 Now that it's clear that the various compute components are placed in 2 or more groups, to achieve the best performance we need to ensure that the components communicate within the group they belong to, and avoid any cross-talk. For example, if gpu0 belong to NUMA node 0, then the process that drives this GPU should only use cpu-cores from NUMA node 0.
 
 The same should apply to networking or any other components that you may have control over.
@@ -633,7 +649,7 @@ The solution is to use the asynchronous `DataLoader` by setting `num_workers > 0
 DataLoader(..., num_workers=2, ...
 ```
 
-Now when `next(iter(dataloader))` is called the data should be already in the CPU memory with all the transforms done. It still needs to be copied to the accelerator memory - to speed that up see [Pinned memory and non blocking device copy](pinned-memory-and-non-blocking-device-copy).
+Now when `next(iter(dataloader))` is called the data should be already in the CPU memory with all the transforms done. It still needs to be copied to the accelerator memory - to speed that up see [Pinned memory and non blocking device copy](#pinned-memory-and-non-blocking-device-copy).
 
 Here is a benchmark which emulates a slow data transform: [num-workers-bench.py](dataloader/num-workers-bench.py)
 

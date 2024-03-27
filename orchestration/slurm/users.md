@@ -495,14 +495,14 @@ scontrol release <jobid>
 ```
 
 
-## How to keep the scalloc allocation while exiting its shell
+## How to keep an salloc allocation alive while exiting its shell
 
 If you run allocated a node like so:
 
 ```
 salloc --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00 bash
 ```
-and you exited the shell, the allocation will be lost.
+and you exited the shell, or your ssh connection got dropped, the allocation will be lost.
 
 If you want to open an allocation that should survive exiting the shell, use `--no-shell` and no `bash` like so:
 
@@ -510,6 +510,25 @@ If you want to open an allocation that should survive exiting the shell, use `--
 salloc --no-shell --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00
 ```
 and now if you need to join the session see [How to rejoin the allocated node interactively](#how-to-rejoin-the-allocated-node-interactively).
+
+But beware, that if you `ssh` to the allocated node and launch something normally and then close the connection that job will be lost as the connecting shell will send `SIGHUP` to its child processes. To avoid that and to keep the job running use `nohup` while putting the program into a background process. Example:
+
+```
+nohup my-program &
+```
+
+`nohup` will ignore `SIGHUP` and will redirect stderr to stdout and append stdout to a special file `nohup.out`. If you want to control where the std streams should be written use normal stdout redirect `>` or `>>`, e.g.:
+```
+nohup my-program >> some-file.txt &
+```
+
+As mentioned earlier the program is also sent into the background with `&`.
+
+Now you can safely disconnect and the program will continue running when you come back.
+
+This solution will prevent the program from exiting, but you won't be able to interact with it normally when you connect again as the std streams will be redirected. You can of course still kill the program via its pid, chance its `nice` state, etc., like you'd do with any other process.
+
+But if you want to use something where you can disconnect and reconnect and continue using the program normally you'd have to use a [terminal multiplexer](https://en.wikipedia.org/wiki/Terminal_multiplexer) program like [`tmux`](https://github.com/tmux/tmux) or [GNU `screen`](https://www.gnu.org/software/screen/) which run a daemon on the node and allow you to regain the normal control over the program on reconnection. There are also [`mosh`](https://github.com/mobile-shell/mosh) and other similar tools which further aid this process.
 
 
 

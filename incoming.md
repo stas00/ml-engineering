@@ -225,3 +225,62 @@ https://github.com/LLNL/scr/tree/develop/python#installing-the-scr-python-module
 
 Example checkpoint in python:
 https://github.com/LLNL/scr/blob/1878de8756c2b51882a7cda7b97b142eae4e3995/python/scr_example.py#L64-L105
+
+
+
+  396  dmesg | grep -i 'limited by'
+  397  sudo dmesg | grep -i 'limited by'
+  398  nvidia-smi nvlink -e
+
+
+GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
+
+```
+$ nvidia-smi --query-gpu=gpu_name,gpu_bus_id,vbios_version --format=csv
+
+$ nvidia-smi -q | grep "VBIOS Version"
+    VBIOS Version                         : 96.00.89.00.01
+    [...]
+    VBIOS Version                         : 96.00.89.00.01
+```
+
+
+Check error counters of NVLink links
+
+```
+$ nvidia-smi nvlink -e
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
+         Link 0: Replay Errors: 0
+         Link 0: Recovery Errors: 0
+         Link 0: CRC Errors: 0
+
+         Link 1: Replay Errors: 0
+         Link 1: Recovery Errors: 0
+         Link 1: CRC Errors: 0
+
+         [...]
+
+         Link 17: Replay Errors: 0
+         Link 17: Recovery Errors: 0
+         Link 17: CRC Errors: 0
+```
+
+Another useful command is:
+```
+$ nvidia-smi nvlink --status
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
+         Link 0: 26.562 GB/s
+         [...]
+         Link 17: 26.562 GB/s
+```
+this one tells you the current speed of each link
+
+Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting counters, etc.).
+
+nvidia-smi --query-remapped-rows=gpu_name,gpu_bus_id,remapped_rows.failure,remapped_rows.pending,\
+remapped_rows.correctable,remapped_rows.uncorrectable \
+--format=csv gpu_name, gpu_bus_id, remapped_rows.failure,remapped_rows.pending,\
+remapped_rows.correctable, remapped_rows.uncorrectable
+
+
+nvidia-smi --query-remapped-rows=gpu_name,gpu_bus_id,remapped_rows.failure,remapped_rows.pending,remapped_rows.correctable,remapped_rows.uncorrectable --format=csvgpu_name, gpu_bus_id, remapped_rows.failure, remapped_rows.pending, remapped_rows.correctable,remapped_rows.uncorrectable

@@ -35,6 +35,7 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - SHARP: Scalable Hierarchical Aggregation Reduction Protocol
 - VPI: Virtual Protocol Interconnect
 - xGMI: Socket to Socket Global Memory Interface
+- OSFP: Octal Small Form Factor Pluggable (transceiver)
 
 Speed-related:
 - Unidirectional: a transmission from one point to another in one direction A -> B
@@ -333,8 +334,9 @@ InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_ac
 
 Here are some examples of NVIDIA devices with the fastest IB:
 
-- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
+- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Gbps to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
+- NVIDIA GB200-based solutions will come with 400Gbps or 800Gpbs NDR via Quantum-2 InfiniBand 800G switches (2x400G NDR interfaces)
 
 According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox). Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
 

@@ -187,6 +187,73 @@ dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
 
+## How to gett the VBIOS info
+
+GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
+
+```
+$ nvidia-smi --query-gpu=gpu_name,gpu_bus_id,vbios_version --format=csv
+name, pci.bus_id, vbios_version
+NVIDIA H100 80GB HBM3, 00000000:04:00.0, 96.00.89.00.01
+[...]
+NVIDIA H100 80GB HBM3, 00000000:8B:00.0, 96.00.89.00.01
+```
+
+Hint: to query for dozens of other things, run:
+```
+nvidia-smi --help-query-gpu
+```
+
+## How to check if your GPU's PCIe generation is supported
+
+Check the PCIe speed from the boot messages:
+
+```
+$ sudo dmesg | grep -i 'limited by'
+[   10.735323] pci 0000:04:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:01:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
+[...]
+[   13.301989] pci 0000:8b:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:87:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
+```
+
+In this example, as PCIe 5 spec is 504Gbps, you can see that on this node only half of the possible bandwidth is usable, because the system is PCIe 4. For PCIe specs see [this](../../../network#pcie).
+
+Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs this shouldn't matter for GPU to GPU comms, but it'd slow down any data movement between the GPU and the host.
+
+
+
+## How to check error counters of NVLink links
+
+If you're concerned your NVLink malfunctions you can check its error counters:
+```
+$ nvidia-smi nvlink -e
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
+         Link 0: Replay Errors: 0
+         Link 0: Recovery Errors: 0
+         Link 0: CRC Errors: 0
+
+         Link 1: Replay Errors: 0
+         Link 1: Recovery Errors: 0
+         Link 1: CRC Errors: 0
+
+         [...]
+
+         Link 17: Replay Errors: 0
+         Link 17: Recovery Errors: 0
+         Link 17: CRC Errors: 0
+```
+
+Another useful command is:
+```
+$ nvidia-smi nvlink --status
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
+         Link 0: 26.562 GB/s
+         [...]
+         Link 17: 26.562 GB/s
+```
+this one tells you the current speed of each link
+
+Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting counters, etc.).
+
 
 ## How to detect if a node is missing GPUs
 

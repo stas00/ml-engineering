@@ -129,8 +129,8 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA B200 SXM      | ??    | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
 | NVIDIA B100 SXM      | ??    |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
 | AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     3 |
+| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
 | NVIDIA H100 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
-| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
 | NVIDIA H100 PCIe     | 51.0  |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
 | Intel Gaudi2         | V     |      V |    V |    V | V    |    V | X    | X      |     1 |
 | Google TPU v5p       | X     |      X |    X |  459 | X    |  918 | X    | X      |       |
@@ -146,9 +146,11 @@ Row-specific notes:
 
 1. Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
 
-2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200.
+2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute).
 
 3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
+
+4. H200 is the same as H100 but has 141GB vs 80GB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
 
 General notes:
 
