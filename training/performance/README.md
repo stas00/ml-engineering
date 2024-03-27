@@ -471,7 +471,42 @@ If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention),
 ![flash attention](images/flash-attention.png)
 
 
-### Final recommendations for sizing
+### SwiGLU-based MLP
+
+Models such as PaLM, LLaMA, Mistral and others use the SwiGLU activation function in place of the more common GLU activation function.
+
+The SwiGLU-based MLP contains an additional learned matrix in its activation function. There the MLP block contains 3 matrices instead of the original 2. To preserve the total number of parameters in the MLP block the paper that introduces [SwiGLU](https://arxiv.org/abs/2002.05202) proposes to use `dim_mlp = 4*dim_attn`instead of the typical `dim_mlp = 8/3*dim_attn`. The [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) paper provides recommendations for finding the value of hidden dimension (`h`) that would lead to the best `matmul` performance, and if you used `8/3*h` is likely to result in a much slower MLP block, because `1/3` will break all the alignments.
+
+In order to overcome this problem one only needs to realize that the `8/3` coefficient is only a suggestion and thus it’s possible to find other coefficients that would lead to better-shaped MLP matrices. In fact if you look at the publicly available LLama-2 models, its 7B variant uses `11008/4096 = 2.6875` as a coefficient, which is quite close to `8/3 = 2.667`, and its 70B variant uses a much larger `28672/8192 = 3.5` coefficient. Here the 70B variant ended up with an MLP block that contains significantly more parameters than a typical transformer block that doesn’t use SwiGLU.
+
+Now that we know the recommended coefficient isn’t exact and since a good `h` has already been chosen, one can now search for a good nearby number that still leads to high-performance GEMMs in the MLP. Running a brute-force search reveals that Llama-2-7B’s intermediate size is indeed one of the best performing sizes in its range.
+
+Here is [swiglu-maf-bench.py](benchmarks/matrix-shape/swiglu-maf-bench.py) that can be easily adapted to your use-case and once run on the target hardware the training will happen on you will be able to find the best hidden size of the MLP.
+
+Let's run it on H100 with `h = 4096`:
+
+```
+./swiglu-maf-bench.py
+Wanted the closest to 10922 d_ff value that leads to the highest TFLOPS (d_hidden=4096)
+
+Searching 50 steps in the range of 10822 .. 11022
+Results: baseline, followed by near-by best performing d_ff results:
+
+ d_ff  tflops mlp_params
+-------------------------
+10922  272.73 134209536
+-------------------------
+10944  398.38 134479872
+10848  395.62 133300224
+10880  395.52 133693440
+10912  395.16 134086656
+11008  395.01 135266304
+```
+
+As it can be easily seen the `8/3*4096=10922` leads to a rather slow performance. But `10944`, which is just `22` higher, gives a whooping 46% speedup for the `matmul`. The total corresponding MLP parameters is printed as well, should you want to choose slightly slower choices but with a different number of parameters.
+
+
+### Final recommendations for model sizing
 
 The full recommendations are:
 1. Vocab size divisible by 64
@@ -479,6 +514,8 @@ The full recommendations are:
 3. `b*s`, `h/a`, and `h/t` should be divisible by a power of 2
 4. `(b*a)/t` should be an integer
 5. `t` should be small as possible
+6. For SwiGLU search for the best performing hidden size close to `8/3*h`
+
 
 
 ## NUMA affinity
@@ -535,7 +572,7 @@ One of the most common tools to do that is using `numactl`, which sets the NUMA 
 
 For example, let's see how it can be integrated with the `torchrun` launcher.
 
-This launcher currently needs a helper util [numa-set.sh](numa/numa-set.sh) to perform NUMA affinity settings, once you downloaded it and made it executable, you can now get the right NUMA affinity using:
+This launcher currently needs a helper util [numa-set.sh](benchmarks/numa/numa-set.sh) to perform NUMA affinity settings, once you downloaded it and made it executable, you can now get the right NUMA affinity using:
 
 ```
 torchrun --nproc_per_node=8 --role : --tee 3 --no-python ./numa-set.sh your-program.py
@@ -594,7 +631,7 @@ So now we just need to figure out how to programmatically get the right cpu sets
 
 If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use for it to tell us the correct affinity given a GPU index.
 
-In [numa-set-pynvml.py](numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
+In [numa-set-pynvml.py](benchmarks/numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
 ```
 local_rank = torh.distributed.get_rank()
 set_numa_affinity(0, verbose=True)
@@ -651,7 +688,7 @@ DataLoader(..., num_workers=2, ...
 
 Now when `next(iter(dataloader))` is called the data should be already in the CPU memory with all the transforms done. It still needs to be copied to the accelerator memory - to speed that up see [Pinned memory and non blocking device copy](#pinned-memory-and-non-blocking-device-copy).
 
-Here is a benchmark which emulates a slow data transform: [num-workers-bench.py](dataloader/num-workers-bench.py)
+Here is a benchmark which emulates a slow data transform: [num-workers-bench.py](benchmarks/dataloader/num-workers-bench.py)
 
 ```
 num_workers=0: average time: 5.388
@@ -685,7 +722,7 @@ is likely to make the `DataLoader` less of a bottleneck.
 1. Enabling pinned memory allows for a more efficient data transfer from CPU to accelerator memory.
 2. non-blocking will further speed things up by allowing some overlap between compute and data movements
 
-Here is a small benchmark demonstrating the difference: [pin-memory-non-block-bench.py](dataloader/pin-memory-non-block-bench.py). When I run it on an A100 80GB-PCIe, the output was:
+Here is a small benchmark demonstrating the difference: [pin-memory-non-block-bench.py](benchmarks/dataloader/pin-memory-non-block-bench.py). When I run it on an A100 80GB-PCIe, the output was:
 ```
 pin_memory= True, non_blocking= True: average time: 0.459
 pin_memory= True, non_blocking=False: average time: 0.522
