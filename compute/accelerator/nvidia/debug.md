@@ -187,7 +187,7 @@ dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
 
-## How to gett the VBIOS info
+## How to get the VBIOS info
 
 GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
 
