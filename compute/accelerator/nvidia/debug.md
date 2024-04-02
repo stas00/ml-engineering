@@ -106,7 +106,49 @@ As mentioned earlier to reset a GPU you can either simply reboot the machine, or
 nvidia-smi -r -i gpu_id
 ```
 
-where `gpu_id` is the sequential number of the gpu you want to reset. Without `-i` all GPUs will be reset.
+where `gpu_id` is the sequential number of the gpu you want to reset, e.g. `0` for the first GPU. Without `-i` all GPUs will be reset.
+
+### uncorrectable ECC error encountered
+
+If you get an error:
+```
+CUDA error: uncorrectable ECC error encountered
+```
+as in the previous section, checking the output of `nvidia-smi -q` this time for `ECC Errors` entries will tell which GPU is the problematic one. But if you need to do a quick check in order to recycle a node if it has at least one GPU with this issue, you can just do this:
+
+```
+$ nvidia-smi -q | grep -i correctable | grep -v 0
+            SRAM Uncorrectable            : 1
+            SRAM Uncorrectable            : 5
+```
+On a good node, this should return nothing, as all counters should be 0. But in the example above we had one broken GPU - there were two entries because the full record was:
+
+```
+    ECC Errors
+        Volatile
+            SRAM Correctable              : 0
+            SRAM Uncorrectable            : 1
+            DRAM Correctable              : 0
+            DRAM Uncorrectable            : 0
+        Aggregate
+            SRAM Correctable              : 0
+            SRAM Uncorrectable            : 5
+            DRAM Correctable              : 0
+            DRAM Uncorrectable            : 0
+```
+The first entry is for `Volatile` (errors counted since the last time the GPU driver reload) and the second is for `Aggregate` (total errors counter for the whole life time of the GPU). In this example we see a Volatile counter for SRAM Uncorrectable errors to be 1 and for the life-time counter it's 5 - that is this is not the first time the GPU runs into this problem.
+
+This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48.
+
+To overcome this issue as in the previous section, reset the problematic GPU:
+```
+nvidia-smi -r -i gpu_id
+```
+Rebooting the machine will have the same effect.
+
+Now when it comes to Aggregate SRAM Uncorrectable errors, if you have more than 4, that's usually a reason to RMA that GPU.
+
+
 
 ## Running diagnostics
 
