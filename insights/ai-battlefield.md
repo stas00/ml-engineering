@@ -313,7 +313,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to synchronize multiple accelerators.
 
-- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node:
+- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
 | GPU  | Compute<b>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |                      --: |                --: |                --: |                   --: |
@@ -343,7 +343,7 @@ NVIDIA:
 
 - NVIDIA-based compute nodes come with 50GBps duplex NVLInk
 
-- Some have a lot of NVLinks, others less but typically plenty w/ at least 900GBps (5.6Tbps) duplex for H100, 600GBps for A100 nodes
+- Some have a lot of NVLinks, others less but typically plenty w/ at least 450GBps (3.6Tbps) unidirectional bandwidth for H100, 300GBps for A100 nodes
 
 Intel Gaudi2:
 
