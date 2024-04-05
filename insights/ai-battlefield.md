@@ -313,16 +313,16 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - If you want to train a large model that doesn't fit onto a single accelerator's memory you have to rely on the intra- and inter-node networks to synchronize multiple accelerators.
 
-- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node:
+- The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
 | GPU  | Compute<b>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |                      --: |                --: |                --: |                   --: |
-| V100 |                      125 |                  1 |                300 |                     1 |
-| A100 |                      312 |                2.5 |                600 |                     2 |
-| H100 |                      989 |                  8 |                900 |                     3 |
+| V100 |                      125 |                  1 |                150 |                     1 |
+| A100 |                      312 |                2.5 |                300 |                     2 |
+| H100 |                      989 |                  8 |                450 |                     3 |
 
 
-- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 300GBps each generation.
+- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation.
 
 - Moreover, all 3 generations of NVLink use identical NICs of the same 50GBps duplex throughput. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
 
@@ -343,7 +343,7 @@ NVIDIA:
 
 - NVIDIA-based compute nodes come with 50GBps duplex NVLInk
 
-- Some have a lot of NVLinks, others less but typically plenty w/ at least 900GBps (5.6Tbps) duplex for H100, 600GBps for A100 nodes
+- Some have a lot of NVLinks, others less but typically plenty w/ at least 450GBps (3.6Tbps) unidirectional bandwidth for H100, 300GBps for A100 nodes
 
 Intel Gaudi2:
 
