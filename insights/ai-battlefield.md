@@ -317,12 +317,12 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 | GPU  | Compute<b>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |                      --: |                --: |                --: |                   --: |
-| V100 |                      125 |                  1 |                300 |                     1 |
-| A100 |                      312 |                2.5 |                600 |                     2 |
-| H100 |                      989 |                  8 |                900 |                     3 |
+| V100 |                      125 |                  1 |                150 |                     1 |
+| A100 |                      312 |                2.5 |                300 |                     2 |
+| H100 |                      989 |                  8 |                450 |                     3 |
 
 
-- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 300GBps each generation.
+- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation.
 
 - Moreover, all 3 generations of NVLink use identical NICs of the same 50GBps duplex throughput. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
 
