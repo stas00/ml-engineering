@@ -107,7 +107,7 @@ If one compares the latest generations of different intra-node technologies (see
 
 ### NVLink
 
-- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/2023/03/06/what-is-nvidia-nvlink/) blog post with more background on it.
+- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
 I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
 

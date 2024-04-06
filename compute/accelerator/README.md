@@ -289,7 +289,7 @@ based on WaferScale Engine (WSE).
 These can be only used via clouds:
 
 Google
-- [TPUs](https://cloud.google.com/tpu), [specs])(https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) - lock-in, can't switch to another vendor like NVIDIA -> AMD
+- [TPUs](https://cloud.google.com/tpu), [specs](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) - lock-in, can't switch to another vendor like NVIDIA -> AMD
 
 Cerebras:
 - [Cloud](https://www.cerebras.net/product-cloud/)
@@ -353,7 +353,7 @@ for example, AMD MI250 has:
 
 A server/node is built from 8 GPUs, which can then be expanded with racks of those servers.
 
-There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://developer.habana.ai/resources/habana-models-performance/ but I'm not sure how these can be used to compare this compute to other providers.
+There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://developer.habana.ai/resources/habana-models-performance/) but I'm not sure how these can be used to compare this compute to other providers.
 
 Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
