@@ -113,6 +113,6 @@ For an example of the latter see: [AnyPrecision optimizer](https://github.com/py
 
 Sometimes it's OK to change precision after the model was trained.
 
-- Using fp16-pretrained model in bf16 regime usually fails - due to overflows (the biggest number that can be represented in fp16 is 64k) for an indepth discussion and possible workaround see this [PR](https://github.com/huggingface/transformers/pull/10956).
+- Using bf16-pretrained model in fp16 regime usually fails - due to overflows (the biggest number that can be represented in fp16 is 64k) for an indepth discussion and possible workaround see this [PR](https://github.com/huggingface/transformers/pull/10956).
 
-- Using bf16-pretrained model in fp16 regime usually works - it will lose some performance on conversion, but should work - best to finetune a bit before using it.
+- Using fp16-pretrained model in bf16 regime usually works - it will lose some performance on conversion, but should work - best to finetune a bit before using it.
