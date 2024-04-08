@@ -178,7 +178,7 @@ worker-1: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576485 e
 worker-0: [2022-09-08 12:07:13,642] [INFO] [launch.py:318:main] Process 576484 exits successfully.
 ```
 
-Voila, missing accomplished.
+Voila, mission accomplished.
 
 We tested that the NCCL collectives work, but they use local NVLink/PCIe and not the IB/ETH connections like in real multi-node, so it may or may not be good enough for testing depending on what needs to be tested.
 
