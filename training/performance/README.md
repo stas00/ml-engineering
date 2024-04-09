@@ -503,7 +503,7 @@ Results: baseline, followed by near-by best performing d_ff results:
 11008  395.01 135266304
 ```
 
-As it can be easily seen the `8/3*4096=10922` leads to a rather slow performance. But `10944`, which is just `22` bigger, gives a whooping 46% speedup for the `matmul`. The total corresponding MLP parameters is printed as well, should you want to choose slightly slower choices but with a different number of parameters.
+As it can be easily seen the `8/3*4096=10922` leads to a rather slow performance. But `10944`, which is just `22` bigger than `10922`, gives a whooping 46% speedup for the `matmul`. The total corresponding MLP parameters is printed as well, should you want to choose slightly slower choices but with a different number of parameters.
 
 
 ### Final recommendations for model sizing
