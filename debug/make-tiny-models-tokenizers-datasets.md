@@ -23,8 +23,8 @@ Important: given their popularity and the well designed simple API I will be dis
 
 TLDR: it's trivial to make a tiny HF `transformers` model:
 
-1. Fetch the config object of a full size models
-2. Shrink the hidden size and perhaps a few other parameters
+1. Fetch the config object of a full size model
+2. Shrink the hidden size and perhaps a few other parameters that contribute to the bulk of the model
 3. Create a model from that shrunken config
 4. Save this model. Done!
 
