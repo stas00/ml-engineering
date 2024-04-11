@@ -109,7 +109,7 @@ MFU = Estimated_Achieved_FLOPS / Theoretical_FLOPS
 HFU = Actual_Achieved_FLOPS / Theoretical_FLOPS
 ```
 
-HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating Point Operations) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
+HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
@@ -135,12 +135,9 @@ As you can see, since Megatron-LM was using activation recomputation for these t
 
 More recent H100+A100 MFU/HFU numbers have been published [here](https://github.com/mosaicml/llm-foundry/tree/main/scripts/train/benchmarking#mfu-and-hfu).
 
-Now, whenever you see MFU or HFU numbers published you have to be careful comparing those numbers to any other similar numbers, until you know that the same way was used to calculate FLOPS. Since `HFU=Actual_Achieved_FLOPS/Theoretical_FLOPS` and `Theoretical_FLOPS` are fixed. The only variable here is the `
-Actual_Achieved_FLOPS` and since most of the time an estimated value is calculated based on parameter shapes, there are many versions of calculations out there, some of which are slightly to very imprecise. Moreover you don't know how iteration time was measured.
+Now, whenever you see MFU or HFU numbers published you have to be careful comparing those numbers to any other similar numbers, until you know that the same way was used to calculate FLOPS. Since `HFU=Actual_Achieved_FLOPS/Theoretical_FLOPS` and `Theoretical_FLOPS` are fixed, the only variable here is the `Actual_Achieved_FLOPS` and since most of the time an estimated value is calculated based on parameter shapes, there are many versions of calculations out there, some of which are slightly imprecise whereas others are very imprecise. Compilers may also impact the effective FLOPs, by optimizing some operations away. Moreover you don't know how iteration time was measured.
 
-To recall `TFLOPS = FLOS / iteration_duration`:
-
-So, in order to do a fair comparison the 2 main questions to ask are:
+To recall `TFLOPS = FLOS / iteration_duration`. So, in order to do a fair comparison the 2 main questions to ask are:
 1. Was the total used floating point operations calculated in the same way?
 2. Was the time component calculated back-to-back of each iteration, including the `DataLoader` and logging, vs only `fwd`+`bwd` parts.
 
