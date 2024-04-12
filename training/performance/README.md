@@ -145,7 +145,8 @@ If either one or both of these mismatch then you can't make a fair comparison.
 
 Unfortunately, most of the time papers and blog posts just report the MFU number w/o a link to how it was calculated.
 
-But, do not fear, most of your work will be optimizing your application rather than having a competition of who is faster. And thus as long as you consistently use whatever way you choose to calculate TFLOPS, you will immediately see when your application's performance has improved or degraded, as relative numbers are most important for you.
+But, do not fear, if you have trouble comparing your results with competing results, remember the measurement artifacts described above.
+These artifacts do not improve the bottom-line throughput, thus, as long as you consistently use whatever way you choose to calculate TFLOPS, you will immediately see when your application's performance has improved or degraded, as relative numbers are most important for you.
 
 
 ## How To Improve Speed and Save Memory
