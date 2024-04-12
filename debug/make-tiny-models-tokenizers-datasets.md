@@ -60,7 +60,6 @@ Before modifying the config you can dump the original parameters and choose to s
 
 ```
 config.update(dict(
-    vocab_size=keep_items+12,
     d_model=64,
     d_ff=256,
     d_kv=8,
@@ -71,12 +70,13 @@ config.update(dict(
 ))
 ```
 
-The original ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) model file was 1.2GB. With the above changes we got it down to 126MB.
+The original ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) model file was 1.2GB. With the above changes (and vocab shrinking as explained in the following sections) we got it down to 126MB.
 
-We can then half its size by converting the model to fp16 (or bf16) before saving it:
+We can then halve its size by converting the model to fp16 or bf16 (depending on the goal) before saving it:
 
 ```
-very_small_model.half()
+very_small_model.half() # convert to fp16
+#very_small_model.bfloat16() # convert to bf16
 very_small_model.save_pretrained(mname_very_small)
 ```
 this takes us to 64M file.
