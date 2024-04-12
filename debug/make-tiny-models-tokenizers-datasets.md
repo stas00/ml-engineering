@@ -30,6 +30,8 @@ TLDR: it's trivial to make a tiny HF `transformers` model:
 
 footnote: It's critical to remember that this will generate a random model, so don't expect any quality from its output.
 
+footnote: These notes were written with HF Transformers models in mind. If you're using a different modeling library you may have to adapt some of these things.
+
 Now let's go through the actual code and convert ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) into its tiny random counterpart.
 
 ```
@@ -72,7 +74,29 @@ config.update(dict(
 
 The original ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) model file was 1.2GB. With the above changes (and vocab shrinking as explained in the following sections) we got it down to 126MB.
 
-We can then halve its size by converting the model to fp16 or bf16 (depending on the goal) before saving it:
+If you're dealing with a multi-level nested config, you will have to update each sub-level's config object separately. For example in [IDEFICS](https://huggingface.co/HuggingFaceM4/idefics-9b/blob/main/config.json) we have 1 main and 2 nested objects:
+```
+config
+config.perceiver_config
+config.vision_config
+```
+If you wanted to shrink this model you'd want to update `config` and `config.vision_config` with smaller values:
+```
+config.update(dict(
+    hidden_size=64,
+    intermediate_size=37,
+    num_hidden_layers=5,
+    num_attention_heads=4,
+    max_position_embeddings=64,
+    max_sequence_length=64,
+
+))
+# sub object needs to be updated directly
+config.vision_config.update(dict(embed_dim=64))
+```
+See [idefics-make-tiny-model.py](idefics-make-tiny-model.py) for a fully working script (I didn't bother adding the vocab shrinking as I'm just demonstrating how to update nested config objects here).
+
+We can then further halve our tiny model size by converting the model to fp16 or bf16 (depending on the goal) before saving it:
 
 ```
 very_small_model.half() # convert to fp16
