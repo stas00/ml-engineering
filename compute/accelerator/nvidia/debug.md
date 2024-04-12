@@ -87,7 +87,7 @@ If there are page scheduled to be retired you will see something like this in th
         Pending Page Blacklist    : Yes
 ```
 
-Each retired page decreases the total memory available to applications. But each page is only 4MB large, so it doesn't reduce the total available GPU memory by much.
+Each retired page decreases the total memory available to applications. But the maximum amount of pages retired amounts to only 4MB in total, so it doesn't reduce the total available GPU memory by much.
 
 To dive even deeper into the GPU debugging, please refer to [this document](https://docs.nvidia.com/deploy/gpu-debug-guidelines/index.html) - it includes a useful triage chart which helps to determine when to RMA GPUs. This document has additional information about Xid 63-like errors
 
