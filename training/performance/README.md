@@ -104,10 +104,23 @@ footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operatio
 
 Model FLOPS Utilization (MFU) and Hardware FLOPS Utilization (HFU) estimate how well the hardware is being utilized during `forward` and `backward` passes of the model (including any syncing networking overhead and possibly DataLoader IO).
 
-HFU measures the actual FLOPS. For example, the concept [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all of parts of the `forward` pass a second time, so factually more FLOPS are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
+```
+MFU = Estimated_Achieved_FLOPS / Theoretical_FLOPS
+HFU = Actual_Achieved_FLOPS / Theoretical_FLOPS
+```
+
+HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
+`Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989 TFLOPS.
+
+Now, say, you measured your actual training loop's performance and it was 400 TFLOPS as actual achieved FLOPS. Then your MFU is:
+```
+HFU = 400/989 = 0.40%
+```
+
+If you didn't use activation recomputation feature (not repeating `forward`) your HFU and MFU would be the same. If you did use it, your calculation will lead to less FLOS and thus lower FLOPS and thus MFU will be lower than HFU.
 
 For example [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) published the following stats for A100-80GB:
 
@@ -118,7 +131,22 @@ For example [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) published the f
 | 530B  | 56.0% | 57.0% |
 | 1T    | 56.3% | 57.0% |
 
+As you can see, since Megatron-LM was using activation recomputation for these trainings, MFU < HFU.
+
 More recent H100+A100 MFU/HFU numbers have been published [here](https://github.com/mosaicml/llm-foundry/tree/main/scripts/train/benchmarking#mfu-and-hfu).
+
+Now, whenever you see MFU or HFU numbers published you have to be careful comparing those numbers to any other similar numbers, until you know that the same way was used to calculate FLOPS. Since `HFU=Actual_Achieved_FLOPS/Theoretical_FLOPS` and `Theoretical_FLOPS` are fixed, the only variable here is the `Actual_Achieved_FLOPS` and since most of the time an estimated value is calculated based on parameter shapes, there are many versions of calculations out there, some of which are slightly imprecise whereas others are very imprecise. Compilers may also impact the effective FLOPs, by optimizing some operations away. Moreover you don't know how iteration time was measured.
+
+To recall `TFLOPS = FLOS / iteration_duration`. So, in order to do a fair comparison the 2 main questions to ask are:
+1. Was the total used floating point operations calculated in the same way?
+2. Was the time component calculated back-to-back of each iteration, including the `DataLoader` and logging, vs only `fwd`+`bwd` parts.
+
+If either one or both of these mismatch then you can't make a fair comparison.
+
+Unfortunately, most of the time papers and blog posts just report the MFU number w/o a link to how it was calculated.
+
+But, do not fear, if you have trouble comparing your results with competing results, remember the measurement artifacts described above.
+These artifacts do not improve the bottom-line throughput, thus, as long as you consistently use whatever way you choose to calculate TFLOPS, you will immediately see when your application's performance has improved or degraded, as relative numbers are most important for you.
 
 
 ## How To Improve Speed and Save Memory
