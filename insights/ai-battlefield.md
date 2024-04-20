@@ -204,26 +204,25 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 - All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
-1. Calculate the time needed to train given the TFLOPS of the considered solution:
+  1. Calculate the time needed to train given the TFLOPS of the considered solution:
 
-   `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
+     `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
+     Let's say it came to be 604800 secs or 7 days.
+     
+  2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
 
-   Let's say it came to be 604800 secs or 7 days.
-
-2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
-
-3. Look at other proposals and calculate the same - chose the best option.
+  3. Look at other proposals and calculate the same - chose the best option.
 
 - As mentioned earlier, time is of a huge importance, so you might still choose a more expensive solution if finishing the training sooner is important because you want to be first to market.
 
 Unfortunately, this math is only partially correct because the advertised peak TFLOPS are typically unachievable. The MFU section delves into it.
 
 
-### Model Flops Utilization (MFU)
+### Model FLOPS Utilization (MFU)
 
 As mentioned in the previous section, some (most?) vendors publish unrealistic peak performance TFLOPS - they aren't possible to achieve.
 
-Model Flops Utilization (MFU) is the metric that tells us how well the accelerator is utilized. Here is how it is calculated:
+Model FLOPS Utilization (MFU) is the metric that tells us how well the accelerator is utilized. Here is how it is calculated:
 
 1. Measure the actual TFLOPS by calculating how many floating point operations a single training iteration takes and dividing that number by the number of seconds this iteration took.
 2. Divide the actual TFLOPS by advertised TFLOPS to get the MFU
