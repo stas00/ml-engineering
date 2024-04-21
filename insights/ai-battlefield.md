@@ -273,7 +273,7 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8 - H200 should be out soon as well (more faster HBM memory)
+  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8 - H200 has already been released (more faster HBM memory)
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
@@ -345,7 +345,7 @@ NVIDIA:
 
 Intel Gaudi2:
 
-- 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
+- 8 x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
 
 [More details](../network/README.md#intra-node-networking)
 
@@ -456,7 +456,7 @@ As you navigate this very complex AI industry here are some thing to be aware of
 
    When was the last time you went to the bread section of the supermarket and found a lump of half-baked dough with a note "we made a reasonable effort to bake this bread, but alas, what you see is what you get"?
 
-   But for whatever reason it's acceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
+   But for whatever reason it's unacceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
 
 
 ### Beware of hardware and software lock-in scenarios
@@ -467,18 +467,17 @@ As you navigate this very complex AI industry here are some thing to be aware of
 
 - Obviously if you choose compute that requires custom software that works for that hardware only and you can't rent this hardware anywhere else you're setting yourself up for a lock-in
 
-
 ### Don't buy what you don't really need
 
 - The cloud providers have mostly the same generic hardware, which leads to a very slim $$ margin and so in order to make big $$ they invent products and then try to convince you that you need to buy them. Sometimes you actually need those products, but very often not. See also the previous section on lock-in, since proprietary products usually mean a partial lock-in.
 
 - Often it's easy to observe the 3 step marketing technique for solutions that seek a problem to solve:
-
-1. Convince a couple of well respected customers to use the provider's proprietary products by giving them huge discounts or even pay them to use them
-2. Use those in step 1 as the social approval lever to reel in more converts
-3. Then scoop the rest of the strugglers by telling them that 80% of your customers (1+2) use these amazing products
+  1. Convince a couple of well respected customers to use the provider's proprietary products by giving them huge discounts or even pay them to use them
+  2. Use those in step 1 as the social approval lever to reel in more converts
+  3. Then scoop the rest of the strugglers by telling them that 80% of your customers (1+2) use these amazing products
 
 When marketing these products it's important:
+
 - to mention how well they work with a dozen of other products, since now you're not buying into a single product but into a whole proprietary product-sphere.
 - to use really nice looking complicated diagrams of how things plug into each other, and move really fast to the next slide before someone asks a difficult question.
 
