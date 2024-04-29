@@ -273,7 +273,7 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8 - H200 has already been released (more faster HBM memory)
+  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8. H200 with more and faster HBM memory is starting to become available as well.
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
@@ -456,7 +456,7 @@ As you navigate this very complex AI industry here are some thing to be aware of
 
    When was the last time you went to the bread section of the supermarket and found a lump of half-baked dough with a note "we made a reasonable effort to bake this bread, but alas, what you see is what you get"?
 
-   But for whatever reason it's unacceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
+   But for whatever reason it's acceptable to create a legal contract where the provider provides neither delivery dates nor performance metrics and doesn't provide stipulations for what will they do in recompense when those promises aren't fulfilled.
 
 
 ### Beware of hardware and software lock-in scenarios
