@@ -472,6 +472,7 @@ As you navigate this very complex AI industry here are some thing to be aware of
 - The cloud providers have mostly the same generic hardware, which leads to a very slim $$ margin and so in order to make big $$ they invent products and then try to convince you that you need to buy them. Sometimes you actually need those products, but very often not. See also the previous section on lock-in, since proprietary products usually mean a partial lock-in.
 
 - Often it's easy to observe the 3 step marketing technique for solutions that seek a problem to solve:
+
   1. Convince a couple of well respected customers to use the provider's proprietary products by giving them huge discounts or even pay them to use them
   2. Use those in step 1 as the social approval lever to reel in more converts
   3. Then scoop the rest of the strugglers by telling them that 80% of your customers (1+2) use these amazing products
