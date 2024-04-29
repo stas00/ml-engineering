@@ -204,26 +204,24 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 - All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
-1. Calculate the time needed to train given the TFLOPS of the considered solution:
+  1. Calculate the time needed to train given the TFLOPS of the considered solution:
+     `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
+     Let's say it came to be 604800 secs or 7 days.
 
-   `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
+  2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
 
-   Let's say it came to be 604800 secs or 7 days.
-
-2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
-
-3. Look at other proposals and calculate the same - chose the best option.
+  3. Look at other proposals and calculate the same - chose the best option.
 
 - As mentioned earlier, time is of a huge importance, so you might still choose a more expensive solution if finishing the training sooner is important because you want to be first to market.
 
 Unfortunately, this math is only partially correct because the advertised peak TFLOPS are typically unachievable. The MFU section delves into it.
 
 
-### Model Flops Utilization (MFU)
+### Model FLOPS Utilization (MFU)
 
 As mentioned in the previous section, some (most?) vendors publish unrealistic peak performance TFLOPS - they aren't possible to achieve.
 
-Model Flops Utilization (MFU) is the metric that tells us how well the accelerator is utilized. Here is how it is calculated:
+Model FLOPS Utilization (MFU) is the metric that tells us how well the accelerator is utilized. Here is how it is calculated:
 
 1. Measure the actual TFLOPS by calculating how many floating point operations a single training iteration takes and dividing that number by the number of seconds this iteration took.
 2. Divide the actual TFLOPS by advertised TFLOPS to get the MFU
@@ -275,7 +273,7 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8 - H200 should be out soon as well (more faster HBM memory)
+  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8. H200 with more and faster HBM memory is starting to become available as well.
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
@@ -347,7 +345,7 @@ NVIDIA:
 
 Intel Gaudi2:
 
-- 8x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
+- 8 x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
 
 [More details](../network/README.md#intra-node-networking)
 
@@ -469,18 +467,18 @@ As you navigate this very complex AI industry here are some thing to be aware of
 
 - Obviously if you choose compute that requires custom software that works for that hardware only and you can't rent this hardware anywhere else you're setting yourself up for a lock-in
 
-
 ### Don't buy what you don't really need
 
 - The cloud providers have mostly the same generic hardware, which leads to a very slim $$ margin and so in order to make big $$ they invent products and then try to convince you that you need to buy them. Sometimes you actually need those products, but very often not. See also the previous section on lock-in, since proprietary products usually mean a partial lock-in.
 
 - Often it's easy to observe the 3 step marketing technique for solutions that seek a problem to solve:
 
-1. Convince a couple of well respected customers to use the provider's proprietary products by giving them huge discounts or even pay them to use them
-2. Use those in step 1 as the social approval lever to reel in more converts
-3. Then scoop the rest of the strugglers by telling them that 80% of your customers (1+2) use these amazing products
+  1. Convince a couple of well respected customers to use the provider's proprietary products by giving them huge discounts or even pay them to use them
+  2. Use those in step 1 as the social approval lever to reel in more converts
+  3. Then scoop the rest of the strugglers by telling them that 80% of your customers (1+2) use these amazing products
 
 When marketing these products it's important:
+
 - to mention how well they work with a dozen of other products, since now you're not buying into a single product but into a whole proprietary product-sphere.
 - to use really nice looking complicated diagrams of how things plug into each other, and move really fast to the next slide before someone asks a difficult question.
 
