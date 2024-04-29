@@ -204,10 +204,10 @@ a crazy idea: the older GPUs might do fine if you can actually feed them as fast
 
 - All that is missing is comparing different compute providers to how many floating point operations their hardware can computes per secs (TFLOPS) and their cost per unit and now you can tell the total approximate cost of the training.
 
-  1. Calculate the time needed to train given the TFLOPS of the considered solution:  
-     `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`  
+  1. Calculate the time needed to train given the TFLOPS of the considered solution:
+     `total_tflops_required / tflops_of_this_compute_unit = time_in_seconds`
      Let's say it came to be 604800 secs or 7 days.
-     
+
   2. Look at the cost of using this compute solution for 7 days and now you know the total $$ to train this model.
 
   3. Look at other proposals and calculate the same - chose the best option.
