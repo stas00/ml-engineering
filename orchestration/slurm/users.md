@@ -1135,3 +1135,17 @@ $ echo $TOTAL_JOB_GPUS
 ```
 
 Replace `$SLURM_JOBID` with the SLURM job id if it's not already set in the shell you run the command from ([`squeue`](#show-jobs)).
+
+
+## How long did the job take to run
+
+While normally `squeue` will show you the duration of the currently running job, in order to see how long a job run for when it finished, you need to know the job id and then you can query it like so:
+
+```
+$ sacct -j 22171 --format=JobID,JobName,State,Elapsed
+JobID           JobName      State    Elapsed
+------------ ---------- ---------- ----------
+22171          example   COMPLETED   00:01:49
+```
+
+so we know the job finished running in under 2min.
