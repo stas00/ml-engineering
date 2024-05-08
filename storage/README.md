@@ -86,6 +86,12 @@ case study: Python is so bad at having tens of thousand of tiny files that if yo
 
 The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2mb, with a sub-block of 8k, and then the tiny files get packed together as sub-blocks, thus not wasting too much disk space.
 
+## Distributed storage servers proximity to clients
+
+The cluster that uses a shared distributed storage should have the storage servers places close to the cluster that uses those servers. If the VMs running the storage servers are located many hops (switches) away, the IO latency can be high and the interactive use of the storage can be frustratingly slow. Think any interactions with metadata servers as an example, when you try to run `du` and other tools that access metadata of many files.
+
+So if you have control ask the cloud provider to give you the cpu-only storage servers VMs allocated as close as possible to your accelerator VMs network-distance-wise.
+
 
 
 ## Cloud shared storage solutions
@@ -722,7 +728,7 @@ END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-hint: the second line tells find to skip folders matching the `/mypath/(exlude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
+hint: the second line tells `find` to skip folders matching the `/mypath/(exlude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
 
 
 ### How to automatically delete old checkpoints
