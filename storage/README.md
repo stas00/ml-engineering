@@ -548,6 +548,22 @@ The first command leaves files that are younger than 3 days in place, in case so
 
 As usual you may need to adjust the paths if you placed your caches elsewhere.
 
+note: if your team uses `HF_HOME` to share the HF hub models/datasets/etc - the `$HF_HOME/token` will get shared as well, which works fine as long as ungated models are used. But if you want to access gated models you might run into problems there. Therefore you most likely want to not share the access token. You can fix that by adding something like:
+
+```
+export HF_TOKEN_PATH=~/.cache/hf_hub_token
+```
+(then put it into `~/.bashrc` to always work)
+
+and now how each user run once:
+```
+huggingface-cli login
+```
+which will ask them to add their access token from https://huggingface.co/settings/tokens - it'll save it under `~/.cache/hf_hub_token`.
+
+Now each member of your team will have their unique token and the gated models approved for their HF hub user will now be accessible by them.
+
+
 ### Python package manager cleanups
 
 conda and pip will pile up more and more files on your system over time. conda is the worst because it keeps the untarred files which consume an insane amount of inodes and make backups and scans slow. pip at least caches just the wheels (tarred files).
