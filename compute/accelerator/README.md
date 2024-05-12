@@ -13,6 +13,8 @@ The other computational difference is that while both training and inference hav
 ## Subsections
 
 - [Troubleshooting NVIDIA GPUs](nvidia/debug.md)
+- [Troubleshooting AMD GPUs](amd/debug.md)
+- [Benchmarks](benchmarks)
 
 
 ## Bird's eye view on the high end accelerator reality
@@ -138,6 +140,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
 | AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |       |
 | NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
+| NVIDIA A100 PCIe     | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |     5 |
 | Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |       |
 | Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |       |
 |                      |       |        |      |      |      |      |      |        |       |
@@ -151,6 +154,8 @@ Row-specific notes:
 3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
 
 4. H200 is the same as H100 but has 141GB vs 80GB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
+
+5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
 
 General notes:
 
@@ -184,6 +189,22 @@ To provide a numerical sense to what I'm talking about is let's take A100 with i
 It should be possible to calculate the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator.
 
 XXX: write a small program to do exactly dynamically figuring out the perfect shapes based on [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) and max sizes (how?) so that the benchmark isn't hardcoded to a particular accelerator.
+
+#### Maximum Achievable Matmul TFLOPS comparison table
+
+
+The values are for matmul with BF16 inputs (no sparsity) TFLOPS
+
+| Accelerator      | MAMAF | Theory | Efficiency | Notes |
+| :--------------- | ----: | -----: | ---------: | ----: |
+| NVIDIA H100 SXM  |   701 |    989 |            |     1 |
+| NVIDIA A100 SXM  |       |    312 |            |     2 |
+| NVIDIA A100 PCIe |   242 |    312 |            |     3 |
+|                  |       |        |            |       |
+
+Notes:
+0. for the full set see [Theoretical accelerator TFLOPS](compute/accelerator#tflops-comparison-table)
+
 
 
 ### Accelerator memory size and speed
