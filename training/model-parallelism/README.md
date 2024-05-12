@@ -449,12 +449,22 @@ Paper: [Reducing Activation Recomputation in Large Transformer Models](https://a
 
 Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increases linearly with message size (M) regardless of number of compute devices.
 
+### Ring Attention with Blockwise Transformers
 
-Implementations:
+Paper: [Ring Attention with Blockwise Transformers for Near-Infinite Context](https://arxiv.org/abs/2310.01889)
+
+1. Tensors are sharded along the sequence dimension throughout: (`seq_len // N, d_model`)-shaped
+2. In the attention layers, every GPU starts by computing the part of the attention scores they are able to w/ their available shards.
+3. Simultaneously, the keys and values from other sequence chunks are communicated around.
+4. Once the keys/values from another chunk are available, each GPU continues on with their attention computation using the key/value tensors from this new segment of the sequence
+5. Continue until attention computation is complete.
+
+SP Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [Deepspeed](https://github.com/microsoft/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
 
+PyTorch is also working on this feature and calling it Context Parallel (CP).
 
 
 ## FlexFlow
