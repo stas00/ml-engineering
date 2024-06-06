@@ -115,6 +115,19 @@ If you found a bug, typo or would like to propose an improvement please don't he
 The content of this site is distributed under [Attribution-ShareAlike 4.0 International](LICENSE-CC-BY-SA).
 
 
+## Citation
+
+```bibtex
+@misc{bekman2024mlengineering,
+  author = {Bekman, Stas},
+  title = {Machine Learning Engineering Open Book},
+  year = {2023-2024},
+  publisher = {Stasosphere Online Inc.},
+  journal = {GitHub repository},
+  url = {https://github.com/stas00/ml-engineering}
+}
+```
+
 ## My repositories map
 
 ✔ **Machine Learning:**
