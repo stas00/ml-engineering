@@ -23,6 +23,7 @@ The listing is in no particular order other than being grouped by the year.
 [1](https://github.com/stas00/bigscience-backup/blob/master/train/tr8-104B-wide/chronicles.md) |
 [2](https://github.com/stas00/bigscience-backup/blob/master/train/tr8-104B-wide))
 
+
 ### 2022
 
 - BigScience BLOOM-176B (2022):
@@ -40,10 +41,14 @@ The listing is in no particular order other than being grouped by the year.
 - THUDM GLM-130B (2022): [en logbook](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log-en.md) | [Mandarin version](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log.md) (backup:  [1](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log-en.md) | [2](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log.md))
 
 
-
 ### 2023
 
 - HuggingFace IDEFICS-80B multimodal (Flamingo repro) (2023): [Learning log](https://github.com/huggingface/m4-logs/blob/master/memos/README.md) | [Training Chronicles](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) (backup: [1](https://github.com/stas00/m4-logs-backup/blob/master/memos/README.md) | [2](https://github.com/stas00/m4-logs-backup/blob/master/tr-190-80b/chronicles.md))
 
 
 - BloombergGPT 50B LLM - section C in [BloombergGPT: A Large Language Model for Finance](https://arxiv.org/abs/2303.17564)
+
+
+## Hardware setup logbooks
+
+- Imbue published a detailed log of how they have set up a 512-node IB-fat-tree cluster and made it to work: [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/research/70b-infrastructure/), they also open-sourced the [cluster tooling](https://github.com/imbue-ai/cluster-health) they created in the process.
