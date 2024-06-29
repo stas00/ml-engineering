@@ -104,6 +104,31 @@ Use case: While training BLOOM-176B we had an incredibly fast GPFS over NVME fil
 
 footnote: If you don't have a large local storage and you have to offload the checkpoints to the cloud, make sure that the 2 most frequent checkpoints remain local to allow for a quick resume. The reason for 2 and not 1, is that it's possible that the very last checkpoint got corrupted or didn't finish saving if a crash occurred during its saving.
 
+While this method introduces an overhead to the training, having training checkpoints is a hugely useful. Because these allow you to rollback many steps back should there be a divergence, are useful for analysis of various events and many trainings these day switch from in-training single loss measuring eval, which provide little useful signal to a full blown dataset-based evaluation on multiple benchmarks applied to each checkpoint during training. The latter can be done on additional nodes w/o slowing down the training for in-training evals.
+
+
+## Mutli-Replica-based fault tolerance
+
+There is another approach to dealing with accelerator crashes which involves no checkpoint saving. This approach only works in situations where at least two model replicas are used during training.
+
+Please review the various [model parallelism](../model-parallelism) techniques first to be able to follow along.
+
+- If some variation of 3D model parallelism is used, that is you have either Tensor Parallelism (TP) and/or Pipeline Parallelism (PP) and/or Data Parallelism (DP), the number of replicas is equal to the DP degree.
+- If Hybrid ZeRO-DP parallelism is used, then the number of replicas is equal to the degree of hybrid replicas.
+
+For example, say you have a training setup that uses a 3D parallelism of TP=4, PP=2, DP=2 - so then you have 2 replicas, each using 8 gpus `node0` and `node1` (TP=4, PP=2 => `4*2=8`) - practically, each replica uses a whole 8-GPU node.
+
+Additionally you have a standby back up node `node2` with 8 GPUs idling but ready to be used at a moment's notice.
+
+Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with intact data, you switch over to the standby 8GPU node, RDMA copy the data from the gpus of the 2nd replica and you can continue training where you left off. This is a very simplistic explanation since there are multiple nuances to figuring out such recovery depending at which stage of the iteration loop the failure occurred. It other words there is a complex algorithm to implement.
+
+Of course, on a large scale training you're likely to have a hundred active nodes and a small handful of back up node.
+
+I'm not aware of any open source implementations of this advanced fault tolerance method, but we know some of the big companies use this approach internally.
+
+
+
+
 
 ## Kill switch
 
