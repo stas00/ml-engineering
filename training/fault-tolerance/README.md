@@ -124,6 +124,8 @@ Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with 
 
 Of course, on a large scale training you're likely to have a hundred active nodes and a small handful of back up node.
 
+This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing this will hundreds of iterations lost.
+
 I'm not aware of any open source implementations of this advanced fault tolerance method, but we know some of the big companies use this approach internally.
 
 
