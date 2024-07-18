@@ -35,17 +35,16 @@ To launch it on multiple nodes, you'd have to either use some orchestration soft
 
 Now, inspect the output of the program and look for a line that starts with:
 ```
-NCCL INFO NET
+NCCL INFO NET/
 ```
 and then inspect which protocol and which interfaces it is using.
 
-For example:
-
+For example, this output:
 ```
 NCCL INFO NET/FastSocket : Using [0]ibs108:10.0.19.12<0> [1]ibs109:10.0.19.13<0> [2]ibs110:10.0.19.14<0> [3]ibs111:10.0.19.15<0> [4]ibs112:10.0.19.16<0> [5]ibs113:10.0.19.17<0> [6]ibs114:10.0.19.18<0> [7]ibs115:10.0.19.19<0>
 ```
 
-Tells us that [nccl-fastsocket](https://github.com/google/nccl-fastsocket) transport layer plugin is used and it discovered 8 `ibs*` network interfaces (NIC cards). If you're using Google Cloud this is correct, and your NCCL is likely setup correctly. But if you're using InfiniBand (IB) and you're getting the above output, you're likely to clock a very low internode speed, because this means that you activated the wrong plugin.
+tells us that [nccl-fastsocket](https://github.com/google/nccl-fastsocket) transport layer plugin is used and it discovered 8 `ibs*` network interfaces (NIC cards). If you're using Google Cloud this is correct, and your NCCL is likely setup correctly. But if you're using InfiniBand (IB) and you're getting the above output, you're likely to clock a very low internode speed, because this means that you activated the wrong plugin.
 
 In the case of IB, what you want to see is `NET/IB` and its IB interfaces:
 ```
