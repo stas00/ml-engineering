@@ -14,7 +14,7 @@ Often you don't need to be a network engineer to figure out networking issues. S
 
 ## How to diagnose NCCL multi-gpu and multi-node connectivity issues
 
-This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues][NCCL repo Issues](https://github.com/NVIDIA/nccl/issues).
+This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues](https://github.com/NVIDIA/nccl/issues).
 
 For the network diagnostics work, instead of using a full application which may take a long time to launch and have unrelated issue, I recommend using this specially developed design test script:  [torch-distributed-gpu-test.py](../../debug/torch-distributed-gpu-test.py).
 
