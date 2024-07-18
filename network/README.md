@@ -2,7 +2,8 @@
 
 **Subsections**:
 
-- [Benchmarks](benchmarks)
+- [Network Debug](debug)
+- [Network Benchmarks](benchmarks)
 
 ## Introduction
 
