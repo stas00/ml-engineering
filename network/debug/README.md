@@ -138,7 +138,7 @@ export NCCL_IB_HCA=^=mlx5_1,mlx5_4 :    Do not use cards mlx5_1 and mlx5_4.
 ```
 The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
-For example, often with IB, there will be additional interfaces like `mlx5_bond_0` which you don't want to be included in the NCCL comms. For example, this report would indicate that the wrong `[8]mlx5_bond_0:1/RoCE` interface was included and this would almost certainly lead to bad bandwidth:
+For example, often with IB, there will be additional interfaces like `mlx5_bond_0` which you don't want to be included in the NCCL comms. For example, this report would indicate that the wrong `[8]mlx5_bond_0:1/RoCE` interface was included and this would almost certainly lead to a low bandwidth:
 ```
 NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/I [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
 ```
