@@ -94,7 +94,7 @@ config.update(dict(
 # sub object needs to be updated directly
 config.vision_config.update(dict(embed_dim=64))
 ```
-See [idefics-make-tiny-model.py](idefics-make-tiny-model.py) for a fully working script (I didn't bother adding the vocab shrinking as I'm just demonstrating how to update nested config objects here).
+See [idefics-make-tiny-model.py](tiny-scripts/idefics-make-tiny-model.py) for a fully working script (I didn't bother adding the vocab shrinking as I'm just demonstrating how to update nested config objects here).
 
 We can then further halve our tiny model size by converting the model to fp16 or bf16 (depending on the goal) before saving it:
 
