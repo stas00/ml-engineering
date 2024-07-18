@@ -269,7 +269,7 @@ and then analyse one of the resulting files that correspond to the iterations. B
 The following env vars are most useful during debugging NCCL-related issues such as hanging and crashing. The full list of those can be found [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html).
 
 
-#### `NCCL_DEBUG`
+### `NCCL_DEBUG`
 
 This is the most commonly used env var to debug networking issues.
 
