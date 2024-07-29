@@ -6,6 +6,17 @@ XXX: this is super-early - please ignore for now - just gathering content at thi
 ## Glossary
 
 - LPU: Language Processing Unit™
+- TTFT: Time to First Token
+
+## Key performance metrics
+
+While there are many characteristics an inference server can be judged by - like power usage, efficiency and cost, the most important characteristics are all in the domain on having a smooth user experience. If the user experience is slow and choppy, the user will go to a competitor. Therefore the key needs are:
+
+1. Fast Average Time to First Token (TTFT) - everybody expects any application to start responding ideally faster than 1 second. Therefore the shorter the time the user has to wait before they start receiving the fist tokens the better. This becomes even more important for chatbots which are expected to be interactive.
+
+2. High Token Generation Rate - usually generated tokens per second - this is an indicator of how well the inference server can handle heavy incoming traffic. The higher the rate the more scalable the system that is facing its users, the better the user's experience.
+
+It's important to observe that TTFT w/o a load on a server can be very different from when a server is under a heavy load. If normally the server sends the first token in 1 sec, if the server is already busy processing all the requests it can handle at once and there is a queue, the real TTFT other than for the first few requests, could easily be much much longer. So usually one should measure an average TTFT and report it together with the number of concurrent requests sent during the benchmark.
 
 ## Concepts
 
@@ -17,7 +28,11 @@ When doing inference there are 2 stages:
 
 2. Decode: new tokens generation happens, one new token at a time (regressive approach) based on all the previous tokens (the prompt and any new tokens generated so far). Thus this stage contributes the most to the generation's latency as unlike prefill, decoding can't be parallelized.
 
+### Online vs Offline Inference
 
+When you have users that send queries in real time - this is Online Inference. Examples: Chatbot, search engines. In this case one always runs an inference server and there could be various clients connecting to it.
+
+When you have a file with prompts that you need to run inference on - this is Offline Inference. Examples: benchmark evaluation, synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
 ### Batching
 
@@ -96,6 +111,7 @@ When a model can't fit onto a single accelerator or when it's more efficient to 
 
 ## Inference frameworks
 
+I'm actually not sure if I want/should maintain this list - there are so many of them and more emerging all the time and it's impossible to find time to try them all out... not sure what to do here.
 
 ### DeepSpeed-FastGen
 
@@ -127,11 +143,30 @@ paper: [DeepSpeed-FastGen: High-throughput Text Generation for LLMs via MII and 
 [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) (also integrated what used to be `FasterTransformer`)
 
 
+### OpenPPL
 
+https://github.com/OpenPPL/ppl.nn
+
+PPLNN, which is short for "PPLNN is a Primitive Library for Neural Network", is a high-performance deep-learning inference engine for efficient AI inferencing.
+
+
+### LightLLM
+
+https://github.com/ModelTC/lightllm
+
+LightLLM is a Python-based LLM (Large Language Model) inference and serving framework, notable for its lightweight design, easy scalability, and high-speed performance.
+
+### LMDeploy
+
+https://github.com/InternLM/lmdeploy
+
+### MLC-LLM
+
+https://github.com/mlc-ai/mlc-llm
 
 ### TGI
 
-
+https://github.com/huggingface/text-generation-inference
 
 
 ### Orca
@@ -139,8 +174,31 @@ paper: [DeepSpeed-FastGen: High-throughput Text Generation for LLMs via MII and 
 [Orca: A Distributed Serving System for Transformer-Based Generative Models](https://www.usenix.org/conference/osdi22/presentation/yu) - C++ inference engine based on NVIDIA's `FasterTransformer` as the generation/execution engine (it looks like `FasterTransformer` got folded into [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM).
 
 
+## Accelerator-specific frameworks
+
+Most obviously support NVIDIA CUDA. Many support AMD ROCm and Intel Gaudi
+
+But there are accelerator specific frameworks:
+
+### Intel Gaudi, MAX, etc.
+
+-  https://github.com/intel/intel-extension-for-transformers
+
+
+
+
 ## Inference Chips
 
 ### Groq
 
 - [Groq](https://groq.com/)
+
+
+## Benchmarks
+
+https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
+
+
+## Resources
+
+- [A Survey on Efficient Inference for Large Language Models (2024)](https://arxiv.org/abs/2404.14294)
