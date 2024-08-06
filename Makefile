@@ -8,7 +8,7 @@ help: ## this help
 
 # pip install codespell
 spell: ## spellcheck
-	@codespell --write-changes --skip "*.pdf" .
+	@codespell --write-changes --skip "*.pdf" --skip "*.json"
 
 prep-html-files: ## prepare html-files
 	echo book-front.html > chapters-html.txt

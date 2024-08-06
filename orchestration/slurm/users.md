@@ -127,6 +127,15 @@ Note that depending on your application there can be quite a performance differe
 
 On some setups like AWS the all-reduce throughput degrades dramatically when `--hint=nomultithread` is used! Whereas on some other setups the opposite is true - the throughput is worse without HT!
 
+To check if your instances has HT enabled, run:
+
+```
+$ lscpu | grep Thread
+Thread(s) per core: 2
+```
+
+If it's `2` then it is HT-enabled, if it's `1` then it isn't.
+
 
 ## Reuse allocation
 

@@ -7,11 +7,12 @@
 
 - [Diagnosing Hangings and Deadlocks in Multi-Node Multi-GPU Python Programs](./torch-distributed-hanging-solutions.md)
 
+- [Network Debug](../network/debug/)
+
 - [Troubleshooting NVIDIA GPUs](../compute/accelerator/nvidia/debug.md)
 
 - [Underflow and Overflow Detection](./underflow_overflow.md)
 
-- [NCCL Debug and Performance](./nccl-performance-debug.md) - notes for debugging NCCL-based software and tuning it up for the peak performance
 
 
 ## Tools

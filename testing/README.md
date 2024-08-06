@@ -328,7 +328,7 @@ Let's depict the GPU requirements in the following table:
 
 
 | n gpus | decorator                      |
-|--------+--------------------------------|
+|--------|--------------------------------|
 | `>= 0` | `@require_torch`               |
 | `>= 1` | `@require_torch_gpu`           |
 | `>= 2` | `@require_torch_multi_gpu`     |

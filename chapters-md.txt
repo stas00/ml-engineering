@@ -17,6 +17,7 @@ storage/benchmarks/results/hope-2023-12-20-14-37-02-331702-summary.md
 
 
 network/README.md
+network/debug/README.md
 network/benchmarks/README.md
 network/benchmarks/results/README.md
 network/benchmarks/results/disable-nvlink.md
@@ -45,18 +46,14 @@ training/re-train-hub-models.md
 
 
 debug/README.md
-debug/nccl-performance-debug.md
 debug/pytorch.md
 debug/tools.md
 debug/torch-distributed-hanging-solutions.md
 debug/underflow_overflow.md
-
 debug/make-tiny-models-tokenizers-datasets.md
 debug/tiny-scripts/README.md
 
 testing/README.md
-
-
 
 resources/README.md
 

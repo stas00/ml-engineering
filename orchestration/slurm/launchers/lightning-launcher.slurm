@@ -5,8 +5,8 @@
 
 #SBATCH --job-name=lightning-launcher
 #SBATCH --nodes=2
-#SBATCH --ntasks-per-node=1          # crucial - only 1 task per node
-#SBATCH --cpus-per-task=96           # EDIT this to how many cpu cores the node has
+#SBATCH --ntasks-per-node=8          # EDIT if it's not 8-gpus per node
+#SBATCH --cpus-per-task=12           # EDIT this to how many cpu cores the node has divided by num of gpus
 #SBATCH --gres=gpu:8                 # EDIT this if it's not 8-gpus per node
 #SBATCH --time=0:10:00               # EDIT the desired runtime
 #SBATCH --exclusive
