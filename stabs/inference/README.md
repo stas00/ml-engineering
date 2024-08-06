@@ -8,6 +8,8 @@ XXX: this is super-early - please ignore for now - just gathering content at thi
 - LPU: Language Processing Unit™
 - TTFT: Time to First Token
 
+See [Concepts](#concepts) for more glossary-like entries.
+
 ## Key performance metrics
 
 While there are many characteristics an inference server can be judged by - like power usage, efficiency and cost, the most important characteristics are all in the domain on having a smooth user experience. If the user experience is slow and choppy, the user will go to a competitor. Therefore the key needs are:
@@ -142,6 +144,9 @@ paper: [DeepSpeed-FastGen: High-throughput Text Generation for LLMs via MII and 
 
 [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) (also integrated what used to be `FasterTransformer`)
 
+### SGLang
+
+https://github.com/sgl-project/sglang
 
 ### OpenPPL
 
