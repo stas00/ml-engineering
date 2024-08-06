@@ -15,9 +15,9 @@ Currently supported high end architectures:
 - AMD: MI250, MI300X, ...
 - Intel Gaudi2+
 
-Fairness note:
+Fairness notes:
 - if you can find a better and more efficient way to detect the best matmul TFLOPS by approaching each new accelerator as a black box, please kindly send a PR with the improvement.
-- Also if you know that this benchmark should be run under special conditions to show the best results, such some some kernel settings or similar, please submit a PR to add such special instructions. For example, for AMD I'm being told disabling the numa_balancing is supposed to help
+- also if you know that this benchmark should be run under special conditions to show the best results, such some some kernel settings or similar, please submit a PR to add such special instructions. For example, for AMD I'm being told disabling the numa_balancing is supposed to help
 
 Architecture specific notes:
 
@@ -26,6 +26,7 @@ Follow the special setup instructions before running the benchmark to achieve th
 ** MI300x **
 
 Turn numa_balancing off for better performance:
+
 sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 
 
@@ -34,9 +35,11 @@ Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 
-clear; ./mamaf-bench.py --m_range 0 30480 1024 -n 1024 -k 1024 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-clear; ./mamaf-bench.py --m_range 0 21480 256 -n 2048 -k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-clear; ./mamaf-bench.py --m_range 0 21480 256 -n 4096 -k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+Examples of usage:
+
+clear; ./mamaf-finder.py --m_range 0 30480 1024 -n 1024 -k 1024 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+clear; ./mamaf-finder.py --m_range 0 21480 256 -n 2048 -k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+clear; ./mamaf-finder.py --m_range 0 21480 256 -n 4096 -k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 """
 
@@ -56,7 +59,7 @@ import torch
 has_hpu = False
 try:
     import habana_frameworks.torch as ht
-    if torch.hpu.is_available()
+    if torch.hpu.is_available():
         has_hpu = True
 except ModuleNotFoundError:
     pass
@@ -214,7 +217,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     times = times[num_warmup_iterations:]
     elapsed_time = np.amin(times)/1000 # want the fastest
     tflops = (2 * m * n * k) / (elapsed_time * 10**12)
-    print(f"{tflops:6.1f} TFLOPS @ {m}x{n}x{k}")
     return tflops
 
 
@@ -269,22 +271,26 @@ if __name__ == '__main__':
 
     best_tflops = 0
     best_config = ""
+    num_shapes = 0
+    start_time = time.time()
 
     def finish():
-        print(f"The best outcome was {int(best_tflops)}TFLOPS @ {best_config}")
+        time_delta = time.time() - start_time
+        time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
+        print("", end="\033[K")
+        print(f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {num_shapes} shapes)")
+        print(f"Elapsed time: {time_str}")
 
     # XXX: the transpose version seemed to work better for MI300X
 
-    start_time = time.time()
     # loop through all sizes to benchmark
     for M in m:
         for N in n:
             for K in k:
+                num_shapes += 1
                 tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
                 if tflops > best_tflops:
                     best_tflops = tflops
-                    best_config = f"MxNxK: {M}x{N}x{K}"
-    time_delta = time.time() - start_time
-    time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
-    print(f"Elapsed time: {time_str}")
+                    best_config = f"{M}x{N}x{K} (MxNxK)"
+                print(f"{num_shapes:>5} | {tflops:6.1f} TFLOPS @ {M}x{N}x{K} | best: {best_tflops:6.1f} TFLOPS @ {best_config}", end="\r")
     finish()

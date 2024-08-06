@@ -186,24 +186,25 @@ If you find solid reports (papers?) showing the actual TFLOPS one can expect fro
 
 To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision regime. And with FlashAttention it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
-It should be possible to calculate the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator.
+You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) to reproduce the results.
 
-XXX: write a small program to do exactly dynamically figuring out the perfect shapes based on [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) and max sizes (how?) so that the benchmark isn't hardcoded to a particular accelerator. Have a WIP program in this PR https://github.com/stas00/ml-engineering/pull/56 - need to find time to polish it but it already works if you want to play with it.
 
 #### Maximum Achievable Matmul TFLOPS comparison table
 
-
 The values are for matmul with BF16 inputs (no sparsity) TFLOPS
 
-| Accelerator      | MAMAF | Theory | Efficiency | Notes |
-| :--------------- | ----: | -----: | ---------: | ----: |
-| NVIDIA H100 SXM  |   701 |    989 |            |     1 |
-| NVIDIA A100 SXM  |       |    312 |            |     2 |
-| NVIDIA A100 PCIe |   242 |    312 |            |     3 |
-|                  |       |        |            |       |
+| Accelerator      | MAMAF | Theory | Efficiency |   Best Shape   | Notes |
+| :--------------- | ----: | -----: | ---------: | :------------- | ----: |
+| NVIDIA H100 SXM  |   701 |    989 |   70.8%    |                |     1 |
+| NVIDIA A100 SXM  |       |    312 |            |                |     2 |
+| NVIDIA A100 PCIe |   242 |    312 |            | 2560x4096x4096 |     3 |
+|                  |       |        |            |                |       |
+
+Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
 
 Notes:
-0. for the full set see [Theoretical accelerator TFLOPS](compute/accelerator#tflops-comparison-table)
+0. for the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
+1. Efficiency is MAMAF/Theory*100
 
 
 
