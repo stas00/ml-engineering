@@ -193,12 +193,12 @@ You could measure the the actual peak TFLOPS by doing a perfectly aligned max-si
 
 The values are for matmul with BF16 inputs (no sparsity) TFLOPS
 
-| Accelerator      | MAMAF | Theory | Efficiency |   Best Shape   | Notes |
-| :--------------- | ----: | -----: | ---------: | :------------- | ----: |
-| NVIDIA H100 SXM  |   701 |    989 |   70.8%    |                |     1 |
-| NVIDIA A100 SXM  |       |    312 |            |                |     2 |
-| NVIDIA A100 PCIe |   242 |    312 |            | 2560x4096x4096 |     3 |
-|                  |       |        |            |                |       |
+| Accelerator      | MAMAF | Theory | Efficiency |      Best Shape | Notes |
+| :--------------- | ----: | -----: | ---------: |  :------------- | ----: |
+| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 |     1 |
+| NVIDIA A100 SXM  |       |    312 |            |                 |     2 |
+| NVIDIA A100 PCIe | 248.7 |    312 |      79.7% | 2560x19968x4096 |     3 |
+|                  |       |        |            |                 |       |
 
 Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
 

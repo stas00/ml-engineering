@@ -37,9 +37,18 @@ Credits:
 
 Examples of usage:
 
-clear; ./mamaf-finder.py --m_range 0 30480 1024 -n 1024 -k 1024 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-clear; ./mamaf-finder.py --m_range 0 21480 256 -n 2048 -k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-clear; ./mamaf-finder.py --m_range 0 21480 256 -n 4096 -k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result
+
+clear; ./mamaf-finder.py --m_range 0 21480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
+2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far
+
+clear; ./mamaf-finder.py --m_range 0 21480 256 --n_range 0 20480 256 --k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
+3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far
+
+clear; ./mamaf-finder.py --m_range 0 21480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
 
 """
 
@@ -223,15 +232,15 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     m_group = parser.add_mutually_exclusive_group(required=True)
-    m_group.add_argument("-m", nargs="+", type=int, help='The first dimension of the GEMM, enter any number of arguments')
+    m_group.add_argument("--m", nargs="+", type=int, help='The first dimension of the GEMM, enter any number of arguments')
     m_group.add_argument("--m_range", nargs='+', type=int, help="The first dimension of the GEMM, [start,stop,step]")
 
     n_group = parser.add_mutually_exclusive_group(required=True)
-    n_group.add_argument("-n", nargs="*", type=int, help='The shared dimension of the GEMM, enter any number of arguments')
+    n_group.add_argument("--n", nargs="*", type=int, help='The shared dimension of the GEMM, enter any number of arguments')
     n_group.add_argument("--n_range", nargs='+', type=int, help="The shared dimension of the GEMM, [start,stop,step]")
 
     k_group = parser.add_mutually_exclusive_group(required=True)
-    k_group.add_argument("-k", nargs="*", type=int, help='The last dimension of the GEMM, enter any number of arguments')
+    k_group.add_argument("--k", nargs="*", type=int, help='The last dimension of the GEMM, enter any number of arguments')
     k_group.add_argument("--k_range", nargs='+', type=int, help="The last dimension of the GEMM, [start,stop,step]")
 
     parser.add_argument("--num_iterations", type=int, default=100, help='The number of iterations used to benchmark each GEMM')
