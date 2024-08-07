@@ -196,14 +196,15 @@ You could measure the the actual peak TFLOPS by doing a perfectly aligned max-si
 
 #### Maximum Achievable Matmul TFLOPS comparison table
 
-The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMAF means).
+The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMAF means). Sorted by accelerator efficiency:
 
-| Accelerator      | MAMAF | Theory | Efficiency |      Best Shape | Notes |
-| :--------------- | ----: | -----: | ---------: | :-------------- | ----: |
-| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 |       |
-| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 |       |
-| NVIDIA A100 PCIe | 248.7 |    312 |      79.7% | 2560x19968x4096 |       |
-|                  |       |        |            |                 |       |
+| Accelerator      | MAMAF | Theory | Efficiency |      Best Shape | Notes      |
+| :--------------- | ----: | -----: | ---------: | :-------------- | ---------: |
+| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 | CUDA-12.1  |
+| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 | CUDA-12.1  |
+| NVIDIA A100 PCIe | 248.7 |    312 |      79.7% | 2560x19968x4096 | CUDA-12.1  |
+| AMD MI300X       | 615.9 |   1300 |      47.4% | 4864x15104x3072 | ROCm-6.1.3 |
+|                  |       |        |            |                 |            |
 
 Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
 
