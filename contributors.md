@@ -6,12 +6,14 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 2. Others did it via various other ways so I'm listing them explicitly here:
 
 - [Adam Moody](https://github.com/adammoody)
+- [Alex Rogozhnikov](https://github.com/arogozhnikov)
 - [Bowei Liu](https://github.com/boweiliu)
 - [Darrick Horton](https://www.linkedin.com/in/darrick-horton/)
 - [Elio VP](https://www.linkedin.com/in/eliovp/)
 - [Garrett Goon](https://github.com/garrett361)
 - [Horace He](https://github.com/Chillee)
 - [Ivan Yashchuk](https://github.com/IvanYashchuk)
+- [Jack Dent](https://github.com/jackdent)
 - [Mark Saroufim](https://github.com/msaroufim)
 - [Olatunji Ruwase](https://github.com/tjruwase)
 - [Oren Leung](https://github.com/OrenLeung)
