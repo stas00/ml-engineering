@@ -39,15 +39,26 @@ Examples of usage:
 
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result
 
-clear; ./mamaf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamaf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far
 
-clear; ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far
 
-clear; ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
+But then it appears that different accelerators have different ranges of shapes that lead to best TFLOPS, thus it's difficult to suggest a range that will work well for all of them - instead here are some suggestions based on experiments and suggestions from contributors:
+
+- A100 + MI300
+
+./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
+- H100
+
+./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
 
 
 """
@@ -260,12 +271,18 @@ if __name__ == '__main__':
 
     if m is None:
         start, stop, step = args.m_range
+        if start == 0: # can't have a 0 dimension
+            start = step
         m = np.arange(start, stop, step)
     if n is None:
         start, stop, step = args.n_range
+        if start == 0: # can't have a 0 dimension
+            start = step
         n = np.arange(start, stop, step)
     if k is None:
         start, stop, step = args.k_range
+        if start == 0: # can't have a 0 dimension
+            start = step
         k = np.arange(start, stop, step)
 
     sys.stdout = Tee(args.output_file, args.verbose)
