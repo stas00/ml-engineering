@@ -7,6 +7,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 
 - [Adam Moody](https://github.com/adammoody)
 - [Bowei Liu](https://github.com/boweiliu)
+- [Darrick Horton](https://www.linkedin.com/in/darrick-horton/)
 - [Elio VP](https://www.linkedin.com/in/eliovp/)
 - [Garrett Goon](https://github.com/garrett361)
 - [Horace He](https://github.com/Chillee)
