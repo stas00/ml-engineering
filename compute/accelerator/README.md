@@ -203,7 +203,7 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 | CUDA-12.1  |
 | NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |  2304x5120x1536 | CUDA-12.1  |
 | NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 | CUDA-12.1  |
-| AMD MI300X       | 615.9 |   1300 |      47.4% | 4864x15104x3072 | ROCm-6.1.3 |
+| AMD MI300X       | 731.0 |   1300 |      56.2% | 4352x14336x3840 | ROCm-6.2   |
 |                  |       |        |            |                 |            |
 
 Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
