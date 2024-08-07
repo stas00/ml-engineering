@@ -265,7 +265,7 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA A100 - huge availability across all clouds, but is already gradually being replaced by H100
+  * NVIDIA H100s are gradually replacing A100s. We hope for H200s to replace H100s soon (Q4-2024), as the latter have a more efficient HBM and thus make them more cost-effective.
 
 Available, but locks you in:
 
@@ -273,11 +273,11 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8. H200 with more and faster HBM memory is starting to become available as well.
+  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these.
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
-  * AMD MI300X ~= H100 - a few clouds will have those in March, 2024
+  * AMD MI300X ~= H100 - a few clouds have those since Q2-2024 - while based on specs MI300X is supposed to compete with H100s, in reality they are very inefficient and clock barely just above A100.
 
   * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud
 

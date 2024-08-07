@@ -12,18 +12,23 @@ The other computational difference is that while both training and inference hav
 
 ## Subsections
 
-- [Troubleshooting NVIDIA GPUs](nvidia/debug.md)
-- [Troubleshooting AMD GPUs](amd/debug.md)
+General:
 - [Benchmarks](benchmarks)
 
+NVIDIA:
+- [Troubleshooting NVIDIA GPUs](nvidia/debug.md)
+
+AMD:
+- [Troubleshooting AMD GPUs](amd/debug.md)
+- [AMD GPUs Performance](amd/performance.md)
 
 ## Bird's eye view on the high end accelerator reality
 
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - probably Q2-Q3-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till 2025 before we will be able to use those.
-- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is promised to start being available already in March 2024 at some Tier 2 cloud providers.
+- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - promised Q4-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till mid-2025 before we will be able to use those, because of the delays in production.
+- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is starting to being available now at some Tier 2 cloud providers.
 
 HPU:
 - Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup. It's also available on-premises implementations via Supermicro, WiWynn, and soon others.
@@ -39,7 +44,7 @@ On Pods and racks:
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as Q1-2024.
+That's about it as Q3-2024.
 
 As most of us rent the compute, and we never see what it looks like, here is a how an 8xH100 node looks like physically (this is the GPU tray of the Dell PowerEdge XE9680 Rack Server):
 
@@ -195,9 +200,9 @@ The values are for matmul with BF16 inputs (no sparsity) TFLOPS
 
 | Accelerator      | MAMAF | Theory | Efficiency |      Best Shape | Notes |
 | :--------------- | ----: | -----: | ---------: |  :------------- | ----: |
-| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 |     1 |
-| NVIDIA A100 SXM  |       |    312 |            |                 |     2 |
-| NVIDIA A100 PCIe | 248.7 |    312 |      79.7% | 2560x19968x4096 |     3 |
+| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 |       |
+| NVIDIA A100 SXM  |       |    312 |            |                 |       |
+| NVIDIA A100 PCIe | 248.7 |    312 |      79.7% | 2560x19968x4096 |       |
 |                  |       |        |            |                 |       |
 
 Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
@@ -205,7 +210,7 @@ Caveat emptor: these numbers were achieved by a brute-force search of various sh
 Notes:
 0. for the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
 1. Efficiency is MAMAF/Theory*100
-
+2. If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
 
 
 ### Accelerator memory size and speed

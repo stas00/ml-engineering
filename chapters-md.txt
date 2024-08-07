@@ -8,6 +8,7 @@ compute/accelerator/README.md
 compute/accelerator/benchmarks/README.md
 compute/accelerator/nvidia/debug.md
 compute/accelerator/amd/debug.md
+compute/accelerator/amd/performance.md
 compute/cpu/README.md
 compute/cpu-memory/README.md
 

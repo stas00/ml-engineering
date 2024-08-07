@@ -39,15 +39,15 @@ Examples of usage:
 
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result
 
-clear; ./mamaf-finder.py --m_range 0 21480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+clear; ./mamaf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far
 
-clear; ./mamaf-finder.py --m_range 0 21480 256 --n_range 0 20480 256 --k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+clear; ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k 2048 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far
 
-clear; ./mamaf-finder.py --m_range 0 21480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+clear; ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 
 
 """
