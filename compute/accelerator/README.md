@@ -32,6 +32,7 @@ GPUs:
 
 HPU:
 - Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup. It's also available on-premises implementations via Supermicro, WiWynn, and soon others.
+- Gaudi3 is supposed to become available some time in 2024.
 
 IPU:
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.

@@ -279,7 +279,7 @@ Emerging to general availability:
 
   * AMD MI300X ~= H100 - a few clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here
 
-  * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud, Gaudi3 announced
+  * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud, Gaudi3 is supposed to become available some time in 2024.
 
   * GraphCore IPU - very difficult to find, paperspace has them
 
