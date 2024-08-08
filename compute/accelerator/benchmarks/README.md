@@ -1,6 +1,6 @@
 # Accelerator Benchmarks
 
-# Maximum Achievable Matmul TFLOPS Finder
+## Maximum Achievable Matmul TFLOPS Finder
 
 Maximum Achievable Matmul FLOPS (MAMAF) Benchmark: [mamaf-finder.py](./mamaf-finder.py)
 
@@ -21,49 +21,61 @@ Fairness notes:
 - if you can find a better and more efficient way to detect the best matmul TFLOPS by approaching each new accelerator as a black box, please kindly send a PR with the improvement including the generated log file.
 - also if you know that this benchmark should be run under special conditions to show the best results, such as some kernel settings or similar, please submit a PR to add such special instructions. For example, for AMD MI300X I'm being told disabling the numa_balancing is supposed to help.
 
-Architecture specific notes:
+### Architecture specific notes:
 
 Follow the special setup instructions before running the benchmark to achieve the best results:
 
-** MI300x **
+**MI300x**:
 
 Turn numa_balancing off for better performance:
 ```
 sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 ```
 
-Examples of usage:
+### Examples of usage
 
-1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result
+1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.
 
 ```
 ./mamaf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
-2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far
+2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
 ./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
-3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far
+3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
 ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
+
+4. If you want to measure a specific shape that is used by your training, use the exact shape, instead of the range, so let's say you wanted to measure 1024x1024x1024 - you'd run:
+
+```
+./mamaf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+```
+
+5. Accelerator specific range seeking suggestions
 
 But then it appears that different accelerators have different ranges of shapes that lead to best TFLOPS, thus it's difficult to suggest a range that will work well for all of them - instead here are some suggestions based on experiments and suggestions from contributors:
 
-- A100 + MI300X
+- **A100** + **MI300X**
 
 ```
 ./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
-- H100
+- **H100**
 
 ```
 ./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
+
+
+
+### Results
 
 The measurements that I have gathered so far can be found at [Maximum Achievable Matmul TFLOPS comparison table](../#maximum-achievable-matmul-tflops-comparison-table).

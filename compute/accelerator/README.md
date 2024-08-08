@@ -216,6 +216,8 @@ Notes:
 - Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 
+Also it's important to understand that knowing the highest achievable TFLOPS at some particular shape like 4352x13568x3840 doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMAF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool.
+
 
 ### Accelerator memory size and speed
 
