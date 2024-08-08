@@ -130,24 +130,25 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS | fp32  |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
+| Accelerator \ TFLOPS |  fp32 |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
 | :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
-| NVIDIA GB200 SXM     | ??    | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
-| NVIDIA B200 SXM      | ??    | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| NVIDIA B100 SXM      | ??    |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
+| NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
+| NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
+| NVIDIA B100 SXM      |    ?? |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
 | AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     3 |
-| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
-| NVIDIA H100 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
-| NVIDIA H100 PCIe     | 51.0  |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| Intel Gaudi2         | V     |      V |    V |    V | V    |    V | X    | X      |     1 |
-| Google TPU v5p       | X     |      X |    X |  459 | X    |  918 | X    | X      |       |
-| AMD MI250X           | 47.9  |      X |  383 |  383 | X    |  383 | X    | X      |       |
-| NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
-| AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |       |
-| NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
-| NVIDIA A100 PCIe     | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |     5 |
-| Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |       |
-| Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |       |
+| NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
+| NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
+| NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
+| NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
+| Intel Gaudi2         |     V |      V |    V |    V | V    |    V | X    | X      |     1 |
+| Google TPU v5p       |     X |      X |    X |  459 | X    |  918 | X    | X      |       |
+| AMD MI250X           |  47.9 |      X |  383 |  383 | X    |  383 | X    | X      |       |
+| NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
+| AMD MI250            |  45.3 |      X |  362 |  362 | X    |  362 | X    | X      |       |
+| NVIDIA A100 SXM      |  19.5 |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
+| NVIDIA A100 PCIe     |  19.5 |  156.0 |  312 |  312 | X    |  624 | X    | X      |     5 |
+| Google TPU v4        |     X |      X |    X |  275 | X    |  275 | X    | X      |       |
+| Google TPU v5e       |     X |      X |    X |  197 | X    |  394 | X    | X      |       |
 |                      |       |        |      |      |      |      |      |        |       |
 
 Row-specific notes:
@@ -161,6 +162,8 @@ Row-specific notes:
 4. H200 is the same as H100 but has 141GB vs 80GB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
 
 5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
+
+6. GH200 - same note as GB200 - this is 2 chips, so the table includes specs per chip w/o sparsity.
 
 General notes:
 
@@ -286,7 +289,6 @@ The only important practical understanding for heat is that if the accelerators 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
 NVIDIA:
-- GH200 - leaked spec https://nvdam.widen.net/s/xqt56dflgh/nvidia-blackwell-architecture-technical-brief (XXX: update when official specs are released)
 - B200 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
 - B100 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
