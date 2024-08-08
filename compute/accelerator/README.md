@@ -189,9 +189,9 @@ The problem with the advertised theoretical peak FLOPS is that they are **very**
 
 If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end accelerators discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
 
-To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision regime. And with FlashAttention it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
+To provide a numerical sense to what I'm talking about let's take an A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
-You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) to reproduce the results.
+You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
 
 #### Maximum Achievable Matmul TFLOPS comparison table
@@ -202,16 +202,19 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | :--------------- | ----: | -----: | ---------: | :-------------- | ---------: |
 | NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 | CUDA-12.1  |
 | NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |  2304x5120x1536 | CUDA-12.1  |
-| NVIDIA H100 SXM  | 738.6 |    989 |      74.7% | 2816x15616x4096 | CUDA-12.1  |
-| AMD MI300X       | 731.0 |   1300 |      56.2% | 4352x14336x3840 | ROCm-6.2   |
+| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% | 6144x17920x2816 | CUDA-12.1  |
+| AMD MI300X       | 758.3 |   1300 |      58.3% | 4352x13568x3840 | ROCm-6.2   |
 |                  |       |        |            |                 |            |
 
-Caveat emptor: these numbers were achieved by a brute-force search of various shapes performing `matmul` (see:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run the mamaf-finder on your particular setup to get the true numbers. Use my numbers only as a rough estimation.)
+Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamaf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 
 Notes:
-0. for the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
-1. Efficiency is MAMAF/Theory*100
-2. If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
+- For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
+- Efficiency is MAMAF/Theory*100
+- Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
+- If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
+- Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
+- Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 
 
 ### Accelerator memory size and speed

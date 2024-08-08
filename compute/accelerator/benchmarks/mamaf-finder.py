@@ -2,73 +2,25 @@
 
 """
 
-This is Maximum Achievable Matmul FLOPS (MAMAF) finder
+This is Maximum Achievable Matmul FLOPS (MAMAF) Finder
 
-While some accelerator manufacturers publish the theoretical TFLOPS these usually can't be reached. As a result of this when we try to optimize our software we have no realistic performance bar to compare ourselves to. The Model FLOPS Utilization (MFU) metric measures TFLOPS achieved against theoretical TFLOPS. Usually when one scores around 50% MFU it's considered a win. But this gives us no indication how far are we from the real achievable throughput.
-
-This benchmark scans various large shapes of matmul and reports the highest achievable TFLOPS it registered. As transformers training and inference workloads are dominated by large matmul operations it's safe to use the best matmul TFLOPS one can measure on each accelerator as a rough estimation that this is the Maximum Achievable Matmul FLOPS (MAMAF). Now instead of the previously used MFU, one can use Model Achievable Matmul FLOPS Utilization (MAMFU).
-
-Therefore now you can compare the TFLOPS you measured for your training or inference against a realistic number. As you will now be much closer to 100% it'll be much easier to know when to stop optimizing.
-
-Currently supported high end architectures:
-- NVIDIA: V100, A100, H100, ...
-- AMD: MI250, MI300X, ...
-- Intel Gaudi2+
-
-Fairness notes:
-- if you can find a better and more efficient way to detect the best matmul TFLOPS by approaching each new accelerator as a black box, please kindly send a PR with the improvement.
-- also if you know that this benchmark should be run under special conditions to show the best results, such some some kernel settings or similar, please submit a PR to add such special instructions. For example, for AMD I'm being told disabling the numa_balancing is supposed to help
-
-Architecture specific notes:
-
-Follow the special setup instructions before running the benchmark to achieve the best results:
-
-** MI300x **
-
-Turn numa_balancing off for better performance:
-
-sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
-
-
+For discussion and multiple important nuances please refer to
+https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-tflops-finder
 
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 
-Examples of usage:
-
-1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result
-
-./mamaf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-
-2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far
-
-./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-
-3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far
-
-./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-
-But then it appears that different accelerators have different ranges of shapes that lead to best TFLOPS, thus it's difficult to suggest a range that will work well for all of them - instead here are some suggestions based on experiments and suggestions from contributors:
-
-- A100 + MI300
-
-./mamaf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-
-- H100
-
-./mamaf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
-
-
-
 """
 
 from pathlib import Path
+
 import argparse
 import datetime
 import numpy as np
 import os
 import platform
+import re
 import shlex
 import signal
 import sys
@@ -179,9 +131,12 @@ class Tee(object):
             self.stdout = sys.stdout
 
     def write(self, message):
-        self.file.write(message)
+
         if self.verbose:
             self.stdout.write(message)
+        # replace `\r` and `033\[K` which are nice in the console, but we don't want those in the log file
+        message = re.sub(r"(\r|\033\[K)", "\n", message)
+        self.file.write(message)
 
     def flush(self):
         self.file.flush()
@@ -318,5 +273,6 @@ if __name__ == '__main__':
                 if tflops > best_tflops:
                     best_tflops = tflops
                     best_config = f"{M}x{N}x{K} (MxNxK)"
-                print(f"{num_shapes:>5} | {tflops:6.1f} TFLOPS @ {M}x{N}x{K} | best: {best_tflops:6.1f} TFLOPS @ {best_config}", end="\r")
+                    cur_config = f"{M}x{N}x{K}"
+                print(f"{num_shapes:>6} | {tflops:6.1f} TFLOPS @ {cur_config:<20} | best: {best_tflops:6.1f} TFLOPS @ {best_config}", end="\r")
     finish()
