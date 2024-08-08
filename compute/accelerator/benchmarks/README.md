@@ -78,4 +78,4 @@ But then it appears that different accelerators have different ranges of shapes 
 
 ### Results
 
-The measurements that I have gathered so far can be found at [Maximum Achievable Matmul TFLOPS comparison table](../#maximum-achievable-matmul-tflops-comparison-table).
+The measurements that I have gathered so far can be found at [Maximum Achievable Matmul TFLOPS comparison table](../#maximum-achievable-matmul-tflops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
