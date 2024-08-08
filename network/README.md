@@ -74,11 +74,11 @@ Here is intra-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect    |  GBps |
 | :-----------    | ----: |
-| NVIDIA NVlink 5 | 900.0 |
+| NVIDIA NVLink 5 | 900.0 |
 | Intel Gaudi3    | 600.0 |
-| NVIDIA NVlink 4 | 450.0 |
+| NVIDIA NVLink 4 | 450.0 |
 | AMD XGMI MI300X | 448.0 |
-| NVIDIA NVlink 3 | 300.0 |
+| NVIDIA NVLink 3 | 300.0 |
 | AMD XGMI MI250X | 350.0 |
 | Intel Gaudi2    | 300.0 |
 | PCIe 5          |  63.0 |
@@ -98,12 +98,12 @@ You will find the details analysis of each technology in the following sections.
 
 | Interconnect | Lane/Direction | Lanes | Unidirection | Duplex   |
 | :----------  | -------------: |  ---: | ----------:  | ------:  |
-| PCIe 4       | ~2.0 GBps      |    16 | 31 GBps      | 62 GBps  |
-| PCIe 5       | ~4.0 GBps      |    16 | 63 GBps      | 126 GBps |
-| PCIe 6       | ~7.5 GBps      |    16 | 121 GBps     | 242 GBps |
+| PCIe 4       |  ~2.0 GBps     |    16 |  31 GBps     |  62 GBps |
+| PCIe 5       |  ~4.0 GBps     |    16 |  63 GBps     | 126 GBps |
+| PCIe 6       |  ~7.5 GBps     |    16 | 121 GBps     | 242 GBps |
 | PCIe 7       | ~15.0 GBps     |    16 | 242 GBps     | 484 GBps |
 
-If one compares the latest generations of different intra-node technologies (see the following sections) PCIe is usually an order of magnitude behind.
+If one compares the latest generations of different intra-node networking technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
 
 
@@ -115,22 +115,35 @@ I found the wiki pages quite difficult to follow, so I will try to help bring cl
 
 Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
-| Interconnect | Lane/Direction | Lanes | Links | Unidirection | Duplex   |
-|:------------ |---------------:|------:|------:|-------------:|---------:|
-| NVlink 2     | 6.250 GBps     |     4 |     6 | 150 GBps     | 300 GBps |
-| NVlink 3     | 6.250 GBps     |     4 |    12 | 300 GBps     | 600 GBps |
-| NVlink 4     | 6.250 GBps     |     4 |    18 | 450 GBps     | 900 GBps |
+| Interconnect | Lane/Direction   | Lanes | Links | Unidirection | Duplex     |
+| :----------- | -------------:   | ----: | ----: | -----------: | ---------: |
+| NVLink 2     | 6.250 GBps       |     4 |     6 | 150 GBps     | 300 GBps   |
+| NVLink 3     | 6.250 GBps       |     4 |    12 | 300 GBps     | 600 GBps   |
+| NVLink 4     | 6.250 GBps       |     4 |    18 | 450 GBps     | 900 GBps   |
+|              |                  |       |       |              |            |
+|              | not sure yet     |       |       |              |            |
+|              | which is correct |       |       |              |            |
+| NVLink 5     | 6.250 GBps       |     8 |    18 | 900 GBps     | 1800 GBps  |
+| NVLink 5     | 12.50 GBps       |     4 |    18 | 900 GBps     | 1800 GBps  |
+|              |                  |       |       |              |            |
 
 
-NVlink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
+NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
 
 - NVLink 2 has  6 links => `25* 6`=> 150 GBps unidirectional and 300 GBps bi-directional
 - NVLink 3 has 12 links => `25*12`=> 300 GBps unidirectional and 600 GBps bi-directional
 - NVLink 4 has 18 links => `25*18`=> 450 GBps unidirectional and 900 GBps bi-directional
 
+(waiting to get the answers)
+- NVLink 5 has 18 links => 900 GBps unidirectional and 1800 GBps bi-directional
+
+
+
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
-As of this writing NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVlink is 7x faster than PCIe.
+NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVLink is 7x faster than PCIe.
+
+NVIDIA Blackwell nodes will be equipped with PCIe 5 and NVLink 5. So there NVLink will be 14x faster than PCIe.
 
 Let's look at several examples of nodes and correlate the theory with reality.
 
@@ -228,7 +241,7 @@ There are 2 types of NVSwitch:
 
 NVSwitch gen 1 came out with V100, gen 2 with A100, and gen 3 with H100 - the speed corresponds to the NVLink version of the same technology.
 
-The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVlink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVlink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
+The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVLink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVLink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
 NVIDIA DGX A100 has 6 switches of 12 NVLinks for a total of 72.
 
@@ -613,7 +626,7 @@ Let's bring both use cases together:
 |     1 | 0.027 |    0.42 | no                    |
 |     4 |  0.64 |    0.42 | yes                   |
 
-on this 200Gbps inter-node setup the comms are 23x slower than the same performed on an intra-node NVlink connections.
+on this 200Gbps inter-node setup the comms are 23x slower than the same performed on an intra-node NVLink connections.
 
 In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
 

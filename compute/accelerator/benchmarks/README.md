@@ -34,6 +34,12 @@ sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 
 ### Examples of usage
 
+In the ranges below `N` is the reduction dimension so that `(MxN)*(NxK)=(MxK)` and we print the MxNxK shape for the best measured TFLOPS.
+
+Also by default we use 50 warmup and 100 measured iterations for each shape so the results are averaged. You can change that via the args `--num_warmup_iterations` and `--num_iterations` correspondingly.
+
+Here we do `torch.mm(MxN,NxK) -> MxK`
+
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.
 
 ```
