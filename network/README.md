@@ -68,13 +68,14 @@ There are multiple platforms/solutions out there that provide intra-node network
 1. Generic: [PCIe](#pcie)
 2. NVIDIA: [NVLink](#nvlink) and [NVSwitch](#nvswitch)
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
-4. Intel: [Gaudi2](#gaudi2)
+4. Intel: [Gaudi2](#gaudi2), [Gaudi3](#gaudi3)
 
 Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
 
 | Interconnect    |  GBps |
 | :-----------    | ----: |
 | NVIDIA NVlink 5 | 900.0 |
+| Intel Gaudi3    | 600.0 |
 | NVIDIA NVlink 4 | 450.0 |
 | AMD XGMI MI300X | 448.0 |
 | NVIDIA NVlink 3 | 300.0 |
@@ -258,7 +259,17 @@ Platform specs:
 
 ### Gaudi2
 
-According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide 8x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1Tbps intra-node connectivity and each card connected with the other 7 cards at 300GBps.
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide the same 100GbE RoCE v2 RDMA hardware for inter- and intra-node connectivity (24x 100Gbps per card).
+
+- intra-node: 8x 7x3 NICs - 300Gbps card to card
+- inter-node: 8x 1x3 NICS - for a total of 2.4Tbps (300GBps)
+
+### Gaudi3
+
+According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html), these nodes provide the same setup as Gaudi2 except the cards are 2x faster using 200GbE RoCE v2 RDMA  for inter- and intra-node connectivity (24x 200Gbps per card).
+
+- intra-node: 8x 7x3 NICs - 600Gbps card to card
+- inter-node: 8x 1x3 NICS - for a total of 4.8Tbps (600GBps)
 
 
 
@@ -272,6 +283,7 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect              | NICs x Gbps | Total GBps | Notes   |
 | :-------------------      | ----------: | ---------: | :------ |
+| Intel Gaudi3              |      24x200 |        600 |         |
 | NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100    |
 | NVIDIA Quantum-2 IB       |       8x400 |        400 | H100    |
 | AWS EFA v2                |      32x100 |        400 | H100    |
@@ -365,6 +377,14 @@ Besides [NVLink Switch](#nvlink-switch) this is the only other tech that powers 
 
 According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide `3*8=24` NICs of 100GbE RoCE v2 RDMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 nodes.
 
+
+### Gaudi2 (inter-node)
+
+According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html), these nodes provide `3*8=24` NICs of 200GbE RoCE v2 RDMA for a total of 4.8Tbps of inter-node connectivity with other Gaudi2 nodes.
+
+
+
+According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide `3*8=24` NICs of 100GbE RoCE v2 RDMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 nodes.
 
 
 ### HPE Slingshot interconnect

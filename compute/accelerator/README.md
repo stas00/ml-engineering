@@ -130,7 +130,7 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS |  fp32 |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
+| Accelerator \ TFLOPS |  fp32 |   tf32 | fp16 | bf16 |  fp8 | int8 | fp6  | fp4    | Notes |
 | :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
 | NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
 | NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
@@ -139,21 +139,22 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
 | NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
 | NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
+| Intel Gaudi3         |   229 |    459 |  459 | 1835 | 1835 |    V | X    | X      |     1 |
 | NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| Intel Gaudi2         |     V |      V |    V |    V | V    |    V | X    | X      |     1 |
-| Google TPU v5p       |     X |      X |    X |  459 | X    |  918 | X    | X      |       |
-| AMD MI250X           |  47.9 |      X |  383 |  383 | X    |  383 | X    | X      |       |
-| NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
-| AMD MI250            |  45.3 |      X |  362 |  362 | X    |  362 | X    | X      |       |
-| NVIDIA A100 SXM      |  19.5 |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
-| NVIDIA A100 PCIe     |  19.5 |  156.0 |  312 |  312 | X    |  624 | X    | X      |     5 |
-| Google TPU v4        |     X |      X |    X |  275 | X    |  275 | X    | X      |       |
-| Google TPU v5e       |     X |      X |    X |  197 | X    |  394 | X    | X      |       |
+| Intel Gaudi2         |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
+| Google TPU v5p       |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
+| AMD MI250X           |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
+| NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
+| AMD MI250            |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
+| NVIDIA A100 SXM      |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |       |
+| NVIDIA A100 PCIe     |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |     5 |
+| Google TPU v4        |     X |      X |    X |  275 |    X |  275 | X    | X      |       |
+| Google TPU v5e       |     X |      X |    X |  197 |    X |  394 | X    | X      |       |
 |                      |       |        |      |      |      |      |      |        |       |
 
 Row-specific notes:
 
-1. Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
+1. Intel Gaudi2 and 3 only have partial TFLOPS [specs](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) published, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. These numbers are for MME (Matrix) compute.
 
 2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute).
 
@@ -242,19 +243,20 @@ Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how ma
 
 Typically the more on-device memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
-Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size:
+Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
+| Accelerator          |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
 | NVIDIA B200 SXM      |               192 | HBM3e |                 8.00 |
 | NVIDIA B100 SXM      |               192 | HBM3e |                 8.00 |
 | AMD MI300X           |               192 | HBM3  |                 5.30 |
 | NVIDIA GH200 SXM (2) |               141 | HBM3e |                 4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                 4.80 |
+| Intel Gaudi3         |               128 | HBM2e |                 3.70 |
 | AMD MI250            |               128 | HBM2e |                 3.28 |
 | AMD MI250X           |               128 | HBM2e |                 3.28 |
 | NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
-| Intel Gaudi2         |                96 | HBM2e |                 2.45 |
+| Intel Gaudi2         |                96 | HBM2e |                 2.46 |
 | Google TPU v5p       |                95 | HBM2e |                 4.80 |
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
 | NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
@@ -302,7 +304,8 @@ AMD:
 - [MI300X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - just starting to emerge - and mainly on Tier-2 clouds (lots of new startups).
 
 Intel:
-- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
+- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
+-  [Gaudi3](https://habana.ai/products/gaudi3/), somewhere between B100 and B200 theoretical TFLOPS-wise [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://thytu.com/posts/ipus-101/).
