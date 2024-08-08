@@ -52,6 +52,42 @@ In-flight batching is a process where the generation engine removes completed re
 
 This improves the response time, since there is no need for a sequence that already finished not to be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
 
+### Structured Text Generation
+
+Also known as Guided Text Generation.
+
+If the model can return its generated output in a specific format, rather than unrestricted format, you don't want the model to hallucinate invalid formats. For example, if you want a model to return a JSON dict, it should do just that.
+
+The way this is accomplished is by using guided text generation. Instead of choosing a generated token with highest probability, the technique uses the next best token with highest probability that fits the next expected token sub-set. To elucidate with an example: if you want the model to generate a JSON list of strings like `["apples", "oranges"]` thus we expect:
+
+```
+["string", "string", ..., "string"]
+123...
+```
+
+The first generated token has to be `[`. If the model got `"`, for example, instead of `[`, as the highest probability, and `[` had a lower probability - we want to pick the one with lower probability so that it'll be `[`.
+
+Then the next generated token has to be `"`. If it's not, search for tokens with lower probabilities until `"` is found and choose that.
+
+The third token has to be a valid string (i.e. not `[` or `"`).
+
+And so on.
+
+Basically, for each next token we need to know a subset of tokens that is allowed and choose
+
+This is a very cool technique. Instead of trying to repair the generated output which is not always possible to match the expected format, we get the model to generate the correct output in the first place.
+
+This technique has several costs:
+- it slows down the generation - the more complex the schema it has to adhere to the slower it'll be at generating tokens. From measuring generation speed I found some structured text generation libraries perform much faster than others.
+- it may contribute to model hallucination.
+
+There are multiple implementations of this technique, as of this writing 2 popular libraries are:
+- https://github.com/outlines-dev/outlines
+- https://github.com/noamgat/lm-format-enforcer
+
+You ideally want the implementations that have already integrated into inference frameworks like `vllm` and others.
+
+
 
 ### Speculative inference
 
