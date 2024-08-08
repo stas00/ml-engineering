@@ -191,14 +191,14 @@ If you find solid reports (papers?) showing the actual TFLOPS one can expect fro
 
 To provide a numerical sense to what I'm talking about let's take an A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
-You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
+You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
 
-#### Maximum Achievable Matmul TFLOPS comparison table
+#### Maximum Achievable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMAF means). Sorted by accelerator efficiency:
+The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means). Sorted by accelerator efficiency:
 
-| Accelerator      | MAMAF | Theory | Efficiency |      Best Shape | Notes      |
+| Accelerator      | MAMF | Theory | Efficiency |      Best Shape | Notes      |
 | :--------------- | ----: | -----: | ---------: | :-------------- | ---------: |
 | NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 | CUDA-12.1  |
 | NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |  2304x5120x1536 | CUDA-12.1  |
@@ -206,17 +206,17 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | AMD MI300X       | 758.3 |   1300 |      58.3% | 4352x13568x3840 | ROCm-6.2   |
 |                  |       |        |            |                 |            |
 
-Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-tflops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamaf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
+Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 
 Notes:
 - For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
-- Efficiency is MAMAF/Theory*100
+- Efficiency is MAMF/Theory*100
 - Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
 - Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 
-Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x13568x3840` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMAF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
+Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x13568x3840` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
 
 And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is more efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So start with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 

@@ -2,10 +2,10 @@
 
 """
 
-This is Maximum Achievable Matmul FLOPS (MAMAF) Finder
+This is Maximum Achievable Matmul FLOPS (MAMF) Finder
 
 For discussion and multiple important nuances please refer to
-https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-tflops-finder
+https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
 
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
