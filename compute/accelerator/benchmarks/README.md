@@ -74,6 +74,7 @@ But then it appears that different accelerators have different ranges of shapes 
 ./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
+To understand better which shapes give the highest matmul FLOPS for a particular accelerator, see [Vector and matrix size divisibility](../../../training/performance/README.md#vector-and-matrix-size-divisibility).
 
 
 ### Results
