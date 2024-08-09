@@ -210,7 +210,7 @@ if __name__ == '__main__':
     k_group.add_argument("--k_range", nargs='+', type=int, help="The last dimension of the GEMM, [start,stop,step]")
 
     parser.add_argument("--num_iterations", type=int, default=100, help='The number of iterations used to benchmark each GEMM')
-    parser.add_argument("--num_warmup_iterations", type=int, default=50, help='The number of warmup iterations')
+    parser.add_argument("--num_warmup_iterations", type=int, default=0, help='The number of warmup iterations')
     parser.add_argument("--cuda_device", type=int, default=0, help="The cuda device to run the benchmark on")
     parser.add_argument("--output_file", type=str, default=f"{file_dir}/results/mm.out")
     parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
