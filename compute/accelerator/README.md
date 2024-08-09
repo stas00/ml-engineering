@@ -207,7 +207,7 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | :--------------- | ----: | -----: | ---------: | :-------------- | ---------: |
 | NVIDIA A100 SXM  | 267.9 |    312 |      85.9% | 6912x16384x2048 | CUDA-12.1  |
 | NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |  2304x5120x1536 | CUDA-12.1  |
-| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% | 6144x17920x2816 | CUDA-12.1  |
+| NVIDIA H100 SXM  | 813.8 |    989 |      82.2% | 6144x17920x2816 | CUDA-12.5  |
 | AMD MI300X       | 758.3 |   1300 |      58.3% | 4352x13568x3840 | ROCm-6.2   |
 |                  |       |        |            |                 |            |
 
