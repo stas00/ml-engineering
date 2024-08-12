@@ -149,7 +149,7 @@ When a model can't fit onto a single accelerator or when it's more efficient to 
 
 
 
-### Privacy and Encryption
+### Privacy-preserving inference
 
 Most companies serving inference will run into a user privacy need. It should be safe for a user to submit a query w/o someone snooping on it. One solution would be an on-premise solution where the client runs the server themselves and then there is no privacy issue, but that most likely is going to expose provider's IP - model's weights and possibly code/algorithms. Therefore, there is a need for a fully encrypted generation - that is the computations are to be performed on client-encrypted data.
 
@@ -159,7 +159,7 @@ One of the solutions is called Fully [Homomorphic Encryption](https://en.wikiped
 
 Have a look at one such implementation, [concrete-ml](https://github.com/zama-ai/concrete-ml) that rewrites the model to be able to have the client run part of the model themselves, then the intermediary encrypted activations are sent to the server to perform the attention and then sent back to the client. Thus the provider retains part of their IP - and I suppose this part of IP prevents the client from stealing the full IP, since partial weights aren't enough to reconstruct the full model. [This article](https://huggingface.co/blog/encrypted-llm) goes into more details.
 
-
+The problem with current solutions is the additional cost to deal with encryption and a much larger latency. In the future ASIC solutions should address these issues.
 
 
 ## Inference frameworks
