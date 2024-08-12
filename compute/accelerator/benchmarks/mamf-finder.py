@@ -270,9 +270,9 @@ if __name__ == '__main__':
             for K in k:
                 num_shapes += 1
                 tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
+                cur_config = f"{M}x{N}x{K}"
                 if tflops > best_tflops:
                     best_tflops = tflops
                     best_config = f"{M}x{N}x{K} (MxNxK)"
-                    cur_config = f"{M}x{N}x{K}"
                 print(f"{num_shapes:>6} | {tflops:6.1f} TFLOPS @ {cur_config:<20} | best: {best_tflops:6.1f} TFLOPS @ {best_config}", end="\r")
     finish()
