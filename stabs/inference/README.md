@@ -7,6 +7,8 @@ XXX: this is super-early - please ignore for now - just gathering content at thi
 
 - LPU: Language Processing Unit™
 - TTFT: Time to First Token
+- PPML: Privacy-Preserving Machine Learning
+- FHE: Fully Homomorphic Encryption
 
 See [Concepts](#concepts) for more glossary-like entries.
 
@@ -144,6 +146,19 @@ Some caches are per model, others are per layer.
 ### Model parallelism
 
 When a model can't fit onto a single accelerator or when it's more efficient to split the model across multiple accelerators even if it does fit but barely, the same [Model Parallelism techniques](../training/model-parallelism) from training apply to inference.
+
+
+
+### Privacy and Encryption
+
+Most companies serving inference will run into a user privacy need. It should be safe for a user to submit a query w/o someone snooping on it. One solution would be an on-premise solution where the client runs the server themselves and then there is no privacy issue, but that most likely is going to expose provider's IP - model's weights and possibly code/algorithms. Therefore, there is a need for a fully encrypted generation - that is the computations are to be performed on client-encrypted data.
+
+The solutions that address this need are called Privacy-Preserving Machine Learning (PPML).
+
+One of the solutions is called Fully [Homomorphic Encryption](https://en.wikipedia.org/wiki/Homomorphic_encryption) (FHE).
+
+Have a look at one such implementation, [concrete-ml](https://github.com/zama-ai/concrete-ml) that rewrites the model to be able to have the client run part of the model themselves, then the intermediary encrypted activations are sent to the server to perform the attention and then sent back to the client. Thus the provider retains part of their IP - and I suppose this part of IP prevents the client from stealing the full IP, since partial weights aren't enough to reconstruct the full model. [This article](https://huggingface.co/blog/encrypted-llm) goes into more details.
+
 
 
 
