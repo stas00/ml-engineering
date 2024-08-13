@@ -5,10 +5,11 @@ XXX: this is super-early - please ignore for now - just gathering content at thi
 
 ## Glossary
 
-- LPU: Language Processing Unit™
-- TTFT: Time to First Token
-- PPML: Privacy-Preserving Machine Learning
 - FHE: Fully Homomorphic Encryption
+- LPU: Language Processing Unit™
+- MPC: Secure Multi-Party Computation
+- PPML: Privacy-Preserving Machine Learning
+- TTFT: Time to First Token
 
 See [Concepts](#concepts) for more glossary-like entries.
 
@@ -159,7 +160,10 @@ One of the solutions is called Fully [Homomorphic Encryption](https://en.wikiped
 
 Have a look at one such implementation, [concrete-ml](https://github.com/zama-ai/concrete-ml) that rewrites the model to be able to have the client run part of the model themselves, then the intermediary encrypted activations are sent to the server to perform the attention and then sent back to the client. Thus the provider retains part of their IP - and I suppose this part of IP prevents the client from stealing the full IP, since partial weights aren't enough to reconstruct the full model. [This article](https://huggingface.co/blog/encrypted-llm) goes into more details.
 
-The problem with current solutions is the additional cost to deal with encryption and a much larger latency. In the future ASIC solutions should address these issues.
+There are various other approaches, e.g. this paper: [LLMs Can Understand Encrypted Prompt: Towards Privacy-Computing Friendly Transformers](https://arxiv.org/abs/2305.18396v3) goes into a custom solution based on Secure Multi-Party Computation (MPC) and FHE and has a good reference list.
+
+The problem with current solutions is the huge computational overhead - which greatly impacts the cost and latency. In the future ASIC solutions should address these issues.
+
 
 
 ## Inference frameworks
