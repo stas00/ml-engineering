@@ -1158,3 +1158,40 @@ JobID           JobName      State    Elapsed
 ```
 
 so we know the job finished running in under 2min.
+
+## FairShare
+
+Many SLURM clusters use the FairShare system where the more someone uses the cluster the less of the priority they get to run jobs or if there is a pre-emption in place they are more likely to get pre-empted
+
+To see your FairShare scores run:
+```
+sshare
+```
+
+Example:
+
+```
+Account                    User  RawShares  NormShares    RawUsage  EffectvUsage  FairShare
+-------------------- ---------- ---------- ----------- ----------- ------------- ----------
+root                                          0.000000   711506073      1.000000
+ all                                     1    0.500000   711506073      1.000000
+  all                      stas          1    0.022727    14106989      0.019827   0.288889
+```
+
+If your FairShare score is more than 0.5 that means you have been using the cluster less than what you  have been allocated, if it's less than 0.5 it means you have been using more than what was allocated.
+
+As the time passes this score gets decayed so if you were having a very low score and have you have been using the cluster much less then your score will raise over time.
+
+To see the score of a specific user:
+```
+sshare -u username
+```
+
+To see everybody's scores, sorted by FairShare:
+```
+sshare --all | sort -nk7 -r
+```
+
+This is the most important output, since it doesn't really matter what your score is alone. What matters is your score relative to all other users. Everybody who has a higher score than you will have a higher chance at getting they job yielded first and a lower chance of getting their job preempted.
+
+Besides FairShare the priorities are typically configured based on a combination of multiple metrics, usually including the length of time a job has been waiting in the queue, job size, Quality of Service (QOS) setting, partition specifics, etc. The specifics will depend on how the slurm has been configured by your sysadmin.
