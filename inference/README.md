@@ -385,6 +385,8 @@ Supports only NVIDIA gpus.
 
 [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
 
+If your favourite inference framework isn't listed please make a PR and add it.
+
 
 
 ### Accelerator-specific frameworks
@@ -396,6 +398,8 @@ But there are accelerator-specific frameworks:
 ### Intel Gaudi, MAX, etc.
 
 -  https://github.com/intel/intel-extension-for-transformers
+
+
 
 ### How to choose an inference framework
 
