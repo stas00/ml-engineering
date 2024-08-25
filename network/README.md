@@ -19,10 +19,10 @@ This article covers both types of networking hardware, reports their theoretical
 
 ## Glossary and concepts
 
-You can safely ignore the many concepts and abbreviations listed here until you need to understand one.
+You can safely ignore the many concepts and abbreviations listed here until you need them and then return here.
 
-- AR: Adaptive Routing (but also could mean Aggregation Router)
 - ALU: Arithmetic Logic Units
+- AR: Adaptive Routing (but also could mean Aggregation Router)
 - DMA: Direct Memory Access
 - EFA: Elastic Fabric Adapter
 - HCA: Host Channel Adapter
@@ -30,13 +30,14 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - MFU: Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPs, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
 - NIC: Network Interface Card
 - OPA: Omni-Path Architecture
+- OPX: Omni-Path Express
+- OSFP: Octal Small Form Factor Pluggable (transceiver)
 - RDMA: Remote Direct Memory Access
 - RoCE: RDMA over Converged Ethernet
 - RoE: RDMA over Ethernet
 - SHARP: Scalable Hierarchical Aggregation Reduction Protocol
 - VPI: Virtual Protocol Interconnect
 - xGMI: Socket to Socket Global Memory Interface
-- OSFP: Octal Small Form Factor Pluggable (transceiver)
 
 Speed-related:
 - Unidirectional: a transmission from one point to another in one direction A -> B
@@ -70,24 +71,37 @@ There are multiple platforms/solutions out there that provide intra-node network
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2), [Gaudi3](#gaudi3)
 
-Here is intra-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by bandwidth:
+Here is intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
-| Interconnect    |  GBps |
-| :-----------    | ----: |
-| NVIDIA NVLink 5 | 900.0 |
-| Intel Gaudi3    | 600.0 |
-| NVIDIA NVLink 4 | 450.0 |
-| AMD XGMI MI300X | 448.0 |
-| NVIDIA NVLink 3 | 300.0 |
-| AMD XGMI MI250X | 350.0 |
-| Intel Gaudi2    | 300.0 |
-| PCIe 5          |  63.0 |
-| PCIe 4          |  31.0 |
+| Interconnect    | Accelerator |  GBps |
+| :-------------- | :---------- | ----: |
+| NVIDIA NVLink 5 | B200, B*    | 900.0 |
+| Intel           | Gaudi3      | 600.0 |
+| NVIDIA NVLink 4 | H100, H*    | 450.0 |
+| NVIDIA NVLink 3 | A100        | 300.0 |
+| Intel           | Gaudi2      | 300.0 |
+| AMD XGMI        | MI370X      |  64.0 |
+| AMD XGMI        | MI350X      |  64.0 |
+| AMD XGMI        | MI300X      |  64.0 |
+| PCIe 5          |             |  63.0 |
+| AMD XGMI        | MI250X      |  50.0 |
+| PCIe 4          |             |  31.0 |
 
 Notes:
 
 * NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
 * Pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
+* The other nuance is per node aggregated bandwidth vs peer-to-peer bandwidth. For example, AMD MI3* are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`.
+
+Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-comparison for those solutions which aren't the same for peer-to-peer.
+
+| Interconnect    | Accelerator |  GBps |
+| :-------------- | :---------- | ----: |
+| AMD XGMI        | MI370X      | 448.0 |
+| AMD XGMI        | MI350X      | 448.0 |
+| AMD XGMI        | MI300X      | 448.0 |
+| AMD XGMI        | MI250X      | 350.0 |
+
 
 You will find the details analysis of each technology in the following sections.
 
@@ -115,17 +129,17 @@ I found the wiki pages quite difficult to follow, so I will try to help bring cl
 
 Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
-| Interconnect | Lane/Direction   | Lanes | Links | Unidirection | Duplex     |
-| :----------- | -------------:   | ----: | ----: | -----------: | ---------: |
-| NVLink 2     | 6.250 GBps       |     4 |     6 | 150 GBps     | 300 GBps   |
-| NVLink 3     | 6.250 GBps       |     4 |    12 | 300 GBps     | 600 GBps   |
-| NVLink 4     | 6.250 GBps       |     4 |    18 | 450 GBps     | 900 GBps   |
-|              |                  |       |       |              |            |
-|              | not sure yet     |       |       |              |            |
-|              | which is correct |       |       |              |            |
-| NVLink 5     | 6.250 GBps       |     8 |    18 | 900 GBps     | 1800 GBps  |
-| NVLink 5     | 12.50 GBps       |     4 |    18 | 900 GBps     | 1800 GBps  |
-|              |                  |       |       |              |            |
+| Interconnect | Lane/Direction   | Lanes | Links | Unidirection | Duplex     | GPU               |
+| :----------- | -------------:   | ----: | ----: | -----------: | ---------: | :---------------- |
+| NVLink 2     | 6.250 GBps       |     4 |     6 | 150 GBps     | 300 GBps   | V100              |
+| NVLink 3     | 6.250 GBps       |     4 |    12 | 300 GBps     | 600 GBps   | A100              |
+| NVLink 4     | 6.250 GBps       |     4 |    18 | 450 GBps     | 900 GBps   | H100, H200, GH200 |
+|              |                  |       |       |              |            |                   |
+|              | not sure yet     |       |       |              |            |                   |
+|              | which is correct |       |       |              |            |                   |
+| NVLink 5     | 6.250 GBps       |     8 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
+| NVLink 5     | 12.50 GBps       |     4 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
+|              |                  |       |       |              |            |                   |
 
 
 NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
@@ -136,8 +150,6 @@ NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. 
 
 (waiting to get the answers)
 - NVLink 5 has 18 links => 900 GBps unidirectional and 1800 GBps bi-directional
-
-
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
@@ -256,11 +268,19 @@ AMD MI* Accelerators Intra-node communication is performed by AMD Infinity Fabri
 
 This is AMD's answer to [NVLink](#nvlink).
 
+The following is the all-to-all bandwidth.
+
 | Interconnect  | Link/Direction | Links | Unidirection | Duplex     |
+|               | peer-to-peer   |       | all-to-all   | all-to-all |
 | :------------ | -------------: | ----: | -----------: | ---------: |
-| MI250x        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
-| MI300x        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
-|               |                |       |              |            |
+| MI375X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
+| MI350X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
+| MI300X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
+| MI250X        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
+
+The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column).
+
+Other intra-node solutions typically have the same all-to-all and peer-to-peer intra-node bandwidth, so Infinity Fabric appears to be dramatically slower. I suppose that is because these were created mainly for inference, as these slow speeds would dramatically slow down LLM training.
 
 ![AMD Infinity Platform Architecture](images/amd-infinity-arch-MI300X.png)
 
@@ -314,6 +334,7 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 |                           |             |            |         |
 | Omni-Path CN5000          |       8x400 |        400 | Q3-2024 |
 | InfiniBand GDR3200        |       8x400 |        400 | 2025    |
+| Omni-Path CN6000          |       8x800 |        800 | 2026    |
 
 Notes:
 
@@ -414,7 +435,7 @@ GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 inst
 
 ### Omni-Path
 
-[Omni-Path Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks.
+[Omni-Path Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks. It's also known as Omni-Path Express (OPX).
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
@@ -427,7 +448,9 @@ As of this writing I see that the product comes with either 100 or 200Gbps bandw
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
 
+### Ultra Accelerator Link (UALink)
 
+[The UALink initiative](https://www.google.ca/search?q=Ultra+Accelerator+Link) is an attempt to create an open standard to compete with [NVLink](#nvlink). Supposedly it'll be based on AMD's [Infinity Fabric](#infinity-fabric--xgmi). As of this writing there is no actual hardware to speak of.
 
 
 ## Other essential network technologies
