@@ -1,7 +1,6 @@
 # Inference
 
-XXX: this is super-early - please ignore for now - just gathering content at this stage.
-
+XXX: this chapter is under construction - some sections are complete, some are still starting out
 
 ## Glossary
 
@@ -166,11 +165,11 @@ There are various other approaches, e.g. this paper: [LLMs Can Understand Encryp
 The problem with current solutions is the huge computational overhead - which greatly impacts the cost and latency. In the future ASIC solutions should address these issues.
 
 
-## Key performance metrics
+## Key inference performance metrics
 
 There are two ways to look at performance metrics, the usual system metrics of latency and throughput, and the user-experience metrics: Time To First Token (TTFT) and Time Per Output Token (TPOT). Let's look at both pairs.
 
-### System metrics
+### System performance metrics
 
 #### Latency
 
@@ -249,7 +248,7 @@ If this is an offline system that doesn't interface individual humans and there 
 
 
 
-### Simplified metrics
+### Simplified performance metrics
 
 As you can tell the discussed above metrics have a lot of overlap in them. Practically we can reduce all of them to just these 2 metrics: Prefill throughput and Decode throughput - and probably how many parallel requests per second the system can handle.
 
@@ -296,84 +295,120 @@ Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a muc
 
 
 
+## Benchmarks
+
+You can write your own benchmark as explained in [key inference performance metrics](#key-inference-performance-metrics) or use an existing one.
+
+At the moment I use mainly the [prefill throughput](#prefill-throughput) and [decode throughput](#decode-throughput) benchmarks. The first one just measures tokens per second from the moment the request was sent and the first generated token received, and the second one is the throughput between the first and the last generated tokens received. Here is the relevant snippet of such measurement using [`openai` client completions API](https://github.com/openai/openai-python):
+
+```
+[... create client, data, etc. ...]
+prefill_tokens_len = len(prompt)
+start_time = time.time()
+decode_text = ""
+decode_started = False
+completion = client.completions.create(prompt=prompt, ...)
+for chunk in completion:
+    if chunk.choices:
+        decode_text += text
+        if not decode_started:
+            decode_started_time = time.time()
+            prefill_time = decode_started_time - start_time
+            decode_started = True
+
+end_time = time.time()
+decode_time = end_time - decode_started_time
+decode_tokens = tokenizer.encode(decode_text)
+decode_tokens_len = len(decode_tokens)
+
+# tokens/per sec
+prefill_throughput = prefill_tokens_len / prefill_time
+decode_throughput  = decode_tokens_len  / decode_time
+```
+
+The `prefill_throughput` is not very precise here, since the client only know when it sent the request and received the first token, so a bit more went into this stage than pure prompt-preprocessing, but it should be close enough.
+
+Of course, like any serious benchmark, you want to run this multiple times to get realistic numbers, as the variance  between single runs can be quite large.
+
+
+
+Here are some good starting points for load testing:
+
+- https://github.com/grafana/k6 - useful for load testing to simulate multiple concurrent clients - uses JavaScript clients.
+- https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
+
+
+
+
 ## Inference frameworks
 
 There are many dozens of inference frameworks and more emerging every week, so it'd be very difficult to list them all. So this here you will find a starter list of a handful of inference frameworks that might be a good fit for your needs, but do check out other frameworks if the ones listed here don't satisfy your needs.
 
-To choose the most suitable framework you need to answer the following questions:
+To choose the most suitable framework you need to answer at least the following questions:
 
-- e.g. will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-llmvlm-workloads down the road
+1. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-llmvlm-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators but NVIDIA's.
+2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example HF's TGI tried to charge for commercial use and it backfired - so its license got reverted to the original Apache 2.0 license and now they are trying to recover from being shunned by the community.
+3. Does the framework have the features that you need? Be careful here, some frameworks list that they support feature A, but when you try to use it it's not well integrated or works really slowly.
+4. Does the framework have a thriving community of contributors - go to the framework's github repo and check how many contributors it has - if it's very few I'd be concerned as thriving frameworks usually tend to invite contributions and that means that even if the core contributors don't have the time some feature, some contributors might do it for you.
+5. Does the framework have a high adoption? github stars are often a good indication, but sometimes it can be hyped up via smart marketing moves. So seek out other signals - e.g. `Used by` count on the framework's repo's main page on github - these are real numbers. Lots of PRs and Issues is another flag. Then search the web for how many articles are written about the given framework.
+6. Are the framework maintainers responsive to Issues and PRs. Some frameworks will ignore many Issues and even PRs. Check the count of how many PRs and Issues not being addressed. A high outstanding open Issues is a difficult signal - from one side it means this is a popular project, from the other side it means the developer team and contributors can't cope with the needs of its users.
+7. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, TGI's big chunk is written in Rust). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
+8. The other issue you may run into is that some frameworks don't want your PRs where you implemented missing features or made improvements and then you will end up maintaining a fork, which can be extremely difficult if you want to continue syncing with the upstream and cause a lot of pain to your developers.
+9. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
+
+For example, here is a snapshot of [vllm](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
+
+![vllm](images/github-vllm-stats-2024-08-24.png)
+
+You can see that it is used by many github repositories, it has a lot of contributors and that it's written mainly in Python. So it should be very easy to find this information about any inference framework you may consider. This was just an example and not an endorsement of vllm.
+
+This section is trying hard to be neutral and not recommend any particular frameworks, since even if I was able to try them all out, there is no way I could possible guess which framework will work best for which user/company.
 
 
 ### DeepSpeed-FastGen
 
-[DeepSpeed-FastGen](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen) is an inference system framework for large language models (LLMs) from the DeepSpeed team.
-
-[Updates](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen/2024-01-19).
-
-paper: [DeepSpeed-FastGen: High-throughput Text Generation for LLMs via MII and DeepSpeed-Inference](https://arxiv.org/abs/2401.08671)
-
-
-#### Dynamic SplitFuse
-
-[Dynamic SplitFuse](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen#b-dynamic-splitfuse-) leverages dynamic prompt and generation decomposition and unification to improve continuous [batching](#batching) and system throughput.
-
-
-
-
+- [DeepSpeed-FastGen](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen) from [the DeepSpeed team](https://github.com/microsoft/DeepSpeed).
 
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm)
 
-
-
-
-
 ### TensorRT-LLM
 
 [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) (also integrated what used to be `FasterTransformer`)
 
+Supports only NVIDIA gpus.
+
 ### SGLang
 
-https://github.com/sgl-project/sglang
+[SGLang](https://github.com/sgl-project/sglang)
 
 ### OpenPPL
 
-https://github.com/OpenPPL/ppl.nn
-
-PPLNN, which is short for "PPLNN is a Primitive Library for Neural Network", is a high-performance deep-learning inference engine for efficient AI inferencing.
-
+[OpenPPL](https://github.com/OpenPPL/ppl.nn)
 
 ### LightLLM
 
-https://github.com/ModelTC/lightllm
-
-LightLLM is a Python-based LLM (Large Language Model) inference and serving framework, notable for its lightweight design, easy scalability, and high-speed performance.
+[LightLLM](https://github.com/ModelTC/lightllm)
 
 ### LMDeploy
 
-https://github.com/InternLM/lmdeploy
+[LMDeploy](https://github.com/InternLM/lmdeploy)
 
 ### MLC-LLM
 
-https://github.com/mlc-ai/mlc-llm
+[MLC-LLM](https://github.com/mlc-ai/mlc-llm)
 
 ### TGI
 
-https://github.com/huggingface/text-generation-inference
+[TGI](https://github.com/huggingface/text-generation-inference)
 
 
-### Orca
+### Accelerator-specific frameworks
 
-[Orca: A Distributed Serving System for Transformer-Based Generative Models](https://www.usenix.org/conference/osdi22/presentation/yu) - C++ inference engine based on NVIDIA's `FasterTransformer` as the generation/execution engine (it looks like `FasterTransformer` got folded into [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM).
+Most inference framework obviously support NVIDIA CUDA. Some support AMD ROCm and Intel Gaudi.
 
-
-## Accelerator-specific frameworks
-
-Most obviously support NVIDIA CUDA. Many support AMD ROCm and Intel Gaudi
-
-But there are accelerator specific frameworks:
+But there are accelerator-specific frameworks:
 
 ### Intel Gaudi, MAX, etc.
 
@@ -384,14 +419,13 @@ But there are accelerator specific frameworks:
 
 ## Inference Chips
 
+Besides general purpose accelerators some vendors have been working special ASICs that are designed to do Inference-only
+
 ### Groq
 
 - [Groq](https://groq.com/)
 
 
-## Benchmarks
-
-https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
 
 
 ## Resources
