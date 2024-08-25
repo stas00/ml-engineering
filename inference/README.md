@@ -347,19 +347,23 @@ There are many dozens of inference frameworks and more emerging every week, so i
 This section is trying hard to be neutral and not recommend any particular frameworks, since even if I was able to try them all out, there is no way I could possible guess which framework will work best for which user/company.
 
 
-### DeepSpeed-FastGen
-
-- [DeepSpeed-FastGen](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen) from [the DeepSpeed team](https://github.com/microsoft/DeepSpeed).
-
 ### vLLM
 
 [vLLM](https://github.com/vllm-project/vllm)
+
+### DeepSpeed-FastGen
+
+[DeepSpeed-FastGen](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen) from [the DeepSpeed team](https://github.com/microsoft/DeepSpeed).
 
 ### TensorRT-LLM
 
 [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) (also integrated what used to be `FasterTransformer`)
 
 Supports only NVIDIA gpus.
+
+### TGI
+
+[TGI](https://github.com/huggingface/text-generation-inference)
 
 ### SGLang
 
@@ -381,9 +385,6 @@ Supports only NVIDIA gpus.
 
 [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
 
-### TGI
-
-[TGI](https://github.com/huggingface/text-generation-inference)
 
 
 ### Accelerator-specific frameworks
