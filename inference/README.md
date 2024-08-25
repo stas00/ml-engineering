@@ -84,11 +84,11 @@ This technique has several costs:
 - it slows down the generation - the more complex the schema it has to adhere to the slower it'll be at generating tokens. From measuring generation speed I found some structured text generation libraries perform much faster than others.
 - it may contribute to model hallucination.
 
-There are multiple implementations of this technique, as of this writing 2 popular libraries are:
+There are multiple implementations of this technique, as of this writing the two popular libraries are:
 - https://github.com/outlines-dev/outlines
 - https://github.com/noamgat/lm-format-enforcer
 
-You ideally want the implementations that have already integrated into inference frameworks like `vllm` and others.
+You ideally want the implementations that have already been integrated into inference frameworks like `vllm` and others.
 
 
 
