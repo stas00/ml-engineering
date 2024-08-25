@@ -403,7 +403,7 @@ But there are accelerator-specific frameworks:
 
 ### How to choose an inference framework
 
-To choose the most suitable framework you need to answer at least the following questions:
+To choose the most suitable inference framework you need to answer at least the following questions:
 
 1. Does the framework have the features that you need? Be careful here, some frameworks list that they support feature A, but when you try to use it it's not well integrated or works really slowly.
 2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example HF's TGI tried to charge for commercial use and it backfired - so its license got reverted to the original Apache 2.0 license and now they are trying to recover from being shunned by the community.
@@ -413,7 +413,7 @@ To choose the most suitable framework you need to answer at least the following 
 6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, TGI's big chunk is written in Rust). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
 7. The other issue you may run into is that some frameworks don't want your PRs where you implemented missing features or made improvements and then you will end up maintaining a fork, which can be extremely difficult if you want to continue syncing with the upstream and cause a lot of pain to your developers.
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
-9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-llmvlm-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's.
+9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-llmvlm-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
 
 For example, here is a snapshot of [vllm](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
 
