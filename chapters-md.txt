@@ -44,7 +44,7 @@ training/dtype.md
 training/emulate-multi-node.md
 training/re-train-hub-models.md
 
-
+inference/README.md
 
 debug/README.md
 debug/pytorch.md

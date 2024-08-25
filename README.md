@@ -33,10 +33,15 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 4. Training**
 
-1. **[Training](training)** - model training related guides
+1. **[Training](training)** - model training-related guides
 
 
-**Part 5. Development**
+**Part 5. Inference**
+
+1. **[Inference](inference)** - model inference insights
+
+
+**Part 6. Development**
 
 1. **[Debugging and Troubleshooting](debug)** - how to debug easy and difficult issues
 
@@ -45,7 +50,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Testing](testing)** - numerous tips and tools to make test writing enjoyable
 
 
-**Part 6. Miscellaneous**
+**Part 7. Miscellaneous**
 
 1. **[Resources](resources)** - LLM/VLM chronicles
 
