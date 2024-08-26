@@ -78,29 +78,17 @@ Here is intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-
 | NVIDIA NVLink 5 | B200, B*    | 900.0 |
 | Intel           | Gaudi3      | 600.0 |
 | NVIDIA NVLink 4 | H100, H*    | 450.0 |
+| AMD XGMI        | MI300X      | 448.0 |
+| AMD XGMI        | MI250X      | 350.0 |
 | NVIDIA NVLink 3 | A100        | 300.0 |
 | Intel           | Gaudi2      | 300.0 |
-| AMD XGMI        | MI370X      |  64.0 |
-| AMD XGMI        | MI350X      |  64.0 |
-| AMD XGMI        | MI300X      |  64.0 |
 | PCIe 5          |             |  63.0 |
-| AMD XGMI        | MI250X      |  50.0 |
 | PCIe 4          |             |  31.0 |
 
 Notes:
 
 * NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
 * Pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
-* The other nuance is per node aggregated bandwidth vs peer-to-peer bandwidth. For example, AMD MI3* are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`.
-
-Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-comparison for those solutions which aren't the same for peer-to-peer.
-
-| Interconnect    | Accelerator |  GBps |
-| :-------------- | :---------- | ----: |
-| AMD XGMI        | MI370X      | 448.0 |
-| AMD XGMI        | MI350X      | 448.0 |
-| AMD XGMI        | MI300X      | 448.0 |
-| AMD XGMI        | MI250X      | 350.0 |
 
 
 You will find the details analysis of each technology in the following sections.
