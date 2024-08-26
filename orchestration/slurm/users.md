@@ -460,7 +460,9 @@ The idea is this:
 3. if you need to stop the job array train - don't cancel it, but suspend it without losing your place in a queue
 4. when ready to continue - unsuspend the job array - only the time while it was suspended is not counted towards its age, but all the previous age is retained.
 
-The only limitation of this recipe is that you can't change the number of nodes, time and hardware and partition constraints once the job array was launched.
+The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`. 
+
+If you do have `sudo` access then you can change the job time of the current job as well.
 
 Here is an example:
 
