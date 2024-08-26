@@ -459,7 +459,10 @@ The idea is this:
 2. inside the slurm script don't have any code other than `source another-script.slurm` - so now you can modify the target script or symlink to another script before the next job starts
 3. if you need to stop the job array train - don't cancel it, but suspend it without losing your place in a queue
 4. when ready to continue - unsuspend the job array - only the time while it was suspended is not counted towards its age, but all the previous age is retained.
-5. the number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=123 numnodes=123 partition=abc`.
+
+The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`. 
+
+If you do have `sudo` access then you can change the job time of the current job as well.
 
 Here is an example:
 
