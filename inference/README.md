@@ -243,6 +243,14 @@ As you can see TPOT is an awkward value to track and think of in one's head, so 
 
 Therefore in this example if your system can generate a sustainable 20 tokens per second per request your clients will be satisfied since that system will be able to keep up even with the super-fast readers at 700 words per minute.
 
+And there, of course, will be users who would prefer to wait till the generation is complete before they would start reading the response. In which case faster is better.
+
+Depending on the type of generation, the following is likely to apply:
+1. Image - all-at-once
+2. Text - as fast as user's reading speed or all-at-once if they prefer not to have moving parts before they start reading
+3. Audio - as fast as user's listening speed
+4. Video - as fast as user's watching speed
+
 If this is an offline system that doesn't interface individual humans and there are just batches of requests processed these metrics make no difference, but latency and throughput are the key ones.
 
 
