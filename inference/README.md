@@ -330,7 +330,7 @@ The `prefill_throughput` is not very precise here, since the client only know wh
 
 Of course, like any serious benchmark, you want to run this multiple times to get realistic numbers, as the variance  between single runs can be quite large.
 
-
+note: I've discovered that when I use the openAI client it doesn't scale well and with many concurrent clients the client creates a bottleneck and doesn't measure the real server performance - I am yet to figure out if it's an issue in my code or the openAI client or how it interacts with vllm server - I'm investigating here https://github.com/vllm-project/vllm/issues/7935
 
 Here are some good starting points for load testing:
 
