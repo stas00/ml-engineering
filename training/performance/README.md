@@ -161,7 +161,7 @@ Here is an overview of what features can help to either improve speed or save me
 | Method                   | Speed  | Memory |
 | :----------------------  | :----  | :----- |
 | Gradient accumulation    | Yes    | Yes    |
-| Gradient checkpointing   | False    | Yes    |
+| Gradient checkpointing   | No     | Yes    |
 | Mixed precision training | Yes    | No     |
 | Batch size               | Yes    | Yes    |
 | Optimizer choice         | Yes    | Yes    |
