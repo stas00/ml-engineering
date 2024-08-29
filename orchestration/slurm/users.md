@@ -191,7 +191,7 @@ TODO: need to experiment with this to help training finish gracefully and not st
 
 ## Detailed job info
 
-While most useful information is preset in various `SLURM_*` env vars, sometimes the info is missing. In such cases use:
+While most useful information is preset in various `SLURM_*` env vars, sometimes some information is missing. In such cases use:
 ```
 scontrol show -d job $SLURM_JOB_ID
 ```
@@ -203,13 +203,25 @@ For a job that finished its run use:
 sacct -j JOBID
 ```
 
-e.g. with more details, depending on the partition:
+This command is also useful to discover if you have any `srun` jobs already running on that allocation (including those that were finished or cancelled). For example, you could kill some run-away `srun` step via `scancel <jobid>.<step-id>` and you'd find that `<step-id>` via the above command. The main job will continue running if it's an interactive job even if you cancelled all step jobs.
+
+To see more details:
 ```
-sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
-sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -j JOBID --long
 ```
 
+Or to see all jobs with their sub-steps while limiting the listing to a specific partition and only for your own user:
 
+```
+sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300
+```
+
+To see how a particular job was launched and all of its `srun` sub-step command lines:
+```
+sacct -j JOBID -o submitline -P
+```
 
 ## show jobs
 
@@ -460,7 +472,7 @@ The idea is this:
 3. if you need to stop the job array train - don't cancel it, but suspend it without losing your place in a queue
 4. when ready to continue - unsuspend the job array - only the time while it was suspended is not counted towards its age, but all the previous age is retained.
 
-The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`. 
+The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`.
 
 If you do have `sudo` access then you can change the job time of the current job as well.
 
