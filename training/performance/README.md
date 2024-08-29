@@ -161,7 +161,7 @@ Here is an overview of what features can help to either improve speed or save me
 | Method                   | Speed  | Memory |
 | :----------------------  | :----  | :----- |
 | Gradient accumulation    | Yes    | Yes    |
-| Gradient checkpointing   | Yes    | Yes    |
+| Gradient checkpointing   | No*    | Yes    |
 | Mixed precision training | Yes    | No     |
 | Batch size               | Yes    | Yes    |
 | Optimizer choice         | Yes    | Yes    |
@@ -169,7 +169,7 @@ Here is an overview of what features can help to either improve speed or save me
 | DeepSpeed Zero           | No     | Yes    |
 | Flash Attention          | Yes    | Yes    |
 
-
+\* Gradient checkpointing slows things down for the given batch size, but since it frees up a lot of memory, enabling a much larger BS, it actually improves the overall speed.
 
 
 ### Anatomy of Model's Operations
