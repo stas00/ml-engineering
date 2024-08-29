@@ -1,15 +1,17 @@
 # Inference
 
-XXX: this chapter is under construction - some sections are complete, some are still starting out
+XXX: this chapter is under construction - some sections are complete, some are still starting out, many are yet to be started.
 
 ## Glossary
 
 - FHE: Fully Homomorphic Encryption
+- ITL: Inter-Token Latency
 - LPU: Language Processing Unit™
 - MPC: Secure Multi-Party Computation
 - PPML: Privacy-Preserving Machine Learning
-- TTFT: Time to First Token
+- QPS: Queries Per Second
 - TPOT: Time Per Output Token
+- TTFT: Time to First Token
 
 See [Concepts](#concepts) for more glossary-like entries.
 
