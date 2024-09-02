@@ -369,6 +369,20 @@ See the table at the top of this document for which partition is which.
 - drng: the node is running a job, but will after completion not be available due to an administrative reason
 
 
+### node state codes
+
+The node state could be followed by a single character which has a special meaning. It is one of:
+
+- `*`: The node is presently not responding and will not be allocated any new work. If the node remains non-responsive, it will be placed in the DOWN state (except in the case of COMPLETING, DRAINED, DRAINING, FAIL, FAILING nodes).
+- `~`: The node is presently in powered off.
+- `#`: The node is presently being powered up or configured.
+- `!`: The node is pending power down.
+- `%`: The node is presently being powered down.
+- `$`: The node is currently in a reservation with a flag value of "maintenance".
+- `@`: The node is pending reboot.
+- `^`: The node reboot was issued.
+- `-`: The node is planned by the backfill scheduler for a higher priority job.
+
 
 ### drained nodes
 
