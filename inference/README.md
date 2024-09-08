@@ -78,7 +78,7 @@ The third token has to be a valid string (i.e. not `[` or `"`).
 
 And so on.
 
-Basically, for each next token we need to know a subset of tokens that is allowed and choose
+Basically, for each next token we need to know a subset of tokens that is allowed and choose one with the highest probability from that subset.
 
 This is a very cool technique. Instead of trying to repair the generated output which is not always possible to match the expected format, we get the model to generate the correct output in the first place.
 
@@ -347,6 +347,56 @@ Here are some good starting points for load testing:
 - https://github.com/grafana/k6 - useful for load testing to simulate multiple concurrent clients - uses JavaScript clients.
 - https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
 
+
+
+## Anatomy of Model's Memory Usage
+
+The inference memory usage is quite different from [training](../training/performance#anatomy-of-models-memory-usage). Here we have:
+
+1. Model weights
+2. KV cache - crucial to not need to recalculate past tokens for each new generated token
+3. Extras
+
+**Model Weights:**
+
+- 4 bytes * number of parameters for fp32
+- 2 bytes * number of parameters for fp16/bf16
+- 1 byte  * number of parameters for fp8/int8
+- 0.5 bytes * number of parameters for int4
+
+Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
+
+**KV Cache:**
+
+KV cache is needed to avoid recalculating past keys and values for past tokens and its size is directly proportional to the input sequence length and batch size. The query of the attention mechanism doesn't need to be cached because the previous queries aren't needed.
+
+1 token requires `dtype_bytes * 2 (keys + values) * num_hidden_layers * num_attention_heads * head_dim` bytes
+
+You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different.
+e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
+If `head_dim` isn't specified it's `hidden_size/num_attention_heads`. Here it's `4096/32=128`.
+
+Examples:
+
+1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 32 (num_attention_heads) * 128 (head_dim) / 10**6 = 0.525MB`.
+
+A batch size of 1 of 1024 tokens will need `0.525*1024 = ~537MB`.
+
+A batch size of 32 of 1024 tokens each will need `0.525*1024*32 / 10**3 = 17.2GB`.
+
+If we compare that to 16GB needed for model weights with a batch size of 32 of 1024 tokens KV cache will need about the same amount of GPU memory as the weights.
+
+KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
+
+> 2.3. Memory-Bound and Compute-Bound Operations
+>
+> Every operation performed with a GPU accelerator, such as General Matrix Multiply (GEMM), is either memory-bound or compute-bound. In the former case, the overall runtime is dominated by high bandwidth memory (HBM) access, while in the latter by the actual computations. Auto-regressive generation with Transformer LLMs, where the sequence length for every forward pass is n = 1, tends to be memory-bound rather than compute-bound. The vast majority of a forward pass is spent either processing linear layers (in MHSA, Feed-Forward, and output vocabulary projection) or calculating attention scores and outputs from Equation (4). For linear layers, the ratio of FLOPS to memory accesses improves as the batch size increases, and more FLOPS are performed with the set of layer weights retrieved from the HBM. Eventually, with a large enough batch size, linear layers become compute-bound. On the other hand, for the calculation of Equation (4) inside MHSA layers during auto-regressive inference, the ratio of FLOPS to input size remains constant, and MHSA layers are memory-bound regardless of the batch size. It follows that for those layers, latency scales linearly with the size of the KV cache.
+
+* Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
+
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, group query attention, memory compression, anchor-based self-attention and many others are used to accomplish that.
+
+In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 
 
 
