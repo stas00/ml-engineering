@@ -491,9 +491,9 @@ To conclude I thought I'd share some insights to how one could slightly improve 
 
 ### FOMO and avoiding depression
 
-If you read Twitter and other similar ML-related feeds you're guaranteed to feel the fear of missing out, since there is probably at least one new great model getting released weekly and multiple papers are getting published daily and your peers will publish their cool achievements hours.
+If you read Twitter and other similar ML-related feeds you're guaranteed to feel the fear of missing out, since there is probably at least one new great model getting released weekly and multiple papers are getting published daily and your peers will publish their cool achievements every few minutes.
 
-We are dealing with **very** complicated technology and there is a small handful of people who can absorb that much new material and understand / integrate it.
+We are dealing with **very complex** technology and there is a small handful of people who can absorb that much new material and understand / integrate it.
 
 This can be extremely depressing and discouraging.
 
