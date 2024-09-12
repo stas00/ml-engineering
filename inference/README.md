@@ -17,6 +17,8 @@ See [Concepts](#concepts) for more glossary-like entries.
 
 ## Concepts
 
+
+
 ### Prefill and Decode
 
 When doing inference there are 2 stages:
@@ -29,11 +31,20 @@ Prefill: as all tokens of the prompt are known - process the full prompt length 
 
 Decode: new tokens generation happens, one new token at a time (regressive approach) based on all the previous tokens (the prompt and any new tokens generated so far). Thus this stage contributes the most to the generation's latency as unlike prefill, decoding can't be parallelized.
 
+
+
+
+
 ### Online vs Offline Inference
 
 When you have users that send queries in real time - this is Online Inference. Examples: Chatbot, search engines. In this case one always runs an inference server and there could be various clients connecting to it.
 
 When you have a file with prompts that you need to run inference on - this is Offline Inference. Examples: benchmark evaluation, synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
+
+
+
+
+
 
 ### Batching
 
@@ -52,14 +63,71 @@ Continuous Batching or In-flight batching is a process where the generation engi
 This improves the response time, since there is no need for a sequence that already finished not to be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
 
 
+
+
+
 ### Paged Attention
 
 Paged Attention is very popular with inference servers as it allows for a very efficient accelerator memory utilization, by the virtue of approaching the accelerator memory like the OS memory using paging, which allowed dynamic memory allocation and prevents memory fragmentation.
 
 
-### Structured Text Generation
 
-Also known as Guided Text Generation.
+
+
+### Decoding methods
+
+The main decoding methods are:  [Greedy decoding](#greedy-decoding),
+[Beam search](#beam-search) and [Sampling](#sampling).
+
+
+#### Greedy decoding
+
+Greedy decoding is when the model always chooses the token with the highest probability. This is the fastest decoding method but it doesn't always generate the best outcome, since it may choose a less ideal token path and miss out on a great future sequence of tokens.
+
+One of the main issues with this method is creation of loops, where the same sentence is repeated again and again.
+
+#### Beam search
+
+Beam search overcomes the limitation of greedy decoding by generating multiple outputs at the same time, so instead of following the highest probability - with beam size of 3 it follows top 3 probabilities at each new token, then discards all but the 3 sub-paths out of 9 (`3*3`), that lead to the highest total probability of all tokens in the chain. Then at the end the path with the highest probability of all tokens is chosen.
+
+This method is slower than greedy decoding because it has to generate n times more tokens and it requires n times more memory.
+
+#### Sampling
+
+Sampling-based decoding introduces randomness.
+
+But, of course, choosing random words will not lead to a good result, so we still want greedy decoding like certainty but making it more interesting/alive by adding controlled randomness to it.
+
+The most common sampling methods are:
+
+- **Top-K Sampling** method chooses the top k tokens based on their logit probability and then randomly picks one of those tokens.
+- **Top-p Sampling** (also known as **nucleus sampling**) is like Top-K Sampling, but the K varies for each next token and is calculated by adding up the top token probabilities till the threshold `p` is reached. So if there are predictions that the model is much more certain about only those will be considered.
+
+#### Temperature
+
+Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on the its value:
+
+- `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
+- `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
+- `0.0<t<1.0`: the logit probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
+- `t>1.0`: the logit probabilities are pushed closer together, creating a lot more randomness - creative use cases.
+
+To really understand the impact, the temperature factor typically gets applied to the log probabilities just before or as part of the Softmax operation.
+
+```
+logits = math.log(probs) / temperature
+```
+so it's easy to see that `t=1.0` makes no difference, `t=0` will asymptotically bring the top logit to infinity (division by zero is avoided), and `t<1.0` and `t>1.0` will push the values apart or together correspondingly - because of the `log`.
+
+Temperature will have no impact on Greedy decoding, Beam search and Top-K sampling strategies, as it impacts the distance between logit probabilities and all of these strategies use the top probabilities based on their order and temperature doesn't change the order of probabilities. Whereas Top-p sampling allows more or less contenders to enter the sub-set the random sampling will be pulled from based on their total probability - so the closer the probabilities are (high temp) the more randomness is possible.
+
+Other than `t==0.0` and `t==0` there are no hard prescribed values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
+
+
+
+### Guided Text Generation
+
+Also known as Structured Text Generation and Assisted generation.
 
 If the model can return its generated output in a specific format, rather than unrestricted format, you don't want the model to hallucinate invalid formats. For example, if you want a model to return a JSON dict, it should do just that.
 
@@ -92,9 +160,32 @@ There are multiple implementations of this technique, as of this writing the two
 
 You ideally want the implementations that have already been integrated into inference frameworks like `vllm` and others.
 
+#### Faster inference with guided generation
+
+It's possible to use the schema to speed up inference as well. For example, consider this simple "profile" schema:
+
+```
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string"},
+    "age": { "type": "integer"}
+  },
+  "required": ["name", "age"]
+}
+```
+
+Since the schema has specific keys `name` and `age`, as soon as the model has predicted: `{"n` or `{"a` it doesn't need to perform an auto-regressive generation to come up with ``{"name": ` and `{"age": ` because both of these must lead to a specific unambiguous single outcome - so here it can perform a prefill instead of decoding and save a few slow steps at it knows 100% the next few tokens will be `ame": ` or `ge":` correspondingly. Clearly, this approach would be most beneficial when the schema has a lot of pre-determined keys and short generated values.
 
 
-### Speculative inference
+
+
+
+
+
+### Speculative decoding
+
+Also known as Speculative inference or Assisted generation.
 
 Because it's very slow to generate tokens one a time, sometimes it is possible to cheat and speed things up by using a much smaller and faster draft model. So for example, your normal inference uses Llama-70B which would be quite slow, but we could use Llama-7b as a draft model and then we could verify if the prediction is correct but doing it at once for all tokens.
 
@@ -127,6 +218,20 @@ Obviously, if instead of 3 tokens we had more tokens the savings are likely to b
 
 Also, don't miss the fact that we did the same amount of compute here and then some, as compared to doing this generation with the large model normally, but the latency of this approach can be much better - so the user on average should get a better response time from your application using it - if the draft model is much smaller and still produces good predictions.
 
+When there is a partial mismatch we can go back to the draft model and feed it all the matched tokens before the first mismatched token and the next good token predicted by the big model and get it to make a new fast prediction for the mismatching tail.
+
+The draft model ideally should be trained on the same data (or least data from a similar distribution) and its tokenizer has to be the same as the large model.
+
+Speculative decoding gives the highest return on input-grounded tasks, such as translation and summarization, because in those tasks the range of possible outputs is much smaller and the draft model is much more likely to match the big model.
+
+For the same reason it works best in when used in [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
+
+Here is a good indepth dive into this subject: [Assisted Generation: a new direction toward low-latency text generation](https://huggingface.co/blog/assisted-generation).
+
+
+
+
+
 
 ### Key-value caching
 
@@ -139,6 +244,10 @@ It'd be very expensive to recalculate all the previous KV-values before each new
 Some caches are per model, others are per layer.
 
 
+
+
+
+
 ### Memory requirements
 
 1. Model weights - `model_size_in_Billion_parameters * dtype_size_in_bytes` - e.g. fp16/bf16 is 2 bytes, fp32 is 4 bytes - so a 70B param model in bf16 needs `70*2=140` GB of accelerator memory.
@@ -146,9 +255,6 @@ Some caches are per model, others are per layer.
 3. KV Cache of attention tensors - the cache size per token is usually `2*hidden_size*num_hidden_layers*dtype_size_in_bytes`, where 2 stands for K and V caches. For example for LLama2-70B in bf16 it's `2*8192*80*2` => 2.6MB per token (`hidden_size=8192` and `num_hidden_layers=80`). And for 1024 tokens and a batch size of 16, that would add up to 42.5GB.
 
 
-### Model parallelism
-
-When a model can't fit onto a single accelerator or when it's more efficient to split the model across multiple accelerators even if it does fit but barely, the same [Model Parallelism techniques](../training/model-parallelism) from training apply to inference.
 
 
 
@@ -165,6 +271,22 @@ Have a look at one such implementation, [concrete-ml](https://github.com/zama-ai
 There are various other approaches, e.g. this paper: [LLMs Can Understand Encrypted Prompt: Towards Privacy-Computing Friendly Transformers](https://arxiv.org/abs/2305.18396v3) goes into a custom solution based on Secure Multi-Party Computation (MPC) and FHE and has a good reference list.
 
 The problem with current solutions is the huge computational overhead - which greatly impacts the cost and latency. In the future ASIC solutions should address these issues.
+
+
+
+
+
+
+### Model parallelism
+
+When a model can't fit onto a single accelerator or when it's more efficient to split the model across multiple accelerators even if it does fit but barely, the same [Model Parallelism techniques](../training/model-parallelism) from training apply to inference.
+
+Most of the time you are most likely to only run into [Tensor Parallelism](../training/model-parallelism#tensor-parallelism) where the model weights are sharded across 2 to 8 accelerators. Ideally you want to try to fit the model into a single accelerator, because then it has the least amount of overhead during generation. But surprisingly you are likely to end up with higher decoding throughput if you use tensor parallelism - this is because it enables you to fit much larger batches and also because the `forward` call may be faster despite the additional comms between the accelerators. Of course, you will be getting this speed up at a cost of using more accelerators in some cases. So it's best to experiment, there will be use-cases where a higher tensor parallelism degree will give a better total throughput considering the same number of accelerators.
+
+footnote: in my experiments TP=1 leads to the highest TTFT and lowest decoding throughput, as compared to TP>1. So if you're being requested to make the TTFT faster and the model fits, use smaller TP or TP=1. If you're being requested to make the decoding throughput faster, if resources is not a problem through a higher TP at it.
+
+
+
 
 
 ## Key inference performance metrics
@@ -340,12 +462,16 @@ The `prefill_throughput` is not very precise here, since the client only know wh
 
 Of course, like any serious benchmark, you want to run this multiple times to get realistic numbers, as the variance  between single runs can be quite large.
 
-note: I've discovered that when I use the openAI client it doesn't scale well and with many concurrent clients the client creates a bottleneck and doesn't measure the real server performance - I am yet to figure out if it's an issue in my code or the openAI client or how it interacts with vllm server - I'm investigating here https://github.com/vllm-project/vllm/issues/7935
+note: I've discovered that when I use the openAI client it doesn't scale well and with many concurrent requests the openAI client creates a bottleneck and doesn't measure the real server performance - I am yet to figure out if it's an issue in my code or the openAI client or how it interacts with vllm server - I'm investigating here https://github.com/vllm-project/vllm/issues/7935 - I found that [this version](https://github.com/vllm-project/vllm/blob/f842a7aff143a4a1ddc59e1fb57109cb377f5475/benchmarks/backend_request_func.py#L223-L301) of the client, rewritten to use `aiohttp` scales really well - so I switched to using it.
 
 Here are some good starting points for load testing:
 
+- https://github.com/vllm-project/vllm/blob/main/benchmarks/benchmark_throughput.py - my favorite tool so far
 - https://github.com/grafana/k6 - useful for load testing to simulate multiple concurrent clients - uses JavaScript clients.
 - https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
+
+
+What I'm missing right now is a tool to measure the highest concurrency the server can handle.
 
 
 
