@@ -42,8 +42,18 @@ When you have users that send queries in real time - this is Online Inference. E
 When you have a file with prompts that you need to run inference on - this is Offline Inference. Examples: benchmark evaluation, synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
 
+### Tasks
 
+#### Input-grounded tasks
 
+Input-grounded tasks are those where the generated response is derived mainly from the prompt, i.e. the main source of knowledge is contained in the prompt. These include:
+
+- Translation
+- Summarization
+- Document QA
+- Multi-turn chat
+- Code editing
+- Speech recognition (audio transcription)
 
 
 ### Batching
@@ -222,13 +232,13 @@ When there is a partial mismatch we can go back to the draft model and feed it a
 
 The draft model ideally should be trained on the same data (or least data from a similar distribution) and its tokenizer has to be the same as the large model.
 
-Speculative decoding gives the highest return on input-grounded tasks, such as translation and summarization, because in those tasks the range of possible outputs is much smaller and the draft model is much more likely to match the big model.
+Speculative decoding gives the highest return on [input-grounded tasks](#input-grounded-tasks), such as translation, summarization, document QA, multi-turn chat because in those tasks the range of possible outputs is much smaller and the draft model is much more likely to match the big model.
 
 For the same reason it works best in when used in [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
 
 Here is a good indepth dive into this subject: [Assisted Generation: a new direction toward low-latency text generation](https://huggingface.co/blog/assisted-generation).
 
-
+One other much simpler solution for [input-grounded tasks](#input-grounded-tasks), is to use [ngram prompt lookup decoding](https://github.com/apoorvumang/prompt-lookup-decoding). In this approach there is no need for a draft model, instead the prompt is searched for matching strings to generate candidates. In some situations it's said to speed decoding up by 2x+.
 
 
 

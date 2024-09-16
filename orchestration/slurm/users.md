@@ -369,7 +369,7 @@ See the table at the top of this document for which partition is which.
 - drng: the node is running a job, but will after completion not be available due to an administrative reason
 
 
-### node state codes
+### Node state codes
 
 The node state could be followed by a single character which has a special meaning. It is one of:
 
@@ -382,6 +382,17 @@ The node state could be followed by a single character which has a special meani
 - `@`: The node is pending reboot.
 - `^`: The node reboot was issued.
 - `-`: The node is planned by the backfill scheduler for a higher priority job.
+
+### Job state codes
+
+- `CD` | Completed: The job has completed successfully.
+- `CG` | Completing: The job is finishing but some processes are still active.
+- `F` | Failed: The job terminated with a non-zero exit code and failed to execute.
+- `PD` | Pending: The job is waiting for resource allocation. It will eventually run.
+- `PR` | Preempted: The job was terminated because of preemption by another job.
+- `R` | Running: The job currently is allocated to a node and is running.
+- `S` | Suspended: A running job has been stopped with its cores released to other jobs.
+- `ST` | Stopped: A running job has been stopped with its cores retained.
 
 
 ### drained nodes
