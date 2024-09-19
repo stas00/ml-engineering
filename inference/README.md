@@ -484,16 +484,6 @@ What I'm missing right now is a tool to measure the highest concurrency the serv
 
 
 
-### KV Caching
-
-It'd be very expensive to recalculate all the previous KV-values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
-
-![computation process with caching inference](images/infer-kv-cache.png)
-
-([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
-
-Some caches are per model, others are per layer.
-
 
 
 
@@ -505,7 +495,7 @@ The inference memory usage is quite different from [training](../training/perfor
 2. KV cache - crucial to not need to recalculate past tokens for each new generated token
 3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
 
-**Model Weights:**
+### Model Weights
 
 - 4 bytes * number of parameters for fp32
 - 2 bytes * number of parameters for fp16/bf16
@@ -516,14 +506,24 @@ footnote: even more compact formats are being worked on as you read this, e.g. [
 
 Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
 
-**KV Cache:**
 
-KV cache is needed to avoid recalculating past keys and values for past tokens and its size is directly proportional to the input sequence length and batch size. The query of the attention mechanism doesn't need to be cached because the previous queries aren't needed.
+### KV Caching
 
-1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
+It'd be very expensive to recalculate all the previous KV-values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
+
+![computation process with caching inference](images/infer-kv-cache.png)
+
+([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
+
+Some caches are per model, others are per layer.
+
+KV cache size is directly proportional to the input sequence length and batch size. The query of the attention mechanism doesn't need to be cached because the previous queries aren't used in the attention mechanism.
+
+A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
 
 notes:
-- 2 stands for keys + values
+- `dtype_bytes` is bytes per dtype: 4 bytes for fp32, 2 bytes for bf16/fp16, etc.
+- `2` stands for keys + values as there are 2 of them.
 - `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
 
 You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different.
@@ -553,7 +553,7 @@ KV cache while saving recomputation has a big negative impact on inference's per
 
 * Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
 
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, multi-query attention, grouped-query attention, memory compression, anchor-based self-attention and many others are used to accomplish that.
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, and many others are used to accomplish that.
 
 In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 
