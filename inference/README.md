@@ -5,9 +5,12 @@ XXX: this chapter is under construction - some sections are complete, some are s
 ## Glossary
 
 - FHE: Fully Homomorphic Encryption
+- GQA: Grouped-Query Attention
 - ITL: Inter-Token Latency
 - LPU: Language Processing Unit™
+- MHA: Multi-Head Attention
 - MPC: Secure Multi-Party Computation
+- MQA: Multi-Query Attention
 - PPML: Privacy-Preserving Machine Learning
 - QPS: Queries Per Second
 - TPOT: Time Per Output Token
@@ -42,7 +45,23 @@ When you have users that send queries in real time - this is Online Inference. E
 When you have a file with prompts that you need to run inference on - this is Offline Inference. Examples: benchmark evaluation, synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
 
+
+### Grounding
+
+It's the process of giving the pre-trained model additional information that wasn't available during its training.
+For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
+
+Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
+
+Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
+
+Grounding can be thought of providing a context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
+
+In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
+
+
 ### Tasks
+
 
 #### Input-grounded tasks
 
@@ -54,6 +73,8 @@ Input-grounded tasks are those where the generated response is derived mainly fr
 - Multi-turn chat
 - Code editing
 - Speech recognition (audio transcription)
+
+
 
 
 ### Batching
@@ -240,29 +261,6 @@ Here is a good indepth dive into this subject: [Assisted Generation: a new direc
 
 One other much simpler solution for [input-grounded tasks](#input-grounded-tasks), is to use [ngram prompt lookup decoding](https://github.com/apoorvumang/prompt-lookup-decoding). In this approach there is no need for a draft model, instead the prompt is searched for matching strings to generate candidates. In some situations it's said to speed decoding up by 2x+.
 
-
-
-
-### Key-value caching
-
-It'd be very expensive to recalculate all the previous KV-values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
-
-![computation process with caching inference](images/infer-kv-cache.png)
-
-([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
-
-Some caches are per model, others are per layer.
-
-
-
-
-
-
-### Memory requirements
-
-1. Model weights - `model_size_in_Billion_parameters * dtype_size_in_bytes` - e.g. fp16/bf16 is 2 bytes, fp32 is 4 bytes - so a 70B param model in bf16 needs `70*2=140` GB of accelerator memory.
-2. Activation memory - this is the processing temp memory which would depend on batch size and sequence length
-3. KV Cache of attention tensors - the cache size per token is usually `2*hidden_size*num_hidden_layers*dtype_size_in_bytes`, where 2 stands for K and V caches. For example for LLama2-70B in bf16 it's `2*8192*80*2` => 2.6MB per token (`hidden_size=8192` and `num_hidden_layers=80`). And for 1024 tokens and a batch size of 16, that would add up to 42.5GB.
 
 
 
@@ -485,13 +483,27 @@ What I'm missing right now is a tool to measure the highest concurrency the serv
 
 
 
+
+### KV Caching
+
+It'd be very expensive to recalculate all the previous KV-values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
+
+![computation process with caching inference](images/infer-kv-cache.png)
+
+([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
+
+Some caches are per model, others are per layer.
+
+
+
+
 ## Anatomy of Model's Memory Usage
 
 The inference memory usage is quite different from [training](../training/performance#anatomy-of-models-memory-usage). Here we have:
 
 1. Model weights
 2. KV cache - crucial to not need to recalculate past tokens for each new generated token
-3. Extras
+3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
 
 **Model Weights:**
 
@@ -500,27 +512,38 @@ The inference memory usage is quite different from [training](../training/perfor
 - 1 byte  * number of parameters for fp8/int8
 - 0.5 bytes * number of parameters for int4
 
+footnote: even more compact formats are being worked on as you read this, e.g. [microscaling format (MX)](https://fpga.org/category/microscaling-mx-formats/) also known as block floating point, where the exponent bits are shared between multiple elements of the tensor (MXFP6, MXFP4, etc.)
+
 Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
 
 **KV Cache:**
 
 KV cache is needed to avoid recalculating past keys and values for past tokens and its size is directly proportional to the input sequence length and batch size. The query of the attention mechanism doesn't need to be cached because the previous queries aren't needed.
 
-1 token requires `dtype_bytes * 2 (keys + values) * num_hidden_layers * num_attention_heads * head_dim` bytes
+1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
+
+notes:
+- 2 stands for keys + values
+- `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
 
 You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different.
 e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
-If `head_dim` isn't specified it's `hidden_size/num_attention_heads`. Here it's `4096/32=128`.
 
 Examples:
 
-1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 32 (num_attention_heads) * 128 (head_dim) / 10**6 = 0.525MB`.
+1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 4096 (hidden_size) * 8 (num_key_value_heads) / 32 (num_attention_heads)  / 10**6 = 0.131MB`. This model uses GQA so it uses 1/4th of the vanilla MHA.
 
-A batch size of 1 of 1024 tokens will need `0.525*1024 = ~537MB`.
+A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
 
-A batch size of 32 of 1024 tokens each will need `0.525*1024*32 / 10**3 = 17.2GB`.
+A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
 
-If we compare that to 16GB needed for model weights with a batch size of 32 of 1024 tokens KV cache will need about the same amount of GPU memory as the weights.
+The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from this diagram:
+
+![mha-gqa-mqa](images/mha-gqa-mqa.png)
+
+[source](https://arxiv.org/abs/2305.13245)
+
+In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
 
 KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
 
@@ -530,7 +553,7 @@ KV cache while saving recomputation has a big negative impact on inference's per
 
 * Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
 
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, group query attention, memory compression, anchor-based self-attention and many others are used to accomplish that.
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, multi-query attention, grouped-query attention, memory compression, anchor-based self-attention and many others are used to accomplish that.
 
 In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 
