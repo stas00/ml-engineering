@@ -265,7 +265,7 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA A100 - huge availability across all clouds, but is already gradually being replaced by H100
+  * NVIDIA H100s are gradually replacing A100s. We hope for H200s to replace H100s soon (Q4-2024), as the latter have a more efficient HBM and thus make them more cost-effective.
 
 Available, but locks you in:
 
@@ -273,13 +273,13 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H100 - 2-3x faster than A100 (half precision), 6x faster for fp8. H200 with more and faster HBM memory is starting to become available as well.
+  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these.
 
   * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
 
-  * AMD MI300X ~= H100 - a few clouds will have those in March, 2024
+  * AMD MI300X ~= H100 - a few clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here
 
-  * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud
+  * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud, Gaudi3 is supposed to become available some time in 2024.
 
   * GraphCore IPU - very difficult to find, paperspace has them
 
@@ -298,7 +298,7 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - AMD MI250/MI300X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
-- Gaudi2: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
+- Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
 - GraphCore IPU: can also be run via PyTorch via [poptorch](https://github.com/graphcore/poptorch)
 
@@ -318,11 +318,11 @@ Also in general most ML code could be compiled into cross-platform formats like 
 | V100 |                      125 |                  1 |                150 |                     1 |
 | A100 |                      312 |                2.5 |                300 |                     2 |
 | H100 |                      989 |                  8 |                450 |                     3 |
+| B200 |                     2250 |                 18 |                900 |                     6 |
 
+- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation. NVLink 5.0 doubled the speed over NVLink 4.0 so it catches up a little bit with the compute speed ups. But the speed up is still insufficient.
 
-- You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation.
-
-- Moreover, all 3 generations of NVLink use identical NICs of the same 50GBps duplex throughput. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
+- Moreover, the first 4 generations of NVLink use identical NICs of the same 25GBps unidirectional bandwidth. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
 
 - The inter-node situation isn't any better with most NICs there doing 100 or 200Gbps, and some 400Gbps are starting to emerge. (correspondingly in GBps: 12.5, 25 and 50). It's the same story here, some solutions provide dozens of NICs to get to higher speeds.
 
@@ -491,9 +491,9 @@ To conclude I thought I'd share some insights to how one could slightly improve 
 
 ### FOMO and avoiding depression
 
-If you read Twitter and other similar ML-related feeds you're guaranteed to feel the fear of missing out, since there is probably at least one new great model getting released weekly and multiple papers are getting published daily and your peers will publish their cool achievements hours.
+If you read Twitter and other similar ML-related feeds you're guaranteed to feel the fear of missing out, since there is probably at least one new great model getting released weekly and multiple papers are getting published daily and your peers will publish their cool achievements every few minutes.
 
-We are dealing with **very** complicated technology and there is a small handful of people who can absorb that much new material and understand / integrate it.
+We are dealing with **very complex** technology and there is a small handful of people who can absorb that much new material and understand / integrate it.
 
 This can be extremely depressing and discouraging.
 

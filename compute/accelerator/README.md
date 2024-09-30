@@ -12,19 +12,27 @@ The other computational difference is that while both training and inference hav
 
 ## Subsections
 
+General:
+- [Benchmarks](benchmarks)
+
+NVIDIA:
 - [Troubleshooting NVIDIA GPUs](nvidia/debug.md)
 
+AMD:
+- [Troubleshooting AMD GPUs](amd/debug.md)
+- [AMD GPUs Performance](amd/performance.md)
 
 ## Bird's eye view on the high end accelerator reality
 
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - probably Q2-Q3-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till 2025 before we will be able to use those.
-- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is promised to start being available already in March 2024 at some Tier 2 cloud providers.
+- As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - promised Q4-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till mid-2025 before we will be able to use those, because of the delays in production.
+- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is starting to being available now at some Tier 2 cloud providers.
 
 HPU:
 - Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup. It's also available on-premises implementations via Supermicro, WiWynn, and soon others.
+- Gaudi3 is supposed to become available some time in 2024.
 
 IPU:
 - And there is Graphcore with their IPU offering. You can try these out in [Paperspace](https://www.paperspace.com/graphcore) through their cloud notebooks.
@@ -37,7 +45,7 @@ On Pods and racks:
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as Q1-2024.
+That's about it as Q3-2024.
 
 As most of us rent the compute, and we never see what it looks like, here is a how an 8xH100 node looks like physically (this is the GPU tray of the Dell PowerEdge XE9680 Rack Server):
 
@@ -123,34 +131,41 @@ As you can see the difference in performance is non-linear due to [the tile and 
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS | fp32  |   tf32 | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
+| Accelerator \ TFLOPS |  fp32 |   tf32 | fp16 | bf16 |  fp8 | int8 | fp6  | fp4    | Notes |
 | :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
-| NVIDIA GB200 SXM     | ??    | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
-| NVIDIA B200 SXM      | ??    | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| NVIDIA B100 SXM      | ??    |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
+| NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
+| NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
+| NVIDIA B100 SXM      |    ?? |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
 | AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     3 |
-| NVIDIA H200 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
-| NVIDIA H100 SXM      | 67.0  |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
-| NVIDIA H100 PCIe     | 51.0  |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| Intel Gaudi2         | V     |      V |    V |    V | V    |    V | X    | X      |     1 |
-| Google TPU v5p       | X     |      X |    X |  459 | X    |  918 | X    | X      |       |
-| AMD MI250X           | 47.9  |      X |  383 |  383 | X    |  383 | X    | X      |       |
-| NVIDIA L40S          | 91.6  |  183.0 |  362 |  362 | 733  |  733 | X    | X      |       |
-| AMD MI250            | 45.3  |      X |  362 |  362 | X    |  362 | X    | X      |       |
-| NVIDIA A100 SXM      | 19.5  |  156.0 |  312 |  312 | X    |  624 | X    | X      |       |
-| Google TPU v4        | X     |      X |    X |  275 | X    |  275 | X    | X      |       |
-| Google TPU v5e       | X     |      X |    X |  197 | X    |  394 | X    | X      |       |
+| NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
+| NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
+| NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
+| Intel Gaudi3         |   229 |    459 |  459 | 1835 | 1835 |    V | X    | X      |     1 |
+| NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
+| Intel Gaudi2         |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
+| Google TPU v5p       |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
+| AMD MI250X           |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
+| NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
+| AMD MI250            |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
+| NVIDIA A100 SXM      |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |       |
+| NVIDIA A100 PCIe     |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |     5 |
+| Google TPU v4        |     X |      X |    X |  275 |    X |  275 | X    | X      |       |
+| Google TPU v5e       |     X |      X |    X |  197 |    X |  394 | X    | X      |       |
 |                      |       |        |      |      |      |      |      |        |       |
 
 Row-specific notes:
 
-1. Intel Gaudi2 doesn't plan to publish TFLOPS specs as of this writing, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. This [blog posts](https://www.databricks.com/blog/llm-training-and-inference-intel-gaudi2-ai-accelerators) reports measuring ~400TFLOPS for fp16/bf16 - but, of course, this number can't be compared to theoretical peak so it doesn't belong to this table - guessing, it's probably in the 600-1000TFLOPS range.
+1. Intel Gaudi2 and 3 only have partial TFLOPS [specs](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) published, but it does support FP32, TF32, BF16, FP16 & FP8, INT8 and INT16. These numbers are for MME (Matrix) compute.
 
 2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute).
 
 3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
 
 4. H200 is the same as H100 but has 141GB vs 80GB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
+
+5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
+
+6. GH200 - same note as GB200 - this is 2 chips, so the table includes specs per chip w/o sparsity.
 
 General notes:
 
@@ -179,11 +194,38 @@ The problem with the advertised theoretical peak FLOPS is that they are **very**
 
 If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end accelerators discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
 
-To provide a numerical sense to what I'm talking about is let's take A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision regime. And with FlashAttention it's around 180TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
+To provide a numerical sense to what I'm talking about let's take an A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invent of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
 
-It should be possible to calculate the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator.
+You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
-XXX: write a small program to do exactly dynamically figuring out the perfect shapes based on [the tile and wave quantization effects](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#dim-quantization) and max sizes (how?) so that the benchmark isn't hardcoded to a particular accelerator.
+
+#### Maximum Achievable Matmul FLOPS comparison table
+
+The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means). Sorted by accelerator efficiency:
+
+| Accelerator      |  MAMF | Theory | Efficiency |       Best Shape | Notes      |
+| :--------------- | ----: | -----: | ---------: |  :-------------- | ---------: |
+| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% |  6912x16384x2048 | CUDA-12.1  |
+| NVIDIA GH200 SXM | 821.0 |    989 |      83.0% | 11264x19712x1536 | CUDA-12.5  |
+| NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |   2304x5120x1536 | CUDA-12.1  |
+| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |  6144x17920x2816 | CUDA-12.1  |
+| AMD MI300X       | 758.3 |   1300 |      58.3% |  4352x13568x3840 | ROCm-6.2   |
+| AMD MI250X       | 147.0 |    383 |      38.4% | 1024x14080x19968 | ROCm-6.2   |
+|                  |       |        |            |                  |            |
+
+Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
+
+Notes:
+- For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
+- Efficiency is MAMF/Theory*100
+- Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
+- If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
+- Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
+- Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
+
+Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x13568x3840` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
+
+And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is more efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So start with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 
 
 ### Accelerator memory size and speed
@@ -204,19 +246,20 @@ Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how ma
 
 Typically the more on-device memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
-Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size:
+Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator          |  Memory<br> (GBs) | Type  | Bandwidth<br> (TBps) |
+| Accelerator          |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
 | NVIDIA B200 SXM      |               192 | HBM3e |                 8.00 |
 | NVIDIA B100 SXM      |               192 | HBM3e |                 8.00 |
 | AMD MI300X           |               192 | HBM3  |                 5.30 |
 | NVIDIA GH200 SXM (2) |               141 | HBM3e |                 4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                 4.80 |
+| Intel Gaudi3         |               128 | HBM2e |                 3.70 |
 | AMD MI250            |               128 | HBM2e |                 3.28 |
 | AMD MI250X           |               128 | HBM2e |                 3.28 |
 | NVIDIA GH200 SXM (1) |                96 | HBM3  |                 4.00 |
-| Intel Gaudi2         |                96 | HBM2e |                 2.45 |
+| Intel Gaudi2         |                96 | HBM2e |                 2.46 |
 | Google TPU v5p       |                95 | HBM2e |                 4.80 |
 | NVIDIA H100 SXM      |                80 | HBM3  |                 3.35 |
 | NVIDIA A100 SXM      |                80 | HBM2e |                 2.00 |
@@ -251,7 +294,6 @@ The only important practical understanding for heat is that if the accelerators 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
 NVIDIA:
-- GH200 - leaked spec https://nvdam.widen.net/s/xqt56dflgh/nvidia-blackwell-architecture-technical-brief (XXX: update when official specs are released)
 - B200 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
 - B100 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
@@ -265,7 +307,8 @@ AMD:
 - [MI300X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - just starting to emerge - and mainly on Tier-2 clouds (lots of new startups).
 
 Intel:
-- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
+- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
+-  [Gaudi3](https://habana.ai/products/gaudi3/), somewhere between B100 and B200 theoretical TFLOPS-wise [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://thytu.com/posts/ipus-101/).

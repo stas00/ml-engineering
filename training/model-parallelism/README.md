@@ -27,6 +27,7 @@ The following is the brief description of the main concepts that will be describ
 3. [PipelineParallelism](#pipeline-parallelism) (PP) - the model is split up vertically (layer-level) across multiple GPUs, so that only one or several layers of the model are places on a single gpu. Each gpu processes in parallel different stages of the pipeline and working on a small chunk of the batch.
 4. [Zero Redundancy Optimizer](#zero-data-parallelism) (ZeRO) - Also performs sharding of the tensors somewhat similar to TP, except the whole tensor gets reconstructed in time for a forward or backward computation, therefore the model doesn't need to be modified. It also supports various offloading techniques to compensate for limited GPU memory. Sharded DDP is another name for the foundational ZeRO concept as used by various other implementations of ZeRO.
 5. [Sequence Parallelism](#sequence-parallelism) - training on long input sequences requires huge amounts of GPU memory. This technique splits the processing of a single sequence across multiple GPUs.
+6. [Expert Parallelism](#expert-parallelism) - Mixture-Of-Experts (MoE) can be partitioned so that each expert has a dedicated GPU (or several of them).
 
 The introduction sections of this paper is probably one of the best explanations I have found on most common parallelism techniques [Breadth-First Pipeline Parallelism](https://arxiv.org/abs/2211.05953).
 
@@ -466,6 +467,15 @@ SP Implementations:
 
 PyTorch is also working on this feature and calling it Context Parallel (CP).
 
+
+
+## Expert Parallelism
+
+When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts.
+
+For detailed explanations please see:
+- [DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training to Power Next-Generation AI Scale](https://arxiv.org/abs/2201.05596)
+- [Mixture of Experts Explained](https://huggingface.co/blog/moe#parallelism)
 
 ## FlexFlow
 

@@ -33,10 +33,15 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 
 **Part 4. Training**
 
-1. **[Training](training)** - model training related guides
+1. **[Training](training)** - model training-related guides
 
 
-**Part 5. Development**
+**Part 5. Inference**
+
+1. **[Inference](inference)** - model inference insights
+
+
+**Part 6. Development**
 
 1. **[Debugging and Troubleshooting](debug)** - how to debug easy and difficult issues
 
@@ -45,7 +50,7 @@ My apologies if the layout is a bit unstable while I'm writing new chapters and 
 1. **[Testing](testing)** - numerous tips and tools to make test writing enjoyable
 
 
-**Part 6. Miscellaneous**
+**Part 7. Miscellaneous**
 
 1. **[Resources](resources)** - LLM/VLM chronicles
 
@@ -101,7 +106,7 @@ None of this would have been possible without me being entrusted with doing the 
 
 Special thanks go to [Thom Wolf](https://github.com/thomwolf) who proposed that I lead the BLOOM-176B training back when I didn't know anything about large scale training. This was the project that catapulted me into the intense learning process. And, of course, HuggingFace for giving me the opportunity to work full time on BLOOM-176B and later on IDEFICS-80B trainings.
 
-Currently, I'm continue expanding my knowledge and experience while training models and building systems at [Contextual.AI](https://contextual.ai/) and I'm grateful to that opportunity.
+Currently, I continue expanding my knowledge and experience while training models and building systems at [Contextual.AI](https://contextual.ai/) and I'm grateful to that opportunity.
 
 I'd also like to say thanks to the numerous [contributors](contributors.md) who have been making this text awesome and error-free.
 

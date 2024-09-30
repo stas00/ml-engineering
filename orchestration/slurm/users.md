@@ -191,7 +191,7 @@ TODO: need to experiment with this to help training finish gracefully and not st
 
 ## Detailed job info
 
-While most useful information is preset in various `SLURM_*` env vars, sometimes the info is missing. In such cases use:
+While most useful information is preset in various `SLURM_*` env vars, sometimes some information is missing. In such cases use:
 ```
 scontrol show -d job $SLURM_JOB_ID
 ```
@@ -203,13 +203,25 @@ For a job that finished its run use:
 sacct -j JOBID
 ```
 
-e.g. with more details, depending on the partition:
+This command is also useful to discover if you have any `srun` jobs already running on that allocation (including those that were finished or cancelled). For example, you could kill some run-away `srun` step via `scancel <jobid>.<step-id>` and you'd find that `<step-id>` via the above command. The main job will continue running if it's an interactive job even if you cancelled all step jobs.
+
+To see more details:
 ```
-sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
-sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct -j JOBID --long
 ```
 
+Or to see all jobs with their sub-steps while limiting the listing to a specific partition and only for your own user:
 
+```
+sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300
+```
+
+To see how a particular job was launched and all of its `srun` sub-step command lines:
+```
+sacct -j JOBID -o submitline -P
+```
 
 ## show jobs
 
@@ -357,6 +369,31 @@ See the table at the top of this document for which partition is which.
 - drng: the node is running a job, but will after completion not be available due to an administrative reason
 
 
+### Node state codes
+
+The node state could be followed by a single character which has a special meaning. It is one of:
+
+- `*`: The node is presently not responding and will not be allocated any new work. If the node remains non-responsive, it will be placed in the DOWN state (except in the case of COMPLETING, DRAINED, DRAINING, FAIL, FAILING nodes).
+- `~`: The node is presently in powered off.
+- `#`: The node is presently being powered up or configured.
+- `!`: The node is pending power down.
+- `%`: The node is presently being powered down.
+- `$`: The node is currently in a reservation with a flag value of "maintenance".
+- `@`: The node is pending reboot.
+- `^`: The node reboot was issued.
+- `-`: The node is planned by the backfill scheduler for a higher priority job.
+
+### Job state codes
+
+- `CD` | Completed: The job has completed successfully.
+- `CG` | Completing: The job is finishing but some processes are still active.
+- `F` | Failed: The job terminated with a non-zero exit code and failed to execute.
+- `PD` | Pending: The job is waiting for resource allocation. It will eventually run.
+- `PR` | Preempted: The job was terminated because of preemption by another job.
+- `R` | Running: The job currently is allocated to a node and is running.
+- `S` | Suspended: A running job has been stopped with its cores released to other jobs.
+- `ST` | Stopped: A running job has been stopped with its cores retained.
+
 
 ### drained nodes
 
@@ -460,7 +497,9 @@ The idea is this:
 3. if you need to stop the job array train - don't cancel it, but suspend it without losing your place in a queue
 4. when ready to continue - unsuspend the job array - only the time while it was suspended is not counted towards its age, but all the previous age is retained.
 
-The only limitation of this recipe is that you can't change the number of nodes, time and hardware and partition constraints once the job array was launched.
+The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`.
+
+If you do have `sudo` access then you can change the job time of the current job as well.
 
 Here is an example:
 
@@ -1158,3 +1197,40 @@ JobID           JobName      State    Elapsed
 ```
 
 so we know the job finished running in under 2min.
+
+## FairShare
+
+Many SLURM clusters use the FairShare system where the more someone uses the cluster the less of the priority they get to run jobs or if there is a pre-emption in place they are more likely to get pre-empted
+
+To see your FairShare scores run:
+```
+sshare
+```
+
+Example:
+
+```
+Account                    User  RawShares  NormShares    RawUsage  EffectvUsage  FairShare
+-------------------- ---------- ---------- ----------- ----------- ------------- ----------
+root                                          0.000000   711506073      1.000000
+ all                                     1    0.500000   711506073      1.000000
+  all                      stas          1    0.022727    14106989      0.019827   0.288889
+```
+
+If your FairShare score is more than 0.5 that means you have been using the cluster less than what you  have been allocated, if it's less than 0.5 it means you have been using more than what was allocated.
+
+As the time passes this score gets decayed so if you were having a very low score and have you have been using the cluster much less then your score will raise over time.
+
+To see the score of a specific user:
+```
+sshare -u username
+```
+
+To see everybody's scores, sorted by FairShare:
+```
+sshare --all | sort -nk7 -r
+```
+
+This is the most important output, since it doesn't really matter what your score is alone. What matters is your score relative to all other users. Everybody who has a higher score than you will have a higher chance at getting they job yielded first and a lower chance of getting their job preempted.
+
+Besides FairShare the priorities are typically configured based on a combination of multiple metrics, usually including the length of time a job has been waiting in the queue, job size, Quality of Service (QOS) setting, partition specifics, etc. The specifics will depend on how the slurm has been configured by your sysadmin.

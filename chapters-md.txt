@@ -5,7 +5,10 @@ insights/ai-battlefield.md
 
 compute/README.md
 compute/accelerator/README.md
+compute/accelerator/benchmarks/README.md
 compute/accelerator/nvidia/debug.md
+compute/accelerator/amd/debug.md
+compute/accelerator/amd/performance.md
 compute/cpu/README.md
 compute/cpu-memory/README.md
 
@@ -41,7 +44,7 @@ training/dtype.md
 training/emulate-multi-node.md
 training/re-train-hub-models.md
 
-
+inference/README.md
 
 debug/README.md
 debug/pytorch.md
