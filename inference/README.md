@@ -1,12 +1,14 @@
 # Inference
 
-XXX: this chapter is under construction - some sections are complete, some are still starting out, many are yet to be started.
+XXX: this chapter is under construction - some sections are complete, some are still starting out, many are yet to be started, but there are already enough of useful sections completed to make it a good reading.
 
 ## Glossary
 
+- CLA: Cross-Layer Attention
 - FHE: Fully Homomorphic Encryption
 - GQA: Grouped-Query Attention
 - ITL: Inter-Token Latency
+- KV: Key Value
 - LPU: Language Processing Unit™
 - MHA: Multi-Head Attention
 - MPC: Secure Multi-Party Computation
@@ -509,15 +511,13 @@ Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params
 
 ### KV Caching
 
-It'd be very expensive to recalculate all the previous KV-values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
+It'd be very expensive to recalculate all the previous KV (Key Value) values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
 
 ![computation process with caching inference](images/infer-kv-cache.png)
 
 ([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
 
-Some caches are per model, others are per layer.
-
-KV cache size is directly proportional to the input sequence length and batch size. The query of the attention mechanism doesn't need to be cached because the previous queries aren't used in the attention mechanism.
+KV cache size is directly proportional to the input sequence length and batch size. Past query values aren't used in the attention mechanism and thus don't need to be cached.
 
 A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
 
@@ -553,7 +553,7 @@ KV cache while saving recomputation has a big negative impact on inference's per
 
 * Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
 
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, and many others are used to accomplish that.
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
 
 In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 
