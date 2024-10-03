@@ -47,9 +47,9 @@ Speed-related:
 - Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
 - Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
 - Adaptive Routing improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
--  Remote Direct Memory Access is like DMA on the node, but across nodes. It allows data exchange between nodes w/o the overhead using the local processor, OS kernel and caches, which is what TCP/IP uses. The 3 main implementations are (1) Infiniband, (2) RDMA over Converged Ethernet (RoCE) (IB or UDP-based RDMA), and (3) iWARP (TCP-based RDMA). here is a [good overview article](https://community.fs.com/article/roce-vs-infiniband-vs-tcp-ip.html).
+- [Remote Direct Memory Access](#rdma-networking)
 
-footnote: In the following sections pay close attention that 1 GBps = 8 Gbps.
+footnote: In the following sections pay close attention that 1GBps = 8Gbps.
 
 
 ### Unidirectional vs Bidirectional (Duplex)
@@ -59,6 +59,40 @@ Most benchmarking / bandwidth measurement tools will report a unidirectional ban
 If you measure the bandwidth on your setup and it's about 40% of the advertised speed, carefully check if the advertised speed said duplex and if so half that and then your measured bandwidth should now be about 80% which is expected.
 
 case study: for a while I couldn't understand why when I run the nccl-tests all_reduce benchmark on an A100 node with advertised 600GBps intra-node speed I was getting only 235GBps (40%) until Horace He kindly pointed out that I should be looking at unidirectional speed which is 300GBps, and then I get 80% of the theoretical spec which checks out.
+
+
+## Cluster networks
+
+Each node of the cluster has 3 networks, each running at a very different speed from each other.
+
+1. [Frontend](#frontend-networking)
+2. [Backend](#backend-networking)
+3. [Out-of-band](#out-of-band-networking)
+
+### Frontend networking
+
+Frontend networking is typically for the internet connection (e.g. downloading python packages and offloading to the cloud storage), distributed network storage (e.g. checkpoints and datasets) and orchestration (e.g. SLURM and Kubernetes). As of this writing a typical node is likely to have a single 100-400Gbps connection.
+
+### Backend networking
+
+Backend networking is to perform GPU-to-GPU connectivity which allows training and inference to scale to multiple accelerators. This is the most important part of the AI cluster. Typically this would be either an [Infiniband](#infiniband) or [RoCEv2 Ethernet](#rdma-networking). It then breaks down into [intra-node networking](#intra-node-networking) and [inter-node networking](#inter-node-networking) - the GPUs on the same node typically can communicate with each other at faster speed than with GPUs on other nodes. Here the typical speeds as of this writing would be around 5600Gbps for intra-node and 3200Gps per node for inter-node networking. There will be at least one backend connection per accelerator and at times there can be multiple connections per accelerator, especially if low bandwidth NICs are used.
+
+### Out-Of-Band networking
+
+Out-Of-Band (OOB) networking is used for bootstraping backend networking, monitoring node's health, remote re-imaging of the nodes, etc. It typically uses a single slow 1Gbps ethernet connection.
+
+
+## RDMA networking
+
+Remote Direct Memory Access is like DMA (Direct Memory Access) on the node, but across nodes. It allows data exchange between nodes w/o the overhead using the local processor, OS kernel and caches, which is what TCP/IP uses. The 3 main implementations are:
+
+1. Infiniband
+2. RDMA over Converged Ethernet (RoCE) (IB or UDP-based RDMA)
+3. iWARP (TCP-based RDMA)
+
+Here is a [good overview article](https://community.fs.com/article/roce-vs-infiniband-vs-tcp-ip.html).
+
+
 
 
 
@@ -298,7 +332,7 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 
 As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1 GBps = 8 Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
 
-When it comes to inter-node networking hardware, there are the well established InfiniBand from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, Google GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
+When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, Google GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
 
@@ -385,6 +419,7 @@ Practical links:
 The switches can connect 64 devices at 400Gbps.
 
 Besides [NVLink Switch](#nvlink-switch) this is the only other tech that powers the current fastest H100 nodes in the industry.
+
 
 
 ### EFA
