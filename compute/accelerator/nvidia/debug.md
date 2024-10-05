@@ -1,5 +1,14 @@
 # Troubleshooting NVIDIA GPUs
 
+## Glossary
+
+- DBE: Double Bit ECC Error
+- DCGM: (NVIDIA) Data Center GPU Manager
+- ECC: Error-Correcting Code
+- FB: Frame Buffer
+- SBE: Single Bit ECC Error
+- SDC: Silent Data Corruption
+
 ## Xid Errors
 
 No hardware is perfect, sometimes due to the manufacturing problems or due to tear and wear (especially because of exposure to high heat), GPUs are likely to encounter various hardware issues. A lot of these issues get corrected automatically without needing to really understand what's going on. If the application continues running usually there is nothing to worry about. If the application crashes due to a hardware issue it's important to understand why this is so and how to act on it.
@@ -191,6 +200,8 @@ If the diagnostics didn't find any issue, but the application still fails to wor
 ```
 dcgmi diag -r 4
 ```
+
+footnote: apparently silent data corruptions (SDC) can only be detected with `dcgmi diag -r 4` and even then some might be missed. This problem happens occasionally and you may not even be aware that your GPU is messing up the `matmul` at times. I'm pretty sure we had this happen to us, as we were getting weird glitches during training and I spent many days with the NVIDIA team diagnosing the problem, but we failed to do so - eventually the problem disappeared probably because the bad GPU(s) got replaced due to reported failures.
 
 For example, if you run into a repeating Xid 64 error it's likely that the diagnostics report will include:
 
