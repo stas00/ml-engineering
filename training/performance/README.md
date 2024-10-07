@@ -100,6 +100,31 @@ The exact formula is in Equation 3 of Section 5.1 of the [Efficient Large-Scale 
 footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operations per layer.
 
 
+#### Automating FLOP calculation
+
+Until recently we had to rely on manual FLOP calculations as explained in the previous section - many of those formulas have mistakes in them, and many models behave differently depending on various configuration settings. So it can be tricky to get the FLOP count correctly (and across many different model architectures). But fear not, the awesome PyTorch team developed an automatic way of measuring FLOPs.
+
+```
+from torch.utils.flop_counter import FlopCounterMode
+
+flop_counter = FlopCounterMode(mods=model, display=False, depth=None)
+with flop_counter:
+    model(**input).sum().backward()
+total_flops =  flop_counter.get_total_flops()
+```
+Voila, you have the FLOPs counted for you!
+
+In my code I run it only on a 2nd iteration (as the first iteration is likely to have some additional compute that is run once). You don't need to repeat it again, you can just cache its value (well, unless you have a situation where iterations aren't the same for some reason).
+
+So all that remains is measuring the time it took each specific iteration to run and dividing FLOPs by time in seconds and `1e12` to get the performance TFLOPS.
+
+```
+tflops = total_flops / time / 1e12
+```
+
+This will give you a slightly different value on each iteration.
+
+
 ### MFU vs HFU
 
 Model FLOPS Utilization (MFU) and Hardware FLOPS Utilization (HFU) estimate how well the hardware is being utilized during `forward` and `backward` passes of the model (including any syncing networking overhead and possibly DataLoader IO).
