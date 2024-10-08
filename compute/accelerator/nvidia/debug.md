@@ -370,3 +370,54 @@ If you keep on getting the same broken node - one trick to overcoming this is al
 This method is extra-crucial for when GPUs don't fail right away but after some use so it is non-trivial to see that there is a problem. Even if you reported this node to the cloud provider the technician may not notice the problem right away and put the bad node back into circulation. So if you're not using a static cluster and tend to get random VMs on demand you may want to keep a log of bad UUIDs and know you have got a lemon immediately and not 10 hours into the node's use.
 
 Cloud providers usually have a mechanism of reporting bad nodes. Therefore other than discarding a bad node, it'd help yourself and other users to report bad nodes. Since most of the time users just discard the bad nodes, the next user is going to get them. I have seen users getting a very high percentage of bad nodes in some situations.
+
+
+## How to get the real GPU utilization metrics
+
+As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `Volatile GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not tell you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a a very high gpu util while most of the GPU isn't doing anything.
+
+footnote: I have seen GPU util column showing 100% on all gpus when one GPU would stop responding and then whole machinery was blocked waiting for that gpu to respond. Which is how I discovered that it couldn't be showing the real GPU utilization in the first place.
+
+What you want to measure instead is GPU's utilization of the available capacity. Alas, this information isn't provided by `nvidia-smi`. In order to get this information you need to install [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) (which in turn currently requires a recent golang and DCGM (`datacenter-gpu-manager`) and a root access).
+
+After installing the prerequisites I built the tool:
+```
+git clone https://github.com/NVIDIA/dcgm-exporter.git
+cd dcgm-exporter
+make binary
+```
+
+And then I was able to get the "real" utilization metrics described in the article with this `dcgm-exporter` config file:
+
+```
+$ cat << EOT > dcp-metrics-custom.csv
+DCGM_FI_PROF_SM_OCCUPANCY,       gauge, The ratio of number of warps resident on an SM.
+DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Ratio of cycles the tensor (HMMA) pipe is active.
+DCGM_FI_PROF_PIPE_FP16_ACTIVE,   gauge, Ratio of cycles the fp16 pipes are active.
+DCGM_FI_PROF_PIPE_FP32_ACTIVE,   gauge, Ratio of cycles the fp32 pipes are active.
+EOT
+```
+
+Then I launched the daemon (root is required):
+```
+$ sudo cmd/dcgm-exporter/dcgm-exporter -c 500 -f dcp-metrics-custom.csv
+[...]
+INFO[0000] Starting webserver
+INFO[0000] Listening on                                  address="[::]:9400"
+```
+
+`-c 500` refreshes every 0.5sec
+
+and now I was able poll it via:
+```
+watch -n 0.5 "curl http://localhost:9400/metrics"
+```
+by running it one console, and launching a GPU workload in another console. The last column of the output is the utilization of these metrics (`1 == 100%`).
+
+`etc/dcp-metrics-included.csv` from the repo contains all the available metrics, so you can add more metrics.
+
+This is a quick way of doing that, but the intention is to use it with [Prometheus](https://prometheus.io/) which will give you nice charts. E.g. the article included an example where you can see the SM occupancy, Tensor core, FP16 and FP32 Core utilization.
+
+![dcgm-metrics](images/dcgm-metrics.png)
+
+([source](https://arthurchiao.art/blog/understanding-gpu-performance/))
