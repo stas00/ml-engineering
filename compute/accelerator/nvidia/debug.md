@@ -378,7 +378,7 @@ As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/)
 
 footnote: I have seen GPU util column showing 100% on all gpus when one GPU would stop responding and then whole machinery was blocked waiting for that gpu to respond. Which is how I discovered that it couldn't be showing the real GPU utilization in the first place.
 
-What you want to measure instead is GPU's utilization of the available capacity. Alas, this information isn't provided by `nvidia-smi`. In order to get this information you need to install [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) (which in turn currently requires a recent golang and DCGM (`datacenter-gpu-manager`) and a root access).
+What you want to measure instead is GPU's utilization of the available capacity, otherwise known as "saturation". Alas, this information isn't provided by `nvidia-smi`. In order to get this information you need to install [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) (which in turn currently requires a recent golang and DCGM (`datacenter-gpu-manager`) and a root access).
 
 After installing the prerequisites I built the tool:
 ```
