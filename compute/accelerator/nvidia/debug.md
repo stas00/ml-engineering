@@ -421,3 +421,44 @@ This is a quick way of doing that, but the intention is to use it with [Promethe
 ![dcgm-metrics](images/dcgm-metrics.png)
 
 ([source](https://arthurchiao.art/blog/understanding-gpu-performance/))
+
+For completion here is an example from the same article showing a 100% gpu util with a CUDA kernel that is doing absolutely nothing compute-wise other than occupying a single Streaming Multiprocessor (SM):
+
+```
+$ cat << EOT > 1_sm_kernel.cu
+__global__ void simple_kernel() {
+    while (true) {}
+}
+
+int main() {
+    simple_kernel<<<1, 1>>>();
+    cudaDeviceSynchronize();
+}
+EOT
+```
+
+Let's compile it:
+```
+nvcc 1_sm_kernel.cu -o 1_sm_kernel
+```
+And now run it. in console A, I launched:
+```
+$ ./1_sm_kernel
+```
+and in console B:
+```
+$ nvidia-smi
+Tue Oct  8 09:49:34 2024
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.90.12              Driver Version: 550.90.12      CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100 80GB PCIe          Off |   00000000:01:00.0 Off |                    0 |
+| N/A   32C    P0             69W /  300W |     437MiB /  81920MiB |    100%      Default |
+|                                         |                        |             Disabled |
+```
+
+You can see the `100%` GPU-Util. So here 1 SM is used whereas e.g. A100-80GB PCIe has 132 SMs! So we think all 132 SMs are being used, but really only 1 is being used and it's not even doing any compute as it just runs an infinite loop of doing nothing.

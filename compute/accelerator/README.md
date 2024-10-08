@@ -372,8 +372,11 @@ For example, A100-80GB has:
 - 432 Tensor Cores (Gen 3)
 - 108 Streaming Multiprocessors (SM)
 
+H100 has:
 
-
+- 16896 FP32 CUDA Cores
+- 528 Tensor Cores (Gen 4)
+- 132 Streaming Multiprocessors (SM)
 
 
 ### AMD
