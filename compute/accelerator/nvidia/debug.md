@@ -412,7 +412,7 @@ and now I was able poll it via:
 ```
 watch -n 0.5 "curl http://localhost:9400/metrics"
 ```
-by running it one console, and launching a GPU workload in another console. The last column of the output is the utilization of these metrics (`1 == 100%`).
+by running it in one console, and launching a GPU workload in another console. The last column of the output is the utilization of these metrics (where `1.0 == 100%`).
 
 `etc/dcp-metrics-included.csv` from the repo contains all the available metrics, so you can add more metrics.
 
