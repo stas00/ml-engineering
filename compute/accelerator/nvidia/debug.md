@@ -441,7 +441,7 @@ Let's compile it:
 ```
 nvcc 1_sm_kernel.cu -o 1_sm_kernel
 ```
-And now run it. in console A, I launched:
+And now run it in console A:
 ```
 $ ./1_sm_kernel
 ```
@@ -461,4 +461,4 @@ Tue Oct  8 09:49:34 2024
 |                                         |                        |             Disabled |
 ```
 
-You can see the `100%` GPU-Util. So here 1 SM is used whereas e.g. A100-80GB PCIe has 132 SMs! So we think all 132 SMs are being used, but really only 1 is being used and it's not even doing any compute as it just runs an infinite loop of doing nothing.
+You can see the `100%` GPU-Util. So here 1 SM is used whereas A100-80GB PCIe has 132 SMs! And it's not even doing any compute as it just runs an infinite loop of doing nothing.
