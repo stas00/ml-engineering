@@ -790,3 +790,14 @@ Notes:
 - Pinned memory is treated specially by the OS, by preventing the paging out when the total available memory is low, so it reduces the total amount of available memory to other programs. Thus use with care.
 - I recall that a few times people reported problems when using pinned memory - I think it's mostly when the system doesn't have much CPU memory to start with or they used too much of pinned memory, so the OS can start swapping heavily.
 - If you measure your [per iteration TFLOPS](#tflops-as-a-performance-metric) you can compare the throughput with and w/o these changes and choose the one that works the best. It'd be even easier to see the impact if you measure the `DataLoader` overhead separately from the the `forward/backwards` and post-compute (usually logging, which can be surprisingly slow at times).
+
+
+## torch.compile
+
+`torch.compile` will eventually speed things up amazingly for both training and inference. It's very difficult to make it work well on a random model, because the level of complexities to overcome is huge. There are some models that already work well with it, but many are still a long term work in progress.
+
+If you tried it and thing don't work you:
+1. may report it to the PyTorch team, ideally with a small reproducible example
+2. can try to read this extensive [torch.compile, the missing manual](https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.ivdr7fmrbeab) and you might be able to make some things work, and may still need to report some issues to PyTorch
+
+One thing is certain is that you want to use the latest pytorch version, which most likely would be some recent nightly build, rather than the last released version (though you might start with the latter).
