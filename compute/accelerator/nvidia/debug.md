@@ -416,7 +416,7 @@ by running it one console, and launching a GPU workload in another console. The 
 
 `etc/dcp-metrics-included.csv` from the repo contains all the available metrics, so you can add more metrics.
 
-This is a quick way of doing that, but the intention is to use it with [Prometheus](https://prometheus.io/) which will give you nice charts. E.g. the article included an example where you can see the SM occupancy, Tensor core, FP16 and FP32 Core utilization.
+This is a quick way of doing that, but the intention is to use it with [Prometheus](https://prometheus.io/) which will give you nice charts. E.g. the article included an example where you can see the SM occupancy, Tensor core, FP16 and FP32 Core utilization in the second row of the charts:
 
 ![dcgm-metrics](images/dcgm-metrics.png)
 
