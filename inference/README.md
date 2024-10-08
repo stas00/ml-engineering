@@ -191,7 +191,7 @@ There are multiple implementations of this technique, as of this writing the two
 - https://github.com/outlines-dev/outlines
 - https://github.com/noamgat/lm-format-enforcer
 
-You ideally want the implementations that have already been integrated into inference frameworks like `vllm` and others.
+You ideally want the implementations that have already been integrated into inference frameworks like vLLM and others.
 
 #### Faster inference with guided generation
 
@@ -413,6 +413,16 @@ The response latency then is the number of tokens in the prompt divided by the p
 
 ### More metric notes
 
+#### Accelerator utilization
+
+Accelerator utilization - either percentage or power measurement is a good indicator of whether your setup uses the accelerators efficiently. For example, if you use NVIDIA GPUs and you `watch -n 0.5 nvidia-smi` and you see you're at 10% "gpu util" while massively bombarding the inference server with many requests that usually means that either the inference server is very inefficient (e.g. spends a lot of time copying things back-n-forth) or it could be that the clients are inefficient at how they receive the data (i.e. too much IO blocking).
+
+footnote: when I first wrote a simple benchmark using the openai client it worked fine at a low concurrency, but at a higher concurrency the inference server dropped its gpu util to 6-7%. After I replaced the client with `aiohttp` API it went up to 75%. Therefore beware that it's your benchmark that could be the culprit of bad performance reports and not the server.
+
+This is somewhat of an equivalent of using [TFLOPS to measure training efficiency](../training/performance/README.md#tflops-as-a-performance-metric).
+
+In the ideal case you want your accelerator utilization to be as high as possible. Beware that at least for NVIDIA GPUs `gpug util` [isn't what you might think it is](../compute/accelerator/nvidia/debug.md#how-to-get-the-real-gpu-utilization-metrics), but if it reports a very low percentage it's good enough of a signal to know that there is definitely an inefficiency problem.
+
 #### Percentiles
 
 If you read benchmarks and run into things like p50, p75, p90, p95 and p99 percentiles - these are statistical filters that give you the results based on the percentage of results that fit under (or over) a certain threshold. Even the same request is likely to take a slightly different response time when it gets re-run multiple times. So, for example, if 95% of the time a throughput was higher than a certain value - that would be a p95 percentile. That also would mean that 5% of the time the throughput was lower than that same threshold value. The higher the number next to `p`, the more difficult it is to achieve.
@@ -433,6 +443,20 @@ The same interpretation applies to the other lines in the report, but the key ex
 Percentiles are useful when outliers aren't important, so, for example, instead of looking at the slowest throughput measured you'd say ignore the worst 5% of outcomes and suddenly the system's performance looks much much better. But one has to be very careful with such discarding of bad outcomes when dealing with users, since it means that some of them will have a bad experience using your system. Also 5% translates to a whole lot of users if you have millions of them.
 
 Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a much more indepth explanation.
+
+
+## Speeding up model loading time
+
+When serving in production it might be OK to let the model takes its loading time since it happens once and then the server runs for days, so this overhead is amortized over many days. But when doing research, development and testing it's critical that the inference server starts serving really fast.
+
+Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism and [PP](../training/model-parallelism#pipeline-parallelism)
+
+Various approaches are used for that - most involve some sort of pre-sharing and caching, with a subsequent direct loading onto GPU.
+
+For example:
+
+- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer). ([recipe](https://docs.vllm.ai/en/latest/serving/tensorizer.html)
+ - TensorRT-LLM requires the user to build a model engine for each specific use-case and loads the pre-made shards at run time (unless you're using the simplified API which build the model engine on the fly).
 
 
 
@@ -472,7 +496,7 @@ The `prefill_throughput` is not very precise here, since the client only know wh
 
 Of course, like any serious benchmark, you want to run this multiple times to get realistic numbers, as the variance  between single runs can be quite large.
 
-note: I've discovered that when I use the openAI client it doesn't scale well and with many concurrent requests the openAI client creates a bottleneck and doesn't measure the real server performance - I am yet to figure out if it's an issue in my code or the openAI client or how it interacts with vllm server - I'm investigating here https://github.com/vllm-project/vllm/issues/7935 - I found that [this version](https://github.com/vllm-project/vllm/blob/f842a7aff143a4a1ddc59e1fb57109cb377f5475/benchmarks/backend_request_func.py#L223-L301) of the client, rewritten to use `aiohttp` scales really well - so I switched to using it.
+note: I've discovered that when I use the openAI client it doesn't scale well and with many concurrent requests the openAI client creates a bottleneck and doesn't measure the real server performance - I am yet to figure out if it's an issue in my code or the openAI client or how it interacts with vLLM server - I'm investigating here https://github.com/vllm-project/vllm/issues/7935 - I found that [this version](https://github.com/vllm-project/vllm/blob/f842a7aff143a4a1ddc59e1fb57109cb377f5475/benchmarks/backend_request_func.py#L223-L301) of the client, rewritten to use `aiohttp` scales really well - so I switched to using it.
 
 Here are some good starting points for load testing:
 
@@ -634,16 +658,16 @@ To choose the most suitable inference framework you need to answer at least the 
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
 9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-llmvlm-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
 
-For example, here is a snapshot of [vllm](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
+For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
 
 ![vllm](images/github-vllm-stats-2024-08-24.png)
 
-You can see that it is used by many github repositories, it has a lot of contributors and that it's written mainly in Python. So it should be very easy to find this information about any inference framework you may consider. This was just an example and not an endorsement of vllm.
+You can see that it is used by many github repositories, it has a lot of contributors and that it's written mainly in Python. So it should be very easy to find this information about any inference framework you may consider. This was just an example and not an endorsement of vLLM.
 
 
 ## Inference Chips
 
-Besides general purpose accelerators some vendors have been working special ASICs that are designed to do Inference-only
+Besides general purpose accelerators some vendors have been working special ASICs that are designed to do Inference-only.
 
 ### Groq
 
