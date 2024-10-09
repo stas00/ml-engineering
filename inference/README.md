@@ -42,7 +42,7 @@ Decode: new tokens generation happens, one new token at a time (regressive appro
 
 ### Online vs Offline Inference
 
-When you have users that send queries in real time - this is Online Inference. Examples: Chatbot, search engines. In this case one always runs an inference server and there could be various clients connecting to it.
+When you have users that send queries in real time - this is Online Inference also known as Deployment. Examples: chatbot, search engines, general REST APIs. In this case one always runs an inference server and there could be various clients connecting to it.
 
 When you have a file with prompts that you need to run inference on - this is Offline Inference. Examples: benchmark evaluation, synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
@@ -449,14 +449,14 @@ Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a muc
 
 When serving in production it might be OK to let the model takes its loading time since it happens once and then the server runs for days, so this overhead is amortized over many days. But when doing research, development and testing it's critical that the inference server starts serving really fast.
 
-Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism and [PP](../training/model-parallelism#pipeline-parallelism)
+Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism and [PP](../training/model-parallelism#pipeline-parallelism).
 
 Various approaches are used for that - most involve some sort of pre-sharing and caching, with a subsequent direct loading onto GPU.
 
 For example:
 
-- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer). ([recipe](https://docs.vllm.ai/en/latest/serving/tensorizer.html)
- - TensorRT-LLM requires the user to build a model engine for each specific use-case and loads the pre-made shards at run time (unless you're using the simplified API which build the model engine on the fly).
+- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer).  ([recipe](https://docs.vllm.ai/en/latest/serving/tensorizer.html) and, of course, if you use TP>1 you want to [pre-shard the weights once](https://docs.vllm.ai/en/latest/getting_started/examples/save_sharded_state.html).
+ - TensorRT-LLM requires the user to build a model engine for each specific use-case and loads the pre-made shards at run time (unless you're using the simplified API which will build the model engine on the fly on every server start).
 
 
 
