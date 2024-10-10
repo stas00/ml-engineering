@@ -380,6 +380,8 @@ footnote: I have seen GPU util column showing 100% on all gpus when one GPU woul
 
 What you want to measure instead is GPU's utilization of the available capacity, otherwise known as "saturation". Alas, this information isn't provided by `nvidia-smi`. In order to get this information you need to install [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) (which in turn currently requires a recent golang and DCGM (`datacenter-gpu-manager`) and a root access).
 
+Please note that this tool works only high-end data center NVIDIA GPUs, so if you have a consumer level GPU it won't work.
+
 After installing the prerequisites I built the tool:
 ```
 git clone https://github.com/NVIDIA/dcgm-exporter.git
