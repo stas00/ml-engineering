@@ -203,15 +203,15 @@ You could measure the the actual peak TFLOPS by doing a perfectly aligned max-si
 
 The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means). Sorted by accelerator efficiency:
 
-| Accelerator      |  MAMF | Theory | Efficiency |       Best Shape | Notes      |
-| :--------------- | ----: | -----: | ---------: |  :-------------- | ---------: |
-| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% |  6912x16384x2048 | CUDA-12.1  |
-| NVIDIA GH200 SXM | 821.0 |    989 |      83.0% | 11264x19712x1536 | CUDA-12.5  |
-| NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |   2304x5120x1536 | CUDA-12.1  |
-| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |  6144x17920x2816 | CUDA-12.1  |
-| AMD MI300X       | 781.9 |   1300 |      60.1% |  4096x10240x4864 | ROCm-6.2   |
-| AMD MI250X       | 147.0 |    383 |      38.4% | 1024x14080x19968 | ROCm-6.2   |
-|                  |       |        |            |                  |            |
+| Accelerator      |  MAMF | Theory | Efficiency |       Best Shape | Notes            |
+| :--------------- | ----: | -----: | ---------: |  :-------------- | ---------------: |
+| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% |  6912x16384x2048 | CUDA-12.1        |
+| NVIDIA GH200 SXM | 821.0 |    989 |      83.0% | 11264x19712x1536 | CUDA-12.5        |
+| NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |   2304x5120x1536 | CUDA-12.1        |
+| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |  6144x17920x2816 | CUDA-12.1        |
+| AMD MI250X       | 147.0 |  191.5 |      76.7% | 1024x14080x19968 | ROCm-6.2 / 1 GCD |
+| AMD MI300X       | 781.9 |   1300 |      60.1% |  4096x10240x4864 | ROCm-6.2         |
+|                  |       |        |            |                  |                  |
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 
@@ -222,6 +222,7 @@ Notes:
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
 - Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
+- AMD MI250X has 2 GCD - so the theoretical TFLOPS need to be halved, as 383 TFLOPS is reported for 2 GCDs
 
 Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x13568x3840` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
 
