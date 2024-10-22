@@ -155,27 +155,24 @@ I found the wiki pages quite difficult to follow, so I will try to help bring cl
 
 Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
-| Interconnect | Lane/Direction   | Lanes | Links | Unidirection | Duplex     | GPU               |
-| :----------- | -------------:   | ----: | ----: | -----------: | ---------: | :---------------- |
-| NVLink 2     | 6.250 GBps       |     4 |     6 | 150 GBps     | 300 GBps   | V100              |
-| NVLink 3     | 6.250 GBps       |     4 |    12 | 300 GBps     | 600 GBps   | A100              |
-| NVLink 4     | 6.250 GBps       |     4 |    18 | 450 GBps     | 900 GBps   | H100, H200, GH200 |
-|              |                  |       |       |              |            |                   |
-|              | not sure yet     |       |       |              |            |                   |
-|              | which is correct |       |       |              |            |                   |
-| NVLink 5     | 6.250 GBps       |     8 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
-| NVLink 5     | 12.50 GBps       |     4 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
-|              |                  |       |       |              |            |                   |
+| Interconnect | Lane/Direction | Lanes | Links | Unidirection | Duplex     | GPU               |
+| :----------- | -------------: | ----: | ----: | -----------: | ---------: | :---------------- |
+| NVLink 2     |  6.25 GBps     |     4 |     6 | 150 GBps     |  300 GBps  | V100              |
+| NVLink 3     |  6.25 GBps     |     4 |    12 | 300 GBps     |  600 GBps  | A100              |
+| NVLink 4     |  6.25 GBps     |     4 |    18 | 450 GBps     |  900 GBps  | H100, H200, GH200 |
+| NVLink 5     | 12.50 GBps     |     4 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
 
-
-NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GB/s per link, and therefore 50GB/s per duplex link. The only difference is in the number of links:
+NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GBps per link, and therefore 50GBps per duplex link. The only difference is in the number of links:
 
 - NVLink 2 has  6 links => `25* 6`=> 150 GBps unidirectional and 300 GBps bi-directional
 - NVLink 3 has 12 links => `25*12`=> 300 GBps unidirectional and 600 GBps bi-directional
 - NVLink 4 has 18 links => `25*18`=> 450 GBps unidirectional and 900 GBps bi-directional
 
-(waiting to get the answers)
-- NVLink 5 has 18 links => 900 GBps unidirectional and 1800 GBps bi-directional
+NVLink 5 has doubled its lane/direction speed over NVLink 2, 3 and 4, and therefore 100GBps per duplex link:
+
+- NVLink 5 has 18 links => `50*18`=> 900 GBps unidirectional and 1800 GBps bi-directional
+
+footnote: I couldn't find any NVIDIA spec confirming that they doubled lane/direction from NVLink 4.0 to 5.0, but [this article](https://www.naddod.com/blog/nvidia-gb200-interconnect-architecture-analysis-nvlink-infiniband-and-future-trends) suggests that it's still 4 lanes, so it must mean that the per lane speed has doubled. Please correct me if my derivation is wrong.
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
@@ -260,8 +257,7 @@ GPU7  NV18  NV18  NV18  NV18  NV18  NV18  NV18   X    52-103        1
 ```
 You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
-Of course, other A100 and H100s node reports may vary, e.g. different number of cpu cores.
-
+Of course, other A100 and H100s node reports may vary, e.g. the number of cpu cores is likely to be different.
 
 
 

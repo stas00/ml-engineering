@@ -274,6 +274,7 @@ Problems with traditional Pipeline API solutions:
 - currently the Pipeline API is very restricted. If you had a bunch of python variables being passed in the very first stage of the Pipeline, you will have to find a way around it. Currently, the pipeline interface requires either a single Tensor or a tuple of Tensors as the only input and output. These tensors must have a batch size as the very first dimension, since pipeline is going to chunk the mini batch into micro-batches. Possible improvements are being discussed here https://github.com/pytorch/pytorch/pull/50693
 - conditional control flow at the level of pipe stages is not possible - e.g., Encoder-Decoder models like T5 require special workarounds to handle a conditional encoder stage.
 - have to arrange each layer so that the output of one model becomes an input to the other model.
+- The first stage contains a heavy embedding which can be quite huge if the vocabulary is large - and this may require a custom splicing so that the first stage will contain less transformer blocks than other stages.
 
 I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
