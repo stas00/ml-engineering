@@ -52,7 +52,10 @@ The listing is in no particular order other than being grouped by the year.
 
 - [MegaScale: Scaling Large Language Model Training to More Than 10,000 GPUs](https://arxiv.org/abs/2402.15627) - the paper covers various training issues and their resolution - albeit on models that are proprietary yet just as instructional/useful.
 
+- Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/research/70b-infrastructure/) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
+
+https://imbue.com/research/70b-infrastructure/
 
 
 
