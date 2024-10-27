@@ -1,12 +1,12 @@
 # Machine Learning Engineering Open Book
 
-This is an open collection of methodologies, tools and step by step instructions to help with successful training of large language models and multi-modal models.
+This is an open collection of methodologies, tools and step by step instructions to help with successful training of large language models and multi-modal models and their inference.
 
 This is a technical material suitable for LLM/VLM training engineers and operators. That is the content here contains lots of scripts and copy-n-paste commands to enable you to quickly address your needs.
 
-This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training open-source Retrieval Augmented Generation (RAG) models at [Contextual.AI](https://contextual.ai/).
+This repo is an ongoing brain dump of my experiences training Large Language Models (LLM) (and VLMs); a lot of the know-how I acquired while training the open-source [BLOOM-176B](https://huggingface.co/bigscience/bloom) model in 2022 and [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b-instruct) multi-modal model in 2023. Currently, I'm working on developing/training/inference of open-source Retrieval Augmented Generation (RAG) models at [Contextual.AI](https://contextual.ai/).
 
-I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these with the wider ML community.
+I've been compiling this information mostly for myself so that I could quickly find solutions I have already researched in the past and which have worked, but as usual I'm happy to share these notes with the wider ML community.
 
 
 ## Table of Contents
