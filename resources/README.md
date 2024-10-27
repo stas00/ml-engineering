@@ -45,8 +45,15 @@ The listing is in no particular order other than being grouped by the year.
 
 - HuggingFace IDEFICS-80B multimodal (Flamingo repro) (2023): [Learning log](https://github.com/huggingface/m4-logs/blob/master/memos/README.md) | [Training Chronicles](https://github.com/huggingface/m4-logs/blob/master/tr-190-80b/chronicles.md) (backup: [1](https://github.com/stas00/m4-logs-backup/blob/master/memos/README.md) | [2](https://github.com/stas00/m4-logs-backup/blob/master/tr-190-80b/chronicles.md))
 
-
 - BloombergGPT 50B LLM - section C in [BloombergGPT: A Large Language Model for Finance](https://arxiv.org/abs/2303.17564)
+
+
+### 2024
+
+- [MegaScale: Scaling Large Language Model Training to More Than 10,000 GPUs](https://arxiv.org/abs/2402.15627) - the paper covers various training issues and their resolution - albeit on models that are proprietary yet just as instructional/useful.
+
+
+
 
 
 ## Hardware setup logbooks
