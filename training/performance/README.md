@@ -801,3 +801,24 @@ If you tried it and thing don't work you:
 2. can try to read this extensive [torch.compile, the missing manual](https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.ivdr7fmrbeab) and you might be able to make some things work, and may still need to report some issues to PyTorch
 
 One thing is certain is that you want to use the latest pytorch version, which most likely would be some recent nightly build, rather than the last released version (though you might start with the latter).
+
+
+
+## Automatic garbage collection
+
+Python periodically performs an automatic garbage collection based on internal heuristics. In an LLM-training scenario with hundreds to thousands of accelerators used in synchronization - if different ranks follow even slightly different code paths the automatic garbage collection process could be triggered at different times for different ranks. Which means that one or more ranks could be slower than other ranks while performing this operation, and thus becoming stragglers, slowing down the whole ensemble.
+
+Usually one can see this by studying [the MFU plot](#mfu-vs-hfu) where downward spikes can be observed.
+
+If this happens to your training you can disable the automatic garbage collection with:
+```
+import gc
+gc.disable()
+```
+at the beginning of your trainer and then manually perform garbage collection at the desired intervals. For example, calling this once in a training iteration:
+```
+import gc
+gc.collect()
+```
+
+Refer to [`gc`'s manpage](https://docs.python.org/3/library/gc.html) for more nuances.
