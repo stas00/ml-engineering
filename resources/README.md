@@ -55,8 +55,6 @@ The listing is in no particular order other than being grouped by the year.
 - Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/research/70b-infrastructure/) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
 
-https://imbue.com/research/70b-infrastructure/
-
 
 
 ## Hardware setup logbooks
