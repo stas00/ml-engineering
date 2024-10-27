@@ -11,7 +11,6 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 ## Table of Contents
 
-My apologies if the layout is a bit unstable while I'm writing new chapters and gradually re-organizing the content to be more intuitive.
 
 **Part 1. Insights**
 
