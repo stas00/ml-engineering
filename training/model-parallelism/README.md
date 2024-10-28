@@ -325,8 +325,6 @@ Important: TP requires very fast network, and therefore since typically intra-no
 
 TP can be combined with other parallelization methods.
 
-One of the deficiencies of TP is that it's difficult to overlap the comms with compute. PyTorch is proposing to overcome this with [Async-TP](https://discuss.pytorch.org/t/distributed-w-torchtitan-introducing-async-tensor-parallelism-in-pytorch/209487) which decomposes the dependent sequence of all-gather + matmul into series of cudaMemcpyAsync calls and smaller partial matmuls - and it does it automatically for you using `torch.compile`!
-
 Alternative names:
 - DeepSpeed calls it [tensor slicing](https://www.deepspeed.ai/tutorials/large-models-w-deepspeed/)
 
@@ -340,6 +338,12 @@ Implementations:
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
 
+### Async TP
+
+One of the deficiencies of TP is that it's difficult to overlap its comms with compute. PyTorch is proposing to overcome this with [Async-TP](https://discuss.pytorch.org/t/distributed-w-torchtitan-introducing-async-tensor-parallelism-in-pytorch/209487) which decomposes the dependent sequence of all-gather + matmul into series of cudaMemcpyAsync calls and smaller partial matmuls - and it does it automatically for you using `torch.compile`!
+
+- [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has it implemented as well via`--tp-comm-overlap`.
+
 
 ### Related reading
 
@@ -347,7 +351,7 @@ Implementations:
 
 ## TP+SP
 
-TP can be combined with SP in the same process group to minimize communication costs as explained in [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) - TP is used for attention and linear layers and when dropout and layer norm is reached SP is used instead.
+TP can be combined with SP in the same process group to minimize communication costs as explained in [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198). For example in LLMs, TP is used for embedding, attention and linear layers and when dropout and layer norm are reached SP is used instead.
 
 
 
