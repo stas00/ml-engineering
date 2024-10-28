@@ -117,6 +117,7 @@ If you pay close attention the way ZeRO partitions the model's weights - it look
 Implementations of ZeRO-DP stages 1+2+3:
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/zero/)
 - [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/) and later it was upstreamed into the PyTorch core)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 Deepspeed ZeRO Integration:
 - [HF Trainer integration](https://huggingface.co/docs/transformers/main_classes/deepspeed)
@@ -128,6 +129,7 @@ FSDP Integration:
 - [HF Trainer integration](https://huggingface.co/docs/transformers/main/en/fsdp)
 - [Accelerate](https://huggingface.co/docs/accelerate/main/en/usage_guides/fsdp)
 - [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/fsdp.html)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 Important papers:
 
@@ -288,7 +290,12 @@ Implementations:
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
 - [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`
 - [nanotron](https://github.com/huggingface/nanotron)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
+
+### Related reading
+
+- [Pipeline-Parallelism: Distributed Training via Model Partitioning](https://siboehm.com/articles/22/pipeline-parallel-training)
 
 
 
@@ -316,9 +323,9 @@ Parallelizing the multi-headed attention layers is even simpler, since they are 
 
 Important: TP requires very fast network, and therefore since typically intra-node networks are much faster than inter-node networks it's not advisable to do TP across nodes. Practically, if a node has 4 GPUs, the highest TP degree is therefore 4. If you need a TP degree of 8, you need to use nodes that have at least 8 GPUs.
 
-Important: TP degree shouldn't span across nodes. For example if the node has 8 gpus, TP degree should be no more than 8.
+TP can be combined with other parallelization methods.
 
-TP can combined with other parallelization methods.
+One of the deficiencies of TP is that it's difficult to overlap the comms with compute. PyTorch is proposing to overcome this with [Async-TP](https://discuss.pytorch.org/t/distributed-w-torchtitan-introducing-async-tensor-parallelism-in-pytorch/209487) which decomposes the dependent sequence of all-gather + matmul into series of cudaMemcpyAsync calls and smaller partial matmuls - and it does it automatically for you using `torch.compile`!
 
 Alternative names:
 - DeepSpeed calls it [tensor slicing](https://www.deepspeed.ai/tutorials/large-models-w-deepspeed/)
@@ -330,6 +337,18 @@ Implementations:
 - [OSLO](https://github.com/eleutherAI/Oslo) has the tensor parallelism implementation based on the Transformers.
 - [nanotron](https://github.com/huggingface/nanotron)
 - [parallelformers](https://github.com/tunib-ai/parallelformers) (only inference at the moment)
+- [torchtitan](https://github.com/pytorch/torchtitan)
+
+
+
+### Related reading
+
+- [Tensor Parallelism and Sequence Parallelism: Detailed Analysis](https://insujang.github.io/2024-01-11/tensor-parallelism-and-sequence-parallelism-detailed-analysis/#sequence-parallelism)
+
+## TP+SP
+
+TP can be combined with SP in the same process group to minimize communication costs as explained in [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) - TP is used for attention and linear layers and when dropout and layer norm is reached SP is used instead.
+
 
 
 ## DP+PP
@@ -349,6 +368,7 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
 - [nanotron](https://github.com/huggingface/nanotron)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 
 
@@ -369,6 +389,7 @@ Implementations:
 - [SageMaker](https://arxiv.org/abs/2111.05972)
 - [OSLO](https://github.com/eleutherAI/Oslo)
 - [nanotron](https://github.com/huggingface/nanotron)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 
 ## ZeRO DP+PP+TP
@@ -388,6 +409,7 @@ And since we have ZeRO, the other benefit is ZeRO-Offload. Since this is stage 1
 Implementations:
 - [Megatron-DeepSpeed](https://github.com/microsoft/Megatron-DeepSpeed) and [Megatron-Deepspeed from BigScience](https://github.com/bigscience-workshop/Megatron-DeepSpeed), which is the fork of the former repo.
 - [OSLO](https://github.com/eleutherAI/Oslo)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 Important papers:
 
@@ -466,9 +488,19 @@ SP Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [Deepspeed](https://github.com/microsoft/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
+- [torchtitan](https://github.com/pytorch/torchtitan)
 
 PyTorch is also working on this feature and calling it Context Parallel (CP).
 
+### DistFlashAttn
+
+[DISTFLASHATTN: Distributed Memory-efficient Attention for Long-context LLMs Training](https://arxiv.org/abs/2310.03294) is reported to be many times faster than Ring Self-Attention, because it load balances the KVQ per token computation between the workers while performing Sequence Parallelism.
+
+![distflashattn](images/dist-flash-attn.png)
+
+### Related reading
+
+- [Tensor Parallelism and Sequence Parallelism: Detailed Analysis](https://insujang.github.io/2024-01-11/tensor-parallelism-and-sequence-parallelism-detailed-analysis/#sequence-parallelism)
 
 
 ## Expert Parallelism
