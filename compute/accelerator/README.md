@@ -62,7 +62,7 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 - HPC: High-performance Computing
 - HPU: Habana Gaudi AI Processor Unit
 - IPU: Intelligence Processing Unit
-- MAMF: Maximum Achievable FLOPS
+- MAMF: Maximum Achievable Matmul FLOPS
 - MME: Matrix Multiplication Engine
 - QPU: Quantum Processing Unit
 - RDU: Reconfigurable Dataflow Unit
@@ -182,8 +182,6 @@ General notes:
 
 #### Maximum Achievable FLOPS
 
-MAMF stands for Maximum Achievable FLOPS, which is a term coined by yours truly. This and the following sections explain why this metric is very practical for those who do performance optimization work.
-
 Theoretical peak FLOPS is what gets published on the accelerator's spec. And it's calculated as:
 
 `Theoretical FLOPS = compute_unit_clock_speed * flops_per_clock_cycle_per_compute_unit * num_compute_units`
@@ -201,6 +199,7 @@ To provide a numerical sense to what I'm talking about let's take an A100 with i
 
 You could measure the the actual peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
+MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flops-comparison-table), which is a term coined by yours truly. It is very practical for those who do performance optimization work.
 
 #### Maximum Achievable Matmul FLOPS comparison table
 
