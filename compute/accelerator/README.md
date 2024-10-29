@@ -62,6 +62,7 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 - HPC: High-performance Computing
 - HPU: Habana Gaudi AI Processor Unit
 - IPU: Intelligence Processing Unit
+- MAMF: Maximum Achievable FLOPS
 - MME: Matrix Multiplication Engine
 - QPU: Quantum Processing Unit
 - RDU: Reconfigurable Dataflow Unit
@@ -180,6 +181,8 @@ General notes:
 
 
 #### Maximum Achievable FLOPS
+
+MAMF stands for Maximum Achievable FLOPS, which is a term coined by yours truly. This and the following sections explain why this metric is very practical for those who do performance optimization work.
 
 Theoretical peak FLOPS is what gets published on the accelerator's spec. And it's calculated as:
 
