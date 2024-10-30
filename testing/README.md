@@ -111,7 +111,7 @@ pytest -k "ada and not adam" tests/test_optimization.py
 For example to run both `test_adafactor` and `test_adam_w` you can use:
 
 ```bash
-pytest -k "test_adam_w or test_adam_w" tests/test_optimization.py
+pytest -k "test_adafactor or test_adam_w" tests/test_optimization.py
 ```
 
 Note that we use `or` here, since we want either of the keywords to match to include both.
