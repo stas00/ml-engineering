@@ -109,7 +109,9 @@ There are multiple platforms/solutions out there that provide intra-node network
 3. AMD: [Infinity Fabric](#infinity-fabric--xgmi)
 4. Intel: [Gaudi2](#gaudi2), [Gaudi3](#gaudi3)
 
-Here is intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
+### All-to-all bandwidth
+
+Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
 | Interconnect    | Accelerator |  GBps |
 | :-------------- | :---------- | ----: |
@@ -128,6 +130,35 @@ Notes:
 * NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
 * Pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
 
+
+### Peer-to-peer bandwidth
+
+Some vendors have their all-to-all and peer-to-peer (gpu-to-gpu) bandwidth the same, while others don't. For example, AMD MI3\* are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`.
+
+Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
+
+| Interconnect    | Accelerator |  GBps |
+| :-------------- | :---------- | ----: |
+| NVIDIA NVLink 5 | B200, B*    | 900.0 |
+| Intel           | Gaudi3      | 600.0 |
+| NVIDIA NVLink 4 | H100, H*    | 450.0 |
+| NVIDIA NVLink 3 | A100        | 300.0 |
+| Intel           | Gaudi2      | 300.0 |
+| AMD XGMI        | MI370X      |  64.0 |
+| AMD XGMI        | MI350X      |  64.0 |
+| AMD XGMI        | MI300X      |  64.0 |
+| AMD XGMI        | MI250X      |  50.0 |
+
+When peer-to-peer bandwidth is much lower than all-to-all it means that if you don't use all of the accelerators on the node by the same application, you will end up with a much lower bandwidth and your application will have a performance impact if the accelerators have to communicate between each others.
+
+To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was run on a 8 gpu AMD MI300X node with a 4GB payload and the `busbw` measurements were:
+
+- 2 gpus:  47.671 GBps
+- 8 gpus:  312.912 GBps
+
+i.e. 2 gpus performed 6.5x slower than 8.
+
+So if you have you to deploy TP=2, TP=4, or ZeRO-DP/FSDP over 2 or 4 gpus, be it training or inference, the network will become a bottleneck. If you use TP=1 or TP=8 or ZeRO-DP/FSDP over 8 gpus, or DP over 1-gpu replicas there is no problem. (If you're not sure what TP/ZeRO-DP/DP means please see [model-parallelism](../training/model-parallelism).)
 
 You will find the details analysis of each technology in the following sections.
 
