@@ -157,7 +157,7 @@ To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was r
 
 i.e. 2 gpus performed 6.5x slower than 8.
 
-So if you have you to deploy TP=2, TP=4, or ZeRO-DP/FSDP over 2 or 4 gpus, be it training or inference, the network will become a bottleneck. If you use TP=1 or TP=8 or ZeRO-DP/FSDP over 8 gpus, or DP over 1-gpu replicas there is no problem. (If you're not sure what TP/ZeRO-DP/DP means please see [model-parallelism](../training/model-parallelism).)
+So if you have you to deploy TP=2, TP=4, or ZeRO-DP/FSDP over 2 or 4 gpus, be it training or inference, the network will become a bottleneck. If you use TP=1 or TP=8 or ZeRO-DP/FSDP over 8 gpus, or DP over 1-gpu replicas there is no problem. (If you're not sure what TP/ZeRO-DP/DP mean please see [model-parallelism](../training/model-parallelism).)
 
 You will find the details analysis of each technology in the following sections.
 
