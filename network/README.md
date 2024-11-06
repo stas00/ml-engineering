@@ -144,7 +144,6 @@ Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cr
 | NVIDIA NVLink 4 | H100, H*    | 450.0 |
 | NVIDIA NVLink 3 | A100        | 300.0 |
 | Intel           | Gaudi2      | 300.0 |
-| AMD XGMI        | MI370X      |  64.0 |
 | AMD XGMI        | MI350X      |  64.0 |
 | AMD XGMI        | MI300X      |  64.0 |
 | AMD XGMI        | MI250X      |  50.0 |
