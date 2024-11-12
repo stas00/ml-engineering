@@ -330,7 +330,7 @@ The following is the all-to-all bandwidth.
 | MI300X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
 | MI250X        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
 
-The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column).
+The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-gpu node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
 
 Other intra-node solutions typically have the same all-to-all and peer-to-peer intra-node bandwidth, so Infinity Fabric appears to be dramatically slower. I suppose that is because these were created mainly for inference, as these slow speeds would dramatically slow down LLM training.
 
