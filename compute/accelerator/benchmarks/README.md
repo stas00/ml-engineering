@@ -38,6 +38,8 @@ In the ranges below `N` is the reduction dimension so that `(MxN)*(NxK)=(MxK)` a
 
 Also by default we use 50 warmup and 100 measured iterations for each shape and then fastest result is picked (not the average). You can change the number of iterations via the args `--num_warmup_iterations` and `--num_iterations` correspondingly.
 
+You can specify the data type via `--dtype` argument, default is `torch.bfloat16`.
+
 Here we do `torch.mm(MxN,NxK) -> MxK`
 
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.

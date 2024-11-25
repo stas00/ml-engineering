@@ -38,6 +38,13 @@ except ModuleNotFoundError:
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 
+SUPPORTED_DTYPES = {
+    "bfloat16": torch.bfloat16,
+    "float16": torch.float16,
+    "float32": torch.float32,
+    "float8_e4m3fn": torch.float8_e4m3fn
+}
+
 
 
 ### Architecture specific helper classes ###
@@ -177,20 +184,42 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     start = arch.event(enable_timing=True)
     end = arch.event(enable_timing=True)
 
-    A = torch.randn(m, n, dtype=dtype, device=device)
-    B = torch.randn(n, k, dtype=dtype, device=device)
-    C = torch.empty(m, k, dtype=dtype, device=device)
+    if dtype == torch.float8_e4m3fn:
+        # 对于 float8，我们先用 float32 初始化然后转换
+        A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
+        B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
+        C = torch.empty(m, k, dtype=torch.float32, device=device)
+        
+        # 转换为 float8
+        A = A.to(torch.float8_e4m3fn)
+        B = B.to(torch.float8_e4m3fn)
+        C = C.to(torch.float8_e4m3fn)
+        
+        times = np.zeros(num_iterations+num_warmup_iterations)
+        for i in range(num_warmup_iterations + num_iterations):
+            with torch.no_grad():
+                start.record()
+                C = torch._scaled_mm(A, B)
+                end.record()
+            arch.synchronize()
+            times[i] = start.elapsed_time(end)
+    else:
+        # 原有的其他数据类型处理逻辑
+        A = torch.randn(m, n, dtype=dtype, device=device)
+        B = torch.randn(n, k, dtype=dtype, device=device)
+        C = torch.empty(m, k, dtype=dtype, device=device)
+        
+        times = np.zeros(num_iterations+num_warmup_iterations)
+        for i in range(num_warmup_iterations + num_iterations):
+            with torch.no_grad():
+                start.record()
+                torch.mm(A, B, out=C)
+                end.record()
+            arch.synchronize()
+            times[i] = start.elapsed_time(end)
 
-    times = np.zeros(num_iterations+num_warmup_iterations)
-    for i in range(num_warmup_iterations + num_iterations):
-        with torch.no_grad():
-            start.record()
-            torch.mm(A, B, out=C)
-            end.record()
-        arch.synchronize()
-        times[i] = start.elapsed_time(end)
     times = times[num_warmup_iterations:]
-    elapsed_time = np.amin(times)/1000 # want the fastest
+    elapsed_time = np.amin(times)/1000  # want the fastest
     tflops = (2 * m * n * k) / (elapsed_time * 10**12)
     return tflops
 
@@ -215,13 +244,16 @@ if __name__ == '__main__':
     parser.add_argument("--output_file", type=str, default=f"{file_dir}/results/mm.out")
     parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
     parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction, help='log to stdout besides output_file?')
+    parser.add_argument("--dtype", type=str, default="bfloat16", 
+                        choices=SUPPORTED_DTYPES.keys(),
+                        help="Data type to use for the benchmark")
     args = parser.parse_args()
 
     m = args.m
     n = args.n
     k = args.k
 
-    dtype = torch.bfloat16
+    dtype = SUPPORTED_DTYPES[args.dtype]
     device = arch.device()
 
     if m is None:
