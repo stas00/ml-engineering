@@ -185,7 +185,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     end = arch.event(enable_timing=True)
 
     if dtype == torch.float8_e4m3fn:
-        # 对于 float8，我们先用 float32 初始化然后转换
         A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
         C = torch.empty(m, k, dtype=torch.float32, device=device)
@@ -204,7 +203,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             arch.synchronize()
             times[i] = start.elapsed_time(end)
     else:
-        # 原有的其他数据类型处理逻辑
         A = torch.randn(m, n, dtype=dtype, device=device)
         B = torch.randn(n, k, dtype=dtype, device=device)
         C = torch.empty(m, k, dtype=dtype, device=device)
