@@ -10,6 +10,7 @@ https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchma
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
+- Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
 
 """
 
@@ -199,7 +200,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             return func_wrapper
         return decorator
 
-    total_iterations = num_iterations+num_warmup_iterations
+    total_iterations = num_iterations + num_warmup_iterations
     if dtype == torch.float8_e4m3fn:
         A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
