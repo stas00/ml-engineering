@@ -38,7 +38,7 @@ In the ranges below `N` is the reduction dimension so that `(MxN)*(NxK)=(MxK)` a
 
 Also by default we use 50 warmup and 100 measured iterations for each shape and then fastest result is picked (not the average). You can change the number of iterations via the args `--num_warmup_iterations` and `--num_iterations` correspondingly.
 
-You can specify the data type via `--dtype` argument, default is `torch.bfloat16`.
+You can specify the data type via `--dtype` argument, it has to be one of the valid `torch` dtypes - e.g., `float16`, `bfloat16`, `float32`, etc. If not specified `bfloat16` is used.
 
 Here we do `torch.mm(MxN,NxK) -> MxK`
 
