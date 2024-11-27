@@ -10,6 +10,7 @@ https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchma
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
+- Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
 
 """
 
@@ -37,6 +38,13 @@ except ModuleNotFoundError:
     pass
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
+
+def get_torch_dtype(dtype_str):
+    """Convert string dtype to torch dtype object."""
+    try:
+        return getattr(torch, dtype_str)
+    except AttributeError:
+        raise ValueError(f"Unsupported dtype: {dtype_str}. Must be a valid torch dtype name.")
 
 
 
@@ -177,20 +185,46 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     start = arch.event(enable_timing=True)
     end = arch.event(enable_timing=True)
 
-    A = torch.randn(m, n, dtype=dtype, device=device)
-    B = torch.randn(n, k, dtype=dtype, device=device)
-    C = torch.empty(m, k, dtype=dtype, device=device)
+    def time_it(iters=1):
+        def decorator(func):
+            def func_wrapper(*args, **kwargs):
+                times = np.zeros(iters)
+                for i in range(iters):
+                    with torch.no_grad():
+                        start.record()
+                        ret = func(*args, **kwargs)
+                        end.record()
+                    arch.synchronize()
+                    times[i] = start.elapsed_time(end)
+                return times
+            return func_wrapper
+        return decorator
 
-    times = np.zeros(num_iterations+num_warmup_iterations)
-    for i in range(num_warmup_iterations + num_iterations):
-        with torch.no_grad():
-            start.record()
+    total_iterations = num_iterations + num_warmup_iterations
+    if dtype == torch.float8_e4m3fn:
+        A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
+        B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
+        C = torch.empty(m, k, dtype=torch.float32, device=device)
+
+        A = A.to(torch.float8_e4m3fn)
+        B = B.to(torch.float8_e4m3fn)
+        C = C.to(torch.float8_e4m3fn)
+
+        @time_it(total_iterations)
+        def time_iterations():
+            C = torch._scaled_mm(A, B)
+
+    else:
+        A = torch.randn(m, n, dtype=dtype, device=device)
+        B = torch.randn(n, k, dtype=dtype, device=device)
+        C = torch.empty(m, k, dtype=dtype, device=device)
+
+        @time_it(total_iterations)
+        def time_iterations():
             torch.mm(A, B, out=C)
-            end.record()
-        arch.synchronize()
-        times[i] = start.elapsed_time(end)
-    times = times[num_warmup_iterations:]
-    elapsed_time = np.amin(times)/1000 # want the fastest
+
+    times = time_iterations()[num_warmup_iterations:]
+    elapsed_time = np.amin(times)/1000  # want the fastest
     tflops = (2 * m * n * k) / (elapsed_time * 10**12)
     return tflops
 
@@ -215,13 +249,15 @@ if __name__ == '__main__':
     parser.add_argument("--output_file", type=str, default=f"{file_dir}/results/mm.out")
     parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
     parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction, help='log to stdout besides output_file?')
+    parser.add_argument("--dtype", type=str, default="bfloat16", 
+                        help="Data type to use for the benchmark (e.g. float16, bfloat16, float32)")
     args = parser.parse_args()
 
     m = args.m
     n = args.n
     k = args.k
 
-    dtype = torch.bfloat16
+    dtype = get_torch_dtype(args.dtype)
     device = arch.device()
 
     if m is None:
