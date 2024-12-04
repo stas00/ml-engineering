@@ -205,15 +205,16 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means). Sorted by accelerator efficiency:
 
-| Accelerator      |  MAMF | Theory | Efficiency |       Best Shape | Notes            |
-| :--------------- | ----: | -----: | ---------: |  :-------------- | ---------------: |
-| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% |  6912x16384x2048 | CUDA-12.1        |
-| NVIDIA GH200 SXM | 821.0 |    989 |      83.0% | 11264x19712x1536 | CUDA-12.5        |
-| NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |   2304x5120x1536 | CUDA-12.1        |
-| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |  6144x17920x2816 | CUDA-12.1        |
-| AMD MI250X       | 147.0 |  191.5 |      76.7% | 1024x14080x19968 | ROCm-6.2 / 1 GCD |
-| AMD MI300X       | 781.9 |   1300 |      60.1% |  4096x10240x4864 | ROCm-6.2         |
-|                  |       |        |            |                  |                  |
+| Accelerator      |  MAMF | Theory | Efficiency |        Best Shape | Notes            |
+| :--------------- | ----: | -----: | ---------: | :---------------- | ---------------: |
+| Intel Gaudi 2    | 429.3 |    432 |      99.4% | 20224x11520x19968 | Gaudi 1.15       |
+| NVIDIA A100 SXM  | 267.9 |    312 |      85.9% |   6912x16384x2048 | CUDA-12.1        |
+| NVIDIA GH200 SXM | 821.0 |    989 |      83.0% |  11264x19712x1536 | CUDA-12.5        |
+| NVIDIA A100 PCIe | 256.4 |    312 |      82.2% |    2304x5120x1536 | CUDA-12.1        |
+| NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |   6144x17920x2816 | CUDA-12.1        |
+| AMD MI250X       | 147.0 |  191.5 |      76.7% |  1024x14080x19968 | ROCm-6.2 / 1 GCD |
+| AMD MI300X       | 781.9 |   1300 |      60.1% |   4096x10240x4864 | ROCm-6.2         |
+|                  |       |        |            |                   |                  |
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 
