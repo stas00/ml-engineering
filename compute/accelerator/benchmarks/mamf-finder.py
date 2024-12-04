@@ -101,7 +101,7 @@ class HPUArch(Arch):
         return torch.hpu.get_device_properties(device)
 
     def compute_info(self):
-        return f"hpu={torch.version.hpu}"
+        return f"hpu={torch.hpu}"
 
     def event(self, enable_timing=True):
         return ht.hpu.Event(enable_timing)
