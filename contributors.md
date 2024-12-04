@@ -23,5 +23,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 - [Shikib Mehri](https://github.com/Shikib)
 - [Siddharth Singh](https://github.com/siddharth9820)
 - [Stéphane Requena](https://twitter.com/s_requena)
+- [Zhiqi Tao](https://www.linkedin.com/in/zhiqitao/)
+
 
 If you contributed to this text and for some reason you're not on one of these 2 lists - let's fix it by adding your name with a github or similar link here.
