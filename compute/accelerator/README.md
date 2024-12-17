@@ -214,7 +214,7 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | NVIDIA H100 SXM  | 792.1 |    989 |      80.1% |   6144x17920x2816 | CUDA-12.1        |
 | AMD MI250X       | 147.0 |  191.5 |      76.7% |  1024x14080x19968 | ROCm-6.2 / 1 GCD |
 | AMD MI300X       | 781.9 |   1300 |      60.1% |   4096x10240x4864 | ROCm-6.2         |
-| Intel Gaudi 3    | 866.7 |   1835 |      47.23%   | 5120x3584x5120    | Gaudi 1.18       |
+| Intel Gaudi 3    | 1055.8 |  1835 |  57.5%     | 1024x8448x13312   | Gaudi 1.18       |
 |                  |       |        |            |                   |                  |
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
