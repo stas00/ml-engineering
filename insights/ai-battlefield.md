@@ -273,13 +273,13 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these.
+  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these).
 
-  * AMD MI250 ~= A100 - very few clouds have them and most likely MI300X will be the first mainstream AMD GPU
+  * NVIDIA B100, B200 and GB200 - are promised to become available in early 2025.
 
-  * AMD MI300X ~= H100 - a few clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here
+  * AMD MI300X ~= H100 - Tier 2 clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here
 
-  * Intel Gaudi2 ~= H100 - starting to slowly emerge on Intel's cloud, Gaudi3 is supposed to become available some time in 2024.
+  * Intel Gaudi3 > H100 - is available on Intel's cloud
 
   * GraphCore IPU - very difficult to find, paperspace has them
 

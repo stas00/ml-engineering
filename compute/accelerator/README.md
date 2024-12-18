@@ -28,7 +28,7 @@ While this might be changing in the future, unlike the consumer GPU market, as o
 
 GPUs:
 - As of today, ML clouds/HPCs started transitioning from NVIDIA A100s to H100s and this is going to take some months due to the usual shortage of NVIDIA GPUs. H200s are imminent - promised Q4-2024. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till mid-2025 before we will be able to use those, because of the delays in production.
-- AMD's MI250 started popping up here and there, but it's unclear when it'll be easy to access those. MI300X is starting to being available now at some Tier 2 cloud providers.
+- AMD's MI300X is now widely available on Tier 2 cloud providers. MI325X is supposed to become available soon.
 
 HPU:
 - Intel's Gaudi2 are starting to slowly emerge on Intel's cloud - there is a huge lineup. It's also available on-premises implementations via Supermicro, WiWynn, and soon others.
@@ -137,9 +137,10 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
 | NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
 | NVIDIA B100 SXM      |    ?? |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
-| AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     3 |
+| AMD MI325X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
+| AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
 | NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
-| NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |       |
+| NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     3 |
 | NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
 | Intel Gaudi3         |   229 |    459 |  459 | 1835 | 1835 |    V | X    | X      |     1 |
 | NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
@@ -167,6 +168,8 @@ Row-specific notes:
 5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
 
 6. GH200 - same note as GB200 - this is 2 chips, so the table includes specs per chip w/o sparsity.
+
+7. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute).
 
 General notes:
 
@@ -254,6 +257,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 
 | Accelerator          |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
 | :------------------- | ----------------: | :---- | -------------------: |
+| AMD MI325X           |               256 | HBM3e |                 6.00 |
 | NVIDIA B200 SXM      |               192 | HBM3e |                 8.00 |
 | NVIDIA B100 SXM      |               192 | HBM3e |                 8.00 |
 | AMD MI300X           |               192 | HBM3  |                 5.30 |
@@ -293,8 +297,7 @@ The only important practical understanding for heat is that if the accelerators 
 
 ## High end accelerators for LLM/VLM workloads
 
-### Cloud and on-premises  accelerator clusters
- accelerators
+### Cloud accelerators
 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
@@ -309,11 +312,14 @@ NVIDIA:
 
 AMD:
 - [MI250](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250.html) ~= A100 - very few clouds have them
-- [MI300X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - just starting to emerge - and mainly on Tier-2 clouds (lots of new startups).
+- [MI300X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - available mainly on Tier-2 clouds (lots of new startups)
+- [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html) ~= H200 - just starting to emerge, mainly on Tier-2 clouds
+
 
 Intel:
-- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - [Currently there is a very low availability on cloud.google.com](https://cloud.google.com) with a long waiting list which supposedly should be reduced in Q1-2024. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
--  [Gaudi3](https://habana.ai/products/gaudi3/), somewhere between B100 and B200 theoretical TFLOPS-wise [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+- [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
+-  [Gaudi3](https://habana.ai/products/gaudi3/), somewhere between B100 and B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+
 
 Graphcore:
 - [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://thytu.com/posts/ipus-101/).
@@ -395,7 +401,7 @@ for example, AMD MI250 has:
 - 208 Compute Units
 
 
-### Intel Gaudi2
+### Intel Gaudi
 
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
