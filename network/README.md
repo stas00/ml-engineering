@@ -118,6 +118,7 @@ Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-co
 | NVIDIA NVLink 5 | B200, B*    | 900.0 |
 | Intel           | Gaudi3      | 600.0 |
 | NVIDIA NVLink 4 | H100, H*    | 450.0 |
+| AMD XGMI        | MI325X      | 448.0 |
 | AMD XGMI        | MI300X      | 448.0 |
 | AMD XGMI        | MI250X      | 350.0 |
 | NVIDIA NVLink 3 | A100        | 300.0 |
@@ -144,7 +145,7 @@ Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cr
 | NVIDIA NVLink 4 | H100, H*    | 450.0 |
 | NVIDIA NVLink 3 | A100        | 300.0 |
 | Intel           | Gaudi2      | 300.0 |
-| AMD XGMI        | MI350X      |  64.0 |
+| AMD XGMI        | MI325X      |  64.0 |
 | AMD XGMI        | MI300X      |  64.0 |
 | AMD XGMI        | MI250X      |  50.0 |
 
@@ -325,8 +326,7 @@ The following is the all-to-all bandwidth.
 | Interconnect  | Link/Direction | Links | Unidirection | Duplex     |
 |               | peer-to-peer   |       | all-to-all   | all-to-all |
 | :------------ | -------------: | ----: | -----------: | ---------: |
-| MI375X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
-| MI350X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
+| MI325X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
 | MI300X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
 | MI250X        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
 
@@ -339,6 +339,8 @@ Other intra-node solutions typically have the same all-to-all and peer-to-peer i
 Platform specs:
 - [MI250X](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250x.html)
 - [MI300x](https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html)
+- [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html)
+
 
 
 
