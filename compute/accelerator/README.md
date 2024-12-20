@@ -66,6 +66,9 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 - MME: Matrix Multiplication Engine
 - QPU: Quantum Processing Unit
 - RDU: Reconfigurable Dataflow Unit
+- TBP: Total Board Power
+- TDP: Thermal Design Power or Thermal Design Parameter
+- TGP: Total Graphics Power
 - TPU: Tensor Processing Unit
 
 ## The most important thing to understand
@@ -283,6 +286,48 @@ Notes:
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
+
+### Power consumption
+
+There are three different definitions, whose only difference is which parts of the accelerator card is included in the measurement:
+
+1. **Thermal Design Power (TDP)** is the maximum power that a subsystem is allowed to draw and also the maximum amount of heat an accelerator can generate. This measurement is just for the accelerator chip.
+2. **Total Graphics Power (TGP)** is the same as TDP, but additionally includes the PCB's power, yet without cooling and LEDS (if any).
+3. **Total Board Power (TBP)** is the same as TGP, but additionally includes cooling and LEDS (if any).
+
+As typically high-end accelerators require external cooling and have no LEDS, TGP and TBP usually imply the same.
+
+The actual power consumption in Watts will vary, depending on whether the accelerator is idle or used to compute something.
+
+If you're a cloud compute user you normally don't care for these values because you're not paying for power consumption directly, as it's already included in your package. For those who host their own hardware these values are important because they tells you how much power and cooling you'd need to keep the hardware running without getting throttled or melting down.
+
+These numbers are also important for knowing how much closer one can get to the theoretical TFLOPS published, the higher the TDP the more efficient the compute will be. For example, while AMD MI325X has the same theoretical compute specs as its MI300X predecessor, the former is more efficient at effective compute because its TDP is 250W higher. In other words, given 2 accelerators with the same or very similar [theoretical compute specs](#tflops-comparison-table) - the one with the higher TDP will be better at sustainable compute.
+
+Some specs report TDP, others TGP/TBP so the table has different columns depending on which measurement has been published. All measurements are in Watts:
+
+| Accelerator          | TGP/TBP |   TDP | Notes |
+| :------------------- | ------: | ----: | :---- |
+| AMD MI325X           |    1000 |       |       |
+| NVIDIA B200 SXM      |         |  1000 |       |
+| Intel Gaudi3         |         |   900 |       |
+| AMD MI300X           |     750 |       |       |
+| NVIDIA B100 SXM      |         |   700 |       |
+| NVIDIA H200 SXM      |         |   700 |       |
+| NVIDIA H100 SXM      |         |   700 |       |
+| Intel Gaudi2         |         |   600 |       |
+| NVIDIA H200 NVL      |         |   600 |       |
+| AMD MI250X           |         |   560 |       |
+| NVIDIA H100 NVL      |         |   400 |       |
+| NVIDIA A100 SXM      |         |   400 | 1     |
+| NVIDIA A100 PCIe     |         |   300 |       |
+|                      |         |       |       |
+
+
+1. HGX A100-80GB custom thermal solution (CTS) SKU can support TDPs up to 500W
+
+Additional notes:
+
+1. Google doesn't publish power consumption specs for recent TPUs, the older ones can be found [here](https://en.wikipedia.org/wiki/Tensor_Processing_Unit#Products)
 
 
 
