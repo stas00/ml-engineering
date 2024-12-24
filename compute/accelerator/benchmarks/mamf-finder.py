@@ -184,18 +184,22 @@ torch={torch.__version__}
 def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     start = arch.event(enable_timing=True)
     end = arch.event(enable_timing=True)
+    l2_cache_size_in_mbs = 256 # XXX: need to automate the getting of the cache size
+    l2_cache = torch.empty(int(l2_cache_size_in_mbs * 2**20 / 4), dtype=torch.int, device=device)
 
     def time_it(iters=1):
         def decorator(func):
             def func_wrapper(*args, **kwargs):
-                times = np.zeros(iters)
+                start_events = [arch.event(enable_timing=True) for _ in range(iters)]
+                end_events = [arch.event(enable_timing=True) for _ in range(iters)]
                 for i in range(iters):
                     with torch.no_grad():
-                        start.record()
+                        l2_cache.zero_()
+                        start_events[i].record()
                         ret = func(*args, **kwargs)
-                        end.record()
-                    arch.synchronize()
-                    times[i] = start.elapsed_time(end)
+                        end_events[i].record()
+                arch.synchronize()
+                times = np.array([s.elapsed_time(e) for s, e in zip(start_events, end_events)])
                 return times
             return func_wrapper
         return decorator
@@ -224,9 +228,13 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             torch.mm(A, B, out=C)
 
     times = time_iterations()[num_warmup_iterations:]
-    elapsed_time = np.amin(times)/1000  # want the fastest
-    tflops = (2 * m * n * k) / (elapsed_time * 10**12)
-    return tflops
+    min_elapsed_time = np.amin(times)/1000
+    max_tflops = (2 * m * n * k) / (min_elapsed_time * 10**12)
+    median_elapsed_time = np.median(times)/1000
+    median_tflops = (2 * m * n * k) / (median_elapsed_time * 10**12)
+    mean_elapsed_time = np.mean(times)/1000
+    mean_tflops = (2 * m * n * k) / (mean_elapsed_time * 10**12)
+    return max_tflops, median_tflops, mean_tflops
 
 
 if __name__ == '__main__':
@@ -249,7 +257,7 @@ if __name__ == '__main__':
     parser.add_argument("--output_file", type=str, default=f"{file_dir}/results/mm.out")
     parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
     parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction, help='log to stdout besides output_file?')
-    parser.add_argument("--dtype", type=str, default="bfloat16", 
+    parser.add_argument("--dtype", type=str, default="bfloat16",
                         help="Data type to use for the benchmark (e.g. float16, bfloat16, float32)")
     args = parser.parse_args()
 
@@ -286,7 +294,8 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, sigkill_handler)
 
-    best_tflops = 0
+    best_max_tflops = 0
+    best_median_tflops = 0
     best_config = ""
     num_shapes = 0
     start_time = time.time()
@@ -295,20 +304,31 @@ if __name__ == '__main__':
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print("", end="\033[K")
-        print(f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {num_shapes} shapes)")
+        print(f"The best outcome was {best_max_tflops:.1f}(max)/{best_median_tflops:.1f}(median) TFLOPS @ {best_config} (tried {num_shapes} shapes)")
         print(f"Elapsed time: {time_str}")
 
     # XXX: the transpose version seemed to work better for MI300X
+
+    # if only a few shapes are to be run, must add some additional warmup iterations to give fare
+    # results, otherwise based on rerunning this benchmark many times - a cold accelerator gives a
+    # higher score on say a single shape, than the same shape run after a dozen of other shapes
+    if len(m) * len(n) * len(k) < 10:
+        print("Detected a situation with too few shapes, forcing an additional warmup")
+        for i in range(10):
+            _ = benchmark_mm(m[0], n[0], k[0], dtype, device, args.num_iterations, args.num_warmup_iterations)
+        print("accelerator warmup finished")
+
 
     # loop through all sizes to benchmark
     for M in m:
         for N in n:
             for K in k:
                 num_shapes += 1
-                tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
+                max_tflops, median_tflops, mean_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
                 cur_config = f"{M}x{N}x{K}"
-                if tflops > best_tflops:
-                    best_tflops = tflops
+                if max_tflops > best_max_tflops:
+                    best_max_tflops = max_tflops
+                    best_median_tflops = median_tflops
                     best_config = f"{M}x{N}x{K} (MxNxK)"
-                print(f"{num_shapes:>6} | {tflops:6.1f} TFLOPS @ {cur_config:<20} | best: {best_tflops:6.1f} TFLOPS @ {best_config}", end="\r")
+                print(f"{num_shapes:>6} | {max_tflops:6.1f}(max) / {median_tflops:6.1f}(median) TFLOPS @ {cur_config:<20} | best: {best_max_tflops:6.1f}(max)/{best_median_tflops:6.1f}(median) TFLOPS @ {best_config}", end="\r")
     finish()
