@@ -300,17 +300,19 @@ Columns:
 
 - Units can be different things in different accelerators, e.g. in AMD those would be Accelerator Complex Dies (XCD) or compute dies, for NVIDIA this is usually the SMs, for Intel these are DCOREs (Deep Learning Core).
 
+Sorting by L2 Total, as it seems to be the cache that is in all accelerators listed here.
+
 | Accelerator          | L1/Unit | L2/Unit | Units | L1 Total | L2 Total | L3 Total | Notes |
 | :------------------- | ------: | ------: | ----: | -------: | -------: | -------: | :---- |
 | Intel Gaudi3         |         | 24MB    |     4 |          | 96MB     |          |     2 |
-| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
-| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
+| NVIDIA GH100 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
 | NVIDIA H200 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
 | NVIDIA H100 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
-| NVIDIA GH100 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
 | Intel Gaudi2         |         |         |       |          | 48MB     |          |       |
 | NVIDIA A100 SXM      | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
 | NVIDIA A100 PCIe     | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
+| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
+| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
 | NVIDIA B100 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
@@ -320,7 +322,7 @@ Notes:
 
 1. AMD provides L3 AMD Infinity Cache which it also calls Last Level Cache (LLC) in the specs
 
-2. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3. 
+2. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
 
 ### Power consumption
 
