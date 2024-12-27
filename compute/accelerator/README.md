@@ -288,6 +288,40 @@ Notes:
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough than the compute ends up idling waiting for the data to be moved to and from the memory.
 
 
+### Caches
+
+High performance cache is used for storing frequently used instructions and data. L1 is usually the smallest and fastest, then L2 is a bit larger and a bit slower and there can be an L3 cache which is even bigger and slower. All these caches massively reduce trips to HBM.
+
+It's somewhat difficult to show a comparison of caches on different accelerators because they use different approaches.
+
+Columns:
+
+- The **L3** column is for optional additional caches: Some accelerators have only L1/L2 caches, yet others have additional caches - e.g. MI300X has 256MB of AMD Infinity cache which they also call Last Level Cache (LLC), and Gaudi3 can have its L2 cache used as L3 cache.
+
+- Units can be different things in different accelerators, e.g. in AMD those would be Accelerator Complex Dies (XCD) or compute dies, for NVIDIA this is usually the SMs, for Intel these are DCOREs (Deep Learning Core).
+
+| Accelerator          | L1/Unit | L2/Unit | Units | L1 Total | L2 Total | L3 Total | Notes |
+| :------------------- | ------: | ------: | ----: | -------: | -------: | -------: | :---- |
+| Intel Gaudi3         |         | 24MB    |     4 |          | 96MB     |          |     2 |
+| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
+| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
+| NVIDIA H200 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
+| NVIDIA H100 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
+| NVIDIA GH100 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
+| Intel Gaudi2         |         |         |       |          | 48MB     |          |       |
+| NVIDIA A100 SXM      | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
+| NVIDIA A100 PCIe     | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
+| NVIDIA B100 SXM      | ???     |         |       |          |          |          |       |
+| NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
+| NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
+|                      |         |         |       |          |          |          |       |
+
+Notes:
+
+1. AMD provides L3 AMD Infinity Cache which it also calls Last Level Cache (LLC) in the specs
+
+2. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3. 
+
 ### Power consumption
 
 There are three different definitions, whose only difference is which parts of the accelerator card is included in the measurement:
