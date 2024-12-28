@@ -130,6 +130,41 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
 
+#### How To Calculate Theoretical TFLOPS
+
+Theoretical peak FLOPS is what gets published on the accelerator's spec. And it's calculated as:
+
+`Theoretical FLOPS = compute_unit_clock_speed * FLOPs_per_clock_cycle_per_compute_unit * num_compute_units`
+
+where:
+- `compute_unit_clock_speed` - how many times the compute unit clock ticks per second in Hz
+- `flops_per_clock_cycle_per_compute_unit` - the number of operations the compute unit can execute per clock cycle.
+- `num_compute_units` - how many units there is in the device
+
+Usually one finds the FMAs per clock cycle per compute unit specs. FMA is Fused Multiply Add. And since 1 FMA is made of 2 FLOPs, we can change the above formula to:
+
+`Theoretical FLOPS = compute_unit_clock_speed * FMAs_per_clock_cycle_per_compute_unit * 2 * num_compute_units`
+
+Let's validate that this formula checks out. Let's compute some BF16 (half precision) TFLOPS and compare to the published specs.
+
+First, Let's extract some specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
+
+The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). Found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)
+
+| Accelerator | Boost Clock | FMAs ops per CUDA core per clock cycle |  CUDA Cores | Spec TFLOPS |
+| :---------  | ---------:  | -------------------------------------: | ----------: | ----------: |
+| H100 SXM    | 1980Mhz     |                                    512 |         528 |         989 |
+| A100 SXM    | 1410MHz     |                                    256 |         432 |         312 |
+
+The calculations were:
+
+`1980*10**6 * 512 * 2 * 528 / 10**12` = 1070.530 TFLOPS
+`1410*10**6 * 256 * 2 * 432 / 10**12` = 311.87 TFLOPS
+
+The calculated A100 SXM TFLOPS matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
+
+It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
+
 
 #### TFLOPS comparison table
 
@@ -187,15 +222,6 @@ General notes:
 
 
 #### Maximum Achievable FLOPS
-
-Theoretical peak FLOPS is what gets published on the accelerator's spec. And it's calculated as:
-
-`Theoretical FLOPS = compute_unit_clock_speed * flops_per_clock_cycle_per_compute_unit * num_compute_units`
-
-where:
-- `compute_unit_clock_speed` - how many times the compute unit clock ticks per second in Hz
-- `flops_per_clock_cycle_per_compute_unit` - the number of operations the compute unit can execute per clock cycle.
-- `num_compute_units` - how many units there is in the device
 
 The problem with the advertised theoretical peak FLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic FLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
 
@@ -291,6 +317,8 @@ Memory speed (bandwidth) is, of course, very important since if it's not fast en
 ### Caches
 
 High performance cache is used for storing frequently used instructions and data. L1 is usually the smallest and fastest, then L2 is a bit larger and a bit slower and there can be an L3 cache which is even bigger and slower. All these caches massively reduce trips to HBM.
+
+The cache size is often important for when running benchmarks - as one needs to reset the cache between each experiment.
 
 It's somewhat difficult to show a comparison of caches on different accelerators because they use different approaches.
 
