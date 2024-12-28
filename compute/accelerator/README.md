@@ -149,7 +149,7 @@ Let's validate that this formula checks out. Let's compute some BF16 (half preci
 
 First, Let's extract some specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
 
-The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)
+The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2). Most coming from the [A100 whitepaper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf) (search for FMA for the target precision you're after). The [H100 whitepaper](https://resources.nvidia.com/en-us-tensor-core) omitted a lot of specific numbers, but included the multipliers wrt A100 whitepaper).
 
 For NVIDIA BF16 operations a compute unit is a CUDA core.
 
