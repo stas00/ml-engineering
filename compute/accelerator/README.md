@@ -161,8 +161,8 @@ For NVIDIA BF16 operations a compute unit is a CUDA core.
 
 Now let's do the math, by inserting the numbers from the table above into the last FMA-based formula:
 
-- `1980*10**6 * 512 * 2 * 528 / 10**12` = 1070.530 TFLOPS
-- `1410*10**6 * 256 * 2 * 432 / 10**12` = 311.87 TFLOPS
+- `1980*10**6 * 512 * 2 * 528 / 10**12 = 1070.530` TFLOPS
+- `1410*10**6 * 256 * 2 * 432 / 10**12 = 311.87` TFLOPS
 
 The calculated A100 SXM TFLOPS number matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
