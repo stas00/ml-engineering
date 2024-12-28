@@ -165,6 +165,12 @@ The calculated A100 SXM TFLOPS matches the published 312 TFLOPS, but H100 SXM is
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
+To check the actual boost clock speed when your accelerator is under load:
+- NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs`
+- AMD: `amd-smi metric --clock`
+- Gaudi: `hl-smi –display CLOCK`
+
+
 
 #### TFLOPS comparison table
 
