@@ -55,6 +55,7 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 ## Glossary
 
 - CPU: Central Processing Unit
+- FMA: Fused Multiply Add
 - FPGA: Field Programmable Gate Arrays
 - GCD: Graphics Compute Die
 - GPU: Graphics Processing Unit
@@ -141,7 +142,7 @@ where:
 - `flops_per_clock_cycle_per_compute_unit` - the number of floating point operations the compute unit can execute per clock cycle.
 - `num_compute_units` - how many units there is in the device
 
-Usually one finds the FMAs per clock cycle per compute unit specs. FMA is Fused Multiply Add. And since 1 FMA is made of 2 FLOPs, we can change the above formula to:
+FLOPs per clock cycle per compute unit is usually not published, but what one often finds is the FMAs per clock cycle per compute unit specs. FMA is Fused Multiply Add. And since 1 FMA is made of 2 FLOPs, we can expand the above formula to:
 
 `Theoretical FLOPS = compute_unit_clock_speed * FMAs_per_clock_cycle_per_compute_unit * 2 * num_compute_units`
 
