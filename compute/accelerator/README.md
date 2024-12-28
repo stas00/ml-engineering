@@ -147,7 +147,7 @@ Usually one finds the FMAs per clock cycle per compute unit specs. FMA is Fused 
 
 Let's validate that this formula checks out. Let's compute some BF16 (half precision) TFLOPS and compare to the published specs.
 
-First, Let's extract some specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
+First, let's extract the necessary accelerator specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
 
 The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2). Most are coming from the [A100 whitepaper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf) (search the pdf for "FMA" and then choose the ones listed for the target precision you're after). The [H100 whitepaper](https://resources.nvidia.com/en-us-tensor-core) omitted a lot of specific FMA numbers, but included the multipliers wrt FMAs listed in the A100 whitepaper).
 
@@ -163,14 +163,14 @@ Now let's do the math, by inserting the numbers from the table above into the la
 - `1980*10**6 * 512 * 2 * 528 / 10**12` = 1070.530 TFLOPS
 - `1410*10**6 * 256 * 2 * 432 / 10**12` = 311.87 TFLOPS
 
-The calculated A100 SXM TFLOPS matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
+The calculated A100 SXM TFLOPS number matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
 To check the actual boost clock speed when your accelerator is under load:
 - NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs`
 - AMD: `amd-smi metric --clock`
-- Gaudi: `hl-smi –display CLOCK`
+- Intel: `hl-smi –display CLOCK`
 
 
 
