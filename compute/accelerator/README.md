@@ -138,7 +138,7 @@ Theoretical peak FLOPS is what gets published on the accelerator's spec. And it'
 
 where:
 - `compute_unit_clock_speed` - how many times the compute unit clock ticks per second in Hz
-- `flops_per_clock_cycle_per_compute_unit` - the number of operations the compute unit can execute per clock cycle.
+- `flops_per_clock_cycle_per_compute_unit` - the number of floating point operations the compute unit can execute per clock cycle.
 - `num_compute_units` - how many units there is in the device
 
 Usually one finds the FMAs per clock cycle per compute unit specs. FMA is Fused Multiply Add. And since 1 FMA is made of 2 FLOPs, we can change the above formula to:
@@ -149,17 +149,19 @@ Let's validate that this formula checks out. Let's compute some BF16 (half preci
 
 First, Let's extract some specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
 
-The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). Found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)
+The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)
+
+For NVIDIA BF16 operations a compute unit is a CUDA core.
 
 | Accelerator | Boost Clock | FMAs ops per CUDA core per clock cycle |  CUDA Cores | Spec TFLOPS |
 | :---------  | ---------:  | -------------------------------------: | ----------: | ----------: |
 | H100 SXM    | 1980Mhz     |                                    512 |         528 |         989 |
 | A100 SXM    | 1410MHz     |                                    256 |         432 |         312 |
 
-The calculations were:
+Now let's do the math, by inserting the numbers from the table above into the last FMA-based formula:
 
-`1980*10**6 * 512 * 2 * 528 / 10**12` = 1070.530 TFLOPS
-`1410*10**6 * 256 * 2 * 432 / 10**12` = 311.87 TFLOPS
+- `1980*10**6 * 512 * 2 * 528 / 10**12` = 1070.530 TFLOPS
+- `1410*10**6 * 256 * 2 * 432 / 10**12` = 311.87 TFLOPS
 
 The calculated A100 SXM TFLOPS matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
