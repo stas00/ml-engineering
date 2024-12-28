@@ -329,6 +329,8 @@ The following is the all-to-all bandwidth.
 | MI325X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
 | MI300X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
 | MI250X        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
+|               |                |       |              |            |
+| MI355X        | ??             |       |              |            |
 
 The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-gpu node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
 
@@ -340,6 +342,7 @@ Platform specs:
 - [MI250X](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250x.html)
 - [MI300x](https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html)
 - [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html)
+- MI355X ??
 
 
 
@@ -386,7 +389,7 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 |                           |             |            |         |
 | in the future:            |             |            |         |
 |                           |             |            |         |
-| Omni-Path CN5000          |       8x400 |        400 | Q3-2024 |
+| Omni-Path CN5000          |       8x400 |        400 | Q2-2025 |
 | InfiniBand GDR3200        |       8x400 |        400 | 2025    |
 | Omni-Path CN6000          |       8x800 |        800 | 2026    |
 
@@ -486,7 +489,7 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 instances of GCP. The docs are scarce, but here is [some information](https://cloud.google.com/compute/docs/gpus/gpudirect).
 
-
+This technology didn't catch on and will be phased out to be replaced with RoCE starting with Blackwell instances at GCP.
 
 ### Omni-Path
 
@@ -498,7 +501,7 @@ As of this writing I see that the product comes with either 100 or 200Gbps bandw
 
 [CN-100](Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA) 100Gbps NICs have been around for many years now.
 
-[CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs will be launched by Cornelis Networks in Q3-2024. One upcoming MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+[CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs will be launched by Cornelis Networks in Q2-2025. One upcoming MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
