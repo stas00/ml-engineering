@@ -8,7 +8,12 @@ I can't stress this enough that choosing a bad 3-year contract may prevent your 
 
 In this article I'm not going to tell which clouds to avoid, but instead try to empower you to avoid having a bad experience and to have at least a decent one, that will give your company a chance to succeed.
 
+These notes assume you already know what compute you want for your specific workloads. If you don't please skim through the [Accelerator](../compute/accelerator), [Storage](../storage) and [Network](../network) chapters to know what's available out there. Most of the time you want the latest the clouds have to offer.
+
+
 ## Contracts
+
+If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in TCO savings (and time)!
 
 ### Half-baked solutions
 
@@ -69,9 +74,9 @@ involved, while removing the middle-man.
 
 ### Support during off-hours
 
-Do you get human support for emergencies on weekends/holidays/nights?
+Do you get human support for emergencies on weekends/holidays/nights? e.g. On one of the HPCs I used the human support was only available Mon-Fri 9-5.
 
-We had one HPC where the human support was only available Mon-Fri 9-5.
+If this is not available, at the very least ensure that your team can perform cluster resuscitation themselves - and do a drill to ensure this is actually doable. This means you need to have an API to perform all those things without the provider's support.
 
 
 ### Next generation accelerator migration
@@ -248,9 +253,10 @@ Either hire a system administrator or hire a service company that will do it for
 
 These notes are based on my direct experience and clearly I haven't been exposed to all possible things that may go wrong and wreck havoc with your cluster or make your whole team burn out and lose a lot of their hair. But this should be a good foundation to start thinking about.
 
-Add your own questions, by thinking what's important for you.
+Add your own questions, by thinking what's important for you, what failures may prevent you from accomplishing your compute goals.
 
-
-If you have a particular cloud provider that you're casing out ask the community about them and what particular pitfalls to avoid.
+If you have a particular cloud provider that you're casing out ask the community about them and what particular pitfalls to avoid with that cloud.
 
 The key message of this article is for you to choose a cloud where your choice hasn't been taken away and that you don't get stuck with a service your developers hates, which is likely to lead to people leaving your company.
+
+If you feel that these notes are overwhelming for you, I occasionally consult helping to do the due diligence and joining your discovery calls. You can contact me at [stas@stason.org](mailto:stas@stason.org?subject=Choosing%20cloud%20consulting).
