@@ -1,8 +1,8 @@
 # How to Choose an Accelerator Cloud
 
-Having used multiple accelerator clouds over long and short terms I've learned that it's absolutely crucial to approach the cloud choosing experience with an utmost care and dedication. Especially for the long term contracts - you may end up in a 3-year lock in where you pay millions of dollars and end up having a terrible experience and no way to break the contract.
+Having used multiple accelerator clouds over long and short terms, and participating in many "discovery" calls, I've learned that it's absolutely crucial to approach the cloud choosing process with an utmost care and dedication. Especially for the long term contracts - you may end up in a 3-year lock-in where you pay millions of dollars and end up having a terrible experience and no way to get out of the contract.
 
-To give you a good perspective - a 64-node cluster may easily cost $20-50M over a 3 year period. This is often more than what startups pay for the salaries.
+To give you a perspective - a 64-node cluster may easily cost $20-50M over a 3 year period. This is often more than what startups pay for the salaries.
 
 I can't stress this enough that choosing a bad 3-year contract may prevent your startup from succeeding.
 
@@ -259,4 +259,4 @@ If you have a particular cloud provider that you're casing out ask the community
 
 The key message of this article is for you to choose a cloud where your choice hasn't been taken away and that you don't get stuck with a service your developers hates, which is likely to lead to people leaving your company.
 
-If you feel that these notes are overwhelming for you, I occasionally consult helping to do the due diligence and joining your discovery calls. You can contact me at [stas@stason.org](mailto:stas@stason.org?subject=Choosing%20cloud%20consulting).
+If you feel that these notes are overwhelming for you, I occasionally consult helping with due diligence and joining your discovery calls. You can contact me at [stas@stason.org](mailto:stas@stason.org?subject=Choosing%20cloud%20consulting).
