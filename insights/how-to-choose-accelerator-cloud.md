@@ -103,10 +103,11 @@ If this is not done, the customer ends up discovering the "bad apples" the hard 
 
 It shouldn't be a responsibility of the customer to discover bad accelerators. And while there is no guarantee that the accelerator will still fail after it has been stress tested - it should happen rarely.
 
-Otherwise a new batch of accelerators may often have a 3-10% failure rate, which is huge and costly!
+Otherwise a new batch of accelerators often has a 3-10% failure rate, which is huge and very costly to the customer!
 
 So ask your provider how long did they burn in your accelerators/systems for if at all.
 
+I'm yet to find a golden reference point, but, for example,  [SemiAnalysis](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/#cluster-deployment-and-acceptance-test) suggests that OEM provider performs a 3-4 weeks burn-in, and then the actual cloud provider conducts another 2-3 day burn-in/acceptance test. So if that's the case you want to ensure that the systems were stress-tested for at least 2-3 days.
 
 
 ### Dealing with accelerator failures
