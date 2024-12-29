@@ -28,8 +28,8 @@ A lot of the long-term cloud contracts are likely to include a lot of "we will d
 
 Yet:
 
-1. The client is not allowed to "do their best" to pay, they are legally obliged to pay the amount the agreed to pay.
-2. The client is not allowed to break a contact before its term runs its course
+1. The client is not allowed to "do their best" to pay, they are legally obliged to pay the amount they agreed to pay.
+2. The client is not allowed to break a contact before its term runs its course.
 
 In my experience "we will do our best" is performed by Tier-1 clouds by sending 10+ people to the meetings with the customers. Most of them will be clueless and will be just sitting there making the company look resourceful: *look, we are allocating 10+ people to the problem you're experiencing. You have nothing to worry about". Except, most of the time those people can't solve your problem.
 
