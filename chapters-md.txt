@@ -1,7 +1,7 @@
 README.md
 
 insights/ai-battlefield.md
-
+insights/how-to-choose-accelerator-cloud.md
 
 compute/README.md
 compute/accelerator/README.md

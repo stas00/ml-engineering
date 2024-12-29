@@ -16,6 +16,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 1. **[The AI Battlefield Engineering](./insights/ai-battlefield.md)** - what you need to know in order to succeed
 
+1. **[How to Choose an Accelerator Cloud](./insights/how-to-choose-accelerator-cloud.md)** - how not to sign up for a 3-year losing hair experience
+
 **Part 2. Hardware**
 
 1. **[Compute](compute)** - accelerators, CPUs, CPU memory.
