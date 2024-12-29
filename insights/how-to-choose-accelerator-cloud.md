@@ -95,9 +95,9 @@ You need to negotiate the ability to move to the new generation before the end o
 
 This group of questions/issues is specific to accelerators
 
-### Accelerators need to be baked in
+### Accelerators need to be burned in
 
-When a new batch of components arrives the provider has to "bake them in" before handing them to customers. This is a process of running an extensive stress testing to remove any components that are faulty.
+When a new batch of components arrives the provider has to "burn them in" before handing them to customers. This is a process of running an extensive stress testing to detect any accelerators and other system components that are faulty.
 
 If this is not done, the customer ends up discovering the "bad apples" the hard way, while running their workloads. This leads to lost compute and developer time. If the workload uses a few nodes, one failing accelerator isn't a big problem most of the time, but the workload uses dozens or hundreds of nodes the cost is huge.
 
@@ -105,9 +105,8 @@ It shouldn't be a responsibility of the customer to discover bad accelerators. A
 
 Otherwise a new batch of accelerators may often have a 3-10% failure rate, which is huge and costly!
 
-So ask your provider how long did they bake your accelerators/systems in.
+So ask your provider how long did they burn in your accelerators/systems for if at all.
 
-XXX: bake in? for how long?
 
 
 ### Dealing with accelerator failures
