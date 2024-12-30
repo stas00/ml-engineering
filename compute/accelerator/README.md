@@ -367,6 +367,42 @@ Notes:
 
 2. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
 
+
+### Clock speed
+
+Also known as [clock rate](https://en.wikipedia.org/wiki/Clock_rate) this spec tells us at which frequency the card runs. As hardware becomes faster newer generations will typically increase the clock speed.
+
+When you read specs you're likely to see one or two specifications:
+
+- Base clock is the minimal clock at idling accelerator
+- Boost clock (or Peak Engine clock) is the guaranteed clock at heavy load - but it might be surpassed.
+
+Often just the boost clock is specified.
+
+These numbers are useful if you need to [calculate theoretical TFLOPS](#how-to-calculate-theoretical-tflops).
+
+I've observed that the same accelerator may have different clock rates published in different specs, probably because not "final" versions are created equal. So always double check your specific accelerator for its actual specs.
+
+Clock speed is in Mhz
+
+| Accelerator          | Boost Clock | Notes |
+| :------------------- | ----------: | :---- |
+| NVIDIA H200 SXM      |        1830 |       |
+| NVIDIA H100 SXM      |        1830 |       |
+| NVIDIA A100 SXM      |        1410 |       |
+| NVIDIA A100 PCIe     |        1410 |       |
+| AMD MI300X           |        2100 |       |
+| AMD MI325X           |        2100 |       |
+|                      |             |       |
+| NVIDIA B100 SXM      |           ? |       |
+| NVIDIA B200 SXM      |           ? |       |
+| NVIDIA B300 SXM      |           ? |       |
+| AMD MI355X           |           ? |       |
+| Intel Gaudi2         |           ? |       |
+| Intel Gaudi3         |           ? |       |
+
+
+
 ### Power consumption
 
 There are three different definitions, whose only difference is which parts of the accelerator card is included in the measurement:
