@@ -13,5 +13,6 @@ The other popular orchestrator is Kubernetes:
 Here are various emerging new orchestration solutions:
 
 - [dstack](https://github.com/dstackai/dstack) is a lightweight, open-source alternative to Kubernetes & Slurm, simplifying AI container orchestration with multi-cloud & on-prem support. It natively supports NVIDIA, AMD, & TPU.
+- [SkyPilot](https://github.com/skypilot-org/skypilot) is a framework for running AI and batch workloads on any infra, offering unified execution, high cost savings, and high GPU availability.
 - [OpenHPC](https://github.com/openhpc/ohpc) provides a variety of common, pre-built ingredients required to deploy and manage an HPC Linux cluster including provisioning tools, resource management, I/O clients, runtimes, development tools, containers, and a variety of scientific libraries.
 - [run.ai](https://www.run.ai/) - got acquired by NVIDIA and is planned to be open sourced soon.
