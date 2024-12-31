@@ -14,9 +14,9 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 **Part 1. Insights**
 
-1. **[The AI Battlefield Engineering](./insights/ai-battlefield.md)** - what you need to know in order to succeed
+1. **[The AI Battlefield Engineering](./insights/ai-battlefield.md)** - what you need to know in order to succeed.
 
-1. **[How to Choose an Accelerator Cloud](./insights/how-to-choose-accelerator-cloud.md)** - how not to sign up for a 3-year losing hair experience
+1. **[How to Choose a Cloud Provider](./insights/how-to-choose-cloud-provider.md)** - these questions will empower you to have a successful compute cloud experience.
 
 **Part 2. Hardware**
 

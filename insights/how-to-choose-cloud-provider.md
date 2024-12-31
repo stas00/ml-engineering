@@ -1,6 +1,6 @@
-# How to Choose an Accelerator Cloud
+# How to Choose a Cloud Provider
 
-Having used multiple accelerator clouds over long and short terms, and participating in many "discovery" calls, I've learned that it's absolutely crucial to approach the cloud choosing process with an utmost care and dedication. Especially for the long term contracts - you may end up in a 3-year lock-in where you pay millions of dollars and end up having a terrible experience and no way to get out of the contract.
+Having used multiple compute clouds over long and short terms, and participating in many "discovery" calls, I've learned that it's absolutely crucial to approach the cloud choosing process with an utmost care and dedication. Especially for the long term contracts - you may end up in a 3-year lock-in where you pay millions of dollars and end up having a terrible experience and no way to get out of the contract.
 
 To give you a perspective - a 64-node cluster may easily cost USD$20-50M over a 3 year period. This is often more than what startups pay for the salaries.
 
