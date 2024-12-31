@@ -29,7 +29,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 **Part 3. Orchestration**
 
-1. **[SLURM](orchestration/slurm)** - the main orchestration environment
+1. **[Orchestration Systems](orchestration)** - managing containers and resources
+1. **[SLURM](orchestration/slurm)** - Simple Linux Utility for Resource Management
 
 
 **Part 4. Training**
