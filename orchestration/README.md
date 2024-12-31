@@ -4,13 +4,13 @@ There are many container/accelerator orchestration solutions - many of which are
 
 So far I have been working with SLURM:
 
-- [SLURM](slurm/) - Simple Linux Utility for Resource Management, which you're guaranteed to find on most HPC environments and typically it's supported by most cloud solutions.
+- [SLURM](slurm/) - Simple Linux Utility for Resource Management, which you're guaranteed to find on most HPC environments and typically it's supported by most cloud providers.  It has been around for more than 2 decades
 
-The other popular orchestrator is Kubernetes:
+The other most popular orchestrator is Kubernetes:
 
 - [Kubernetes](https://kubernetes.io/) - also known as K8s, is an open source system for automating deployment, scaling, and management of containerized applications. Here is a good [comparison between SLURM and K8s](https://www.fluidstack.io/post/is-kubernetes-or-slurm-the-best-orchestrator-for-512-gpu-jobs).
 
-Here are various other less popular but still very mighty orchestration solutions:
+Here are various other less popular, but still very mighty orchestration solutions:
 
 - [dstack](https://github.com/dstackai/dstack) is a lightweight, open-source alternative to Kubernetes & Slurm, simplifying AI container orchestration with multi-cloud & on-prem support. It natively supports NVIDIA, AMD, & TPU.
 - [SkyPilot](https://github.com/skypilot-org/skypilot) is a framework for running AI and batch workloads on any infra, offering unified execution, high cost savings, and high GPU availability.
