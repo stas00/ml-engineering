@@ -139,7 +139,7 @@ The most common sampling methods are:
 
 #### Temperature
 
-Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on the its value:
+Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on its value:
 
 - `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
