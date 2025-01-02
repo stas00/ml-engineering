@@ -158,7 +158,7 @@ Temperature will have no impact on Greedy decoding, Beam search and Top-K sampli
 
 Other than `t==0.0` and `t==0` there are no hard prescribed values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
 
-
+For more on decoding methods, see this [Huggingface blog](https://huggingface.co/blog/how-to-generate).
 
 ### Guided Text Generation
 
