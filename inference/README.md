@@ -148,7 +148,7 @@ Temperature is another component of [Top-p](#sampling) sampling strategy which h
 
 The following diagram should make this crystal clear:
 
-![softmax temperature]](images/softmax-temperature.png)
+![softmax temperature](images/softmax-temperature.png)
 
 ([source](https://www.hopsworks.ai/dictionary/llm-temperature))
 
