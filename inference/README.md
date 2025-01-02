@@ -146,6 +146,12 @@ Temperature is another component of [Top-p](#sampling) sampling strategy which h
 - `0.0<t<1.0`: probabilities are pushed closer together which makes the distribution more sharped/peaked around the most likely tokens, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
 - `t>1.0`: probabilities are pushed further apart which makes the distribution more flat/uniform, creating a lot more randomness - creative use cases.
 
+The following diagram should make this crystal clear:
+
+![softmax temperature]](images/softmax-temperature.png)
+
+([source](https://www.hopsworks.ai/dictionary/llm-temperature))
+
 To really understand the impact, the temperature factor typically gets applied to the log probabilities just before or as part of the Softmax operation.
 
 ```
