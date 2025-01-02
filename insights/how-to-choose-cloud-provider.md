@@ -15,6 +15,15 @@ These notes assume you already know what compute you want for your specific work
 
 If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in TCO savings (and time)!
 
+### Free Trials
+
+Most cloud providers have trial programs where you can "kick the tires" for a few days/weeks on a few nodes for free.
+
+Granted, it won't give you an indication of how well the bigger cluster would scale, but it should be sufficient to be able to run quite a few benchmarks and experiments.
+
+It also will give you a good opportunity to check how the provider's customer support works (if any support is included in the free package that is).
+
+
 ### Half-baked solutions
 
 Since a new generation of accelerators happens roughly every 12-18 months and the customer wants those latest accelerators "yesterday" to have a business advantage over their competitors - this gives cloud providers barely any time to integrate the new generation of the hardware, test it, adapt their software stack and burn those components in.
