@@ -278,19 +278,23 @@ And to conclude this section I'd like to repeat again that **the intention here 
 
 ### Accelerator memory size and speed
 
-The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps.
+The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps (see the full table per accelerator below).
 
 Here are the specs:
 
-| Gen | Data Rate<br> (Gbps) | Bandwidth per<br> Device (GBps) | Stack<br> Height |	Max. DRAM<br> Capacity (GB) | Max. Device<br> Capacity (GB) |
-| :---  | --: | ---:  | -: | -: | -: |
-| HBM   | 1.0 |   128 |  8 |  2 | 16 |
-| HBM2  | 2.0 |   256 |  8 |  2 | 16 |
-| HBM2e | 3.6 |   461 | 12 |  3 | 36 |
-| HBM3  | 6.4 |   819 | 16 |  4 | 64 |
-| HBM3e | 9.6 |  1229 | 16 |  4 | 64 |
+| Type  | Max data<br> rate speed per<br> pin (Gbps) | Stack<br> Height | Bits per<br> Channel | Number<br> of dies<br> per stack | Die capacity<br> per stack<br> (GBs) | Max capacity<br> per stack<br> (GBs) | Max data<br> rate per<br> stack (GBps) |
+| :---- | --: | -: | --: | -: | -: | -: | ---: |
+| HBM1  | 1.0 |  8 | 128 |  4 |  1 |  4 |  128 |
+| HBM2  | 2.4 |  8 | 128 |  8 |  1 |  8 |  307 |
+| HBM2e | 3.6 |  8 | 128 | 12 |  2 | 24 |  461 |
+| HBM3  | 6.4 | 16 |  64 | 12 |  2 | 24 |  819 |
+| HBM3e | 9.8 | 16 |  64 | 16 |  3 | 48 | 1229 |
+| HBM4  | 6.4 | 32 |  64 | 16 |  4 | 64 | 1638 |
 
-Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how many chips are per device.
+Notes:
+
+- While I was researching this table I found a wide variation of the above numbers. I think it's because either there were different implementations or the specs changed several times and different publications caught different specs. The table above comes from [wikipedia](https://en.wikipedia.org/wiki/High_Bandwidth_Memory).
+- Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how many chips are per device.
 
 Typically the more on-device memory the accelerator has the better. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
