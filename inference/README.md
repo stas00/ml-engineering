@@ -143,8 +143,8 @@ Temperature is another component of [Top-p](#sampling) sampling strategy which h
 
 - `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
-- `0.0<t<1.0`: logit differences are amplified which makes the probability distribution more sharped/peaked around the most likely tokens, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
-- `t>1.0`: logit differences are reduced which makes the probability distribution more flat/uniform, creating a lot more randomness - creative use cases.
+- `0.0<t<1.0`: the logit probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
+- `t>1.0`: the logit probabilities are pushed closer together, creating a lot more randomness - creative use cases.
 
 The following set of plots should make this crystal clear:
 
