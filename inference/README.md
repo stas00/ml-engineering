@@ -142,9 +142,9 @@ The most common sampling methods are:
 Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on its value:
 
 - `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
+- `0.0<t<1.0`: the probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
-- `0.0<t<1.0`: the logit probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
-- `t>1.0`: the logit probabilities are pushed closer together, creating a lot more randomness - creative use cases.
+- `t>1.0`: the probabilities are pushed closer together, creating a lot more randomness - creative use cases.
 
 The following set of plots should make this crystal clear:
 
