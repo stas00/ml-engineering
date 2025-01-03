@@ -139,25 +139,32 @@ The most common sampling methods are:
 
 #### Temperature
 
-Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on the its value:
+Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on its value:
 
 - `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
+- `0.0<t<1.0`: the probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
-- `0.0<t<1.0`: the logit probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
-- `t>1.0`: the logit probabilities are pushed closer together, creating a lot more randomness - creative use cases.
+- `t>1.0`: the probabilities are pushed closer together, creating a lot more randomness - creative use cases.
+
+The following set of plots should make this crystal clear:
+
+![softmax temperature](images/softmax-temperature.png)
+
+([source](https://www.hopsworks.ai/dictionary/llm-temperature))
 
 To really understand the impact, the temperature factor typically gets applied to the log probabilities just before or as part of the Softmax operation.
 
 ```
-logits = math.log(probs) / temperature
+scaled_logits = logits / temperature
+probs = softmax(scaled_logits)
 ```
-so it's easy to see that `t=1.0` makes no difference, `t=0` will asymptotically bring the top logit to infinity (division by zero is avoided), and `t<1.0` and `t>1.0` will push the values apart or together correspondingly - because of the `log`.
+The softmax operation turns logit differences into probability ratios - when we divide by t<1.0, we make these differences larger, causing more extreme probability ratios and a more peaked distribution. When we divide by t>1.0, we make these differences smaller, causing more similar probability ratios and a more uniform distribution. At t=0, this effectively makes the highest logit infinitely larger than the others (though division by zero is avoided in practice).
 
 Temperature will have no impact on Greedy decoding, Beam search and Top-K sampling strategies, as it impacts the distance between logit probabilities and all of these strategies use the top probabilities based on their order and temperature doesn't change the order of probabilities. Whereas Top-p sampling allows more or less contenders to enter the sub-set the random sampling will be pulled from based on their total probability - so the closer the probabilities are (high temp) the more randomness is possible.
 
 Other than `t==0.0` and `t==0` there are no hard prescribed values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
 
-
+For more on decoding methods, see this [Huggingface blog](https://huggingface.co/blog/how-to-generate).
 
 ### Guided Text Generation
 
