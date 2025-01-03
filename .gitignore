@@ -1,5 +1,6 @@
 # HTML build
 *.html
+chapters-html.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
