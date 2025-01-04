@@ -205,6 +205,12 @@ sudo sed -i -e 's/# OS.EnableRDMA=y/OS.EnableRDMA=y/g' /etc/waagent.conf
 - Verbs: allow command to be executed on feature-rich IB switch.
 
 
+# SLURM
+
+repos to explore:
+https://github.com/OleHolmNielsen/Slurm_tools
+
+
 # Testing
 
 - integrate the features from testing_utils.py
