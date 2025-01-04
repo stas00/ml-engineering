@@ -33,6 +33,8 @@ GPUs:
 HPU:
 - Intel's Gaudi2 is available at Intel's cloud. It's also available on-premises implementations via Supermicro, WiWynn, and soon others.
 - Gaudi3 is available since late 2024.
+- Falcon Shores is to replace Gaudi in 2025
+- Jaguar Shores is to replace Falcon Shores in 2026
 
 IPU:
 - Graphcore with their IPU offering was briefly available at Paperspace, but it's gone now. I'm not sure if anybody offers those.
@@ -254,22 +256,22 @@ Sorted by accelerator efficiency:
 
 Max measured:
 
-| Accelerator      | Max MAMF | Theory | Efficiency |        Best Shape | torch        | Notes  |
-| :--------------- | -------: | -----: | ---------: | :---------------- | -----------: | -----: |
-| Intel Gaudi 2    |          |  432.0 |            |                   |              |        |
-| NVIDIA A100 SXM  |          |  312.0 |            |                   |              |        |
-| NVIDIA GH200 SXM |          |  989.0 |            |                   |              |        |
-| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x4096x2048 | 2.5.1+cu124  |        |
-| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x12288x8192 | 2.5.1+cu124  |        |
-| AMD MI250X       |          |  191.5 |            |                   |              |        |
-| Intel Gaudi 3    |          | 1835.0 |            |                   |              |        |
-| AMD MI300X       |          | 1300.0 |            |                   |              |        |
-|                  |          |        |            |                   |              |        |
+| Accelerator      | Max MAMF | Theory | Efficiency |        Best Shape | torch ver   | Notes  |
+| :--------------- | -------: | -----: | ---------: | :---------------- | :---------- | :----- |
+| Intel Gaudi 2    |          |  432.0 |            |                   |             |        |
+| NVIDIA A100 SXM  |          |  312.0 |            |                   |             |        |
+| NVIDIA GH200 SXM |          |  989.0 |            |                   |             |        |
+| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x4096x2048 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x12288x8192 | 2.5.1+cu124 |        |
+| AMD MI250X       |          |  191.5 |            |                   |             |        |
+| Intel Gaudi 3    |          | 1835.0 |            |                   |             |        |
+| AMD MI300X       |          | 1300.0 |            |                   |             |        |
+|                  |          |        |            |                   |             |        |
 
 Median measured:
 
-| Accelerator      | Median MAMF | Theory | Efficiency |        Best Shape | torch       | Notes  |
-| :--------------- | ----------: | -----: | ---------: | :---------------- | ----------: | -----: |
+| Accelerator      | Median MAMF | Theory | Efficiency | Best Shape        | torch ver   | Notes  |
+| :--------------- | ----------: | -----: | ---------: | :---------------- | :---------- | :----- |
 | Intel Gaudi 2    |             |  432.0 |            |                   |             |        |
 | NVIDIA A100 SXM  |             |  312.0 |            |                   |             |        |
 | NVIDIA GH200 SXM |             |  989.0 |            |                   |             |        |
@@ -293,8 +295,6 @@ This is the older v1 version table that didn't reset the cache during the benchm
 | Intel Gaudi 3    | 1288.8 | 1835.0 |      70.2% |  22272x7936x12288 | Gaudi 1.19       |
 | AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x10240x4864 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
-
-
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 
