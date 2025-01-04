@@ -59,6 +59,20 @@ Alas, not paying helps, but not being able to use the compute is still a huge pr
 
 I must also say that it's almost never the problem of the engineers, very often they are amazing experienced people - most of the time it's the issue of management and resource allocation. So please be as gentle as possible with the people you interact with, while firmly demanding a resolution. I know it's a difficult one - more than once I was at the end of the rope, and I couldn't always keep it cool.
 
+### Service Level Agreement
+
+As a continuation of a previous section, a [Service Level Agreement](https://en.wikipedia.org/wiki/Service-level_agreement) (SLA) is an agreement between a service providers and a customer that define various guarantees and expectations with regards to service quality and availability, and various responsibilities.
+
+The other term is Service Level Objective (SLO) where SLA is quantified. For example, an SLO may define a Monthly Uptime Percentage to 99.5%, if the uptime is less than 99.5% the provider credits the customer to a certain percentage of the $$ spent. For example, 10% if the uptime is 99-99.5%, 25% for 95-99%, etc. Here a [GCP SLA](https://cloud.google.com/ai-platform/training-and-prediction/sla?hl=en).
+
+The main category one should care for when renting ML clusters is failing accelerators and/whole nodes. If you paid for 64 nodes but were able to use only 60 you should be reimbursed/credited for those nodes you couldn't use. Your SLA should define the duration of downtime after which the provider starts paying you back and how much.
+
+Same goes for network and storage, albeit those typically fail a lot less often than accelerators, but they do fail.
+
+In general any critical part of the service should have an SLO and clearly defined repercussions if the SLOs aren't met.
+
+Most Tier 1 companies should already include their standard SLAs in the contract. In theory the customer should be able to negotiate those to adapt to their needs, thought it might not always be possible. Sometimes offering to pay more may allow for a better than standard SLO.
+
 
 ### Discuss a contract breaking clause
 
@@ -97,7 +111,11 @@ Nobody wants to use a 2-5x slower accelerator when a much faster version is avai
 
 You need to negotiate the ability to move to the new generation before the end of the term, which would obviously require some additional money paid for this to happen.
 
+### Tier 1 vs Tier 2 clouds
 
+I don't yet have a clear recommendation for whether Tier 1 clouds (AWS, GCP, Azure, etc.) vs emerging smaller Tier 2 clouds are better. My intuition is that Tier 2 clouds are likely to provide a better and more personal support as they have to work harder to secure customers. On the other hand, they don't have the volume buying power of Tier 1 customers, so it might be more difficult to get a better deal, especially if you want many hundreds to thousands of accelerators.
+
+Tier 2 clouds are more likely to be more flexible, have non-mainstream accelerators (e.g., AMD and Intel) and probably are more likely to lend hand at tuning things up at no to little cost.
 
 
 
