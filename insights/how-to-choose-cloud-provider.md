@@ -111,13 +111,6 @@ Nobody wants to use a 2-5x slower accelerator when a much faster version is avai
 
 You need to negotiate the ability to move to the new generation before the end of the term, which would obviously require some additional money paid for this to happen.
 
-### Tier 1 vs Tier 2 clouds
-
-I don't yet have a clear recommendation for whether Tier 1 clouds (AWS, GCP, Azure, etc.) vs emerging smaller Tier 2 clouds are better. My intuition is that Tier 2 clouds are likely to provide a better and more personal support as they have to work harder to secure customers. On the other hand, they don't have the volume buying power of Tier 1 customers, so it might be more difficult to get a better deal, especially if you want many hundreds to thousands of accelerators.
-
-Tier 2 clouds are more likely to be more flexible, have non-mainstream accelerators (e.g., AMD and Intel) and probably are more likely to lend hand at tuning things up at no to little cost.
-
-
 
 ## Accelerators
 
@@ -255,6 +248,15 @@ As accelerators become much bigger this will probably become unimportant, but wh
 
 
 ## Miscellaneous
+
+
+### Tier 1 vs Tier 2 clouds
+
+I don't yet have a clear recommendation for whether Tier 1 clouds (AWS, GCP, Azure, etc.) vs emerging smaller Tier 2 clouds are better. My intuition is that Tier 2 clouds are likely to provide a better and more personal support as they have to work harder to secure customers. On the other hand, they don't have the volume buying power of Tier 1 customers, so it might be more difficult to get a better deal, especially if you want many hundreds to thousands of accelerators.
+
+Tier 2 clouds are more likely to be more flexible, have non-mainstream accelerators (e.g., AMD and Intel) and probably are more likely to lend hand at tuning things up at no to little cost.
+
+
 
 ### Orchestration
 
