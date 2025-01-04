@@ -347,7 +347,7 @@ footnote: if you think of car traffic on the road, latency is the time it takes 
 
 Throughput measures the ability of an inference server to process many requests in parallel and batch requests efficiently.
 
-The definition of throughput could be defined by how many requests can be served concurrently, but since some requests get served much faster than others, so that several short requests could be served during the a single long request it makes sense to count the total rate of tokens generated across the system.
+The definition of throughput could be defined by how many requests can be served concurrently, but since some requests get served much faster than others, so that several short requests could be served during a single long request, it makes sense to count the total rate of tokens generated across the system.
 
 Thus a more common definition of **inference throughput is total tokens generated per second across the whole system**.
 
@@ -467,9 +467,9 @@ Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a muc
 
 When serving in production it might be OK to let the model takes its loading time since it happens once and then the server runs for days, so this overhead is amortized over many days. But when doing research, development and testing it's critical that the inference server starts serving really fast.
 
-Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism and [PP](../training/model-parallelism#pipeline-parallelism).
+Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism) and [PP](../training/model-parallelism#pipeline-parallelism).
 
-Various approaches are used for that - most involve some sort of pre-sharing and caching, with a subsequent direct loading onto GPU.
+Various approaches are used for that - most involve some sort of pre-sharding and caching, with a subsequent direct loading onto GPU.
 
 For example:
 
