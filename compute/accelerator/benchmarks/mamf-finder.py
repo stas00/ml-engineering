@@ -11,6 +11,7 @@ Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 - Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
+- Oren Leung https://github.com/OrenLeung - flagging the lack of cache/dest-matrix reset and suggesting a fix
 
 """
 
@@ -28,6 +29,9 @@ import sys
 import time
 import torch
 
+# important: when changing how the benchmark measures things bump up its version, so that the old
+# reports could be differentiated from the new ones
+benchmark_version = 2
 
 has_hpu = False
 try:
@@ -174,6 +178,7 @@ torch={torch.__version__}
 {compute_info}
 
 ** Additional notes:
+benchmark version: {benchmark_version}
 {notes}
 
 {"-" * 80}
@@ -184,17 +189,31 @@ torch={torch.__version__}
 def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     start = arch.event(enable_timing=True)
     end = arch.event(enable_timing=True)
-    l2_cache_size_in_mbs = 256 # XXX: need to automate the getting of the cache size
+
+    # this will be used to write to the accelerator between each benchmark iteration to emulate cache reset.
+    # On AMD this will really be an l3/LLC cache - later need to figure out how to get the maximum cache
+    # size automatically, according to this table 256MB is the highest value so far across all
+    # recent accelerators:
+    # https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#caches
+    l2_cache_size_in_mbs = 256
     l2_cache = torch.empty(int(l2_cache_size_in_mbs * 2**20 / 4), dtype=torch.int, device=device)
+
+    C = torch.empty(m, k, dtype=dtype, device=device).contiguous()
+    # this random matrix will be used in the loop to ensure that C gets actually written to, as
+    # otherwise the rerun results will be always the same and no power will be drawn to write - would lead
+    # to invalid emulation of a real use case
+    C_rand = torch.randn(m, k, dtype=dtype, device=device).contiguous()
 
     def time_it(iters=1):
         def decorator(func):
             def func_wrapper(*args, **kwargs):
                 start_events = [arch.event(enable_timing=True) for _ in range(iters)]
                 end_events = [arch.event(enable_timing=True) for _ in range(iters)]
+
                 for i in range(iters):
                     with torch.no_grad():
-                        l2_cache.zero_()
+                        l2_cache.zero_() # clear accelerator cache
+                        C.copy_(C_rand)  # re-randomize the target matrix
                         start_events[i].record()
                         ret = func(*args, **kwargs)
                         end_events[i].record()
@@ -208,7 +227,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     if dtype == torch.float8_e4m3fn:
         A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
-        C = torch.empty(m, k, dtype=torch.float32, device=device)
 
         A = A.to(torch.float8_e4m3fn)
         B = B.to(torch.float8_e4m3fn)
@@ -221,7 +239,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     else:
         A = torch.randn(m, n, dtype=dtype, device=device)
         B = torch.randn(n, k, dtype=dtype, device=device)
-        C = torch.empty(m, k, dtype=dtype, device=device)
 
         @time_it(total_iterations)
         def time_iterations():
@@ -294,9 +311,8 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, sigkill_handler)
 
-    best_max_tflops = 0
-    best_median_tflops = 0
-    best_config = ""
+    best_tflops = dict(max=0, median=0, mean=0)
+    best_config = dict(max="", median="", mean="")
     num_shapes = 0
     start_time = time.time()
 
@@ -304,19 +320,26 @@ if __name__ == '__main__':
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print("", end="\033[K")
-        print(f"The best outcome was {best_max_tflops:.1f}(max)/{best_median_tflops:.1f}(median) TFLOPS @ {best_config} (tried {num_shapes} shapes)")
+        print(f"""
+Tried  {num_shapes} shapes => the best outcomes were:
+max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
+median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
+mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
+""")
         print(f"Elapsed time: {time_str}")
 
     # XXX: the transpose version seemed to work better for MI300X
 
-    # if only a few shapes are to be run, must add some additional warmup iterations to give fare
-    # results, otherwise based on rerunning this benchmark many times - a cold accelerator gives a
-    # higher score on say a single shape, than the same shape run after a dozen of other shapes
-    if len(m) * len(n) * len(k) < 10:
-        print("Detected a situation with too few shapes, forcing an additional warmup")
-        for i in range(10):
-            _ = benchmark_mm(m[0], n[0], k[0], dtype, device, args.num_iterations, args.num_warmup_iterations)
-        print("accelerator warmup finished")
+    # always start with additional warmup iterations to give fare results, otherwise based on
+    # rerunning this benchmark many times - a cold accelerator gives a higher score on say a single
+    # shape, than the same shape run after a dozen of other shapes
+
+    accelerator_warmup_seconds = 30
+    end_time = time.monotonic() + accelerator_warmup_seconds
+    print(f"Warming up the accelerator for {accelerator_warmup_seconds} secs ... ", end="")
+    while time.monotonic() < end_time:
+        _ = benchmark_mm(m[0], n[0], k[0], dtype, device, args.num_iterations, args.num_warmup_iterations)
+    print("accelerator warmup finished")
 
 
     # loop through all sizes to benchmark
@@ -326,9 +349,15 @@ if __name__ == '__main__':
                 num_shapes += 1
                 max_tflops, median_tflops, mean_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
                 cur_config = f"{M}x{N}x{K}"
-                if max_tflops > best_max_tflops:
-                    best_max_tflops = max_tflops
-                    best_median_tflops = median_tflops
-                    best_config = f"{M}x{N}x{K} (MxNxK)"
-                print(f"{num_shapes:>6} | {max_tflops:6.1f}(max) / {median_tflops:6.1f}(median) TFLOPS @ {cur_config:<20} | best: {best_max_tflops:6.1f}(max)/{best_median_tflops:6.1f}(median) TFLOPS @ {best_config}", end="\r")
+                if max_tflops > best_tflops["max"]:
+                    best_tflops["max"] = max_tflops
+                    best_config["max"] = f"{cur_config} (MxNxK)"
+                if median_tflops > best_tflops["median"]:
+                    best_tflops["median"] = median_tflops
+                    best_config["median"] = f"{cur_config} (MxNxK)"
+                if mean_tflops > best_tflops["mean"]:
+                    best_tflops["mean"] = mean_tflops
+                    best_config["mean"] = f"{cur_config} (MxNxK)"
+
+                print(f"{num_shapes:>6} | {max_tflops:6.1f}(max) {median_tflops:6.1f}(median) {mean_tflops:6.1f}(mean) @ {cur_config:<20} | best: {best_tflops['max']:6.1f}(max) {best_tflops['median']:6.1f}(median) {best_tflops['mean']:6.1f}(mean) TFLOPS", end="\r")
     finish()

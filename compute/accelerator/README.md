@@ -246,7 +246,41 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 #### Maximum Achievable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means). Sorted by accelerator efficiency:
+The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means).
+
+The two tables show the `max()` and `median()` results. The max table is interesting to see the real measured maximum value and its diversion from the median results.
+
+Sorted by accelerator efficiency:
+
+Max measured:
+
+| Accelerator      | Max MAMF | Theory | Efficiency | Best Shape        | torch        | Notes    |
+| :--------------- | -------: | -----: | ---------: | :---------------- | -----------: | -------: |
+| Intel Gaudi 2    |          |  432.0 |            |                   |              |          |
+| NVIDIA A100 SXM  |          |  312.0 |            |                   |              |          |
+| NVIDIA GH200 SXM |          |  989.0 |            |                   |              |          |
+| NVIDIA A100 PCIe |          |  312.0 |            |                   | 2.5.1+cu124  |          |
+| NVIDIA H100 SXM  | 786.3    |  989.0 | 79.5%      | 1024x12288x8192   | 2.5.1+cu124  |          |
+| AMD MI250X       |          |  191.5 |            |                   |              |          |
+| Intel Gaudi 3    |          | 1835.0 |            |                   |              |          |
+| AMD MI300X       |          | 1300.0 |            |                   |              |          |
+|                  |          |        |            |                   |              |          |
+
+Median measured:
+
+| Accelerator      | Median MAMF | Theory | Efficiency | Best Shape        | torch       | Notes    |
+| :--------------- | ----------: | -----: | ---------: | :---------------- | ----------: | -------: |
+| Intel Gaudi 2    |             |  432.0 |            |                   |             |          |
+| NVIDIA A100 SXM  |             |  312.0 |            |                   |             |          |
+| NVIDIA GH200 SXM |             |  989.0 |            |                   |             |          |
+| NVIDIA A100 PCIe |             |  312.0 |            |                   | 2.5.1+cu124 |          |
+| NVIDIA H100 SXM  | 779.5       |  989.0 | 78.8%      | 1024x13312x8192   | 2.5.1+cu124 |          |
+| AMD MI250X       |             |  191.5 |            |                   |             |          |
+| Intel Gaudi 3    |             | 1835.0 |            |                   |             |          |
+| AMD MI300X       |             | 1300.0 |            |                   |             |          |
+|                  |             |        |            |                   |             |          |
+
+This is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores - but in practice it appears to be accelerator-dependant - e.g. with A100 PCIe I get better TFLOPS when resetting the cache between each run - very odd!
 
 | Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
 | :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
@@ -259,6 +293,8 @@ The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOP
 | Intel Gaudi 3    | 1288.8 | 1835.0 |      70.2% |  22272x7936x12288 | Gaudi 1.19       |
 | AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x10240x4864 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
+
+
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
 

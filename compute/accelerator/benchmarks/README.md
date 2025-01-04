@@ -48,13 +48,15 @@ Here we do `torch.mm(MxN,NxK) -> MxK`
 ./mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
-2. A more exhaustive search (will take much longer) - but you can Ctrl-C it when it run long enough and get the best result so far:
+2. A more exhaustive search (15-30min) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
-./mamf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 16384 1024 --n_range 0 16384 1024 --k_range 0 16384 1024  --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
 ```
 
-3. A super long exhaustive search (can take many days) - but you can Ctrl-C it when it run long enough and get the best result so far:
+Feel free to make the steps smaller from 1024 to 512 or 256 - but it'd 8x or 64x the run time correspondingly. 1k steps should cover the different shape ranges well and fast.
+
+3. A super long exhaustive search (may take many hours/days) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
 ./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
