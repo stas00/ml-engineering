@@ -14,8 +14,8 @@ Therefore now you can compare the TFLOPS you measured for your training or infer
 
 Currently supported high end architectures:
 - NVIDIA: V100, A100, H100, ...
-- AMD: MI250, MI300X, ...
-- Intel Gaudi2+
+- AMD: MI250, MI300X, MI325X, ...
+- Intel Gaudi2/3
 
 Fairness notes:
 - if you can find a better and more efficient way to detect the best matmul TFLOPS by approaching each new accelerator as a black box, please kindly send a PR with the improvement including the generated log file.
@@ -34,13 +34,13 @@ sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 
 ### Examples of usage
 
-In the ranges below `N` is the reduction dimension so that `(MxN)*(NxK)=(MxK)` and we print the MxNxK shape for the best measured TFLOPS.
+In the ranges below `K` is the reduction dimension so that `(MxK)*(KxN)=(MxN)` and we print the MxKxN shape for the best measured TFLOPS.
 
 Also by default we use 50 warmup and 100 measured iterations for each shape and then fastest result is picked (not the average). You can change the number of iterations via the args `--num_warmup_iterations` and `--num_iterations` correspondingly.
 
-You can specify the data type via `--dtype` argument, it has to be one of the valid `torch` dtypes - e.g., `float16`, `bfloat16`, `float32`, etc. If not specified `bfloat16` is used.
+You can specify the data type via `--dtype` argument, it has to be one of the valid `torch` dtypes - e.g., `float8_e4m3fn`, `float16`, `bfloat16`, `float32`, etc. If not specified `bfloat16` is used.
 
-Here we do `torch.mm(MxN,NxK) -> MxK`
+Here we do `torch.mm(MxK,KxN) -> MxN`
 
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.
 

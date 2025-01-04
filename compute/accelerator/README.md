@@ -261,8 +261,8 @@ Max measured:
 | Intel Gaudi 2    |          |  432.0 |            |                   |             |        |
 | NVIDIA A100 SXM  |          |  312.0 |            |                   |             |        |
 | NVIDIA GH200 SXM |          |  989.0 |            |                   |             |        |
-| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x4096x2048 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x12288x8192 | 2.5.1+cu124 |        |
+| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x2048x4096 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x8192x12288 | 2.5.1+cu124 |        |
 | AMD MI250X       |          |  191.5 |            |                   |             |        |
 | Intel Gaudi 3    |          | 1835.0 |            |                   |             |        |
 | AMD MI300X       |          | 1300.0 |            |                   |             |        |
@@ -275,8 +275,8 @@ Median measured:
 | Intel Gaudi 2    |             |  432.0 |            |                   |             |        |
 | NVIDIA A100 SXM  |             |  312.0 |            |                   |             |        |
 | NVIDIA GH200 SXM |             |  989.0 |            |                   |             |        |
-| NVIDIA A100 PCIe |       257.8 |  312.0 |      82.6% |   1024x3072x10240 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |       779.5 |  989.0 |      78.8% |   1024x13312x8192 | 2.5.1+cu124 |        |
+| NVIDIA A100 PCIe |       257.8 |  312.0 |      82.6% |   1024x10240x3072 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |       779.5 |  989.0 |      78.8% |   1024x8192x13312 | 2.5.1+cu124 |        |
 | AMD MI250X       |             |  191.5 |            |                   |             |        |
 | Intel Gaudi 3    |             | 1835.0 |            |                   |             |        |
 | AMD MI300X       |             | 1300.0 |            |                   |             |        |
@@ -286,14 +286,14 @@ This is the older v1 version table that didn't reset the cache during the benchm
 
 | Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
 | :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
-| Intel Gaudi 2    |  429.3 |  432.0 |      99.4% | 20224x11520x19968 | Gaudi 1.15       |
-| NVIDIA A100 SXM  |  267.9 |  312.0 |      85.9% |   6912x16384x2048 | CUDA-12.1        |
-| NVIDIA GH200 SXM |  821.0 |  989.0 |      83.0% |  11264x19712x1536 | CUDA-12.5        |
-| NVIDIA A100 PCIe |  256.4 |  312.0 |      82.2% |    2304x5120x1536 | CUDA-12.1        |
-| NVIDIA H100 SXM  |  792.1 |  989.0 |      80.1% |   6144x17920x2816 | CUDA-12.1        |
-| AMD MI250X       |  147.0 |  191.5 |      76.7% |  1024x14080x19968 | ROCm-6.2 / 1 GCD |
-| Intel Gaudi 3    | 1288.8 | 1835.0 |      70.2% |  22272x7936x12288 | Gaudi 1.19       |
-| AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x10240x4864 | ROCm-6.2         |
+| Intel Gaudi 2    |  429.3 |  432.0 |      99.4% | 20224x19968x11520 | Gaudi 1.15       |
+| NVIDIA A100 SXM  |  267.9 |  312.0 |      85.9% |   6912x2048x16384 | CUDA-12.1        |
+| NVIDIA GH200 SXM |  821.0 |  989.0 |      83.0% |  11264x1536x19712 | CUDA-12.5        |
+| NVIDIA A100 PCIe |  256.4 |  312.0 |      82.2% |    2304x1536x5120 | CUDA-12.1        |
+| NVIDIA H100 SXM  |  792.1 |  989.0 |      80.1% |   6144x2816x17920 | CUDA-12.1        |
+| AMD MI250X       |  147.0 |  191.5 |      76.7% |  1024x19968x14080 | ROCm-6.2 / 1 GCD |
+| Intel Gaudi 3    | 1288.8 | 1835.0 |      70.2% |  22272x12288x7936 | Gaudi 1.19       |
+| AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x4864x10240 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
@@ -307,7 +307,7 @@ Notes:
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383 TFLOPS is reported for 2 GCDs.
 
-Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x13568x3840` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
+Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
 
 And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is more efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So start with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 

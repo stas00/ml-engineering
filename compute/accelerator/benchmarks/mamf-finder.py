@@ -198,11 +198,11 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     l2_cache_size_in_mbs = 256
     l2_cache = torch.empty(int(l2_cache_size_in_mbs * 2**20 / 4), dtype=torch.int, device=device)
 
-    C = torch.empty(m, k, dtype=dtype, device=device).contiguous()
+    C = torch.empty(m, n, dtype=dtype, device=device).contiguous()
     # this random matrix will be used in the loop to ensure that C gets actually written to, as
     # otherwise the rerun results will be always the same and no power will be drawn to write - would lead
     # to invalid emulation of a real use case
-    C_rand = torch.randn(m, k, device=device).to(dtype=dtype).contiguous()
+    C_rand = torch.randn(m, n, device=device).to(dtype=dtype).contiguous()
 
     def time_it(iters=1):
         def decorator(func):
@@ -225,8 +225,8 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     total_iterations = num_iterations + num_warmup_iterations
     if dtype == torch.float8_e4m3fn:
-        A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
-        B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
+        A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
+        B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t()
         scale = torch.tensor([1.0]).to(device)
 
         A = A.to(torch.float8_e4m3fn)
@@ -241,7 +241,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
                 C = torch._scaled_mm(A, B, scale, scale)
 
     else:
-        A = torch.randn(m, n, dtype=dtype, device=device)
+        A = torch.randn(m, k, dtype=dtype, device=device)
         B = torch.randn(n, k, dtype=dtype, device=device)
 
         @time_it(total_iterations)
@@ -265,12 +265,12 @@ if __name__ == '__main__':
     m_group.add_argument("--m_range", nargs='+', type=int, help="The first dimension of the GEMM, [start,stop,step]")
 
     n_group = parser.add_mutually_exclusive_group(required=True)
-    n_group.add_argument("--n", nargs="*", type=int, help='The shared dimension of the GEMM, enter any number of arguments')
-    n_group.add_argument("--n_range", nargs='+', type=int, help="The shared dimension of the GEMM, [start,stop,step]")
+    n_group.add_argument("--n", nargs="*", type=int, help='The last dimension of the GEMM, enter any number of arguments')
+    n_group.add_argument("--n_range", nargs='+', type=int, help="The last dimension of the GEMM, [start,stop,step]")
 
     k_group = parser.add_mutually_exclusive_group(required=True)
-    k_group.add_argument("--k", nargs="*", type=int, help='The last dimension of the GEMM, enter any number of arguments')
-    k_group.add_argument("--k_range", nargs='+', type=int, help="The last dimension of the GEMM, [start,stop,step]")
+    k_group.add_argument("--k", nargs="*", type=int, help='The shared (reduction) dimension of the GEMM, enter any number of arguments')
+    k_group.add_argument("--k_range", nargs='+', type=int, help="The shared (reduction) dimension of the GEMM, [start,stop,step]")
 
     parser.add_argument("--num_iterations", type=int, default=100, help='The number of iterations used to benchmark each GEMM')
     parser.add_argument("--num_warmup_iterations", type=int, default=50, help='The number of warmup iterations')
@@ -337,14 +337,12 @@ mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
     # always start with additional warmup iterations to give fare results, otherwise based on
     # rerunning this benchmark many times - a cold accelerator gives a higher score on say a single
     # shape, than the same shape run after a dozen of other shapes
-
     accelerator_warmup_seconds = 30
     end_time = time.monotonic() + accelerator_warmup_seconds
-    print(f"Warming up the accelerator for {accelerator_warmup_seconds} secs ... ", end="")
+    print(f"Warming up the accelerator for {accelerator_warmup_seconds} secs ... ", end="", flush=True)
     while time.monotonic() < end_time:
         _ = benchmark_mm(m[0], n[0], k[0], dtype, device, args.num_iterations, args.num_warmup_iterations)
     print("accelerator warmup finished")
-
 
     # loop through all sizes to benchmark
     for M in m:
@@ -352,16 +350,16 @@ mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
             for K in k:
                 num_shapes += 1
                 max_tflops, median_tflops, mean_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
-                cur_config = f"{M}x{N}x{K}"
+                cur_config = f"{M}x{K}x{N}"
                 if max_tflops > best_tflops["max"]:
                     best_tflops["max"] = max_tflops
-                    best_config["max"] = f"{cur_config} (MxNxK)"
+                    best_config["max"] = f"{cur_config} (MxKxN)"
                 if median_tflops > best_tflops["median"]:
                     best_tflops["median"] = median_tflops
-                    best_config["median"] = f"{cur_config} (MxNxK)"
+                    best_config["median"] = f"{cur_config} (MxKxN)"
                 if mean_tflops > best_tflops["mean"]:
                     best_tflops["mean"] = mean_tflops
-                    best_config["mean"] = f"{cur_config} (MxNxK)"
+                    best_config["mean"] = f"{cur_config} (MxKxN)"
 
                 print(f"{num_shapes:>6} | {max_tflops:6.1f}(max) {median_tflops:6.1f}(median) {mean_tflops:6.1f}(mean) @ {cur_config:<20} | best: {best_tflops['max']:6.1f}(max) {best_tflops['median']:6.1f}(median) {best_tflops['mean']:6.1f}(mean) TFLOPS", end="\r")
     finish()
