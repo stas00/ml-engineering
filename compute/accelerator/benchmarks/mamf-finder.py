@@ -231,13 +231,16 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
         A = A.to(torch.float8_e4m3fn)
         B = B.to(torch.float8_e4m3fn)
-        C = C.to(torch.float8_e4m3fn)
 
-        @time_it(total_iterations)
-        def time_iterations():
-            try:
+        # some torch versions require the scale arg, some don't so discover which is required
+        try:
+            C = torch._scaled_mm(A, B)
+            @time_it(total_iterations)
+            def time_iterations():
                 C = torch._scaled_mm(A, B)
-            except:
+        except:
+            @time_it(total_iterations)
+            def time_iterations():
                 C = torch._scaled_mm(A, B, scale, scale)
 
     else:
@@ -249,13 +252,18 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             torch.mm(A, B, out=C)
 
     times = time_iterations()[num_warmup_iterations:]
-    min_elapsed_time = np.amin(times)/1000
-    max_tflops = (2 * m * n * k) / (min_elapsed_time * 10**12)
-    median_elapsed_time = np.median(times)/1000
-    median_tflops = (2 * m * n * k) / (median_elapsed_time * 10**12)
+    flos = 2 * m * n * k
+
     mean_elapsed_time = np.mean(times)/1000
-    mean_tflops = (2 * m * n * k) / (mean_elapsed_time * 10**12)
-    return max_tflops, median_tflops, mean_tflops
+    mean_tflops = flos / (mean_elapsed_time * 10**12)
+
+    median_elapsed_time = np.median(times)/1000
+    median_tflops = flos / (median_elapsed_time * 10**12)
+
+    min_elapsed_time = np.amin(times)/1000
+    max_tflops = flos / (min_elapsed_time * 10**12)
+
+    return mean_tflops, median_tflops, max_tflops
 
 
 if __name__ == '__main__':
@@ -326,9 +334,9 @@ if __name__ == '__main__':
         print("", end="\033[K")
         print(f"""
 Tried  {num_shapes} shapes => the best outcomes were:
-max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
-median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
 mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
+median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
+max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
 """)
         print(f"Elapsed time: {time_str}")
 
@@ -349,17 +357,17 @@ mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
         for N in n:
             for K in k:
                 num_shapes += 1
-                max_tflops, median_tflops, mean_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
+                mean_tflops, median_tflops, max_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
                 cur_config = f"{M}x{K}x{N}"
-                if max_tflops > best_tflops["max"]:
-                    best_tflops["max"] = max_tflops
-                    best_config["max"] = f"{cur_config} (MxKxN)"
                 if median_tflops > best_tflops["median"]:
                     best_tflops["median"] = median_tflops
                     best_config["median"] = f"{cur_config} (MxKxN)"
                 if mean_tflops > best_tflops["mean"]:
                     best_tflops["mean"] = mean_tflops
                     best_config["mean"] = f"{cur_config} (MxKxN)"
+                if max_tflops > best_tflops["max"]:
+                    best_tflops["max"] = max_tflops
+                    best_config["max"] = f"{cur_config} (MxKxN)"
 
-                print(f"{num_shapes:>6} | {max_tflops:6.1f}(max) {median_tflops:6.1f}(median) {mean_tflops:6.1f}(mean) @ {cur_config:<20} | best: {best_tflops['max']:6.1f}(max) {best_tflops['median']:6.1f}(median) {best_tflops['mean']:6.1f}(mean) TFLOPS", end="\r")
+                print(f"{num_shapes:>6} | {mean_tflops:6.1f}(mean) {median_tflops:6.1f}(median) {max_tflops:6.1f}(max) @ {cur_config:<20} | best: {best_tflops['mean']:6.1f}(mean) {best_tflops['median']:6.1f}(median) {best_tflops['max']:6.1f}(max)TFLOPS", end="\r")
     finish()
