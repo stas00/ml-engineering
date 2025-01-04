@@ -254,31 +254,31 @@ Sorted by accelerator efficiency:
 
 Max measured:
 
-| Accelerator      | Max MAMF | Theory | Efficiency | Best Shape        | torch        | Notes    |
-| :--------------- | -------: | -----: | ---------: | :---------------- | -----------: | -------: |
-| Intel Gaudi 2    |          |  432.0 |            |                   |              |          |
-| NVIDIA A100 SXM  |          |  312.0 |            |                   |              |          |
-| NVIDIA GH200 SXM |          |  989.0 |            |                   |              |          |
-| NVIDIA A100 PCIe |          |  312.0 |            |                   | 2.5.1+cu124  |          |
-| NVIDIA H100 SXM  | 786.3    |  989.0 | 79.5%      | 1024x12288x8192   | 2.5.1+cu124  |          |
-| AMD MI250X       |          |  191.5 |            |                   |              |          |
-| Intel Gaudi 3    |          | 1835.0 |            |                   |              |          |
-| AMD MI300X       |          | 1300.0 |            |                   |              |          |
-|                  |          |        |            |                   |              |          |
+| Accelerator      | Max MAMF | Theory | Efficiency |        Best Shape | torch        | Notes  |
+| :--------------- | -------: | -----: | ---------: | :---------------- | -----------: | -----: |
+| Intel Gaudi 2    |          |  432.0 |            |                   |              |        |
+| NVIDIA A100 SXM  |          |  312.0 |            |                   |              |        |
+| NVIDIA GH200 SXM |          |  989.0 |            |                   |              |        |
+| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x4096x2048 | 2.5.1+cu124  |        |
+| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x12288x8192 | 2.5.1+cu124  |        |
+| AMD MI250X       |          |  191.5 |            |                   |              |        |
+| Intel Gaudi 3    |          | 1835.0 |            |                   |              |        |
+| AMD MI300X       |          | 1300.0 |            |                   |              |        |
+|                  |          |        |            |                   |              |        |
 
 Median measured:
 
-| Accelerator      | Median MAMF | Theory | Efficiency | Best Shape        | torch       | Notes    |
-| :--------------- | ----------: | -----: | ---------: | :---------------- | ----------: | -------: |
-| Intel Gaudi 2    |             |  432.0 |            |                   |             |          |
-| NVIDIA A100 SXM  |             |  312.0 |            |                   |             |          |
-| NVIDIA GH200 SXM |             |  989.0 |            |                   |             |          |
-| NVIDIA A100 PCIe |             |  312.0 |            |                   | 2.5.1+cu124 |          |
-| NVIDIA H100 SXM  | 779.5       |  989.0 | 78.8%      | 1024x13312x8192   | 2.5.1+cu124 |          |
-| AMD MI250X       |             |  191.5 |            |                   |             |          |
-| Intel Gaudi 3    |             | 1835.0 |            |                   |             |          |
-| AMD MI300X       |             | 1300.0 |            |                   |             |          |
-|                  |             |        |            |                   |             |          |
+| Accelerator      | Median MAMF | Theory | Efficiency |        Best Shape | torch       | Notes  |
+| :--------------- | ----------: | -----: | ---------: | :---------------- | ----------: | -----: |
+| Intel Gaudi 2    |             |  432.0 |            |                   |             |        |
+| NVIDIA A100 SXM  |             |  312.0 |            |                   |             |        |
+| NVIDIA GH200 SXM |             |  989.0 |            |                   |             |        |
+| NVIDIA A100 PCIe |       257.8 |  312.0 |      82.6% |   1024x3072x10240 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |       779.5 |  989.0 |      78.8% |   1024x13312x8192 | 2.5.1+cu124 |        |
+| AMD MI250X       |             |  191.5 |            |                   |             |        |
+| Intel Gaudi 3    |             | 1835.0 |            |                   |             |        |
+| AMD MI300X       |             | 1300.0 |            |                   |             |        |
+|                  |             |        |            |                   |             |        |
 
 This is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores - but in practice it appears to be accelerator-dependant - e.g. with A100 PCIe I get better TFLOPS when resetting the cache between each run - very odd!
 
