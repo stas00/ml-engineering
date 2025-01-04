@@ -202,7 +202,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     # this random matrix will be used in the loop to ensure that C gets actually written to, as
     # otherwise the rerun results will be always the same and no power will be drawn to write - would lead
     # to invalid emulation of a real use case
-    C_rand = torch.randn(m, k, dtype=dtype, device=device).contiguous()
+    C_rand = torch.randn(m, k, device=device).to(dtype=dtype).contiguous()
 
     def time_it(iters=1):
         def decorator(func):
@@ -227,6 +227,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     if dtype == torch.float8_e4m3fn:
         A = torch.randn(m, n, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(k, n, dtype=torch.float32, device=device).contiguous().t()
+        scale = torch.tensor([1.0]).to(device)
 
         A = A.to(torch.float8_e4m3fn)
         B = B.to(torch.float8_e4m3fn)
@@ -234,7 +235,10 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
         @time_it(total_iterations)
         def time_iterations():
-            C = torch._scaled_mm(A, B)
+            try:
+                C = torch._scaled_mm(A, B)
+            except:
+                C = torch._scaled_mm(A, B, scale, scale)
 
     else:
         A = torch.randn(m, n, dtype=dtype, device=device)
