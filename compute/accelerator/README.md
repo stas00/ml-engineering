@@ -248,41 +248,34 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 #### Maximum Achievable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 inputs (no sparsity) TFLOPS (see above for what MAMF means).
+The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see above for what MAMF means). Using a mean of 100 runs, with 50 warmup iterations. The best shape is `MxKxN`. Sorted by accelerator efficiency:
 
-The two tables show the `max()` and `median()` results. The max table is interesting to see the real measured maximum value and its diversion from the median results.
+BF16:
 
-Sorted by accelerator efficiency:
+| Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | torch ver   | Notes  |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
+| NVIDIA A100 PCIe |  252.9 |  312.0 |      81.1% |    2048x6144x5120 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |  755.5 |  989.0 |      76.4% |   1024x15360x8192 | 2.5.1+cu124 |        |
+| NVIDIA A100 SXM  |        |  312.0 |            |                   |             |        |
+| NVIDIA GH200 SXM |        |  989.0 |            |                   |             |        |
+| Intel Gaudi 2    |        |  432.0 |            |                   |             |        |
+| Intel Gaudi 3    |        | 1835.0 |            |                   |             |        |
+| AMD MI300X       |        | 1300.0 |            |                   |             |        |
+|                  |        |        |            |                   |             |        |
 
-Max measured:
 
-| Accelerator      | Max MAMF | Theory | Efficiency |        Best Shape | torch ver   | Notes  |
-| :--------------- | -------: | -----: | ---------: | :---------------- | :---------- | :----- |
-| Intel Gaudi 2    |          |  432.0 |            |                   |             |        |
-| NVIDIA A100 SXM  |          |  312.0 |            |                   |             |        |
-| NVIDIA GH200 SXM |          |  989.0 |            |                   |             |        |
-| NVIDIA A100 PCIe |    264.6 |  312.0 |      84.8% |    5120x2048x4096 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |    786.3 |  989.0 |      79.5% |   1024x8192x12288 | 2.5.1+cu124 |        |
-| AMD MI250X       |          |  191.5 |            |                   |             |        |
-| Intel Gaudi 3    |          | 1835.0 |            |                   |             |        |
-| AMD MI300X       |          | 1300.0 |            |                   |             |        |
-|                  |          |        |            |                   |             |        |
+FP8 (`float8_e4m3fn`):
 
-Median measured:
+| Accelerator      | MAMF   | Theory | Efficiency | Best Shape        | torch ver   | Notes  |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
+| NVIDIA H100 SXM  | 1281.7 |   1979 | 64.8%      | 5120x6144x6144    | 2.5.1+cu124 |        |
+| NVIDIA GH200 SXM |        |   1979 |            |                   |             |        |
+| Intel Gaudi 2    |        |    865 |            |                   |             |        |
+| Intel Gaudi 3    |        |   1835 |            |                   |             |        |
+| AMD MI300X       |        |   2600 |            |                   |             |        |
+|                  |        |        |            |                   |             |        |
 
-| Accelerator      | Median MAMF | Theory | Efficiency | Best Shape        | torch ver   | Notes  |
-| :--------------- | ----------: | -----: | ---------: | :---------------- | :---------- | :----- |
-| Intel Gaudi 2    |             |  432.0 |            |                   |             |        |
-| NVIDIA A100 SXM  |             |  312.0 |            |                   |             |        |
-| NVIDIA GH200 SXM |             |  989.0 |            |                   |             |        |
-| NVIDIA A100 PCIe |       257.8 |  312.0 |      82.6% |   1024x10240x3072 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |       779.5 |  989.0 |      78.8% |   1024x8192x13312 | 2.5.1+cu124 |        |
-| AMD MI250X       |             |  191.5 |            |                   |             |        |
-| Intel Gaudi 3    |             | 1835.0 |            |                   |             |        |
-| AMD MI300X       |             | 1300.0 |            |                   |             |        |
-|                  |             |        |            |                   |             |        |
-
-This is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores - but in practice it appears to be accelerator-dependant - e.g. with A100 PCIe I get better TFLOPS when resetting the cache between each run - very odd!
+This is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores - but in practice it appears to be accelerator-dependant - e.g. with A100 PCIe I get better TFLOPS when resetting the cache between each run - very odd! It will get removed once I re-populate the v2 tables.
 
 | Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
 | :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
@@ -301,9 +294,10 @@ Caveat emptor: these numbers were achieved by a brute-force search of a non-exha
 Notes:
 - For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
 - Efficiency is MAMF/Theory*100
+- While `mean` is probably what most users are interested in, the script reports `max`, `median` and `mean` - should you want the other numbers.
 - Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
-- Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up
+- Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383 TFLOPS is reported for 2 GCDs.
 
