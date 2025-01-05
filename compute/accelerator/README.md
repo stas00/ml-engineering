@@ -248,24 +248,24 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 #### Maximum Achievable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see above for what MAMF means). Using a mean of 100 runs, with 50 warmup iterations. The best shape is `MxNxK`. Sorted by accelerator efficiency:
+The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see above for what MAMF means). Using a mean of 100 iterations after 50 warmup iterations for each shape. Sorted by accelerator efficiency:
 
 BF16:
 
-| Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | torch ver   | Notes  |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes  |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
-| NVIDIA GH200 SXM |  828.6 |  989.0 |      83.6% |   1024x15360x4096 | 2.6.0+cu126 |        |
-| NVIDIA A100 PCIe |  252.9 |  312.0 |      81.1% |    2048x5120x6144 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |  758.6 |  989.0 |      76.5% |   1024x8192x15360 | 2.5.1+cu124 |        |
-| NVIDIA A100 SXM  |        |  312.0 |            |                   |             |        |
-| Intel Gaudi 2    |        |  432.0 |            |                   |             |        |
-| Intel Gaudi 3    |        | 1835.0 |            |                   |             |        |
-| AMD MI300X       |        | 1300.0 |            |                   |             |        |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126 |        |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124 |        |
+| NVIDIA H100 SXM  |  758.6 |    989 |      76.5% |   1024x8192x15360 | 2.5.1+cu124 |        |
+| NVIDIA A100 SXM  |        |    312 |            |                   |             |        |
+| Intel Gaudi 2    |        |    432 |            |                   |             |        |
+| Intel Gaudi 3    |        |   1835 |            |                   |             |        |
+| AMD MI300X       |        |   1300 |            |                   |             |        |
 |                  |        |        |            |                   |             |        |
 
 FP8 (`float8_e4m3fn`):
 
-| Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | torch ver   | Notes  |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes  |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 |        |
 | NVIDIA H100 SXM  | 1281.7 |   1979 |      64.8% |    5120x6144x6144 | 2.5.1+cu124 |        |
