@@ -254,10 +254,10 @@ BF16:
 
 | Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes  |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126 |        |
 | NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126 |        |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124 |        |
 | NVIDIA H100 SXM  |  758.6 |    989 |      76.5% |   1024x8192x15360 | 2.5.1+cu124 |        |
-| NVIDIA A100 SXM  |        |    312 |            |                   |             |        |
 | Intel Gaudi 2    |        |    432 |            |                   |             |        |
 | Intel Gaudi 3    |        |   1835 |            |                   |             |        |
 | AMD MI300X       |        |   1300 |            |                   |             |        |

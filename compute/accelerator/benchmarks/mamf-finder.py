@@ -369,5 +369,5 @@ max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
                     best_tflops["max"] = max_tflops
                     best_config["max"] = f"{cur_config} (MxNxK)"
 
-                print(f"{num_shapes:>6} | {mean_tflops:6.1f}(mean) {median_tflops:6.1f}(median) {max_tflops:6.1f}(max) @ {cur_config:<20} | best: {best_tflops['mean']:6.1f}(mean) {best_tflops['median']:6.1f}(median) {best_tflops['max']:6.1f}(max)TFLOPS", end="\r")
+                print(f"{num_shapes:>6} | {mean_tflops:6.1f}(mean) {median_tflops:6.1f}(median) {max_tflops:6.1f}(max) @ {cur_config:<20} | best: {best_tflops['mean']:6.1f}(mean) {best_tflops['median']:6.1f}(median) {best_tflops['max']:6.1f}(max) TFLOPS", end="\r")
     finish()
