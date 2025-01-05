@@ -358,16 +358,16 @@ max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
             for K in k:
                 num_shapes += 1
                 mean_tflops, median_tflops, max_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
-                cur_config = f"{M}x{K}x{N}"
+                cur_config = f"{M}x{N}x{K}"
                 if median_tflops > best_tflops["median"]:
                     best_tflops["median"] = median_tflops
-                    best_config["median"] = f"{cur_config} (MxKxN)"
+                    best_config["median"] = f"{cur_config} (MxNxK)"
                 if mean_tflops > best_tflops["mean"]:
                     best_tflops["mean"] = mean_tflops
-                    best_config["mean"] = f"{cur_config} (MxKxN)"
+                    best_config["mean"] = f"{cur_config} (MxNxK)"
                 if max_tflops > best_tflops["max"]:
                     best_tflops["max"] = max_tflops
-                    best_config["max"] = f"{cur_config} (MxKxN)"
+                    best_config["max"] = f"{cur_config} (MxNxK)"
 
                 print(f"{num_shapes:>6} | {mean_tflops:6.1f}(mean) {median_tflops:6.1f}(median) {max_tflops:6.1f}(max) @ {cur_config:<20} | best: {best_tflops['mean']:6.1f}(mean) {best_tflops['median']:6.1f}(median) {best_tflops['max']:6.1f}(max)TFLOPS", end="\r")
     finish()
