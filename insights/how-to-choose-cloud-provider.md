@@ -6,7 +6,7 @@ To give you a perspective - a 64-node cluster may easily cost USD$20-50M over a 
 
 I can't stress this enough that choosing a bad 3-year contract may prevent your startup from succeeding.
 
-In this article I'm not going to tell which clouds to avoid, but instead try to empower you to avoid having a bad experience and to have at least a decent one, that will give your company a chance to succeed.
+In this article I'm not going to tell which clouds to avoid, but instead try to empower you to avoid having a bad experience and to have at least a decent one, that will give your company a chance to succeed. There will also be a focus on multi-node training clusters. Though many people rent GPUs for small, on-demand, interactive work (i.e. notebooks) and for large deployments of microservices (i.e. inference endpoints), comments on these topics will be left for later.
 
 These notes assume you already know what compute you want for your specific workloads. If you don't please skim through the [Accelerator](../compute/accelerator), [Storage](../storage) and [Network](../network) chapters to know what's available out there. Most of the time you want the latest the clouds have to offer.
 
@@ -167,9 +167,6 @@ Because otherwise, say, you want to double the number of your nodes, but in orde
 Chances are that you will have to drop your current allocation and move to another bigger allocation - possibly even in a different region if they don't have local capacity. And moving to a different region can be a very slow and costly experience because you have to move your storage to where your new cluster is. Based on a personal experience - don't treat this lightly.
 
 
-
-
-
 ## Storage
 
 Large and fast storage is very important for both - good developer experience and fast training/finetuning/inference workloads - in particular with regards to loading/saving checkpoints.
@@ -190,7 +187,7 @@ In general a typical Python shop needs a filesystem that can deal with:
 - tens of thousands of tiny files
 - few huge files
 
-But, of course, only you know what your workloads' specific requirements are.
+But, of course, only you know what your workloads' specific requirements are. Also consider the relationship between local storage and remote (shared) storage, as some providers will reduce the size and performance of local drives to save money. In many cases, developers will read data from a shared filesystem that can be cached locally (code libraries, models, datasets). Teaching people how to use [rsync](https://linux.die.net/man/1/rsync) with local NVMe can improve the developer experience, and reduce I/O on the shared filesystem.
 
 Please refer to the notes and guidance in the [../storage/](Storage chapter) to know the nuances of storage requirements and their benchmarking.
 
@@ -222,6 +219,14 @@ Here are some critical questions you need to ask long before the migration start
 - What happens to the files being edited and created while the filesystem is on the move - do you send everybody home while the migration is happening and freeze the filesystem?
 
 
+### Backup and Archive
+
+Many cloud providers only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD. 
+
+Having the flexibility to expand your total storage capacity, and keep the "hot" (local NVMe), "warm" (shared NVMe), "cold" (shared HDD), and "archive" (tape) in sync can help improve the resiliency of systems, save money, and allow for easier migration or expansion over time. 
+
+
+
 
 
 ## Network
@@ -244,6 +249,14 @@ Ideally you want to benchmark at least a few payloads - the ones that are of a p
 One surprise I experienced on one of the clouds is that when I started using the GPUs I discovered that 5GB of each was already used by the networking software - we managed to reduce it to a lower value, but still we were sold GPUs with less than their memory size and nobody told us about that before we signed the contract.
 
 As accelerators become much bigger this will probably become unimportant, but when you get 75GB of usable memory instead of 80GB on H100 - that's a huge amount of memory lost per GPU.
+
+### Infiniband or Ethernet?
+
+In general, CSPs follow NVIDIA's [DGX SuperPOD Reference Architecture](https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/abstract.html) which provides a lot of detail on how to build a rail-optimized InfiniBand network. Rail-optimized basically means that each GPU in an 8-way system connects to it's own leaf switch. Everything else is a standard fat-tree.
+
+However, many of the largest GPU clusters in the world now run RoCEv2 instead of Infiniband. Meta has [proven](https://engineering.fb.com/2024/08/05/data-center-engineering/roce-network-distributed-ai-training-at-scale/) that you can train frontier-class Llama models on a RoCEv2 network. Semianalysis/Fabricated Knowledge show a [significant drop-off](https://www.fabricatedknowledge.com/p/nvidia-waiting-on-blackwell-and-whats?utm_source=post-banner&utm_medium=web&utm_campaign=posts-open-in-app&triedRedirect=true) in NVIDIA's networking attach rate for their GPUs.
+
+Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can siginificantly impact performance and user experience.
 
 
 
