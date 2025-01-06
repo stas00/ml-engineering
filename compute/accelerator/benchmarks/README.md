@@ -25,12 +25,18 @@ Fairness notes:
 
 Follow the special setup instructions before running the benchmark to achieve the best results:
 
-**MI300x**:
+**MI300x, MI325X, etc.**:
 
-Turn numa_balancing off for better performance:
+1. Turn numa_balancing off for better performance:
 ```
 sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 ```
+2. Enable:
+```
+export PYTORCH_TUNABLEOP_ENABLED=1
+```
+This will make the first iteration very slow, while it's searching for the best GEMM algorithm in the BLAS libraries for each `matmul` shape it encounters, but subsequent operations are likely to be significantly faster than the baseline. See [Accelerating models on ROCm using PyTorch TunableOp](https://rocm.blogs.amd.com/artificial-intelligence/pytorch-tunableop/README.html) (requires `torch>=2.3`) [doc](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md).
+
 
 ### Examples of usage
 
