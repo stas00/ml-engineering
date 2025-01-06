@@ -264,16 +264,17 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 
 **BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                    |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                   |
-| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                          |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version |
-| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                          |
-| NVIDIA H100 SXM  |  785.5 |    989 |      79.4% |   4096x3072x13312 | 2.5.1+cu121     |                          |
-| AMD MI300X       |  659.7 |   1300 |      50.7% |  10240x15360x8192 | 2.5.1+6.3.42131 |                          |
-| Intel Gaudi 2    |        |    432 |            |                   |                 |                          |
-| Intel Gaudi 3    |        |   1835 |            |                   |                 |                          |
-|                  |        |        |            |                   |                 |                          |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                       |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                      |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                             |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version    |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                             |
+| NVIDIA H100 SXM  |  785.5 |    989 |      79.4% |   4096x3072x13312 | 2.5.1+cu121     |                             |
+| AMD MI300X       |  659.7 |   1300 |      50.7% |  10240x15360x8192 | 2.5.1+6.3.42131 |                             |
+| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | PYTORCH_TUNABLEOP_ENABLED=1 |
+| Intel Gaudi 2    |        |    432 |            |                   |                 |                             |
+| Intel Gaudi 3    |        |   1835 |            |                   |                 |                             |
+|                  |        |        |            |                   |                 |                             |
 
 **FP8 (`float8_e4m3fn`)**:
 
