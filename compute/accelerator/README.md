@@ -264,24 +264,24 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 
 **BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                       |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                      |
-| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                             |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version    |
-| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                             |
-| NVIDIA H100 SXM  |  785.5 |    989 |      79.4% |   4096x3072x13312 | 2.5.1+cu121     |                             |
-| AMD MI300X       |  659.7 |   1300 |      50.7% |  10240x15360x8192 | 2.5.1+6.3.42131 |                             |
-| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | PYTORCH_TUNABLEOP_ENABLED=1 |
-| Intel Gaudi 2    |        |    432 |            |                   |                 |                             |
-| Intel Gaudi 3    |        |   1835 |            |                   |                 |                             |
-|                  |        |        |            |                   |                 |                             |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                              |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                             |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                                    |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
+| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     |                                    |
+| AMD MI300X       |  659.7 |   1300 |      50.7% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
+| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
+| Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
+| Intel Gaudi 3    |        |   1835 |            |                   |                 |                                    |
+|                  |        |        |            |                   |                 |                                    |
 
 **FP8 (`float8_e4m3fn`)**:
 
 | Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes                    |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :-----                   |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
-| NVIDIA H100 SXM  | 1344.9 |   1979 |      68.0% |   15360x3072x4096 | 2.5.1+cu121 |                          |
+| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
 | Intel Gaudi 2    |        |    865 |            |                   |             |                          |
 | Intel Gaudi 3    |        |   1835 |            |                   |             |                          |
 | AMD MI300X       |        |   2600 |            |                   |             |                          |
@@ -301,7 +301,7 @@ The following is the older v1 version table that didn't reset the cache during t
 | AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x4864x10240 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
 
-Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
+Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-run every 6 months or so.
 
 Notes:
 - For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
