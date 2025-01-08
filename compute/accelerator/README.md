@@ -156,7 +156,7 @@ The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 
 
 For NVIDIA BF16 operations a compute unit is a CUDA core.
 
-| Accelerator | Boost Clock | FMAs ops per CUDA core per clock cycle |  CUDA Cores | Spec TFLOPS |
+| Accelerator | Boost Clock | FMAs ops per CUDA Core per clock cycle |  CUDA Cores | Spec TFLOPS |
 | :---------  | ---------:  | -------------------------------------: | ----------: | ----------: |
 | H100 SXM    | 1980Mhz     |                                    512 |         528 |         989 |
 | A100 SXM    | 1410MHz     |                                    256 |         432 |         312 |
@@ -168,12 +168,24 @@ Now let's do the math, by inserting the numbers from the table above into the la
 
 The calculated A100 SXM TFLOPS number matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
+For AMD:
+
+| Accelerator | Boost Clock | FMAs ops per Tensor Core per clock cycle | Tensor Cores | Spec TFLOPS |
+| :---------  | ---------:  |   -------------------------------------: |  ----------: | ----------: |
+| MI300X      | 2100Mhz     |                                      256 |         1216 |        1307 |
+
+
+Let's calculate ourselves as before:
+
+- `2100*10**6 * 256 * 2 * 1216 / 10**12 = 1307.4` TFLOPS - matches the published spec, even though most of the time you will see the rounded down `1300` TFLOPS in the literature.
+
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
-To check the actual boost clock speed when your accelerator is under load:
+To check the actual clock speed when your accelerator is under load:
 - NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs`
-- AMD: `amd-smi metric --clock`
+- AMD: `rocm-smi -g` for actual and `amd-smi metric --clock` for theoretical
 - Intel: `hl-smi –display CLOCK`
+
 
 
 
@@ -250,29 +262,30 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see above for what MAMF means). Using a mean of 100 iterations after 50 warmup iterations for each shape. Sorted by accelerator efficiency:
 
-BF16:
+**BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes  |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126 |        |
-| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124 |        |
-| NVIDIA H100 SXM  |  758.6 |    989 |      76.5% |   1024x8192x15360 | 2.5.1+cu124 |        |
-| NVIDIA A100 SXM  |        |    312 |            |                   |             |        |
-| Intel Gaudi 2    |        |    432 |            |                   |             |        |
-| Intel Gaudi 3    |        |   1835 |            |                   |             |        |
-| AMD MI300X       |        |   1300 |            |                   |             |        |
-|                  |        |        |            |                   |             |        |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                              |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                             |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                                    |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
+| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     |                                    |
+| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
+| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
+| Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
+| Intel Gaudi 3    |        |   1835 |            |                   |                 |                                    |
+|                  |        |        |            |                   |                 |                                    |
 
-FP8 (`float8_e4m3fn`):
+**FP8 (`float8_e4m3fn`)**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes  |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :----- |
-| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 |        |
-| NVIDIA H100 SXM  | 1281.7 |   1979 |      64.8% |    5120x6144x6144 | 2.5.1+cu124 |        |
-| Intel Gaudi 2    |        |    865 |            |                   |             |        |
-| Intel Gaudi 3    |        |   1835 |            |                   |             |        |
-| AMD MI300X       |        |   2600 |            |                   |             |        |
-|                  |        |        |            |                   |             |        |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes                    |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :-----                   |
+| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
+| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
+| Intel Gaudi 2    |        |    865 |            |                   |             |                          |
+| Intel Gaudi 3    |        |   1835 |            |                   |             |                          |
+| AMD MI300X       |        |   2600 |            |                   |             |                          |
+|                  |        |        |            |                   |             |                          |
 
 The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables.
 
@@ -288,7 +301,7 @@ The following is the older v1 version table that didn't reset the cache during t
 | AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x4864x10240 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
 
-Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-rerun once in 6 months or so.
+Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-run every 6 months or so.
 
 Notes:
 - For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
@@ -296,7 +309,7 @@ Notes:
 - While `mean` is probably what most users are interested in, the script reports `max`, `median` and `mean` - should you want the other numbers.
 - Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
-- Which software you use can make a huge difference - e.g. with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up. BLAS library type/version may have a big impact as well.
+- Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383 TFLOPS is reported for 2 GCDs.
 
