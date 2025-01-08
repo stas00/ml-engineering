@@ -234,7 +234,6 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
         # some torch versions require the scale arg, some don't so discover which is required
         try:
-            C = torch._scaled_mm(A, B)
             @time_it(total_iterations)
             def time_iterations():
                 C = torch._scaled_mm(A, B)
