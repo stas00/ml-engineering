@@ -167,6 +167,9 @@ Because otherwise, say, you want to double the number of your nodes, but in orde
 Chances are that you will have to drop your current allocation and move to another bigger allocation - possibly even in a different region if they don't have local capacity. And moving to a different region can be a very slow and costly experience because you have to move your storage to where your new cluster is. Based on a personal experience - don't treat this lightly.
 
 
+
+
+
 ## Storage
 
 Large and fast storage is very important for both - good developer experience and fast training/finetuning/inference workloads - in particular with regards to loading/saving checkpoints.
