@@ -6,7 +6,7 @@ To give you a perspective - a 64-node cluster may easily cost USD$20-50M over a 
 
 I can't stress this enough that choosing a bad 3-year contract may prevent your startup from succeeding.
 
-In this article I'm not going to tell which clouds to avoid, but instead try to empower you to avoid having a bad experience and to have at least a decent one, that will give your company a chance to succeed. There will also be a focus on multi-node training clusters. Though many people rent GPUs for small, on-demand, interactive work (i.e. notebooks) and for large deployments of microservices (i.e. inference endpoints), comments on these topics will be left for later.
+In this article I'm not going to tell which clouds to avoid, but instead try to empower you to avoid having a bad experience and to have at least a decent one, that will give your company a chance to succeed.
 
 These notes assume you already know what compute you want for your specific workloads. If you don't please skim through the [Accelerator](../compute/accelerator), [Storage](../storage) and [Network](../network) chapters to know what's available out there. Most of the time you want the latest the clouds have to offer.
 
@@ -221,15 +221,17 @@ Here are some critical questions you need to ask long before the migration start
 
 ### Backup and Archive
 
-Many cloud providers only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD. 
+Many cloud providers only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD.
 
-Having the flexibility to expand your total storage capacity, and keep the "hot" (local NVMe), "warm" (shared NVMe), "cold" (shared HDD), and "archive" (tape) in sync can help improve the resiliency of systems, save money, and allow for easier migration or expansion over time. 
+Having the flexibility to expand your total storage capacity, and keep the "hot" (local NVMe), "warm" (shared NVMe), "cold" (shared HDD), and "archive" (tape) in sync can help improve the resiliency of systems, save money, and allow for easier migration or expansion over time.
 
 
 
 
 
 ## Network
+
+This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
 In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#intra-node-networking) network speeds match the promise and your expectations.
 
@@ -277,7 +279,7 @@ Tier 2 clouds are more likely to be more flexible, have non-mainstream accelerat
 
 A well-oiled node orchestration is critical for successfully using multi-node clusters.
 
-Make sure you know which one you need - usually [SLURM](../orchestration/slurm/), Kubernetes or a combination of the two and make sure it's well supported. Some clouds would only support one of them, or provide a very limited support for another type.
+Make sure you know which one you need - usually [SLURM](../orchestration/slurm/), Kubernetes or a combination of the two and make sure it's well supported. Some clouds would only support one of them, or provide a very limited support for another type. These days SLURM is mostly used for training/finetuning and Kubernetes for inference. And there are other [emerging orchestration platforms out there](../orchestration/).
 
 Same as with hardware, depending on whether you're planning to administrate your own cluster you need to know who will deal with any problems. This is a very crucial component of your stack, since if the orchestration is broken, nobody can use the cluster and you lose time/money.
 
