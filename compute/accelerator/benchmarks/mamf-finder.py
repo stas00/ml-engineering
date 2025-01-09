@@ -233,14 +233,30 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         B = B.to(torch.float8_e4m3fn)
 
         # some torch versions require the scale arg, some don't so discover which is required
+        test_result = torch._scaled_mm(A, B)
+        returns_tuple = isinstance(test_result, tuple)
         try:
-            @time_it(total_iterations)
-            def time_iterations():
-                C = torch._scaled_mm(A, B)
+            if returns_tuple:
+                @time_it(total_iterations)
+                def time_iterations():
+                    result, _ = torch._scaled_mm(A, B)
+                    C.copy_(result)
+            else:
+                @time_it(total_iterations)
+                def time_iterations():
+                    result = torch._scaled_mm(A, B)
+                    C.copy_(result)
         except:
-            @time_it(total_iterations)
-            def time_iterations():
-                C = torch._scaled_mm(A, B, scale, scale)
+            if returns_tuple:
+                @time_it(total_iterations)
+                def time_iterations():
+                    result, _ = torch._scaled_mm(A, B, scale, scale)
+                    C.copy_(result)
+            else:
+                @time_it(total_iterations)
+                def time_iterations():
+                    result = torch._scaled_mm(A, B, scale, scale)
+                    C.copy_(result)
 
     else:
         A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
