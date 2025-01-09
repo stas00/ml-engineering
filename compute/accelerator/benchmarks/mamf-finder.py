@@ -240,23 +240,19 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
                 @time_it(total_iterations)
                 def time_iterations():
                     result, _ = torch._scaled_mm(A, B)
-                    C.copy_(result)
             else:
                 @time_it(total_iterations)
                 def time_iterations():
                     result = torch._scaled_mm(A, B)
-                    C.copy_(result)
         except:
             if returns_tuple:
                 @time_it(total_iterations)
                 def time_iterations():
                     result, _ = torch._scaled_mm(A, B, scale, scale)
-                    C.copy_(result)
             else:
                 @time_it(total_iterations)
                 def time_iterations():
                     result = torch._scaled_mm(A, B, scale, scale)
-                    C.copy_(result)
 
     else:
         A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
