@@ -74,6 +74,8 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 - TGP: Total Graphics Power
 - TPU: Tensor Processing Unit
 
+[Additional glossary @ Modal](https://modal.com/gpu-glossary)
+
 ## The most important thing to understand
 
 I will make the following statement multiple times in this book - and that it's not enough to buy/rent the most expensive accelerators and expect a high return on investment (ROI).
@@ -546,12 +548,13 @@ Additional notes:
 
 
 
-### Heat
+### Cooling
 
 This is of interest when you buy your own hardware, when you rent on the cloud the provider hopefully takes care of adequate cooling.
 
-The only important practical understanding for heat is that if the accelerators aren't kept cool they will throttle their compute clock and slow everything down (and could even crash sometimes, albeit throttling is supposed to prevent that).
+The only important practical understanding for cooling is that if the accelerators aren't kept cool they will throttle their compute clock and slow everything down and could even crash sometimes, albeit throttling is supposed to prevent that.
 
+For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d PERFORMANCE` - if `SW Thermal Slowdown` or some other entries are `Active` - then your are not getting the full performance of your GPU and you need to investigate better cooling.
 
 
 
