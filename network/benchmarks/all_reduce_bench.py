@@ -72,28 +72,72 @@ all_reduce_bench.py
 
 """
 
+from pathlib import Path
+import matplotlib.pyplot as plt
+import gc
 import os
 import socket
 import torch
 import torch.distributed as dist
+import textwrap
+
+has_hpu = False
+try:
+    import habana_frameworks.torch as ht
+    if torch.hpu.is_available():
+        has_hpu = True
+except ModuleNotFoundError:
+    pass
+
+
 
 TRIALS = 5
 
-# these emulate the payload which will become a M * N * 4-sized tensor below
-N = 500000
-M = 2000
+# https://stackoverflow.com/a/75332100/9201239
+fmt_bytes = lambda v : str(v >> ((max(v.bit_length()-1, 0)//10)*10)) +["", "K", "M", "G", "T", "P", "E"][max(v.bit_length()-1, 0)//10]+"B"
 
-def timed_allreduce(mat, start_event, end_event):
+def get_device_info():
+    if torch.cuda.is_available():
+        return repr(torch.cuda.get_device_properties('cuda'))
+    elif has_hpu:
+        return repr(torch.hpu.get_device_properties('hpu'))
+    else:
+        return "Unknown accelerator"
+
+def plot(path, x, y, ranks):
+
+    plt.figure(dpi=500)
+    plt.plot(x, y)
+    plt.xlabel(f"Message size")
+    plt.ylabel("Throughput (GBps)")
+    plt.title(f"Bandwidth Throughput for ranks={ranks}")
+    plt.xticks(rotation=45)
+
+    device_info = get_device_info()
+
+    # wrap notes - this can now handle several lines of text.
+    notes = "\n".join(textwrap.wrap(device_info, width=60))
+
+    plt.annotate(notes,
+                 xy=(0.001, -0.3),
+                 xycoords='axes fraction',
+                 ha='left',
+                 va="center",
+                 fontsize=10)
+
+    plt.savefig(path, bbox_inches='tight')
+
+
+
+def timed_allreduce(tensor, size, start_event, end_event):
     dist.barrier()
     start_event.record()
-    dist.all_reduce(mat)
+    dist.all_reduce(tensor)
     end_event.record()
-
     torch.cuda.synchronize()
     duration = start_event.elapsed_time(end_event) / 1000
 
     n = dist.get_world_size()
-    size = M * N * 4 # 4 is 4 bytes in fp32
     # note that this is following the same math as NVIDIA/nccl-tests
     algbw = torch.tensor([size / duration]).cuda(local_rank)
 
@@ -106,36 +150,63 @@ def timed_allreduce(mat, start_event, end_event):
 def run(local_rank):
     hostname = socket.gethostname()
     is_global_rank_0 = dist.get_rank() == 0
+    ranks = dist.get_world_size()
 
-    mat = torch.rand(N, M, dtype=torch.float32).cuda(local_rank)
+    plot_path = f"busbw-{hostname}-{ranks}.png"
 
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
 
-    # do a few warm up iterations
-    for i in range(2):
-        timed_allreduce(mat, start_event, end_event)
+    lower_limit = 15
+    upper_limit = 34
 
-    # real benchmark
-    algbw_gather = []
-    for i in range(TRIALS):
+    #lower_limit = 32
+    #upper_limit = 34
+    # 2**15 to 2**34 => 32MB to 16GB
+    sizes = [2**x for x in range(lower_limit, upper_limit+1)]
+    sizes_fmted = [fmt_bytes(x) for x in sizes]
+
+    algbw = {}
+    busbw = {}
+    for size in sizes:
+        # clear prev-iteration memory for cards w/ ~24GB
+        tensor = None
+        gc.collect()
+
+        # /4 is for 4 bytes in fp32
+        tensor = torch.rand(size//4, 1, dtype=torch.float32).cuda(local_rank)
+
+        # do a few warm up iterations
+        for i in range(2):
+            timed_allreduce(tensor, size, start_event, end_event)
+
+        # real benchmark
+        algbw_gather = []
+        for i in range(TRIALS):
+            if is_global_rank_0:
+                print(f"{fmt_bytes(size):>6}: {i+1}", end="\r")
+            algbw_gather += timed_allreduce(tensor, size, start_event, end_event)
         if is_global_rank_0:
-            print(i+1)
-        algbw_gather += timed_allreduce(mat, start_event, end_event)
+            print()
 
-    algbw = torch.mean(torch.stack(algbw_gather))
+        algbw[size] = torch.mean(torch.stack(algbw_gather)).item()
 
-    # the 2*(n-1)/n busbw correction factor specific to all-reduce is explained here:
-    # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
-    # busbw reflects how optimally the hardware is used
-    n = dist.get_world_size()
-    busbw = algbw * (2*(n - 1) / n)
+        # the 2*(n-1)/n busbw correction factor specific to all-reduce is explained here:
+        # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
+        # busbw reflects how optimally the hardware is used
+        busbw[size] = algbw[size] * (2*(ranks - 1) / ranks)
 
     if is_global_rank_0:
-        print(f"The average bandwidth of all_reduce with a {M*N*4/1e9}GB payload ({TRIALS} trials, {n} ranks):\n",
-              f"algbw: {algbw/1e9:.3f} GBps ({algbw*8/1e9:.1f} Gbps)\n",
-              f"busbw: {busbw/1e9:.3f} GBps ({busbw*8/1e9:.1f} Gbps)\n",
-        )
+        print(f"Device info: {get_device_info()}")
+        print(f"The average bandwidth of all_reduce with ({TRIALS} trials, {ranks} ranks):\n")
+        print(f"| payload |    busbw   |    algbw   |")
+        print(f"| ------: | ---------: | ---------: |")
+        for size in sizes:
+            print(f"| {fmt_bytes(size):>7} | {busbw[size]/2**30:6.2f}GBps | {algbw[size]/2**30:6.2f}GBps |")
+
+        print(f"\n*** Plotting results into {plot_path}")
+        plot(plot_path, sizes_fmted, busbw.values(), ranks)
+
 
 def init_processes(local_rank, fn, backend='nccl'):
     torch.cuda.set_device(local_rank)
