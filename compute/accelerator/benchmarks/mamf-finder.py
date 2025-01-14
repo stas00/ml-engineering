@@ -232,13 +232,14 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t()
+        scale = torch.tensor([1.0]).to(device)
         A = A.to(torch.float8_e4m3fn)
         B = B.to(torch.float8_e4m3fn)
         
         # Simplified call for PyTorch 2.5+
         @time_it(total_iterations)
         def time_iterations():
-            C = torch._scaled_mm(A, B)
+            C = torch._scaled_mm(A, B, scale, scale)
 
     else:
         A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
