@@ -28,6 +28,7 @@ import signal
 import sys
 import time
 import torch
+from packaging import version
 
 # important: when changing how the benchmark measures things bump up its version, so that the old
 # reports could be differentiated from the new ones
@@ -224,18 +225,21 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         return decorator
 
     total_iterations = num_iterations + num_warmup_iterations
-    if dtype == torch.float8_e4m3fn:
-        # Check if PyTorch version is >= 2.5
-        TORCH_VERSION = tuple(map(int, torch.__version__.split('.')[:2]))
-        if TORCH_VERSION < (2, 5):
-            raise ValueError("float8 (fp8) dtype requires PyTorch >= 2.5")
-            
+
+    # fp8 requires special handling depending on the vendor:
+    # float8_e4m3fn for nvidia, float8_e4m3fnuz for amd
+    fp8_dtypes = [torch.float8_e4m3fn, torch.float8_e4m3fnuz]
+    if dtype in fp8_dtypes:
+        # torch._scaled_mm is different before pt-2.5
+        if version.parse(torch.__version__) < version.parse("2.5"):
+            raise ValueError("float8 dtypes require torch>=2.5")
+
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t()
         scale = torch.tensor([1.0]).to(device)
-        A = A.to(torch.float8_e4m3fn)
-        B = B.to(torch.float8_e4m3fn)
-        
+        A = A.to(dtype)
+        B = B.to(dtype)
+
         # Simplified call for PyTorch 2.5+
         @time_it(total_iterations)
         def time_iterations():
