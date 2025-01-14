@@ -11,13 +11,22 @@ In this article I'm not going to tell which clouds to avoid, but instead try to 
 These notes assume you already know what compute you want for your specific workloads. If you don't please skim through the [Accelerator](../compute/accelerator), [Storage](../storage) and [Network](../network) chapters to know what's available out there. Most of the time you want the latest the clouds have to offer.
 
 
+
+## Glossary
+
+- CSP: Cloud Service Provider
+- SLA: Service-level_agreement
+- SLO: Service Level Objective
+
+
+
 ## Contracts
 
 If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in TCO savings (and time)!
 
 ### Free Trials
 
-Most cloud providers have trial programs where you can "kick the tires" for a few days/weeks on a few nodes for free.
+Most cloud service providers (CSPs) have trial programs where you can "kick the tires" for a few days/weeks on a few nodes for free.
 
 Granted, it won't give you an indication of how well the bigger cluster would scale, but it should be sufficient to be able to run quite a few benchmarks and experiments.
 
@@ -26,13 +35,13 @@ It also will give you a good opportunity to check how the provider's customer su
 
 ### Half-baked solutions
 
-Since a new generation of accelerators happens roughly every 12-18 months and the customer wants those latest accelerators "yesterday" to have a business advantage over their competitors - this gives cloud providers barely any time to integrate the new generation of the hardware, test it, adapt their software stack and burn those components in.
+Since a new generation of accelerators happens roughly every 12-18 months and the customer wants those latest accelerators "yesterday" to have a business advantage over their competitors - this gives CSPs barely any time to integrate the new generation of the hardware, test it, adapt their software stack and burn those components in.
 
-So if you want the latest generation as soon as it becomes available you're almost guaranteed to have a bad experience because, well, time is needed to get things right - we are talking about months of waiting. But customers rule - so the cloud providers give them what they want, often not quite telling that what the customer gets is not quite ready.
+So if you want the latest generation as soon as it becomes available you're almost guaranteed to have a bad experience because, well, time is needed to get things right - we are talking about months of waiting. But customers rule - so the CSPs give them what they want, often not quite telling that what the customer gets is not quite ready.
 
-I'm not sure if cloud providers are to blame, because often they get the hardware delivery months after it was promised by the manufacturers and, of course, by now they can't keep their promises to the customers, so they just go ahead and deliver...
+I'm not sure if CSPs are to blame, because often they get the hardware delivery months after it was promised by the manufacturers and, of course, by now they can't keep their promises to the customers, so they just go ahead and deliver...
 
-Then some cloud providers develop their own hardware (e.g. network stack) in order to have better margins and then they fail to complete those custom solutions in time, the latest accelerators are there, but the whole system is limping. It's much safer when off-the-shelf components are offered, since those are most likely to be well-tested working components (expect it's likely to cost more).
+Then some CSPs develop their own hardware (e.g. network stack) in order to have better margins and then they fail to complete those custom solutions in time, the latest accelerators are there, but the whole system is limping. It's much safer when off-the-shelf components are offered, since those are most likely to be well-tested working components (expect it's likely to cost more).
 
 I think it's OK if the customer wants the hardware early, there should just be an honest disclosure as in: *"look we need some 3 more months to make things solid, if you want the nodes now you can have them but we can't guarantee anything."*
 
@@ -49,7 +58,7 @@ In my experience "we will do our best" is demonstrated by Tier-1 clouds by sendi
 
 What you need is just 2 cloud support people on the call - one product manager and one engineer directly responsible for solving the problem at hand. And in my experience this sort of meeting could take weeks to months to manifest or not at all. Usually one needs to have good connections to be able to escalate the issue to "top brass".
 
-For every critical component of the package you're purchasing you need a quantifiable delivery. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the cloud provider will do when this happens. How long do they have to fix the problem and whether you can break a contract should this not happen within the agreed by both sides time.
+For every critical component of the package you're purchasing you need a quantifiable delivery. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the CSP will do when this happens. How long do they have to fix the problem and whether you can break a contract should this not happen within the agreed by both sides time.
 
 Same goes for storage, accelerators and any other critical component that you plan to rely on.
 
@@ -128,7 +137,7 @@ Otherwise, a new batch of accelerators often has a 3-10% failure rate, which is 
 
 So ask your provider how long did they burn in your accelerators/systems for, if at all.
 
-I'm yet to find a golden reference point, but, for example,  [SemiAnalysis](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/#cluster-deployment-and-acceptance-test) suggests that OEM provider performs a 3-4 weeks burn-in, and then the cloud provider conducts another 2-3 day long burn-in/acceptance test. So if that's the case you want to ensure that the systems were stress-tested for at least 2-3 days.
+I'm yet to find a golden reference point, but, for example,  [SemiAnalysis](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/#cluster-deployment-and-acceptance-test) suggests that OEM provider performs a 3-4 weeks burn-in, and then the CSP conducts another 2-3 day long burn-in/acceptance test. So if that's the case you want to ensure that the systems were stress-tested for at least 2-3 days.
 
 
 ### Dealing with accelerator failures
@@ -190,7 +199,7 @@ In general a typical Python shop needs a filesystem that can deal with:
 - tens of thousands of tiny files
 - few huge files
 
-But, of course, only you know what your workloads' specific requirements are.
+But, of course, only you know what your workloads' specific requirements are. Also consider the relationship between local storage and remote (shared) storage, as some providers will reduce the size and performance of local drives to save money. In many cases, developers will read data from a shared filesystem that can be cached locally (code libraries, models, datasets). Teaching people how to use [rsync](https://linux.die.net/man/1/rsync) with local NVMe can improve the developer experience, and reduce I/O on the shared filesystem.
 
 Please refer to the notes and guidance in the [../storage/](Storage chapter) to know the nuances of storage requirements and their benchmarking.
 
@@ -222,9 +231,19 @@ Here are some critical questions you need to ask long before the migration start
 - What happens to the files being edited and created while the filesystem is on the move - do you send everybody home while the migration is happening and freeze the filesystem?
 
 
+### Backup and Archive
+
+Many CSPs only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD.
+
+Having the flexibility to expand your total storage capacity, and keep the "hot" (local NVMe), "warm" (shared NVMe), "cold" (shared HDD), and "archive" (tape) in sync can help improve the resiliency of systems, save money, and allow for easier migration or expansion over time.
+
+
+
 
 
 ## Network
+
+This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
 In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#intra-node-networking) network speeds match the promise and your expectations.
 
@@ -245,6 +264,14 @@ One surprise I experienced on one of the clouds is that when I started using the
 
 As accelerators become much bigger this will probably become unimportant, but when you get 75GB of usable memory instead of 80GB on H100 - that's a huge amount of memory lost per GPU.
 
+### Infiniband or Ethernet?
+
+In general, CSPs follow NVIDIA's [DGX SuperPOD Reference Architecture](https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/abstract.html) which provides a lot of detail on how to build a rail-optimized InfiniBand network. Rail-optimized basically means that each GPU in an 8-way system connects to it's own leaf switch. Everything else is a standard fat-tree.
+
+However, many of the largest GPU clusters in the world now run RoCEv2 instead of Infiniband. Meta has [proven](https://engineering.fb.com/2024/08/05/data-center-engineering/roce-network-distributed-ai-training-at-scale/) that you can train frontier-class Llama models on a RoCEv2 network. Semianalysis/Fabricated Knowledge show a [significant drop-off](https://www.fabricatedknowledge.com/p/nvidia-waiting-on-blackwell-and-whats?utm_source=post-banner&utm_medium=web&utm_campaign=posts-open-in-app&triedRedirect=true) in NVIDIA's networking attach rate for their GPUs.
+
+Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can siginificantly impact performance and user experience.
+
 
 
 ## Miscellaneous
@@ -264,7 +291,7 @@ Tier 2 clouds are more likely to be more flexible, have non-mainstream accelerat
 
 A well-oiled node orchestration is critical for successfully using multi-node clusters.
 
-Make sure you know which one you need - usually [SLURM](../orchestration/slurm/), Kubernetes or a combination of the two and make sure it's well supported. Some clouds would only support one of them, or provide a very limited support for another type.
+Make sure you know which one you need - usually [SLURM](../orchestration/slurm/), Kubernetes or a combination of the two and make sure it's well supported. Some clouds would only support one of them, or provide a very limited support for another type. These days SLURM is mostly used for training/finetuning and Kubernetes for inference. And there are other [emerging orchestration platforms out there](../orchestration/).
 
 Same as with hardware, depending on whether you're planning to administrate your own cluster you need to know who will deal with any problems. This is a very crucial component of your stack, since if the orchestration is broken, nobody can use the cluster and you lose time/money.
 
@@ -279,7 +306,7 @@ I have had experiences where we were forced to use some very old Ubuntu versions
 
 ### System administration
 
-These days it can be difficult to find a good system administrator that understands the specific needs of the ML workloads, so it's a good idea to ask if some of that work could be offloaded to the cloud provider. Tier-1 cloud providers sub-contract service companies that can provide various degrees of system administration. Smaller clouds are likely to offer their own direct services. They usually have a good grasp of what ML workloads need.
+These days it can be difficult to find a good system administrator that understands the specific needs of the ML workloads, so it's a good idea to ask if some of that work could be offloaded to the CSP. Tier-1 CSPs sub-contract service companies that can provide various degrees of system administration. Smaller clouds are likely to offer their own direct services. They usually have a good grasp of what ML workloads need.
 
 You won't be able to succeed without someone experienced taking care of your cluster. Using your ML engineers to also deal with system administration work can be very counter-productive, since it can be a very time-demanding and interrupting work.
 
@@ -292,7 +319,7 @@ These notes are based on my direct experience and clearly I haven't been exposed
 
 Add your own questions, by thinking what's important for you, what failures may prevent you from accomplishing your compute goals.
 
-If you have a particular cloud provider that you're casing out ask the community about them, especially what pitfalls to avoid with that cloud.
+If you have a particular CSP that you're casing out ask the community about them, especially what pitfalls to avoid with that cloud.
 
 The key message of this article is for you to choose a cloud where your choice hasn't been taken away and that you don't get stuck with a service your developers hate, which is likely to lead to people leaving your company.
 

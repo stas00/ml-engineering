@@ -74,6 +74,8 @@ As most of us rent the compute, and we never see what it looks like, here is a h
 - TGP: Total Graphics Power
 - TPU: Tensor Processing Unit
 
+[Additional glossary @ Modal](https://modal.com/gpu-glossary)
+
 ## The most important thing to understand
 
 I will make the following statement multiple times in this book - and that it's not enough to buy/rent the most expensive accelerators and expect a high return on investment (ROI).
@@ -154,6 +156,9 @@ First, let's extract the necessary accelerator specs from [wiki](https://en.wiki
 
 The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2). Most are coming from the [A100 whitepaper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf) (search the pdf for "FMA" and then choose the ones listed for the target precision you're after). The [H100 whitepaper](https://resources.nvidia.com/en-us-tensor-core) omitted a lot of specific FMA numbers, but included the multipliers wrt FMAs listed in the A100 whitepaper).
 
+
+**For NVIDIA @ BF16**:
+
 For NVIDIA BF16 operations a compute unit is a CUDA core.
 
 | Accelerator | Boost Clock | FMAs ops per CUDA Core per clock cycle |  CUDA Cores | Spec TFLOPS |
@@ -168,16 +173,30 @@ Now let's do the math, by inserting the numbers from the table above into the la
 
 The calculated A100 SXM TFLOPS number matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
-For AMD:
+**For AMD @ BF16**:
 
 | Accelerator | Boost Clock | FMAs ops per Tensor Core per clock cycle | Tensor Cores | Spec TFLOPS |
 | :---------  | ---------:  |   -------------------------------------: |  ----------: | ----------: |
 | MI300X      | 2100Mhz     |                                      256 |         1216 |        1307 |
 
-
 Let's calculate ourselves as before:
 
 - `2100*10**6 * 256 * 2 * 1216 / 10**12 = 1307.4` TFLOPS - matches the published spec, even though most of the time you will see the rounded down `1300` TFLOPS in the literature.
+
+**For Intel @ BF16**:
+
+Intel Gaudi uses MMEs to do BF16 `matmul`
+
+| Accelerator | Boost Clock | FMAs ops per MME per clock cycle | MMEs  | Spec TFLOPS |
+| :---------  | ---------:  | -------------------------------: | ----: | ----------: |
+| Gaudi 2     | 1650Mhz     | 256*256                          | 2     | 432         |
+| Gaudi 3     | 1600Mhz     | 256*256                          | 8     | 1677        |
+|             |             |                                  |       |             |
+
+Let's calculate ourselves as before:
+
+- Gaudi 2: `1650*10**6 * 256*256 * 2 * 2 / 10**12 = 432.5` TFLOPS - matches the published spec
+- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't matches the published spec in the whitepaper (1835 TFLOPS), because in order to have 1835 TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
@@ -199,15 +218,15 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | AMD MI555X           |    ?? |     ?? | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
 | NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
 | NVIDIA B100 SXM      |    ?? |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
+| Intel Gaudi3         |   229 |    459 |  459 | 1677 | 1677 |    V | X    | X      |   1,8 |
 | AMD MI325X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
 | AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
 | NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
 | NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     3 |
 | NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
-| Intel Gaudi3         |   229 |    459 |  459 | 1835 | 1835 |    V | X    | X      |     1 |
 | NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| Intel Gaudi2         |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
 | Google TPU v5p       |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
+| Intel Gaudi2         |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
 | AMD MI250X           |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
 | NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
 | AMD MI250            |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
@@ -233,6 +252,8 @@ Row-specific notes:
 6. GH200 - same note as GB200 - this is 2 chips, so the table includes specs per chip w/o sparsity.
 
 7. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute).
+
+8. Gaudi3 as of this writing is running at 1600Mhz (MME) and not the planned 1750Mhz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 
 General notes:
 
@@ -273,7 +294,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
-| Intel Gaudi 3    |        |   1835 |            |                   |                 |                                    |
+| Intel Gaudi 3    |        |   1677 |            |                   |                 |                                    |
 |                  |        |        |            |                   |                 |                                    |
 
 **FP8 (`float8_e4m3fn`)**:
@@ -283,7 +304,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
 | NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
 | Intel Gaudi 2    |        |    865 |            |                   |             |                          |
-| Intel Gaudi 3    |        |   1835 |            |                   |             |                          |
+| Intel Gaudi 3    |        |   1677 |            |                   |             |                          |
 | AMD MI300X       |        |   2600 |            |                   |             |                          |
 |                  |        |        |            |                   |             |                          |
 
@@ -296,8 +317,8 @@ The following is the older v1 version table that didn't reset the cache during t
 | NVIDIA GH200 SXM |  821.0 |  989.0 |      83.0% |  11264x1536x19712 | CUDA-12.5        |
 | NVIDIA A100 PCIe |  256.4 |  312.0 |      82.2% |    2304x1536x5120 | CUDA-12.1        |
 | NVIDIA H100 SXM  |  792.1 |  989.0 |      80.1% |   6144x2816x17920 | CUDA-12.1        |
+| Intel Gaudi 3    | 1288.8 | 1677.0 |      76.8% |  22272x12288x7936 | Gaudi 1.19       |
 | AMD MI250X       |  147.0 |  191.5 |      76.7% |  1024x19968x14080 | ROCm-6.2 / 1 GCD |
-| Intel Gaudi 3    | 1288.8 | 1835.0 |      70.2% |  22272x12288x7936 | Gaudi 1.19       |
 | AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x4864x10240 | ROCm-6.2         |
 |                  |        |        |            |                   |                  |
 
@@ -414,16 +435,16 @@ Sorting by L2 Total, as it seems to be the cache that is in all accelerators lis
 
 | Accelerator          | L1/Unit | L2/Unit | Units | L1 Total | L2 Total | L3 Total | Notes |
 | :------------------- | ------: | ------: | ----: | -------: | -------: | -------: | :---- |
-| Intel Gaudi3         |         | 24MB    |     4 |          | 96MB     |          |     2 |
+| Intel Gaudi3         |         | 24MB    |     4 |          | 96MB     |          | 2,4   |
 | NVIDIA GH100 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
 | NVIDIA GH200 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
 | NVIDIA H200 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
 | NVIDIA H100 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
-| Intel Gaudi2         |         |         |       |          | 48MB     |          |       |
+| Intel Gaudi2         |         |         |       |          | 48MB     |          | 2,3   |
 | NVIDIA A100 SXM      | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
 | NVIDIA A100 PCIe     | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
-| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
-| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    |     1 |
+| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    | 1     |
+| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    | 1     |
 |                      |         |         |       |          |          |          |       |
 | AMD MI355X           | ???     |         |       |          |          |          |       |
 | NVIDIA B100 SXM      | ???     |         |       |          |          |          |       |
@@ -435,7 +456,12 @@ Notes:
 
 1. AMD provides L3 AMD Infinity Cache which it also calls Last Level Cache (LLC) in the specs
 
-2. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
+2. Gaudi has a different architecture than a GPU. In Gaudi’s case, the MME and TPC have private buffer that perform some of the functions of an L1 cache, called Suspension Buffers. The main function that these buffers provide is data reuse from the buffer (instead of reading the same data multiple times from L2/L3/HBM). Both Gaudi2 and Gaudi3 have the same these buffers for the TPC and MME.
+
+3. Gaudi2 doesn’t have a cache. It has scratchpad SRAM instead of a cache, meaning that software determines what goes in or out of the SRAM at any moment. There are dedicated DMA engines that software needs to program to perform all the data movement between SRAM and HBM.
+
+4. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
+
 
 
 ### Clock speed
@@ -455,21 +481,22 @@ I've observed that the same accelerator may have different clock rates published
 
 Clock speed is in Mhz
 
-| Accelerator          | Boost Clock | Notes |
-| :------------------- | ----------: | :---- |
-| NVIDIA H200 SXM      |        1830 |       |
-| NVIDIA H100 SXM      |        1830 |       |
-| NVIDIA A100 SXM      |        1410 |       |
-| NVIDIA A100 PCIe     |        1410 |       |
-| AMD MI300X           |        2100 |       |
-| AMD MI325X           |        2100 |       |
-|                      |             |       |
-| NVIDIA B100 SXM      |           ? |       |
-| NVIDIA B200 SXM      |           ? |       |
-| NVIDIA B300 SXM      |           ? |       |
-| AMD MI355X           |           ? |       |
-| Intel Gaudi2         |           ? |       |
-| Intel Gaudi3         |           ? |       |
+| Accelerator          | Boost Clock | Notes              |
+| :------------------- | ----------: | :----              |
+| NVIDIA H200 SXM      |        1830 |                    |
+| NVIDIA H100 SXM      |        1830 |                    |
+| NVIDIA A100 SXM      |        1410 |                    |
+| NVIDIA A100 PCIe     |        1410 |                    |
+| AMD MI300X           |        2100 |                    |
+| AMD MI325X           |        2100 |                    |
+| Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
+| Intel Gaudi3         |        1600 | MME=1600, TPC=1600 |
+|                      |             |                    |
+| NVIDIA B100 SXM      |           ? |                    |
+| NVIDIA B200 SXM      |           ? |                    |
+| NVIDIA B300 SXM      |           ? |                    |
+| AMD MI355X           |           ? |                    |
+|                      |             |                    |
 
 
 
@@ -521,12 +548,13 @@ Additional notes:
 
 
 
-### Heat
+### Cooling
 
 This is of interest when you buy your own hardware, when you rent on the cloud the provider hopefully takes care of adequate cooling.
 
-The only important practical understanding for heat is that if the accelerators aren't kept cool they will throttle their compute clock and slow everything down (and could even crash sometimes, albeit throttling is supposed to prevent that).
+The only important practical understanding for cooling is that if the accelerators aren't kept cool they will throttle their compute clock and slow everything down and could even crash sometimes, albeit throttling is supposed to prevent that.
 
+For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d PERFORMANCE` - if `SW Thermal Slowdown` or some other entries are `Active` - then your are not getting the full performance of your GPU and you need to investigate better cooling.
 
 
 
