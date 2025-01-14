@@ -98,3 +98,47 @@ PyTorch supports multiple reduction operations like: `avg`, `sum`, `product`, `m
 ![all-to-all](images/collective-all-to-all-1.png)
 ![all-to-all](images/collective-all-to-all.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
+
+
+## Algorithms
+
+### Ring
+
+#### Broadcast with unidirectional ring
+
+Given:
+
+- N: bytes to broadcast
+- B: bandwidth of each link
+- k: number of GPUs
+
+A naive broadcast will send `N/B` at each step. The total time to broadcast to `k` GPUs will take: `(k-1)*N/B`
+
+Here is an example of how a ring-based broadcast is performed:
+
+![ring-based broadcast](images/broadcast-ring.png)
+[source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
+
+This algorithm splits `N` into `S` messages
+
+At each step `N/(S*B)` is sent (`S` times less than the naive algorithm.
+
+Thus the total time to broadcast `N` bytes to `k` GPUs will take:
+
+`S*N/(S*B) + (k − 2)*N*(SB) = N*(S + k − 2)/(S*B)`
+
+and if split messages are very small so that`S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`
+
+#### All-reduce with unidirectional ring
+
+Ring-based `all-reduce` is done similarly to [broadcast](#broadcast-with-unidirectional-ring). The message is split into many small messages and each GPU sends a small message to the next GPU in parallel with other GPUs. It has to perform 2x steps here, because it performs a reduction - so it the size of the message needs to be sent twice.
+
+Moreover, the whole message can be first split into chunks, to make the process more efficient. Here is the reduction of the first chunk:
+
+![ring-based all-reduce chunk 1](images/all-reduce-ring-chunk1.png)
+[source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
+
+Then the next chunk is done until all smaller messages are reduced:
+
+![ring-based all-reduce chunk 2](images/all-reduce-ring-chunk2.png)
+[source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
