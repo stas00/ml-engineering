@@ -225,34 +225,20 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     total_iterations = num_iterations + num_warmup_iterations
     if dtype == torch.float8_e4m3fn:
+        # Check if PyTorch version is >= 2.5
+        TORCH_VERSION = tuple(map(int, torch.__version__.split('.')[:2]))
+        if TORCH_VERSION < (2, 5):
+            raise ValueError("float8 (fp8) dtype requires PyTorch >= 2.5")
+            
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
         B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t()
-        scale = torch.tensor([1.0]).to(device)
-
         A = A.to(torch.float8_e4m3fn)
         B = B.to(torch.float8_e4m3fn)
-
-        # some torch versions require the scale arg, some don't so discover which is required
-        test_result = torch._scaled_mm(A, B)
-        returns_tuple = isinstance(test_result, tuple)
-        try:
-            if returns_tuple:
-                @time_it(total_iterations)
-                def time_iterations():
-                    result, _ = torch._scaled_mm(A, B)
-            else:
-                @time_it(total_iterations)
-                def time_iterations():
-                    result = torch._scaled_mm(A, B)
-        except:
-            if returns_tuple:
-                @time_it(total_iterations)
-                def time_iterations():
-                    result, _ = torch._scaled_mm(A, B, scale, scale)
-            else:
-                @time_it(total_iterations)
-                def time_iterations():
-                    result = torch._scaled_mm(A, B, scale, scale)
+        
+        # Simplified call for PyTorch 2.5+
+        @time_it(total_iterations)
+        def time_iterations():
+            C = torch._scaled_mm(A, B)
 
     else:
         A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
