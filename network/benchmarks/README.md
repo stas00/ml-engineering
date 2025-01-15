@@ -1,12 +1,51 @@
 # Networking Benchmarks
 
-**Tools**:
+## Tools
 
-- [all_reduce_bench.py](all_reduce_bench.py) - a tool to benchmark the real network bandwidth while performing `all_reduce` on a largish amount of data. This is useful to find out what one gets in reality as compared to the advertised spec.
+### all_reduce benchmark
 
-- [all_gather_object_vs_all_reduce.py](all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the process group. e.g. when implementing some sort of all-processes-are-done flag. This technique is usually used for synchronizing gpus when they may complete at different number of iterations - which one needs for inference over multiple DP channels, or when one wants to sync a `StopIteration` event in `DataLoader`. See also [all_gather_object_vs_all_gather.py](./all_gather_object_vs_all_gather.py).
+[all_reduce_bench.py](all_reduce_bench.py) - a tool to benchmark the real network bandwidth while performing `all_reduce` on a largish amount of data. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to `nccl-tests`, but requires just PyTorch to run.
 
-- [all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reduction
+It generates output like this:
+```
+| payload |    busbw   |    algbw   |
+| ------: | ---------: | ---------: |
+|    32KB |   0.92GBps |   0.48GBps |
+|    64KB |   1.61GBps |   0.83GBps |
+|   128KB |   3.05GBps |   1.58GBps |
+|   256KB |   5.18GBps |   2.67GBps |
+|   512KB |   9.17GBps |   4.73GBps |
+|     1MB |  17.13GBps |   8.84GBps |
+|     2MB |  23.79GBps |  12.28GBps |
+|     4MB |  40.30GBps |  20.80GBps |
+|     8MB |  68.62GBps |  35.42GBps |
+|    16MB |  93.93GBps |  48.48GBps |
+|    32MB |  98.34GBps |  50.76GBps |
+|    64MB |  84.90GBps |  43.82GBps |
+|   128MB |  88.23GBps |  45.54GBps |
+|   256MB |  91.01GBps |  46.97GBps |
+|   512MB |  92.95GBps |  47.98GBps |
+|     1GB |  94.15GBps |  48.59GBps |
+|     2GB |  92.66GBps |  47.83GBps |
+|     4GB |  92.09GBps |  47.53GBps |
+|     8GB |  91.80GBps |  47.38GBps |
+|    16GB |  91.69GBps |  47.32GBps |
+```
+
+And it also creates a plot:
+
+![all-reduce-bench-plot 4 nodes](images/all-reduce-bench-plot-4n.png)
+
+For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py)
+
+
+### all_gather_object vs all_reduce
+
+[all_gather_object_vs_all_reduce.py](all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the process group. e.g. when implementing some sort of all-processes-are-done flag. This technique is usually used for synchronizing gpus when they may complete at different number of iterations - which one needs for inference over multiple DP channels, or when one wants to sync a `StopIteration` event in `DataLoader`. See also [all_gather_object_vs_all_gather.py](./all_gather_object_vs_all_gather.py).
+
+### all_reduce latency comparison
+
+[all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reduction
 
 
 
