@@ -11,7 +11,7 @@ Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 - Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
-- Oren Leung https://github.com/OrenLeung - flagging the lack of cache/dest-matrix reset and suggesting a fix
+- Oren Leung https://github.com/OrenLeung - flagging the lack of cache/dest-matrix reset and suggesting a fix - also proposing geomean
 
 """
 
@@ -299,6 +299,12 @@ if __name__ == '__main__':
     dtype = get_torch_dtype(args.dtype)
     device = arch.device()
 
+    range_info = (
+        f"m={args.m_range if m is None else args.m} | "
+        f"n={args.n_range if n is None else args.n} | "
+        f"k={args.k_range if k is None else args.k}"
+    )
+
     if m is None:
         start, stop, step = args.m_range
         if start == 0: # can't have a 0 dimension
@@ -328,9 +334,13 @@ if __name__ == '__main__':
     best_tflops = dict(max=0, median=0, mean=0)
     best_config = dict(max="", median="", mean="")
     num_shapes = 0
+    all_mean_tflops = []
     start_time = time.time()
 
     def finish():
+
+        geo_mean_tflops = np.exp(np.log(all_mean_tflops).mean())
+
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print("", end="\033[K")
@@ -339,6 +349,8 @@ Tried  {num_shapes} shapes => the best outcomes were:
 mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
 median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
 max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
+
+geomean: {geo_mean_tflops:.1f} TFLOPS for {num_shapes} shapes in range: {range_info}
 """)
         print(f"Elapsed time: {time_str}")
 
@@ -360,6 +372,8 @@ max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
             for K in k:
                 num_shapes += 1
                 mean_tflops, median_tflops, max_tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
+                all_mean_tflops.append(mean_tflops)
+
                 cur_config = f"{M}x{N}x{K}"
                 if median_tflops > best_tflops["median"]:
                     best_tflops["median"] = median_tflops
