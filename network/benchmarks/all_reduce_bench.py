@@ -13,7 +13,6 @@ This version:
 - with contributions from:
   * Indu Thangakrishnan https://github.com/indhub to handle timing correctly using cuda events
 
-
 Important notes:
 
 - when you finished running this benchmark you want to pay attention to the busbw result (not
@@ -22,24 +21,25 @@ Important notes:
 - similar to NVIDIA/nccl-tests this benchmark measures a unidirectional bandwidth - so compare the
   outcome against the advertised unidirectional peak throughput and not bi-directional (duplex)
 
-- currently this benchmark tests a payload of 4GB (M * N * 4). If your target application uses a
-  much smaller payload you want to modify M*N*4 to match the target payload. To calculate the
-  payload use the number of parameters sent in each reduction multiplied by 2 (bf16/fp16) or 4
-  (fp32). e.g., if a reduction is of a single layer of 1B params, and you use bf16 grads it'd be
-  2GB of payload. depending on the framework you use (DDP, FSDP, DeepSpeed ZeRO) they all use
-  different logic to how much of a message size they send.
+- currently this benchmark scans a payload range of 32KB to 16GB.
+
+- this benchmark automatically generates a plot of the results
 
 - if you are wondering whether you need to also run https://github.com/NVIDIA/nccl-tests - I
   already validated that I got very similar results with ./build/all_reduce_perf -b 4G -e 4G
   (tested with mpirun on 4 nodes). It should be either on par or slightly slower because it uses a
-  blocking approach - that is it wait for each new all_reduce to finish before firing the next
+  blocking approach - that is it waits for each new all_reduce to finish before firing the next
   one, whereas nccl-tests fires them all in an async fashion (you can add `-z` to nccl-tests to
   emulate blocking)
 
-- to benchmark other collectives use nccl-tests. It's also useful if you want to test a range of
-  payloads, e.g. there you'd set -b 8 -e 4G -f 2 and it will test many sizes automatically.
+- to benchmark other collectives use nccl-tests or adapt this benchmark to use the desired collective.
 
-To run on 4 nodes:
+- you can interrupt (Ctrl-C) the benchmark in the middle and it'll complete with the results it has
+  measured so far.
+
+Examples:
+
+*** To run on 4 nodes:
 
 GPUS_PER_NODE=8
 NNODES=4
@@ -55,7 +55,7 @@ python -u -m torch.distributed.run \
     --tee 3 \
     all_reduce_bench.py
 
-note: adapt MASTER_ADDR to node rank 0's hostname if it's not a SLURM environment where it's derived automatically
+note: adapt MASTER_ADDR to node rank 0's hostname if it's not a SLURM environment where it's derived automatically.
 
 e.g. example to run with salloc+srun:
 
@@ -65,7 +65,7 @@ srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.ru
 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend \
 c10d all_reduce_bench.py
 
-To do a quick test on 2 gpus:
+*** To do a quick test on 2 GPUs:
 
 python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
 all_reduce_bench.py
@@ -73,13 +73,17 @@ all_reduce_bench.py
 """
 
 from pathlib import Path
-import matplotlib.pyplot as plt
+import datetime
 import gc
+import matplotlib.pyplot as plt
 import os
+import signal
 import socket
+import sys
+import textwrap
+import time
 import torch
 import torch.distributed as dist
-import textwrap
 
 has_hpu = False
 try:
@@ -148,6 +152,9 @@ def timed_allreduce(tensor, size, start_event, end_event):
     return algbw
 
 def run(local_rank):
+
+    start_time = time.time()
+
     hostname = socket.gethostname()
     is_global_rank_0 = dist.get_rank() == 0
     ranks = dist.get_world_size()
@@ -164,7 +171,35 @@ def run(local_rank):
     #upper_limit = 20
     # 2**15 to 2**34 => 32KB to 16GB
     sizes = [2**x for x in range(lower_limit, upper_limit+1)]
-    sizes_fmted = [fmt_bytes(x) for x in sizes]
+
+    # this is useful for when one wants to interrupt the run - and still report the best outcome so far
+    def sigkill_handler(signum, frame):
+         finish()
+         sys.exit(1)
+
+    signal.signal(signal.SIGINT, sigkill_handler)
+
+    def finish():
+        dist.destroy_process_group()
+
+        if not is_global_rank_0:
+            return
+
+        print(f"Device info: {get_device_info()}\n")
+        print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
+        print(f"| payload |    busbw   |    algbw   |")
+        print(f"| ------: | ---------: | ---------: |")
+        for size in busbw.keys():
+            print(f"| {fmt_bytes(size):>7} | {busbw[size]/2**30:6.2f}GBps | {algbw[size]/2**30:6.2f}GBps |")
+
+        print(f"\n*** Plotting results into {plot_path}\n")
+        busbw_GBps = [x/2**30 for x in busbw.values()]
+        sizes_fmted = [fmt_bytes(x) for x in busbw.keys()]
+        plot(plot_path, sizes_fmted, busbw_GBps, ranks)
+
+        time_delta = time.time() - start_time
+        time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
+        print(f"Elapsed time: {time_str}")
 
     algbw = {}
     busbw = {}
@@ -196,17 +231,7 @@ def run(local_rank):
         # busbw reflects how optimally the hardware is used
         busbw[size] = algbw[size] * (2*(ranks - 1) / ranks)
 
-    if is_global_rank_0:
-        print(f"Device info: {get_device_info()}\n")
-        print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
-        print(f"| payload |    busbw   |    algbw   |")
-        print(f"| ------: | ---------: | ---------: |")
-        for size in sizes:
-            print(f"| {fmt_bytes(size):>7} | {busbw[size]/2**30:6.2f}GBps | {algbw[size]/2**30:6.2f}GBps |")
-
-        print(f"\n*** Plotting results into {plot_path}\n")
-        busbw_GBps = [x/2**30 for x in busbw.values()]
-        plot(plot_path, sizes_fmted, busbw_GBps, ranks)
+    finish()
 
 
 def init_processes(local_rank, fn, backend='nccl'):
