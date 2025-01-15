@@ -127,9 +127,20 @@ As it's often not easy to benchmark hundreds of nodes, often we try to benchmark
 > Extrapolating at scale is not that hard for ring and tree (we have a function in `tuning.cc` predicting it, based on the ring linear latency and the tree log latency with reduced BW). Now as you scale, there are many factors which may cause your real performance to be very far off the prediction, like routing. Also note on an IB network you'll be able to use SHARP; that way your latency stays mostly constant as you scale, your bandwidth doesn't degrade much either, and you're always better than both ring and tree.
 
 
+## Disable Access Control Services
+
+PCI Access Control Services (ACS) used for IO virtualization (also known as VT-d or IOMMU) force P2P PCIe transactions to go up through the PCIe Root Complex, which does not enable GDS to bypass the CPU on paths between a network adapter or NVMe and the GPU in systems that include a PCIe switch.
+
+For the optimal GDS performance, disable ACS by following these instructions [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#pci-access-control-services-acs). Here are some [additional notes](https://docs.nvidia.com/gpudirect-storage/best-practices-guide/index.html)
+
+Please note that if you're using Virtual machines you can't disable ACS as it's a required feature. To run with maximum performance inside virtual machines, Address Translation Service (ATS) needs to be enabled in network adapters.
+
+
 ## Performance-Oriented NCCL Environment Variables
 
 While NCCL is excellent at automatically figuring out the best performance for any given network, sometimes it needs some help, in which case the following NCCL env vars are used to tune up performance. Let's look at a few common ones you might want to be aware of, and the full list of those can be found [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html). e
+
+Note that some `NCCL_IB_*` env vars apply to RoCEv2 networks as well.
 
 ### `NCCL_ALGO`
 
@@ -157,6 +168,7 @@ There is also a new algo, named `NVLS`, which if NVLink SHARP is available will 
 And finally, if you would like to know which algo is being used - you can't - see [this answer](https://github.com/NVIDIA/nccl/issues/754#issuecomment-1346163469). So if you want to know which algo gives which throughput you will have to try them all explicitly by setting `NCCL_ALGO` env var and then you'd know which one was chosen. Or you can edit and recompile NCCL as suggested in that same answer, but you won't want this in production.
 
 
+
 ### `NCCL_CROSS_NIC`
 
 The `NCCL_CROSS_NIC` variable controls whether NCCL should allow rings/trees to use different NICs, causing inter-node communication to use different NICs on different nodes.
@@ -170,3 +182,29 @@ Values accepted:
 - 0: Always use the same NIC for the same ring/tree, to avoid crossing network rails. Suited for networks with per NIC switches (rails), with a slow inter-rail connection. Note there are corner cases for which NCCL may still cause cross-rail communication, so rails still need to be connected at the top.
 - 1: Do not attempt to use the same NIC for the same ring/tree. This is suited for networks where all NICs from a node are connected to the same switch, hence trying to communicate across the same NICs does not help avoiding flow collisions.
 - 2: (Default) Try to use the same NIC for the same ring/tree, but still allow for it if it would result in better performance.
+
+
+
+
+### `NCCL_IB_QPS_PER_CONNECTION`
+
+This is relevant if you're on a multi-layer Infiniband or RoCEv2 network.
+
+`NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy. In other words, when your jobs are crossing spine or super-spine switches.
+
+By default it is set to `1`, but having a higher number might benefit throughput.
+
+Depends on the size of the network. you could start with something like 4 for any cluster over 64 GPUs (i.e. any cluster that’s bigger than the radix (number of ports) of its IB switch (e.g. the IB NDR switch radix is 64.)
+
+Ideally you'd ask your cloud provider if they have already researched the best value, but if they didn't you can do it yourself, albeit it might be use-case specific.
+
+The other gotcha is that when the value is higher than `1` an additional GPU memory will be consumed.
+
+
+## Infiniband
+
+### Infiniband adaptive routing
+
+Make sure your cloud provider enables IB adaptive routing which could greatly improve the performance.
+
+For nuances see this paper: [Adaptive Routing in InfiniBand Hardware](https://web-backend.simula.no/sites/default/files/publications/files/adaptive_routing_in_infiniband_hardware.pdf).

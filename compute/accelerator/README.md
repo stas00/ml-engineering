@@ -196,7 +196,7 @@ Intel Gaudi uses MMEs to do BF16 `matmul`
 Let's calculate ourselves as before:
 
 - Gaudi 2: `1650*10**6 * 256*256 * 2 * 2 / 10**12 = 432.5` TFLOPS - matches the published spec
-- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't matches the published spec in the whitepaper (1835 TFLOPS), because in order to have 1835 TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
+- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't match the published spec in the whitepaper (1835 TFLOPS), because in order to have 1835 TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
@@ -291,8 +291,8 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     |                                    |
-| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
+| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
 | Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
 | Intel Gaudi 3    |        |   1677 |            |                   |                 |                                    |
 |                  |        |        |            |                   |                 |                                    |

@@ -2,6 +2,7 @@
 
 **Subsections**:
 
+- [Communication Patterns](comms.md)
 - [Network Debug](debug)
 - [Network Benchmarks](benchmarks)
 
