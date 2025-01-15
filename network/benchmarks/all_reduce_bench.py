@@ -161,7 +161,7 @@ def run(local_rank):
     upper_limit = 34
 
     #lower_limit = 32
-    upper_limit = 20
+    #upper_limit = 20
     # 2**15 to 2**34 => 32KB to 16GB
     sizes = [2**x for x in range(lower_limit, upper_limit+1)]
     sizes_fmted = [fmt_bytes(x) for x in sizes]
