@@ -101,6 +101,8 @@ Please note that if you're using Virtual machines you can't disable ACS as it's 
 
 While NCCL is excellent at automatically figuring out the best performance for any given network, sometimes it needs some help, in which case the following NCCL env vars are used to tune up performance. Let's look at a few common ones you might want to be aware of, and the full list of those can be found [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html). e
 
+Note that some `NCCL_IB_*` env vars apply to RoCEv2 networks as well.
+
 ### `NCCL_ALGO`
 
 This one defines which algorithms NCCL will use. Typically it's one of:
@@ -147,9 +149,9 @@ Values accepted:
 
 ### `NCCL_IB_QPS_PER_CONNECTION`
 
-This is relevant if you're on the Infiniband network.
+This is relevant if you're on a multi-layer Infiniband or RoCEv2 network.
 
-`NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy.
+`NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy. In other words, when your jobs are crossing spine or super-spine switches.
 
 By default it is set to `1`, but having a higher number might benefit throughput.
 
