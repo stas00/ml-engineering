@@ -90,8 +90,8 @@ except ModuleNotFoundError:
     pass
 
 
-
-TRIALS = 5
+WARMUPS = 5
+TRIALS = 20
 
 # https://stackoverflow.com/a/75332100/9201239
 fmt_bytes = lambda v : str(v >> ((max(v.bit_length()-1, 0)//10)*10)) +["", "K", "M", "G", "T", "P", "E"][max(v.bit_length()-1, 0)//10]+"B"
@@ -161,8 +161,8 @@ def run(local_rank):
     upper_limit = 34
 
     #lower_limit = 32
-    #upper_limit = 34
-    # 2**15 to 2**34 => 32MB to 16GB
+    upper_limit = 20
+    # 2**15 to 2**34 => 32KB to 16GB
     sizes = [2**x for x in range(lower_limit, upper_limit+1)]
     sizes_fmted = [fmt_bytes(x) for x in sizes]
 
@@ -177,7 +177,7 @@ def run(local_rank):
         tensor = torch.rand(size//4, 1, dtype=torch.float32).cuda(local_rank)
 
         # do a few warm up iterations
-        for i in range(2):
+        for i in range(WARMUPS):
             timed_allreduce(tensor, size, start_event, end_event)
 
         # real benchmark
@@ -197,15 +197,16 @@ def run(local_rank):
         busbw[size] = algbw[size] * (2*(ranks - 1) / ranks)
 
     if is_global_rank_0:
-        print(f"Device info: {get_device_info()}")
-        print(f"The average bandwidth of all_reduce with ({TRIALS} trials, {ranks} ranks):\n")
+        print(f"Device info: {get_device_info()}\n")
+        print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
         print(f"| payload |    busbw   |    algbw   |")
         print(f"| ------: | ---------: | ---------: |")
         for size in sizes:
             print(f"| {fmt_bytes(size):>7} | {busbw[size]/2**30:6.2f}GBps | {algbw[size]/2**30:6.2f}GBps |")
 
-        print(f"\n*** Plotting results into {plot_path}")
-        plot(plot_path, sizes_fmted, busbw.values(), ranks)
+        print(f"\n*** Plotting results into {plot_path}\n")
+        busbw_GBps = [x/2**30 for x in busbw.values()]
+        plot(plot_path, sizes_fmted, busbw_GBps, ranks)
 
 
 def init_processes(local_rank, fn, backend='nccl'):
