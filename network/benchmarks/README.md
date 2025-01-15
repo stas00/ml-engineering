@@ -101,6 +101,8 @@ Please note that if you're using Virtual machines you can't disable ACS as it's 
 
 While NCCL is excellent at automatically figuring out the best performance for any given network, sometimes it needs some help, in which case the following NCCL env vars are used to tune up performance. Let's look at a few common ones you might want to be aware of, and the full list of those can be found [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html). e
 
+Note that `NCCL_IB_*` env vars apply to RoCE networks as well.
+
 ### `NCCL_ALGO`
 
 This one defines which algorithms NCCL will use. Typically it's one of:
