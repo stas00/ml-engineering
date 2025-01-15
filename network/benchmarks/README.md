@@ -118,6 +118,7 @@ There is also a new algo, named `NVLS`, which if NVLink SHARP is available will 
 And finally, if you would like to know which algo is being used - you can't - see [this answer](https://github.com/NVIDIA/nccl/issues/754#issuecomment-1346163469). So if you want to know which algo gives which throughput you will have to try them all explicitly by setting `NCCL_ALGO` env var and then you'd know which one was chosen. Or you can edit and recompile NCCL as suggested in that same answer, but you won't want this in production.
 
 
+
 ### `NCCL_CROSS_NIC`
 
 The `NCCL_CROSS_NIC` variable controls whether NCCL should allow rings/trees to use different NICs, causing inter-node communication to use different NICs on different nodes.
@@ -131,3 +132,29 @@ Values accepted:
 - 0: Always use the same NIC for the same ring/tree, to avoid crossing network rails. Suited for networks with per NIC switches (rails), with a slow inter-rail connection. Note there are corner cases for which NCCL may still cause cross-rail communication, so rails still need to be connected at the top.
 - 1: Do not attempt to use the same NIC for the same ring/tree. This is suited for networks where all NICs from a node are connected to the same switch, hence trying to communicate across the same NICs does not help avoiding flow collisions.
 - 2: (Default) Try to use the same NIC for the same ring/tree, but still allow for it if it would result in better performance.
+
+
+
+
+### `NCCL_IB_QPS_PER_CONNECTION`
+
+This is relevant if you're on the Infiniband network.
+
+`NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy.
+
+By default it is set to `1`, but having a higher number might benefit throughput.
+
+Depends on the size of the network. you could start with something like 4 for any cluster over 64 GPUs (i.e. any cluster that’s bigger than the radix (number of ports) of its IB switch (e.g. the IB NDR switch radix is 64.)
+
+Ideally you'd ask your cloud provider if they have already researched the best value, but if they didn't you can do it yourself, albeit it might be use-case specific.
+
+The other gotcha is that when the value is higher than `1` an additional GPU memory will be consumed.
+
+
+## Infiniband
+
+### Infiniband adaptive routing
+
+Make sure your cloud provider enables IB adaptive routing which could greatly improve the performance.
+
+For nuances see this paper: [Adaptive Routing in InfiniBand Hardware](https://web-backend.simula.no/sites/default/files/publications/files/adaptive_routing_in_infiniband_hardware.pdf).
