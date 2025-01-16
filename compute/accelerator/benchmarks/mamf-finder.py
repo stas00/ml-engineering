@@ -233,7 +233,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         # torch._scaled_mm is different before pt-2.5
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
-        if dtype == torch.float8_e4m3fn and arch.arch == "rocm":
+        if dtype == torch.float8_e4m3fn and arch.name == "rocm":
             raise ValueError("ROCm doesn't support float8_e4m3fn, use --dtype float8_e4m3fnuz instead")
 
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
