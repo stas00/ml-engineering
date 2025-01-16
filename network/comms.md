@@ -130,6 +130,9 @@ PyTorch API example:
 ![all-to-all](images/collective-all-to-all.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
+For example, this collective is used in [Deepspeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation.
+
+
 PyTorch API example:
 
 `dist.all_to_all(output_tensor_list, input_tensor_list, group)`: Scatters list of input tensors to all processes in a group and return gathered list of tensors in output list. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.all_to_all)
@@ -183,3 +186,10 @@ Then the next chunk is done, until all smaller messages are reduced:
 
 ![ring-based all-reduce chunk 2](images/all-reduce-ring-chunk2.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
+
+
+## More guides
+
+Here are some additional guides with good visuals:
+
+- [UvA Deep Learning Tutorials](https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/DL2/High-performant_DL/Multi_GPU/hpdlmultigpu.html#Communication-Primitives)
