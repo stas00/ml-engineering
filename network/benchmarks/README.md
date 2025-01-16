@@ -45,7 +45,7 @@ For launching examples and notes please see the top of [all_reduce_bench.py](all
 
 ### all_reduce latency comparison
 
-[all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reduction
+[all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reductions.
 
 
 
