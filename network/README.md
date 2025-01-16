@@ -623,7 +623,7 @@ and we hope that comms are faster than DL+compute, since if they aren't faster t
 |<---  iteration  --->||<---  iteration  --->||<---  iteration  --->|
 ```
 
-"Exposed communication" occurs when comms take longer than compute. Here the compute is blocked waiting for the arrival of the data it needs to continue.
+When comms take longer than compute, the comms part that doesn't overlap is called "exposed communication". Here the compute is blocked waiting for the arrival of the data it needs to continue.
 
 
 #### Calculating TFLOPS
