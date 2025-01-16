@@ -769,7 +769,7 @@ case study: during IDEFICS-80B training we were using a streaming `Dataloader` w
 
 
 
-### Pinned memory and non blocking device copy
+### Pinned memory and non-blocking device copy
 
 A combination of:
 

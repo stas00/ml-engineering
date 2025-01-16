@@ -135,7 +135,7 @@ Notes:
 
 ### Peer-to-peer bandwidth
 
-Some vendors have their all-to-all and peer-to-peer (gpu-to-gpu) bandwidth the same, while others don't. For example, AMD MI3\* are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`.
+Some vendors have their all-to-all and peer-to-peer (GPU-to-GPU) bandwidth the same, while others don't. For example, AMD MI3\* are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`.
 
 Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
@@ -152,14 +152,14 @@ Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cr
 
 When peer-to-peer bandwidth is much lower than all-to-all it means that if you don't use all of the accelerators on the node by the same application, you will end up with a much lower bandwidth and your application will have a performance impact if the accelerators have to communicate between each others.
 
-To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was run on a 8 gpu AMD MI300X node with a 4GB payload and the `busbw` measurements were:
+To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was run on a 8x GPU AMD MI300X node with a 4GB payload and the `busbw` measurements were:
 
-- 2 gpus:  47.671 GBps
-- 8 gpus:  312.912 GBps
+- 2 GPUs:  47.671 GBps
+- 8 GPUs:  312.912 GBps
 
-i.e. 2 gpus performed 6.5x slower than 8.
+i.e. 2 GPUs performed 6.5x slower than 8.
 
-So if you have you to deploy TP=2, TP=4, or ZeRO-DP/FSDP over 2 or 4 gpus, be it training or inference, the network will become a bottleneck. If you use TP=1 or TP=8 or ZeRO-DP/FSDP over 8 gpus, or DP over 1-gpu replicas there is no problem. (If you're not sure what TP/ZeRO-DP/DP mean please see [model-parallelism](../training/model-parallelism).)
+So if you have you to deploy TP=2, TP=4, or ZeRO-DP/FSDP over 2 or 4 GPUs, be it training or inference, the network will become a bottleneck. If you use TP=1 or TP=8 or ZeRO-DP/FSDP over 8 GPUs, or DP over 1-GPU replicas there is no problem. (If you're not sure what TP/ZeRO-DP/DP mean please see [model-parallelism](../training/model-parallelism).)
 
 You will find the details analysis of each technology in the following sections.
 
@@ -333,7 +333,7 @@ The following is the all-to-all bandwidth.
 |               |                |       |              |            |
 | MI355X        | ??             |       |              |            |
 
-The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-gpu node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
+The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-GPU node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
 
 Other intra-node solutions typically have the same all-to-all and peer-to-peer intra-node bandwidth, so Infinity Fabric appears to be dramatically slower. I suppose that is because these were created mainly for inference, as these slow speeds would dramatically slow down LLM training.
 
@@ -556,9 +556,9 @@ The previous situation was fantastic due to the close to perfect MFU, but you re
 
 footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
 
-footnote: in the ideal world the training on 1 gpu for 8 durations of time, should cost the same as training on 8 gpus for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements, this is not the case.
+footnote: in the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements, this is not the case.
 
-If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each gpu, computing the sum of gradients and send this value back to each participating gpu so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
+If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
 
 Here is the all-reduce collective visualized:
 
@@ -568,9 +568,9 @@ Here is the all-reduce collective visualized:
 
 So we need to send 8GB twice, which means we need to send 16GB of data.
 
-footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating gpus. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75` and it becomes already very close to 2 at n=64.
+footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating GPUs. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75` and it becomes already very close to 2 at n=64.
 
-footnote: there is also the important issue of latency of the network - which is multiplied several times due to how data is gathered from all participating gpus. But, given that here we are moving a very large payload the latency contributes a very small overhead and for simplicity can be ignored.
+footnote: there is also the important issue of latency of the network - which is multiplied several times due to how data is gathered from all participating GPUs. But, given that here we are moving a very large payload the latency contributes a very small overhead and for simplicity can be ignored.
 
 How long will it take to send 16GB of data?
 
@@ -591,7 +591,7 @@ oh and this whole synchronization protocol is called DDP ([DistributedDataParall
 
 #### Comms and compute overlap
 
-Even with this really fast comms the network still creates a bottleneck and leads to a short idling of the gpus. To solve this issue the advanced algorithms implement an overlap of comms and compute. Until now we approached the problem as one single transmission, but in reality each model is made of many layers and each layer can transmit the gradients it has computed, while the next layer is computing its gradients. So if you look at the level of the model, what happens in the `backward` path is:
+Even with this really fast comms the network still creates a bottleneck and leads to a short idling of the GPUs. To solve this issue the advanced algorithms implement an overlap of comms and compute. Until now we approached the problem as one single transmission, but in reality each model is made of many layers and each layer can transmit the gradients it has computed, while the next layer is computing its gradients. So if you look at the level of the model, what happens in the `backward` path is:
 
 
 ```
@@ -605,7 +605,7 @@ so once the last layer (-1) computed its gradients it all-reduces them while the
 
 So now you understand how overlapping works, So we can now update our bigger picture diagram to be:
 
-Now our timing diagram becomes very similar to the diagram we had for a single gpu:
+Now our timing diagram becomes very similar to the diagram we had for a single GPU:
 
 ```
 [DL][  compute  ][DL][  compute  ][DL][  compute  ]
@@ -614,7 +614,7 @@ Now our timing diagram becomes very similar to the diagram we had for a single g
 |<--iteration-->||<--iteration-->||<--iteration-->|
 ```
 
-and we hope that comms are faster than DL+compute, since if they aren't faster than we have the following gpu idling gaps:
+and we hope that comms are faster than DL+compute, since if they aren't faster than we have the following GPU idling gaps:
 
 ```
 [DL][  compute  ][idle][DL][  compute  ][idle][DL][  compute  ][idle]
@@ -622,6 +622,9 @@ and we hope that comms are faster than DL+compute, since if they aren't faster t
 ----------------------------------------------------------------------> time
 |<---  iteration  --->||<---  iteration  --->||<---  iteration  --->|
 ```
+
+"Exposed communication" occurs when comms take longer than compute. Here the compute is blocked waiting for the arrival of the data it needs to continue.
+
 
 #### Calculating TFLOPS
 
@@ -685,15 +688,15 @@ footnote: this is a very rough suggestions since GPUs work the fastest when the 
 
 OK, but hopefully at this point it's quite clear that if you remain at the boundaries of a single node, you don't need to worry about your GPUs idling.
 
-But what if you want to speed up the training even more and throw say 4x 8-gpu nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become an even bigger bottleneck.
+But what if you want to speed up the training even more and throw say 4x 8-GPU nodes at it. (and of course you don't have a choice but to use multiple nodes if you have a much larger model). Suddenly, the comms can become an even bigger bottleneck.
 
 
 
 ### Multiple node training
 
-So here we are continuing with the idea of 2B param model and we will now use 32 gpus across 4 nodes to speed up the training even more.
+So here we are continuing with the idea of 2B param model and we will now use 32 GPUs across 4 nodes to speed up the training even more.
 
-While each group of 8 gpus is still connected with super-fast NVLink technology, the inter-node connections are usually in an order of magnitude slower.
+While each group of 8 GPUs is still connected with super-fast NVLink technology, the inter-node connections are usually in an order of magnitude slower.
 
 Let's say you have a 200Gbps connection. Let's repeat the math from the previous section of how long it'll take to reduce 16GB of gradients.
 
@@ -722,7 +725,7 @@ Now do the same math with 20B and 200B parameter model and you will see that you
 
 ### Large model training
 
-Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single gpu so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
+Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single GPU so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
 
 It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../training/performance) and improve your MFU even more.
 
