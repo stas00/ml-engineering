@@ -840,25 +840,30 @@ Bottom line - in this particular setup:
 1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
 2. if the payload of each communication is smallish it could be far far lower.
 
-The following plot demonstrates how the actual bandwidth changes with the size of the message and the number of participating nodes:
+The following plot demonstrates how the actual bandwidth changes for all-reduce with the size of the message and the number of participating nodes (4 to 512 nodes):
 
 ![nccl all-reduce scan benchmark](images/nccl-all-reduce-scan.png)
 ([source](https://arxiv.org/abs/2411.13055))
 
-Here is another similar plot but it compares the message sizes and several networks (and it's much much older):
+Here is another similar plot but it compares the message sizes and several networks:
 
 ![Low-level Uni-directional Bandwidth Measurements](images/ccgrid11-uni-direction-bandwidth.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
+
+That last plot is from 2011, and the former one is from 2024 - comparing the two you can appreciate how much faster the networks have become and how much bigger messages are being sent.
 
 Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
 
 ### Latency
 
+Latency tells us how long it takes to send or receive a message. It has an inverse relationship with throughput - the faster is the throughput the lower is the latency.
+
+Here is an old but good plot demonstrating how the latencies change with message size and the type of the network:
 
 ![Low-level Latency Measurements](images/ccgrid11-low-level-latency.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
-XXX: integrate/expand
+Typically the more "hops" the package has to travel the bigger the latency. 2 accelerators residing on the same node will have the least amount of latency because there are so close to each other. 2 accelerators residing on 2 nodes will have a bigger latency because there is a switch to traverse. The further they get away and the more switches the packet has to travel through the bigger the latency.
 
 
 ### Proprietary network hardware and NCCL
