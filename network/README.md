@@ -840,7 +840,12 @@ Bottom line - in this particular setup:
 1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
 2. if the payload of each communication is smallish it could be far far lower.
 
-This graph is also helpful to demonstrate how the actual bandwidth changes with the size of the message:
+The following plot demonstrates how the actual bandwidth changes with the size of the message and the number of participating nodes:
+
+![nccl all-reduce scan benchmark](images/nccl-all-reduce-scan.png)
+([source](https://arxiv.org/abs/2411.13055))
+
+Here is another similar plot but it compares the message sizes and several networks (and it's much much older):
 
 ![Low-level Uni-directional Bandwidth Measurements](images/ccgrid11-uni-direction-bandwidth.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
