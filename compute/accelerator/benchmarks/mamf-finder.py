@@ -354,6 +354,7 @@ max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
 
 geomean: {geo_mean_tflops:.1f} TFLOPS for {num_shapes} shapes in range: {range_info}
 """)
+        print(f"Legend: TFLOPS = 10**12 FLOPS")
         print(f"Elapsed time: {time_str}")
 
     # XXX: the transpose version seemed to work better for MI300X
