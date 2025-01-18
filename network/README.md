@@ -863,7 +863,7 @@ Here is an old but good plot demonstrating how the latencies change with message
 ![Low-level Latency Measurements](images/ccgrid11-low-level-latency.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
-Typically the more "hops" the package has to travel the bigger the latency. 2 accelerators residing on the same node will have the least amount of latency because there are so close to each other. 2 accelerators residing on 2 nodes will have a bigger latency because there is a switch to traverse. The further they get away and the more switches the packet has to travel through the bigger the latency.
+Typically the more "hops" the message has to travel, the bigger the latency. 2 accelerators residing on the same node and connected directly to each other (e.g., NVLink) will have the least amount of latency. If their communication path traverses a PCIe switch the latency will be bigger. 2 accelerators residing on 2 different nodes sharing a single switch will have a bigger latency because there is a switch to traverse. The further they get away from each other, the more switches the message has to travel through, the bigger the latency.
 
 
 ### Proprietary network hardware and NCCL
