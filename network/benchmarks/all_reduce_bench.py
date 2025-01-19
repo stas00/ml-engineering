@@ -190,7 +190,7 @@ def run(local_rank):
         print(f"| payload |    busbw   |    algbw   |")
         print(f"| ------: | ---------: | ---------: |")
         for size in busbw.keys():
-            print(f"| {fmt_bytes(size):>7} | {busbw[size]/2**30:6.2f}GBps | {algbw[size]/2**30:6.2f}GBps |")
+            print(f"| {fmt_bytes(size):>7} | {busbw[size]/10**9:6.2f}GBps | {algbw[size]/10**9:6.2f}GBps |")
 
         print(f"\n*** Plotting results into {plot_path}\n")
         busbw_GBps = [x/2**30 for x in busbw.values()]
