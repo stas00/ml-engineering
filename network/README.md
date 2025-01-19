@@ -378,7 +378,7 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 | NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100    |
 | NVIDIA Quantum-2 IB       |       8x400 |        400 | H100    |
 | AWS EFA v2                |      32x100 |        400 | H100    |
-| NVLink Switch gen2        |       8x300 |        300 | A100    |
+| NVIDIA NVLink Switch gen2 |       8x300 |        300 | A100    |
 | Intel Gaudi2              |      24x100 |        300 |         |
 | InfiniBand XDR1600        |       8x200 |        200 |         |
 | NVIDIA NVLink Switch gen1 |       8x150 |        150 | V100    |

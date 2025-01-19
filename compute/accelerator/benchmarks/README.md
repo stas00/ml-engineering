@@ -96,3 +96,17 @@ To understand better which shapes give the highest matmul FLOPS for a particular
 ### Results
 
 The measurements that I have gathered so far can be found at [Maximum Achievable Matmul FLOPS comparison table](../#maximum-achievable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
+
+
+
+
+## How to benchmark accelerators
+
+### CUDA benchmakrs
+
+There are a few excellent detailed write ups on how to perform CUDA benchmarks:
+
+1. [How to Accurately Time CUDA Kernels in Pytorch](https://www.speechmatics.com/company/articles-and-news/timing-operations-in-pytorch)
+2. [How to Benchmark Code on CUDA Devices?](https://salykova.github.io/sgemm-gpu#2-how-to-benchmark-code-on-cuda-devices) - this one is different from (1) in that it suggests to set both GPU and Memory clocks, whereas (1) only locks the GPU clock.
+
+You can see these instructions applied in [mamf-finder.py](./mamf-finder.py) (other than clock locking)
