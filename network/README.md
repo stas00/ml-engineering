@@ -129,7 +129,7 @@ Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-co
 
 Notes:
 
-* NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch) and for inter-node [NVLink Switch](#nvlink-switch).
+* NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch).
 * Pay close attention to when the spec says unidirectional vs bidirectional (duplex) speeds - if you read an online spec and it doesn't explicitly declare the directionality - look for an answer. I had to research many docs to figure it out in some of the tables below as some vendors omit this crucial information in the published specs. I even had to edit a few wiki pages to add the missing information. Remember that for the vendors the bigger, the better so almost always they will use the duplex number, which is typically 2x bigger than the unidirectional one.
 
 
@@ -296,7 +296,7 @@ There are 2 types of NVSwitch:
 1. NVSwitch that is used for intra-node connectivity (L1)
 2. [NVLink Switch](#nvlink-switch) that is used for inter-node connectivity (L2)
 
-NVSwitch gen 1 came out with V100, gen 2 with A100, and gen 3 with H100 - the speed corresponds to the NVLink version of the same technology.
+NVSwitch gen 1 came out with V100, gen 2 with A100, gen 3 with H100, and gen 4 with B100 - the speed corresponds to the NVLink version of the same technology.
 
 The [NVIDIA DGX H100](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) has a 3.6 TBps of full-duplex NVLink Network bandwidth provided by 72 NVLinks (NVLink 4). The normal NVLink 4 has 18 NVLinks (0.9 TBps duplex). So this setup has 4 switches (`18*4=72`) and therefore `0.9*4=3.6` TBps. Note, that this server has 8 GPUs, so here we get a much faster intra-node communications as compared to the standard NVLink 4.0 which provides only 0.9 TBps all-to-all connectivity for 8 GPUs.
 
@@ -306,6 +306,7 @@ NVIDIA DGX A100 has 6 switches of 12 NVLinks for a total of 72.
 
 Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds. For example, NCCL is working on `NCCL_ALGO=NVLS` which already boosts the intra-node bandwidth above the normal spec and as of this writing work is being done to boost inter-node bandwidth as well.
 
+Recently [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) has been introduced, which uses NVSwitch to put 72 Blackwell GPUs into a single node all inter-connected at NVLink 5 900GBps unidirectional speed. So instead of having a 8-gpu node, now we have a 72-gpu node (even though physically they don't all reside on the same board).
 
 ### Infinity Fabric / xGMI
 
@@ -365,15 +366,11 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect              | NICs x Gbps | Total GBps | Notes      |
 | :-------------------      | ----------: | ---------: | :------    |
-| NVIDIA NVLink Switch gen4 |       8x900 |        900 | B**        |
 | Intel Gaudi3              |      24x200 |        600 |            |
-| NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100, H200 |
 | NVIDIA Quantum-2 IB       |       8x400 |        400 | H100       |
 | AWS EFA v2                |      32x100 |        400 | H100       |
-| NVIDIA NVLink Switch gen2 |       8x300 |        300 | A100       |
 | Intel Gaudi2              |      24x100 |        300 |            |
 | InfiniBand XDR1600        |       8x200 |        200 |            |
-| NVIDIA NVLink Switch gen1 |       8x150 |        150 | V100       |
 | Intel GPUDirect-TCPX      |       4x200 |        100 |            |
 | HPE Slingshot             |       4x200 |        100 |            |
 | Omni-Path CN100           |       8x100 |        100 |            |
@@ -392,14 +389,6 @@ Notes:
 * Note how the once order-of-magnitude difference between inter- and [intra-node bandwidth](#intra-node-networking) is starting to disappear - I have recently rescaled the speeds here from Gbps to GBps.
 
 You will find the details analysis of each technology in the following sections.
-
-### NVLink Switch
-
-While [NVSwitch](#nvswitch) (Layer 1 switch) is used for intra-node communications (L1), NVLink Switch (Layer 2 switch) is used for inter-node communications. The links use the same speeds as NVLink - so when both are used inter- and intra-node bandwidth per link is the same.
-
-For the actual bandwidth see [NVLink](#nvlink).
-
-NVLinks Switch gen3 replaces the normal network with [NVLink Network](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (scroll down to NVLink Network) which enabled
 
 ### InfiniBand
 
