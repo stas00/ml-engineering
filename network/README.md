@@ -372,27 +372,28 @@ When it comes to inter-node networking hardware, there are the well established 
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
 
-| Interconnect              | NICs x Gbps | Total GBps | Notes   |
-| :-------------------      | ----------: | ---------: | :------ |
-| Intel Gaudi3              |      24x200 |        600 |         |
-| NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100    |
-| NVIDIA Quantum-2 IB       |       8x400 |        400 | H100    |
-| AWS EFA v2                |      32x100 |        400 | H100    |
-| NVIDIA NVLink Switch gen2 |       8x300 |        300 | A100    |
-| Intel Gaudi2              |      24x100 |        300 |         |
-| InfiniBand XDR1600        |       8x200 |        200 |         |
-| NVIDIA NVLink Switch gen1 |       8x150 |        150 | V100    |
-| Intel GPUDirect-TCPX      |       4x200 |        100 |         |
-| HPE Slingshot             |       4x200 |        100 |         |
-| Omni-Path CN100           |       8x100 |        100 |         |
-| AWS EFA v1                |       4x100 |         50 |         |
-| InfiniBand NDR400         |       4x100 |         50 |         |
-|                           |             |            |         |
-| in the future:            |             |            |         |
-|                           |             |            |         |
-| Omni-Path CN5000          |       8x400 |        400 | Q2-2025 |
-| InfiniBand GDR3200        |       8x400 |        400 | 2025    |
-| Omni-Path CN6000          |       8x800 |        800 | 2026    |
+| Interconnect              | NICs x Gbps | Total GBps | Notes      |
+| :-------------------      | ----------: | ---------: | :------    |
+| Intel Gaudi3              |      24x200 |        600 |            |
+| NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100, H200 |
+| NVIDIA Quantum-2 IB       |       8x400 |        400 | H100       |
+| AWS EFA v2                |      32x100 |        400 | H100       |
+| NVIDIA NVLink Switch gen2 |       8x300 |        300 | A100       |
+| Intel Gaudi2              |      24x100 |        300 |            |
+| InfiniBand XDR1600        |       8x200 |        200 |            |
+| NVIDIA NVLink Switch gen1 |       8x150 |        150 | V100       |
+| Intel GPUDirect-TCPX      |       4x200 |        100 |            |
+| HPE Slingshot             |       4x200 |        100 |            |
+| Omni-Path CN100           |       8x100 |        100 |            |
+| AWS EFA v1                |       4x100 |         50 |            |
+| InfiniBand NDR400         |       4x100 |         50 |            |
+|                           |             |            |            |
+| in the future:            |             |            |            |
+|                           |             |            |            |
+| NVIDIA NVLink Switch gen3 |       8x900 |        900 | B**        |
+| Omni-Path CN5000          |       8x400 |        400 | Q2-2025    |
+| InfiniBand GDR3200        |       8x400 |        400 | 2025       |
+| Omni-Path CN6000          |       8x800 |        800 | 2026       |
 
 Notes:
 
