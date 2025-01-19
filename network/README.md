@@ -292,9 +292,7 @@ The benefit of connecting more than 8 GPUs at the speed of NVLink is that it all
 
 For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Deepspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
-There are 2 types of NVSwitch:
-1. NVSwitch that is used for intra-node connectivity (L1)
-2. [NVLink Switch](#nvlink-switch) that is used for inter-node connectivity (L2)
+NVSwitch is used for intra-node connectivity.
 
 NVSwitch gen 1 came out with V100, gen 2 with A100, gen 3 with H100, and gen 4 with B100 - the speed corresponds to the NVLink version of the same technology.
 
@@ -434,9 +432,6 @@ Practical links:
 [NVIDIA Quantum-2 InfiniBand Platform](https://www.nvidia.com/en-us/networking/quantum2/) supports 400Gbps bandwidth per link, provides RDMA, includes in-network computing with [SHARP](#sharp), supports PCIe-5.
 
 The switches can connect 64 devices at 400Gbps.
-
-Besides [NVLink Switch](#nvlink-switch) this is the only other tech that powers the current fastest H100 nodes in the industry.
-
 
 
 ### EFA
