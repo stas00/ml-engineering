@@ -183,16 +183,19 @@ If one compares the latest generations of different intra-node networking techno
 
 - [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
-I found the wiki page is quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of this writing some of the numbers in that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
+I found the NVLink wiki page to be quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of this writing some of the numbers on that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
 
-Effective payload rate of Intra-node GPU-to-GPU communication hardware:
+Effective payload rate of intra-node GPU-to-GPU communication hardware:
 
 | Interconnect | Lane/Direction | Lanes | Links | Unidirection | Duplex     | GPU               |
 | :----------- | -------------: | ----: | ----: | -----------: | ---------: | :---------------- |
-| NVLink 3     |  6.25 GBps     |     4 |    12 | 300 GBps     |  600 GBps  | A100              |
-| NVLink 4     | 12.50 GBps     |     2 |    18 | 450 GBps     |  900 GBps  | H100, H200, GH200 |
+| NVLink 1     | 2.50 GBps      |     8 |     4 | 80 GBps      | 160 GBps   | P100              |
+| NVLink 2     | 3.125 GBps     |     8 |     6 | 150 GBps     | 300 GBps   | V100              |
+| NVLink 3     | 6.25 GBps      |     4 |    12 | 300 GBps     | 600 GBps   | A100              |
+| NVLink 4     | 12.50 GBps     |     2 |    18 | 450 GBps     | 900 GBps   | H100, H200, GH200 |
 | NVLink 5     | 25.00 GBps     |     2 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
 
+There is a good overview of evolution of NVLink (1 to 4) [here](https://www.naddod.com/blog/unveiling-the-evolution-of-nvlink).
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
