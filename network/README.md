@@ -183,28 +183,16 @@ If one compares the latest generations of different intra-node networking techno
 
 - [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
-I found the wiki pages quite difficult to follow, so I will try to help bring clarity into this.
+I found the wiki page is quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of this writing some of the numbers in that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
 
 Effective payload rate of Intra-node GPU-to-GPU communication hardware:
 
 | Interconnect | Lane/Direction | Lanes | Links | Unidirection | Duplex     | GPU               |
 | :----------- | -------------: | ----: | ----: | -----------: | ---------: | :---------------- |
-| NVLink 2     |  6.25 GBps     |     4 |     6 | 150 GBps     |  300 GBps  | V100              |
 | NVLink 3     |  6.25 GBps     |     4 |    12 | 300 GBps     |  600 GBps  | A100              |
-| NVLink 4     |  6.25 GBps     |     4 |    18 | 450 GBps     |  900 GBps  | H100, H200, GH200 |
-| NVLink 5     | 12.50 GBps     |     4 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
+| NVLink 4     | 12.50 GBps     |     2 |    18 | 450 GBps     |  900 GBps  | H100, H200, GH200 |
+| NVLink 5     | 25.00 GBps     |     2 |    18 | 900 GBps     | 1800 GBps  | B100, B\*, GB\*   |
 
-NVLink 2, 3 and 4 use the same hardware of 4 lanes of 6.250 GBps each per link. Each has a unidirectional bandwidth of 25GBps per link, and therefore 50GBps per duplex link. The only difference is in the number of links:
-
-- NVLink 2 has  6 links => `25* 6`=> 150 GBps unidirectional and 300 GBps bi-directional
-- NVLink 3 has 12 links => `25*12`=> 300 GBps unidirectional and 600 GBps bi-directional
-- NVLink 4 has 18 links => `25*18`=> 450 GBps unidirectional and 900 GBps bi-directional
-
-NVLink 5 has doubled its lane/direction speed over NVLink 2, 3 and 4, and therefore 100GBps per duplex link:
-
-- NVLink 5 has 18 links => `50*18`=> 900 GBps unidirectional and 1800 GBps bi-directional
-
-footnote: I couldn't find any NVIDIA spec confirming that they doubled lane/direction from NVLink 4.0 to 5.0, but [this article](https://www.naddod.com/blog/nvidia-gb200-interconnect-architecture-analysis-nvlink-infiniband-and-future-trends) suggests that it's still 4 lanes, so it must mean that the per lane speed has doubled. Please correct me if my derivation is wrong.
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
@@ -374,6 +362,7 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect              | NICs x Gbps | Total GBps | Notes      |
 | :-------------------      | ----------: | ---------: | :------    |
+| NVIDIA NVLink Switch gen4 |       8x900 |        900 | B**        |
 | Intel Gaudi3              |      24x200 |        600 |            |
 | NVIDIA NVLink Switch gen3 |       8x450 |        450 | H100, H200 |
 | NVIDIA Quantum-2 IB       |       8x400 |        400 | H100       |
@@ -390,7 +379,6 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 |                           |             |            |            |
 | in the future:            |             |            |            |
 |                           |             |            |            |
-| NVIDIA NVLink Switch gen3 |       8x900 |        900 | B**        |
 | Omni-Path CN5000          |       8x400 |        400 | Q2-2025    |
 | InfiniBand GDR3200        |       8x400 |        400 | 2025       |
 | Omni-Path CN6000          |       8x800 |        800 | 2026       |
