@@ -27,7 +27,7 @@ AMD:
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs started transitioning from NVIDIA H100s to H200s and this is going to take some months due to the usual shortage of NVIDIA GPUs. B100, B200, GB200 were announced in Q1-2024, but it'll probably take till mid-2025 before we will be able to use those, because of the delays in production. B300 were announced on 2024-12!
+- As of today, ML clouds/HPCs started transitioning from NVIDIA H100s to H200s and this is going to take some months due to the usual shortage of NVIDIA GPUs. B200, GB200 were announced in Q1-2024, but it'll probably take till mid-2025 before we will be able to use those, because of the delays in production. B300 were announced on 2024-12!
 - AMD's MI300X is now widely available on Tier 2 cloud providers. MI325X is supposed to become available in early 2025. MI355X should be there towards the end of 2025. MI400X hopefully in 2026.
 
 HPU:
@@ -217,7 +217,6 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
 | AMD MI555X           |    ?? |     ?? | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
 | NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| NVIDIA B100 SXM      |    ?? |  875.0 | 1750 | 1750 | 3500 | 3500 | 3500 | 7000   |       |
 | Intel Gaudi3         |   229 |    459 |  459 | 1677 | 1677 |    V | X    | X      |   1,8 |
 | AMD MI325X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
 | AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
@@ -392,7 +391,6 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | AMD MI355X           |               288 | HBM3e |                         8.00 |
 | AMD MI325X           |               256 | HBM3e |                         6.00 |
 | NVIDIA B200 SXM      |               192 | HBM3e |                         8.00 |
-| NVIDIA B100 SXM      |               192 | HBM3e |                         8.00 |
 | AMD MI300X           |               192 | HBM3  |                         5.30 |
 | NVIDIA GH200 SXM (2) |               141 | HBM3e |                         4.80 |
 | NVIDIA H200 SXM      |               141 | HBM3e |                         4.80 |
@@ -447,7 +445,6 @@ Sorting by L2 Total, as it seems to be the cache that is in all accelerators lis
 | AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    | 1     |
 |                      |         |         |       |          |          |          |       |
 | AMD MI355X           | ???     |         |       |          |          |          |       |
-| NVIDIA B100 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
 |                      |         |         |       |          |          |          |       |
@@ -492,7 +489,6 @@ Clock speed is in Mhz
 | Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
 | Intel Gaudi3         |        1600 | MME=1600, TPC=1600 |
 |                      |             |                    |
-| NVIDIA B100 SXM      |           ? |                    |
 | NVIDIA B200 SXM      |           ? |                    |
 | NVIDIA B300 SXM      |           ? |                    |
 | AMD MI355X           |           ? |                    |
@@ -527,7 +523,6 @@ Some specs report TDP, others TGP/TBP so the table has different columns dependi
 | AMD MI325X           |    1000 |       |       |
 | Intel Gaudi3         |         |   900 |       |
 | AMD MI300X           |     750 |       |       |
-| NVIDIA B100 SXM      |         |   700 |       |
 | NVIDIA H200 SXM      |         |   700 |       |
 | NVIDIA H100 SXM      |         |   700 |       |
 | Intel Gaudi2         |         |   600 |       |
@@ -566,7 +561,6 @@ Most common accelerators that can be either rented on compute clouds or purchase
 
 NVIDIA:
 - B200 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
-- B100 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, has been available on all Tier-1 compute clouds since Q4-2023.
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
@@ -581,7 +575,7 @@ AMD:
 
 Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
--  [Gaudi3](https://habana.ai/products/gaudi3/), somewhere between B100 and B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+-  [Gaudi3](https://habana.ai/products/gaudi3/), somewhat below B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 
 
 Graphcore:

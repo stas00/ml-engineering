@@ -265,7 +265,7 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA H100s are gradually replacing A100s. We hope for H200s to replace H100s soon (Q4-2024), as the latter have a more efficient HBM and thus make them more cost-effective.
+  * NVIDIA H200s are gradually replacing A100s and H100s. H200s have more of and a more efficient HBM and thus make them more cost-effective than H100s.
 
 Available, but locks you in:
 
@@ -275,13 +275,13 @@ Emerging to general availability:
 
   * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these).
 
-  * NVIDIA B100, B200 and GB200 - are promised to become available in early 2025.
+  * NVIDIA B200 and GB200 - are starting to emerge.
 
-  * AMD MI300X ~= H100 - Tier 2 clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here
+  * AMD MI300X ~= H100 - Tier 2 clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here. AMD MI325X > H200 will be available shortly.
 
-  * Intel Gaudi3 > H100 - is available on Intel's cloud
+  * Intel Gaudi3 > H200 - is available on Intel's cloud
 
-  * GraphCore IPU - very difficult to find, paperspace has them
+  * GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
 
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
