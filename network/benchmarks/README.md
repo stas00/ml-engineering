@@ -207,7 +207,7 @@ Cooperative Thread Array (CTA) implements CUDA thread blocks - You can read abou
 
 The value is derived algorithmically by NCCL, but the default behavior can be overridden by setting the lower and upper limits via the env vars: [`NCCL_MIN_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-min-ctas) and [`NCCL_MAX_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-max-ctas). The same can be accomplished from the program using `pg_options` in [`torch.distributed.init_process_group`](https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group) via [`ncclConfig_t`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/api/types.html#ncclconfig-t)'s `minCTAs` and `maxCTAs` (other process group creation functions have `pg_options` as well. This later approach allows you to set different process groups to different settings, whereas the env vars will apply globally to all process groups.
 
-Here is a simple example to how you could directly set both values to 32 per process group:
+Here is an example that directly sets both values to `32` per process group:
 
 ```
 import torch
