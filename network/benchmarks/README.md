@@ -217,7 +217,7 @@ nccl_options.config.max_ctas = 32
 torch.distributed.init_process_group(..., pg_options=nccl_options)
 ```
 
-To experiment with different values against a specific benchmark of choice you could set both config options to the same value and then bisect on a range of 1 to 64 or similar.
+In order to find the best performance to experiment with different values against a specific benchmark of choice, that emulates the intended workload, you could set both config options to the same value and then bisect on a range of 1 to 64 or similar.
 
 
 ## Infiniband
