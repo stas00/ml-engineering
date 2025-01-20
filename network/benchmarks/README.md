@@ -201,6 +201,25 @@ Ideally you'd ask your cloud provider if they have already researched the best v
 The other gotcha is that when the value is higher than `1` an additional GPU memory will be consumed.
 
 
+### `NCCL_MIN_CTAS` and `NCCL_MAX_CTAS`
+
+Cooperative Thread Array (CTA) implements CUDA thread blocks - You can read about it [here](https://docs.nvidia.com/cuda/parallel-thread-execution/#thread-hierarchy).
+
+The value is derived algorithmically by NCCL, but the default behavior can be overridden by setting the lower and upper limits via the env vars: [`NCCL_MIN_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-min-ctas) and [`NCCL_MAX_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-max-ctas). The same can be accomplished from the program using `pg_options` in [`torch.distributed.init_process_group`](https://pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group) via [`ncclConfig_t`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/api/types.html#ncclconfig-t)'s `minCTAs` and `maxCTAs` (other process group creation functions have `pg_options` as well. This later approach allows you to set different process groups to different settings, whereas the env vars will apply globally to all process groups.
+
+Here is a simple example to how you could directly set both values to 32 per process group:
+
+```
+import torch
+nccl_options = torch.distributed.ProcessGroupNCCL.Options()
+nccl_options.config.min_ctas = 32
+nccl_options.config.max_ctas = 32
+torch.distributed.init_process_group(..., pg_options=nccl_options)
+```
+
+To experiment with different values against a specific benchmark of choice you could set both config options to the same value and then bisect on a range of 1 to 64 or similar.
+
+
 ## Infiniband
 
 ### Infiniband adaptive routing
