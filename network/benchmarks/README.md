@@ -36,8 +36,12 @@ And it also creates a plot:
 
 ![all-reduce-bench-plot 4 nodes](images/all-reduce-bench-plot-4n.png)
 
-For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py)
+For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
 
+This table should give a good sense for what scores you should expect for a well tuned network:
+
+![all-reduce multi node bandwidth](images/all-reduce-multi-node-bandwidth.png)
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/)
 
 ### all_gather_object vs all_reduce
 
@@ -46,6 +50,7 @@ For launching examples and notes please see the top of [all_reduce_bench.py](all
 ### all_reduce latency comparison
 
 [all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reductions.
+
 
 
 
