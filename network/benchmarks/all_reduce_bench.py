@@ -202,7 +202,7 @@ def run(local_rank):
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print(f"Legend: 1KiB = 2**10Bytes, 1MiB = 2**20Bytes, 1GiB = 2**30Bytes")
-        print(f"        1GBps = 10**9Bytes per second (convention)")
+        print(f"        1GBps = 10**9Bytes per second (networking bw spec convention)")
         print(f"Elapsed time: {time_str}")
 
     algbw = {}
