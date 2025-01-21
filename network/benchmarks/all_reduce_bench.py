@@ -98,7 +98,9 @@ WARMUPS = 5
 TRIALS = 20
 
 # https://stackoverflow.com/a/75332100/9201239
-fmt_bytes = lambda v : str(v >> ((max(v.bit_length()-1, 0)//10)*10)) +["", "K", "M", "G", "T", "P", "E"][max(v.bit_length()-1, 0)//10]+"B"
+fmt_bytes = lambda v : str(v >> ((max(v.bit_length()-1, 0)//10)*10)) +["", "K", "M", "G", "T", "P", "E"][max(v.bit_length()-1, 0)//10]+"iB"
+# following the common networking hw spec convention which uses base 10, instead of 2 for bps/Bps (it makes speed look bigger than it is)
+conv_to_GBps = lambda v : v/10**9
 
 def get_device_info():
     if torch.cuda.is_available():
@@ -190,16 +192,17 @@ def run(local_rank):
         print(f"| payload |    busbw   |    algbw   |")
         print(f"| ------: | ---------: | ---------: |")
         for size in busbw.keys():
-            print(f"| {fmt_bytes(size):>7} | {busbw[size]/10**9:6.2f}GBps | {algbw[size]/10**9:6.2f}GBps |")
+            print(f"| {fmt_bytes(size):>7} | {conv_to_GBps(busbw[size]):6.2f}GBps | {conv_to_GBps(algbw[size]):6.2f}GBps |")
 
         print(f"\n*** Plotting results into {plot_path}\n")
-        busbw_GBps = [x/2**30 for x in busbw.values()]
+        busbw_GBps = [conv_to_GBps(x) for x in busbw.values()]
         sizes_fmted = [fmt_bytes(x) for x in busbw.keys()]
         plot(plot_path, sizes_fmted, busbw_GBps, ranks)
 
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
-        print(f"Legend: 1KB = 2**10Bytes, 1MB = 2**20Bytes, 1GB = 2**30Bytes. 1Bps = 1Bytes per second")
+        print(f"Legend: 1KiB = 2**10Bytes, 1MiB = 2**20Bytes, 1GiB = 2**30Bytes")
+        print(f"        1GBps = 10**9Bytes per second (convention)")
         print(f"Elapsed time: {time_str}")
 
     algbw = {}
