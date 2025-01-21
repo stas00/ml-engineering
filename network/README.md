@@ -821,12 +821,17 @@ The following plot demonstrates how the actual bandwidth changes for all-reduce 
 ![nccl all-reduce scan benchmark](images/nccl-all-reduce-scan.png)
 ([source](https://arxiv.org/abs/2411.13055))
 
+And here is a similar plot, but using NVLSTree algo, which helps to reach an even better performance on H100s (4 to 1024 nodes):
+
+![nccl all-reduce nvlstree scan benchmark](images/nccl-all-reduce-scan-nvlstree.png)
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/)
+
 Here is another similar plot but it compares the message sizes and several networks:
 
 ![Low-level Uni-directional Bandwidth Measurements](images/ccgrid11-uni-direction-bandwidth.png)
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
-That last plot is from 2011, and the former one is from 2024 - comparing the two you can appreciate how much faster the networks have become and how much bigger messages are being sent.
+That last plot is from 2011, and the former ones are from 2024 - comparing these you can appreciate how much faster the networks have become and how much bigger messages are being sent.
 
 Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
 

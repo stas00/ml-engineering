@@ -38,10 +38,14 @@ And it also creates a plot:
 
 For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
 
-This table should give a good sense for what scores you should expect for a well tuned network:
+This table should give a good sense for what scores you should expect for all-reduce collective on a well-tuned network (left is intra-node and right is inter-node):
 
 ![all-reduce multi node bandwidth](images/all-reduce-multi-node-bandwidth.png)
 [source](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/)
+
+If you're benchmarking a different collective the expected bandwidth can be very different from the above all-reduce results. [This presentation](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/) also gives point-to-point communication bandwidth expectations.
+
+
 
 ### all_gather_object vs all_reduce
 
