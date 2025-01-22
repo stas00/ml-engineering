@@ -11,6 +11,7 @@ XXX: this chapter is under construction - some sections are complete, some are s
 - KV: Key Value
 - LPU: Language Processing Unit™
 - MHA: Multi-Head Attention
+- MLA: Multi-Latent Attention
 - MPC: Secure Multi-Party Computation
 - MQA: Multi-Query Attention
 - PPML: Privacy-Preserving Machine Learning
@@ -586,6 +587,9 @@ The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if 
 [source](https://arxiv.org/abs/2305.13245)
 
 In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
+
+
+[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
 
 KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
 
