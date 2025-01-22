@@ -259,6 +259,11 @@ It's used by DeepSpeed, Varuna and SageMaker to name a few.
 
 Varuna further tries to improve the schedule by using simulations to discover the most efficient scheduling.
 
+[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced an even more efficient PP via DualPipe that reduces the bubble size and succeeds at a better compute/comms overlap. See section 3.2.1 of the paper for the specific details.
+
+![dualpipe](images/parallelism-pp-dualpipe.png)
+([source](https://arxiv.org/abs/2412.19437))
+
 There are 2 groups of PP solutions - the traditional Pipeline API and the more modern solutions that make things much easier for the end user by helping to partially or fully automate the process:
 
 1. Traditional Pipeline API solutions:
@@ -270,6 +275,7 @@ There are 2 groups of PP solutions - the traditional Pipeline API and the more m
 - PiPPy
 - Varuna
 - Sagemaker
+- DeepSeek
 
 Problems with traditional Pipeline API solutions:
 - have to modify the model quite heavily, because Pipeline requires one to rewrite the normal flow of modules into a `nn.Sequential` sequence of the same, which may require changes to the design of the model.
