@@ -560,6 +560,27 @@ One very important aspect is that FlexFlow is designed for optimizing DNN parall
 So the promise is very attractive - it runs a 30min simulation on the cluster of choice and it comes up with the best strategy to utilise this specific environment. If you add/remove/replace any parts it'll run and re-optimize the plan for that. And then you can train. A different setup will have its own custom optimization.
 
 
+## Parallelism network collectives
+
+As intra- and inter-node speeds typically have a 10x difference, it's crucial to choose different parallelization techniques for intra- and inter-node crossing. e.g. TP must always remain within the node because of its massive synchronization requirements. Moreover, some accelerators, like the recent AMD MI3\*\* series have a very slow gpu-to-gpu connectivity which again impacts how parallelism is done for the best performance.
+
+Here is a useful tidbit: the all-reduce collective can be decomposed into two separate phases: reduce-scatter and all-gather.
+
+![all-reduce = reduce-scatter and all-gather](images/all-reduce-reduce-scatter-all-gather.png)
+([source](https://engineering.fb.com/2021/07/15/open-source/fsdp/attachment/fsdp-graph-2a/))
+
+Here is the breakdown of which collectives are used for which parallelization strategies:
+
+- DDP: 1x all-reduce for the gradients - ideally overlapping with compute - total volume: 2x model params comms
+- ZeRO-DP ZeRO-1/ZeRO-2: 1x all-gather for optimizer states plus 1x reduce-scatter for gradients - total volume: 2x model params comms
+- ZeRO-DP ZeRO-3: 2x all-gather for weights (before `forward` + before `backward`) plus 1x reduce-scatter for gradients - total volume: 3x model params comms (1.5x more than DDP and ZeRO-1/ZeRO-2)
+- TP: 2x all-gather and 2x reduce-scatter
+- PP: 2x send + 2x recv - overlapping with compute in the steady phase
+- SP: depends on implementation: with hidden size h, sequence length of N, and parallelism degree of P
+  * Megatron-LM: 2x all-gather and 2x reduce-scatter with volume `4*N*h` per transformers layer [section 3.2 in paper](https://arxiv.org/abs/2309.14509)
+  * DeepSpeed Ulysses: 2x all-to-all with volume `4*N*h/P` per transformers layer [section 3.2 in paper](https://arxiv.org/abs/2309.14509)
+
+It's possible that you will find different implementations that may use different communication patterns.
 
 
 ## Inter-node speed requirements to use ZeRO
