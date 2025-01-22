@@ -246,7 +246,7 @@ The choice of the schedule is critical to the efficient performance, with the mo
 - interleaved 1F1B [Pipedream: Fast and efficient pipeline parallel dnn training](https://arxiv.org/abs/1806.03377)
 - looped, depth-first [Efficient large-scale language model training on gpu clusters using Megatron-LM](https://arxiv.org/abs/2104.04473)
 - breadth-first [Breadth-First Pipeline Parallelism](https://arxiv.org/abs/2211.05953)
-- Llama 3 training used a combination of depth and breadth first for best performance and also allowed them to progressively modify the global batch size as the training progressed, which is typically very difficult to accomplish with PP. See [https://arxiv.org/abs/2407.21783](The Llama 3 Herd of Models) section 3.3.2
+- Llama 3 training used a combination of depth and breadth first for best performance and also allowed them to progressively modify the global batch size as the training progressed, which is typically very difficult to accomplish with PP. See [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783) section 3.3.2
  Parallelism for Model Scaling.
 
 Here is for example an interleaved pipeline:
@@ -287,7 +287,7 @@ Problems with traditional Pipeline API solutions:
 I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
 Implementations:
-- [Pytorch](https://pytorch.org/docs/stable/pipeline.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/master/benchmarks/distributed/pipeline/pipe.py)
+- [Pytorch](https://pytorch.org/docs/stable/pipeline.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
 - [FairScale](https://fairscale.readthedocs.io/en/latest/tutorials/pipe.html)
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/pipeline/)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation - no API.
@@ -644,7 +644,7 @@ Also the Deepspeed team empirically [benchmarked a 176B model](https://github.co
 2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU (ok)
 3. For 800 Gbps IB, we reach 40+ TFLOPs per GPU (excellent)
 
-To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-us/data-center/v100/).
+To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-gb/data-center/tesla-v100/).
 
 But be careful here - this benchmark is for V100s! Which is about 2-3x slower than A100, and 4-8x slower than H100 for half-precision. So the comms have to be at least 4-8x faster for H100 nodes to match the above table at half precision. We need more benchmarks with more recent hardware.
 
