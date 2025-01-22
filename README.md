@@ -82,8 +82,8 @@ High end accelerators:
 
 Networks:
 
-- [Theoretical inter-node speed](network#intra-node-networking)
-- [Theoretical intra-node speed](network#inter-node-networking)
+- [Theoretical inter-node speed](network#inter-node-networking)
+- [Theoretical intra-node speed](network#intra-node-networking)
 
 ## Shortcuts
 
