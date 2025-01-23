@@ -23,7 +23,7 @@ Important notes:
 
 - currently this benchmark scans a payload range of 32KB to 16GB.
 
-- this benchmark automatically generates a plot of the results
+- this benchmark automatically generates a plot of the results if you have `matplotlib` installed.
 
 - if you are wondering whether you need to also run https://github.com/NVIDIA/nccl-tests - I
   already validated that I got very similar results with ./build/all_reduce_perf -b 4G -e 4G
