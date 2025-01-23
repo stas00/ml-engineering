@@ -75,7 +75,6 @@ all_reduce_bench.py
 from pathlib import Path
 import datetime
 import gc
-import matplotlib.pyplot as plt
 import os
 import signal
 import socket
@@ -111,6 +110,12 @@ def get_device_info():
         return "Unknown accelerator"
 
 def plot(path, x, y, ranks):
+
+    try:
+        import matplotlib.pyplot as plt
+    except:
+        print("!!! Can't generate plot. Please run `pip install matplotlib` to enable plotting. !!!\n")
+        return
 
     plt.figure(dpi=500)
     plt.plot(x, y)
