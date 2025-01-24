@@ -337,6 +337,9 @@ Also it's important to understand that knowing the Maximum Achievable Matmul TFL
 
 And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is more efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So start with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 
+Good related reads:
+- Horace's [Strangely, Matrix Multiplications on GPUs Run Faster When Given "Predictable" Data](https://www.thonking.ai/p/strangely-matrix-multiplications?utm_source=substack&publication_id=1781836&post_id=142508107) shows how benchmarking can be over-reporting if one uses a not normally distributed data and how power impacts performance.
+
 
 #### Not all accelerators are created equal
 
