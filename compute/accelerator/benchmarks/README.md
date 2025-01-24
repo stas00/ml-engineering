@@ -110,3 +110,7 @@ There are a few excellent detailed write ups on how to perform CUDA benchmarks:
 2. [How to Benchmark Code on CUDA Devices?](https://salykova.github.io/sgemm-gpu#2-how-to-benchmark-code-on-cuda-devices) - this one is different from (1) in that it suggests to set both GPU and Memory clocks, whereas (1) only locks the GPU clock.
 
 You can see these instructions applied in [mamf-finder.py](./mamf-finder.py) (other than clock locking)
+
+Here are some excellent related reads:
+
+- Horace's [Strangely, Matrix Multiplications on GPUs Run Faster When Given "Predictable" Data](https://www.thonking.ai/p/strangely-matrix-multiplications?utm_source=substack&publication_id=1781836&post_id=142508107) shows how benchmarking can be over-reporting if one uses a not normally distributed data and how power impacts performance.
