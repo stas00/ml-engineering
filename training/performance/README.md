@@ -575,6 +575,11 @@ The full recommendations are:
 5. `t` should be small as possible
 6. For SwiGLU search for the best performing hidden size close to `8/3*h`
 
+### Additional reading
+
+- [What Shapes Do Matrix Multiplications Like?](https://www.thonking.ai/p/what-shapes-do-matrix-multiplications)
+
+
 
 
 ## NUMA affinity

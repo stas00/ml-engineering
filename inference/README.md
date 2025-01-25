@@ -600,7 +600,7 @@ KV cache while saving recomputation has a big negative impact on inference's per
 
 * Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
 
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies, memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies (token dropping), memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
 
 In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 

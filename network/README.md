@@ -103,6 +103,8 @@ Here is a [good overview article](https://community.fs.com/article/roce-vs-infin
 
 ## Intra-node networking
 
+This is also known as scale-up networking.
+
 There are multiple platforms/solutions out there that provide intra-node networking:
 
 1. Generic: [PCIe](#pcie)
@@ -355,6 +357,8 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 
 
 ## Inter-node networking
+
+This is also known as scale-out networking.
 
 As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1 GBps = 8 Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
 
