@@ -130,7 +130,7 @@ PyTorch API example:
 ![all-to-all](images/collective-all-to-all.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [Deepspeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation.
+For example, this collective is used in [Deepspeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation, and in MoE [Expert Parallelism](../training/model-parallelism#expert-parallelism).
 
 
 PyTorch API example:
