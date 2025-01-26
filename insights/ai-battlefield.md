@@ -281,6 +281,8 @@ Emerging to general availability:
 
   * Intel Gaudi3 > H200 - is available on Intel's cloud
 
+  * Amazon's Trainium2 < H100 is available on AWS
+
   * GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
 
   * Cerebras WaferScale Engine - available on Cerebras' cloud

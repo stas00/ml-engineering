@@ -41,15 +41,18 @@ IPU:
 
 TPU:
 - Google's TPUs are, of course, available but they aren't the most desirable accelerators because you can only rent them, and the software isn't quite easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked into a hardware which is a Google monopoly.
+- Amazon's Trainium2 is very similar to the TPU architecture and is available on AWS
 
 On Pods and racks:
 - Cerebras' WaferScale Engine (WSE)
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as Q4-2024.
+That's about it as Q5-2025.
 
-As most of us rent the compute, and we never see what it looks like, here is a how an 8xH100 node looks like physically (this is the GPU tray of the Dell PowerEdge XE9680 Rack Server):
+The rest of this document will compare most of the above in details and if you want to read the specs please head [here](#high-end-accelerators-for-ml-workloads).
+
+As most of us rent the compute, and we never see what it looks like, here is how an 8xH100 node looks like physically (this is the GPU tray of the Dell PowerEdge XE9680 Rack Server):
 
 ![nvidia-a100-spec](images/8x-H100-node-Dell-PowerEdge-XE9680.png)
 
@@ -212,29 +215,31 @@ To check the actual clock speed when your accelerator is under load:
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS |  fp32 |   tf32 | fp16 | bf16 |  fp8 | int8 | fp6  | fp4    | Notes |
-| :---------------     | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
-| NVIDIA GB200 SXM     |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
-| AMD MI555X           |    ?? |     ?? | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
-| NVIDIA B200 SXM      |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| Intel Gaudi3         |   229 |    459 |  459 | 1677 | 1677 |    V | X    | X      |   1,8 |
-| AMD MI325X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
-| AMD MI300X           | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
-| NVIDIA H200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
-| NVIDIA H100 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     3 |
-| NVIDIA GH200 SXM     |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
-| NVIDIA H100 PCIe     |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| Google TPU v5p       |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
-| Intel Gaudi2         |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
-| AMD MI250X           |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
-| NVIDIA L40S          |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
-| AMD MI250            |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
-| NVIDIA A100 SXM      |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |       |
-| NVIDIA A100 PCIe     |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |     5 |
-| Google TPU v4        |     X |      X |    X |  275 |    X |  275 | X    | X      |       |
-| Google TPU v5e       |     X |      X |    X |  197 |    X |  394 | X    | X      |       |
-|                      |       |        |      |      |      |      |      |        |       |
-| NVIDIA B300 SXM      |    ?? |        |      |      |      |      |      |        |       |
+| Accelerator \ TFLOPS  |  fp32 |   tf32 | fp16 | bf16 |  fp8 | int8 | fp6  | fp4    | Notes |
+| :---------------      | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
+| NVIDIA GB200 SXM      |    ?? | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
+| AMD MI555X            |    ?? |     ?? | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
+| NVIDIA B200 SXM       |    ?? | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
+| Intel Gaudi3          | 229.0 |  459.0 |  459 | 1677 | 1677 |    V | X    | X      |   1,8 |
+| AMD MI325X            | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
+| AMD MI300X            | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
+| NVIDIA H200 SXM       |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
+| NVIDIA H100 SXM       |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     3 |
+| NVIDIA GH200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
+| NVIDIA H100 PCIe      |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
+| AWS Trainium2 / Ultra | 181.0 |  667.0 |  667 |  667 | 1299 |    X | X    | X      |     9 |
+| Google TPU v5p        |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
+| Intel Gaudi2          |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
+| AMD MI250X            |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
+| NVIDIA L40S           |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
+| AMD MI250             |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
+| NVIDIA A100 SXM       |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |       |
+| NVIDIA A100 PCIe      |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |     5 |
+| Google TPU v4         |     X |      X |    X |  275 |    X |  275 | X    | X      |       |
+| Google TPU v5e        |     X |      X |    X |  197 |    X |  394 | X    | X      |       |
+|                       |       |        |      |      |      |      |      |        |       |
+| NVIDIA B300 SXM       |    ?? |        |      |      |      |      |      |        |       |
+|                       |       |        |      |      |      |      |      |        |       |
 
 Row-specific notes:
 
@@ -253,6 +258,8 @@ Row-specific notes:
 7. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute).
 
 8. Gaudi3 as of this writing is running at 1600Mhz (MME) and not the planned 1750Mhz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
+
+9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563 TFLOPS w/ 4:1 sparsity
 
 General notes:
 
@@ -386,28 +393,29 @@ Typically the more on-device memory the accelerator has the better. At any given
 
 Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator          |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
-| :------------------- | ----------------: | :---- |         -------------------: |
-| NVIDIA B300 SXM      |               288 | HBM3e |                         8.00 |
-| AMD MI355X           |               288 | HBM3e |                         8.00 |
-| AMD MI325X           |               256 | HBM3e |                         6.00 |
-| NVIDIA B200 SXM      |               192 | HBM3e |                         8.00 |
-| AMD MI300X           |               192 | HBM3  |                         5.30 |
-| NVIDIA GH200 SXM (2) |               141 | HBM3e |                         4.80 |
-| NVIDIA H200 SXM      |               141 | HBM3e |                         4.80 |
-| Intel Gaudi3         |               128 | HBM2e |                         3.70 |
-| AMD MI250            |               128 | HBM2e |                         3.28 |
-| AMD MI250X           |               128 | HBM2e |                         3.28 |
-| NVIDIA GH200 SXM (1) |                96 | HBM3  |                         4.00 |
-| Intel Gaudi2         |                96 | HBM2e |                         2.46 |
-| Google TPU v5p       |                95 | HBM2e |                         4.80 |
-| NVIDIA H100 SXM      |                80 | HBM3  |                         3.35 |
-| NVIDIA A100 SXM      |                80 | HBM2e |                         2.00 |
-| NVIDIA H100 PCIe     |                80 | HBM3  |                         2.00 |
-| NVIDIA A100 PCIe     |                80 | HBM2e |                         1.94 |
-| NVIDIA L40S          |                48 | GDDR6 |                         0.86 |
-| Google TPU v4        |                32 | HBM2  |                         1.20 |
-| Google TPU v5e       |                16 | HBM2  |                         1.60 |
+| Accelerator           |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
+| :-------------------  | ----------------: | :---- |         -------------------: |
+| NVIDIA B300 SXM       |               288 | HBM3e |                         8.00 |
+| AMD MI355X            |               288 | HBM3e |                         8.00 |
+| AMD MI325X            |               256 | HBM3e |                         6.00 |
+| NVIDIA B200 SXM       |               192 | HBM3e |                         8.00 |
+| AMD MI300X            |               192 | HBM3  |                         5.30 |
+| NVIDIA GH200 SXM (2)  |               141 | HBM3e |                         4.80 |
+| NVIDIA H200 SXM       |               141 | HBM3e |                         4.80 |
+| Intel Gaudi3          |               128 | HBM2e |                         3.70 |
+| AMD MI250             |               128 | HBM2e |                         3.28 |
+| AMD MI250X            |               128 | HBM2e |                         3.28 |
+| NVIDIA GH200 SXM (1)  |                96 | HBM3  |                         4.00 |
+| Intel Gaudi2          |                96 | HBM2e |                         2.46 |
+| AWS Trainium2 / Ultra |                96 | HBM3  |                         2.90 |
+| Google TPU v5p        |                95 | HBM2e |                         4.80 |
+| NVIDIA H100 SXM       |                80 | HBM3  |                         3.35 |
+| NVIDIA A100 SXM       |                80 | HBM2e |                         2.00 |
+| NVIDIA H100 PCIe      |                80 | HBM3  |                         2.00 |
+| NVIDIA A100 PCIe      |                80 | HBM2e |                         1.94 |
+| NVIDIA L40S           |                48 | GDDR6 |                         0.86 |
+| Google TPU v4         |                32 | HBM2  |                         1.20 |
+| Google TPU v5e        |                16 | HBM2  |                         1.60 |
 
 Notes:
 
@@ -515,25 +523,26 @@ These numbers are also important for knowing how much closer one can get to the 
 
 Some specs report TDP, others TGP/TBP so the table has different columns depending on which measurement has been published. All measurements are in Watts:
 
-| Accelerator          | TGP/TBP |   TDP | Notes |
-| :------------------- | ------: | ----: | :---- |
-| NVIDIA GB300 SXM     |         |  1400 |       |
-| NVIDIA B300 SXM      |         |  1300 |       |
-| NVIDIA GB200 SXM     |         |  1200 |       |
-| NVIDIA B200 SXM      |         |  1000 |       |
-| AMD MI325X           |    1000 |       |       |
-| Intel Gaudi3         |         |   900 |       |
-| AMD MI300X           |     750 |       |       |
-| NVIDIA H200 SXM      |         |   700 |       |
-| NVIDIA H100 SXM      |         |   700 |       |
-| Intel Gaudi2         |         |   600 |       |
-| NVIDIA H200 NVL      |         |   600 |       |
-| AMD MI250X           |         |   560 |       |
-| NVIDIA H100 NVL      |         |   400 |       |
-| NVIDIA A100 SXM      |         |   400 | 1     |
-| NVIDIA A100 PCIe     |         |   300 |       |
-|                      |         |       |       |
-| AMD MI355X           |    ??   |       |       |
+| Accelerator           | TGP/TBP |   TDP | Notes |
+| :-------------------  | ------: | ----: | :---- |
+| NVIDIA GB300 SXM      |         |  1400 |       |
+| NVIDIA B300 SXM       |         |  1300 |       |
+| NVIDIA GB200 SXM      |         |  1200 |       |
+| NVIDIA B200 SXM       |         |  1000 |       |
+| AMD MI325X            | 1000    |       |       |
+| Intel Gaudi3          |         |   900 |       |
+| AMD MI300X            | 750     |       |       |
+| NVIDIA H200 SXM       |         |   700 |       |
+| NVIDIA H100 SXM       |         |   700 |       |
+| Intel Gaudi2          |         |   600 |       |
+| NVIDIA H200 NVL       |         |   600 |       |
+| AMD MI250X            |         |   560 |       |
+| AWS Trainium2 / Ultra |         |   500 |       |
+| NVIDIA H100 NVL       |         |   400 |       |
+| NVIDIA A100 SXM       |         |   400 | 1     |
+| NVIDIA A100 PCIe      |         |   300 |       |
+|                       |         |       |       |
+| AMD MI355X            | ??      |       |       |
 
 
 1. HGX A100-80GB custom thermal solution (CTS) SKU can support TDPs up to 500W
@@ -554,7 +563,7 @@ For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d 
 
 
 
-## High end accelerators for LLM/VLM workloads
+## High end accelerators for ML workloads
 
 ### Cloud accelerators
 
@@ -577,6 +586,9 @@ AMD:
 Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 -  [Gaudi3](https://habana.ai/products/gaudi3/), somewhat below B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+
+Amazon:
+- [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html) < H100 - available on AWS (works via PyTorch XLA)
 
 
 Graphcore:
