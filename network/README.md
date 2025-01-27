@@ -310,7 +310,7 @@ Recently [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) ha
 
 ### Infinity Fabric / xGMI
 
-AMD MI* Accelerators Intra-node communication is performed by AMD Infinity Fabric, which is also known as xGMI (Socket to Socket Global Memory Interface).
+AMD MI* Accelerators intra-node communication is performed by AMD Infinity Fabric, which is also known as xGMI (Socket to Socket Global Memory Interface).
 
 This is AMD's answer to [NVLink](#nvlink).
 
@@ -354,6 +354,19 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 - intra-node: 8x 7x3 NICs - 600Gbps card to card
 - inter-node: 8x 1x3 NICS - for a total of 4.8Tbps (600GBps)
 
+### NeuronLink v3
+
+NeuronLink v3 ([spec](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trn2-arch.html)) is the intra-node equivalent of NVLink for AWS Trainium2, but it's a point-to-point architecture, like AMD MI* so it can't take advantage of the other Trainium2 chips' NeuronLink v3 unless they are engaged in the same process group. This technology is based on PCIe-5.0 (so 32Gbps per lane unidirectional).
+
+NeuroLink v3 also has an inter-node use in addition to EFA v3.
+
+Number of Trainium2 chips per node and intra-node network speeds:
+- Trainium2: 16 chips interconnected at 128GBps peer-to-peer undirectional (32 PCIe lanes) and each Trainium2 connects to 3 other chips
+- Trainium2 Ultra: 64 chips - the 16 chip groups are the same as non-Ultra, plus these 4 groups are interconnected at 64GBps with each other.
+
+Like TPU it is used in a 3D Torus structure. Here different axis connect at different speeds, so the total all-to-all bandwith per chip is 640GBps unidirectional (`128GBps * 4 intra-node neighbours + 64GBps * 2 inter-node neighbours`)
+
+When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirectional, so only 512GBps/chip unidirectional - and it comes from `128GBps * 4 intra-node neighbours` (and only if all 4 chips are engaged).
 
 
 ## Inter-node networking
@@ -366,24 +379,25 @@ When it comes to inter-node networking hardware, there are the well established 
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
 
-| Interconnect              | NICs x Gbps | Total GBps | Notes      |
-| :-------------------      | ----------: | ---------: | :------    |
-| Intel Gaudi3              |      24x200 |        600 |            |
-| NVIDIA Quantum-2 IB       |       8x400 |        400 | H100       |
-| AWS EFA v2                |      32x100 |        400 | H100       |
-| Intel Gaudi2              |      24x100 |        300 |            |
-| InfiniBand XDR1600        |       8x200 |        200 |            |
-| Intel GPUDirect-TCPX      |       4x200 |        100 |            |
-| HPE Slingshot             |       4x200 |        100 |            |
-| Omni-Path CN100           |       8x100 |        100 |            |
-| AWS EFA v1                |       4x100 |         50 |            |
-| InfiniBand NDR400         |       4x100 |         50 |            |
-|                           |             |            |            |
-| in the future:            |             |            |            |
-|                           |             |            |            |
-| Omni-Path CN5000          |       8x400 |        400 | Q2-2025    |
-| InfiniBand GDR3200        |       8x400 |        400 | 2025       |
-| Omni-Path CN6000          |       8x800 |        800 | 2026       |
+| Interconnect         | NICs x Gbps | Total GBps | Notes     |
+| :------------------- | ----------: | ---------: | :------   |
+| Intel Gaudi3         |      24x200 |        600 |           |
+| AWS EFA v3           |      16x200 |        400 | Tranium 2 |
+| NVIDIA Quantum-2 IB  |       8x400 |        400 | H100      |
+| AWS EFA v2           |      32x100 |        400 | H100      |
+| Intel Gaudi2         |      24x100 |        300 |           |
+| InfiniBand XDR1600   |       8x200 |        200 |           |
+| Intel GPUDirect-TCPX |       4x200 |        100 |           |
+| HPE Slingshot        |       4x200 |        100 |           |
+| Omni-Path CN100      |       8x100 |        100 |           |
+| AWS EFA v1           |       4x100 |         50 |           |
+| InfiniBand NDR400    |       4x100 |         50 |           |
+|                      |             |            |           |
+| in the future:       |             |            |           |
+|                      |             |            |           |
+| Omni-Path CN5000     |       8x400 |        400 | Q2-2025   |
+| InfiniBand GDR3200   |       8x400 |        400 | 2025      |
+| Omni-Path CN6000     |       8x800 |        800 | 2026      |
 
 Notes:
 
@@ -444,6 +458,7 @@ The switches can connect 64 devices at 400Gbps.
 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 NICs!)
+- EFA v3 3.2 Tbps (since Q1-2025, P6 and Trn2 AWS instances - 16 NICs!) - same theoretical speed as v2, but should be delivering a much better actual speed.
 
 
 ### Gaudi2 (inter-node)
