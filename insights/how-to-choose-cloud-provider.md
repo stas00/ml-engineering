@@ -273,6 +273,11 @@ However, many of the largest GPU clusters in the world now run RoCEv2 instead of
 Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can siginificantly impact performance and user experience.
 
 
+## Security
+
+Though it can sometimes be an afterthought, CSP's approach to security can vary widely. Just achieving a SOC 2 Type 2 compliance certification may not be enough. It is a good idea to check if the machines you'll be using are virtualized. If you're not in a VM, and the cloud provider serves other tenants, you may not trust what they are doing on the machines that you aren't on. It's a good idea to check that your cloud provider is verifying known-good versions of BMC firmware, system and BIOS firmware before provisioning (or re-provisioning) a server for you to use.
+
+
 
 ## Miscellaneous
 
