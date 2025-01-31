@@ -109,9 +109,9 @@ None of this would have been possible without me being entrusted with doing the 
 
 Special thanks go to [Thom Wolf](https://github.com/thomwolf) who proposed that I lead the BLOOM-176B training back when I didn't know anything about large scale training. This was the project that catapulted me into the intense learning process. And, of course, HuggingFace for giving me the opportunity to work full time on BLOOM-176B and later on IDEFICS-80B trainings.
 
-Recently, I continued expanding my knowledge and experience while training models and building scalable training/inference systems at [Contextual.AI](https://contextual.ai/) and I'm grateful to that opportunity to Aman and Douwe.
+Recently, I continued expanding my knowledge and experience while training models and building scalable training/inference systems at [Contextual.AI](https://contextual.ai/) and I'm grateful for that opportunity to Aman and Douwe.
 
-I'd also like to say thanks to the numerous [contributors](contributors.md) who have been making this text awesome and error-free.
+I'd also like to thank the numerous [contributors](contributors.md) who have been making this text awesome and error-free.
 
 ## Contributing
 
