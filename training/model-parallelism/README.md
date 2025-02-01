@@ -145,7 +145,7 @@ PyTorch:
 - [PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel](https://arxiv.org/abs/2304.11277)
 
 Main DeepSpeed ZeRO Resources:
-- [Project's github](https://github.com/deepspeedai/deepspeed)
+- [Project's github](https://github.com/deepspeedai/DeepSpeed)
 - [Usage docs](https://www.deepspeed.ai/getting-started/)
 - [API docs](https://deepspeed.readthedocs.io/en/latest/index.html)
 - [Blog posts](https://www.microsoft.com/en-us/research/search/?q=deepspeed)
@@ -372,7 +372,7 @@ Here it's important to see how DP rank 0 doesn't see GPU2 and DP rank 1 doesn't 
 Since each dimension requires at least 2 GPUs, here you'd need at least 4 GPUs.
 
 Implementations:
-- [DeepSpeed](https://github.com/deepspeedai/deepspeed)
+- [DeepSpeed](https://github.com/deepspeedai/DeepSpeed)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972)
@@ -393,7 +393,7 @@ This diagram is from a blog post [3D parallelism: Scaling to trillion-parameter 
 Since each dimension requires at least 2 GPUs, here you'd need at least 8 GPUs.
 
 Implementations:
-- [DeepSpeed](https://github.com/deepspeedai/deepspeed) - DeepSpeed also includes an even more efficient DP, which they call ZeRO-DP.
+- [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) - DeepSpeed also includes an even more efficient DP, which they call ZeRO-DP.
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972)
@@ -448,7 +448,7 @@ During compute each sequence chunk is projected onto QKV and then gathered to th
 
 ![deepspeed-ulysses sp](images/deepspeed-ulysses.png)
 
-[source](https://github.com/deepspeedai/deepspeed/tree/master/blogs/deepspeed-ulysses)
+[source](https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-ulysses)
 
 On the diagram:
 1. Input sequences N are partitioned across P available devices.
@@ -468,7 +468,7 @@ Example: Let's consider seqlen=8K, num_heads=128 and a single node of num_gpus=8
    b. the attention computation is done on the first 16 sub-heads
 the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
 
-You can read the specifics of the very efficient comms [here](https://github.com/deepspeedai/deepspeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction).
+You can read the specifics of the very efficient comms [here](https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction).
 
 DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs proportional to message size or sequence length.
 
@@ -496,7 +496,7 @@ Paper: [Ring Attention with Blockwise Transformers for Near-Infinite Context](ht
 
 SP Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
-- [Deepspeed](https://github.com/deepspeedai/deepspeed)
+- [Deepspeed](https://github.com/deepspeedai/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
@@ -659,7 +659,7 @@ If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
 
 which would be insignificant comparatively to the compute time, especially if some of it is successfully overlapped with the commute.
 
-Also the Deepspeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/deepspeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
+Also the Deepspeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
 1. With 100 Gbps IB, we only have <20 TFLOPs per GPU (bad)
 2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU (ok)
