@@ -5,6 +5,7 @@ There are many container/accelerator orchestration solutions - many of which are
 So far I have been working with SLURM:
 
 - [SLURM](slurm/) - Simple Linux Utility for Resource Management, which you're guaranteed to find on most HPC environments and typically it's supported by most cloud providers.  It has been around for more than 2 decades
+- SLURM on Kubernetes: [Slinky](https://github.com/stas00/ml-engineering/pull/99) - this is a recently created framework for running SLURM on top of Kubernetes.
 
 The other most popular orchestrator is Kubernetes:
 
