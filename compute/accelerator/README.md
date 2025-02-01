@@ -716,7 +716,7 @@ AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - not
 The API is via [Habana SynapseAI® SDK](https://habana.ai/training-software/) which supports PyTorch and TensorFlow.
 
 Useful integrations:
-- [HF Optimum Habana](https://github.com/huggingface/optimum-habana) which also includes - [DeepSpeed](https://github.com/microsoft/DeepSpeed) integration.
+- [HF Optimum Habana](https://github.com/huggingface/optimum-habana) which also includes - [DeepSpeed](https://github.com/deepspeedai/deepspeed) integration.
 
 
 
