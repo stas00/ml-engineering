@@ -619,7 +619,7 @@ This section is trying hard to be neutral and not recommend any particular frame
 
 ### DeepSpeed-FastGen
 
-[DeepSpeed-FastGen](https://github.com/microsoft/DeepSpeed/tree/master/blogs/deepspeed-fastgen) from [the DeepSpeed team](https://github.com/microsoft/DeepSpeed).
+[DeepSpeed-FastGen](https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-fastgen) from [the DeepSpeed team](https://github.com/deepspeedai/DeepSpeed).
 
 ### TensorRT-LLM
 

@@ -107,7 +107,7 @@ Make a new benchmark section:
 
 1. nccl-tests
 2. `all_reduce_bench.py`
-3. https://github.com/microsoft/DeepSpeedExamples/tree/master/benchmarks/communication
+3. https://github.com/deepspeedai/DeepSpeedExamples/tree/master/benchmarks/communication
 4. like nccl-tests, another common set of benchmarks used at HPC sites are the OSU microbenchmarks like osu_lat, osu_bw, and osu_bibw.
 
 https://mvapich.cse.ohio-state.edu/benchmarks/

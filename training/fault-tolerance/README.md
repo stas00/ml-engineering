@@ -309,7 +309,7 @@ for batch in iterator:
     train_step(batch)
 ```
 
-footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/microsoft/DeepSpeed) solve this by pre-allocating tensors at start time and then reuse them again and again preventing the issue of fragmentation altogether.
+footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/deepspeedai/DeepSpeed) solve this by pre-allocating tensors at start time and then reuse them again and again preventing the issue of fragmentation altogether.
 
 footnote: this simplified example would work for a single node. For multiple nodes you'd need to gather the stats from all participating nodes and find the one that has the least amount of memory left and act upon that.
 
