@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# all_gather to gather counts across process group is 23x faster than the same via all_gather_object
+# all_gather to gather counts across process group is 5x faster than the same via all_gather_object
 #
 # python -m torch.distributed.run --nproc_per_node 2 all_gather_object_vs_all_gather.py
 #
