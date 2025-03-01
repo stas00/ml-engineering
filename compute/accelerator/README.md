@@ -344,6 +344,11 @@ Also it's important to understand that knowing the Maximum Achievable Matmul TFL
 
 And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is more efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So start with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 
+update: this new metric is starting to catch on. AMD published this graph and explanations of why the efficiency of accelerators is going down as they get faster:
+
+![maf-nvidia-amd-efficiency.png](images/maf-nvidia-amd-efficiency.png)
+
+[source](https://rocm.blogs.amd.com/software-tools-optimization/Understanding_Peak_and_Max-Achievable_FLOPS/README.html)
 
 
 #### Not all accelerators are created equal
