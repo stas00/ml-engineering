@@ -79,9 +79,15 @@ Here is a simple all-reduce benchmark that you can use to quickly measure the th
 
 [all_reduce_bench.py](all_reduce_bench.py)
 
+On CSPs that have enabled [SLURM Pyxis Container Plugin](https://github.com/NVIDIA/pyxis), such as CoreWeave, Crusoe, AWS, Oracle, Azure, GCP, etc, `all_reduce_bench.py` can be easily ran & reproduced via the following command:
+```bash
+sbatch -n <num_of_nodes> ./all_reduce_bench_pyxis.sbatch
+```
+
 Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
 
-To run it on 4 nodes:
+
+If do not you have access to an pyxis SLURM environment, to run it on 4 nodes:
 
 ```
 GPUS_PER_NODE=8
