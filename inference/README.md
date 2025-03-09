@@ -19,6 +19,7 @@ XXX: this chapter is under construction - some sections are complete, some are s
 - TPOT: Time Per Output Token
 - TTFT: Time to First Token
 
+
 See [Concepts](#concepts) for more glossary-like entries.
 
 ## Concepts
@@ -588,7 +589,9 @@ The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if 
 
 In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
 
-[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
+[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details and here is the updated MHA/GQA/MQA/MLA diagram that showcases all 4 of them:
+
+![mha-gqa-mqa-mla](images/mha-gqa-mqa-mla.png)
 
 [SwiftKV](https://arxiv.org/abs/2410.03960) was invented to deal with the common situation of 10:1 ratio of prefill vs decode use-cases, reducing inference computation during prompt processing rather than just compressing memory. By combining model rewiring and knowledge-preserving self-distillation, SwiftKV achieves substantial reductions in computational overhead during inference with minimal accuracy loss, leading to transformative improvements in throughput, latency and cost efficiency for enterprise LLM workloads by up to 2x.
 
