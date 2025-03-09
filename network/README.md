@@ -457,8 +457,8 @@ The switches can connect 64 devices at 400Gbps.
 [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent inter-node networking technology created by AWS.
 
 - EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
-- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 NICs!)
-- EFA v3 3.2 Tbps (since Q1-2025, P6 and Trn2 AWS instances - 16 NICs!) - same theoretical speed as v2, but should be delivering a much better actual speed.
+- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 100GbE (4x28G) NICs!)
+- EFA v3 3.2 Tbps (since Q1-2025, P5en AWS instances - 16 200GbE (4x56G) NICs! and Trn2 AWS instances) - same theoretical speed as v2, but should be delivering a much better actual speed at real world message sizes.
 
 
 ### Gaudi2 (inter-node)
