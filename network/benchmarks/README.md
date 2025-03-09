@@ -87,7 +87,7 @@ sbatch -n <num_of_nodes> ./all_reduce_bench_pyxis.sbatch
 Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
 
 
-If do not you have access to an pyxis SLURM environment, to run it on 4 nodes:
+If you do not have access to a pyxis SLURM environment, to run it on 4 nodes:
 
 ```
 GPUS_PER_NODE=8
