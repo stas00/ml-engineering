@@ -7,7 +7,7 @@
 
 # Set up environment variables for torchrun
 GPUS_PER_NODE=8
-NNODES=2
+NNODES=$SLURM_NNODES
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 MASTER_PORT=6000
 
