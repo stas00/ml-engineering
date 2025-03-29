@@ -33,14 +33,16 @@ If you have infinite funds, of course, get a single super-fast read, super-fast 
 
 Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients can access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
 
-The 2 excellent performing parallel file systems that I had experience with are:
+The 3 excellent performing parallel file systems that I had experience with are:
 
+- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and
+  before that it was called IBM Spectrum Scale.
+- [WekaIO](https://www.weka.io/)
 - [Lustre FS](https://www.lustre.org/) (Open Source) ([Wiki](https://wiki.lustre.org/Main_Page))
-- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and before that it was called IBM Spectrum Scale.
 
-Both solutions have been around for 2+ decades. Both are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
+These solutions have been around for 2+ decades. They are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
 
-case study: At JeanZay HPC (France) we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
+case study: At JeanZay HPC (France) in 2021 we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
 
 NASA's cluster has [a long long list of gotchas around using Lustre](https://www.nas.nasa.gov/hecc/support/kb/lustre-best-practices_226.html).
 
@@ -49,13 +51,17 @@ Some very useful pros of GPFS:
 - GPFS doesn't have the issue Lustre has where you can run out of disk space at 80% if one of the sub-disks got full and wasn't re-balanced in time - you can reliably use all 100% of the allocated storage.
 - GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metatada is handled by each node in the storage cluster.
 - GPFS comes with a native NSD client which is superior to the generic NFS client, but either can be used with it.
+- One can build a multi-tier system. So for example, Tier 1 is usually made from NVME drives and Tier 2 usually uses some cloud storage system. So when the Tier 1 capacity gets low, files that haven't been accessed in some time, get auto-moved to the cloud storage. So for example your Tier 1 could be 100TB, and Tier 2 could be 1PB. This approach saves a lot of money, since 1PB of cloud storage is significantly cheaper than 1PB of NVME drives.
+- Data protection can use various RAID approaches. Typically striping is used to save costs.
+
+Weka is quite similar to GPFS in features and performance. The main difference would be the licensing cost you can negotiate with either provider. A big part of your cost will be in the cost of the VMs required to run the system - e.g. if you have a lot of small files you'd want many VMs to quickly deal with meta-data.
 
 Other parallel file systems I don't yet have direct experience with:
 
 - [BeeGFS](https://www.beegfs.io/)
-- [WekaIO](https://www.weka.io/)
 - [DAOS](https://docs.daos.io/) (Distributed Asynchronous Object Storage) (Intel)
 - [NetApp](https://www.netapp.com)
+- [VAST](https://www.vastdata.com/)
 
 Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide at least one of these and they don't have a fast enough alternative to meet your needs you should reconsider.
 
