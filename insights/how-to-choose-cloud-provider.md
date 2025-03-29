@@ -329,3 +329,8 @@ If you have a particular CSP that you're casing out ask the community about them
 The key message of this article is for you to choose a cloud where your choice hasn't been taken away and that you don't get stuck with a service your developers hate, which is likely to lead to people leaving your company.
 
 If you feel that these notes are overwhelming for you, I occasionally consult helping with due diligence and joining discovery calls. You can contact me at [stas@stason.org](mailto:stas@stason.org?subject=Choosing%20cloud%20consulting).
+
+
+## Additional reading
+
+- semianalysis.com created a ClusterMax CSP rating system and includes excellent explanations of the different criteria and plans to continue ranking many CSPs. [2025](https://semianalysis.com/2025/03/26/the-gpu-cloud-clustermax-rating-system-how-to-rent-gpus/)
