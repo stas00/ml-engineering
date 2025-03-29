@@ -22,6 +22,8 @@
 
 - [Re-train HF hub models from scratch using finetuning examples](re-train-hub-models.md)
 
+- [Datasets](datasets.md)
+
 **Tools**:
 
 - [printflock.py](tools/printflock.py) - a tiny library that makes your `print` calls non-interleaved in a multi-gpu environment.

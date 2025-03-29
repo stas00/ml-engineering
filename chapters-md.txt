@@ -41,6 +41,7 @@ training/hparams.md
 training/dtype.md
 training/emulate-multi-node.md
 training/re-train-hub-models.md
+training/datasets.md
 
 inference/README.md
 
