@@ -201,7 +201,7 @@ In general a typical Python shop needs a filesystem that can deal with:
 
 But, of course, only you know what your workloads' specific requirements are. Also consider the relationship between local storage and remote (shared) storage, as some providers will reduce the size and performance of local drives to save money. In many cases, developers will read data from a shared filesystem that can be cached locally (code libraries, models, datasets). Teaching people how to use [rsync](https://linux.die.net/man/1/rsync) with local NVMe can improve the developer experience, and reduce I/O on the shared filesystem.
 
-Please refer to the notes and guidance in the [../storage/](Storage chapter) to know the nuances of storage requirements and their benchmarking.
+Please refer to the notes and guidance in the [Storage chapter](../storage) to know the nuances of storage requirements and their benchmarking.
 
 ### What happens when storage fails
 
