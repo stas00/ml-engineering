@@ -330,6 +330,31 @@ pt=2.1.1+cu121: used=0.47GB, free=78.68GB, total=79.15GB
 There is a 450MB difference, but here we only loaded kernels to do `torch.ones` - the actual memory allocated at run time with other code using torch API will be somewhere between 0.47 and 0.92GB.
 
 
+#### `torch.distributed` memory usage
+
+When using `torch.distributed` expect ~1-2GB of GPU memory taken away - the more GPUs the higher the memory used. Different backends are likely to use a different amount of memory.
+
+Here is [torch-dist-mem-usage.py](distributed/torch-dist-mem-usage.py) that demonstrates the actual memory usage:
+
+```
+$ python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
+torch-dist-mem-usage.py
+[...]
+[0] mp: before barrier
+[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.55 GB | CPU Virtual Memory:  used = 68.79 GB, percent = 3.4%
+[0] mp: after barrier
+[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 2.00 GB | CPU Virtual Memory:  used = 69.33 GB, percent = 3.5%
+[0] mp: after 2nd barrier
+[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 2.00 GB | CPU Virtual Memory:  used = 69.33 GB, percent = 3.5%
+[0] mp: after dist destroy
+[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 1.28 GB | CPU Virtual Memory:  used = 69.25 GB, percent = 3.5%
+[0] mp: after dist destroy
+[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 1.28 GB | CPU Virtual Memory:  used = 69.25 GB, percent = 3.5%
+```
+
+So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) took 0.55GB (first line `NV 0.55 GB`), but when `dist.barrier` was run an additional 1.5GB were consumed. If you run `init_process_group` with `device_id` arg then the additional memory allocation will move to that call instead and less will be used by `dist.barrier`.
+
+
 #### Memory fragmentation
 
 As the model allocates and frees tensors, the memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
