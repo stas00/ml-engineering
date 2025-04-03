@@ -293,7 +293,7 @@ In addition to the memory usage described in the previous section, there are oth
 
 #### Preloaded CUDA kernels memory usage
 
-When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, reducing the GPU's total available memory.
+When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, reducing the GPU's total available memory. This memory won't be accounted for by torch memory profiler.
 
 The size of allocated memory for cuda kernels varies between different GPUs, and also it can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
 
@@ -332,7 +332,7 @@ There is a 450MB difference, but here we only loaded kernels to do `torch.ones` 
 
 #### `torch.distributed` memory usage
 
-When using `torch.distributed` expect ~1-2GB of GPU memory taken away - the more GPUs the higher the memory used. Different backends are likely to use a different amount of memory.
+When using `torch.distributed` expect ~1-2GB of GPU memory taken away just to initialize things - the more GPUs the higher the memory used. Different backends are likely to use a different amount of memory. And this memory won't be accounted for by torch memory profiler.
 
 Here is [torch-dist-mem-usage.py](distributed/torch-dist-mem-usage.py) that demonstrates the actual memory usage:
 
