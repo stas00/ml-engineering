@@ -1,3 +1,11 @@
+"""
+Tooling for dealing with efficient dataset loading in a multi-process, potentially multi-node environment with shared and local filesystems.
+
+For notes please see https://github.com/stas00/ml-engineering/blob/master/training/datasets.md#preprocessing-and-caching-datasets-on-the-main-process
+
+"""
+
+
 import os
 from contextlib import contextmanager
 from pathlib import Path
