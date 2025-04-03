@@ -72,9 +72,9 @@ def see_memory_usage(message, force=False, ranks=[0]):
 def init_processes(local_rank, backend='nccl'):
     torch.cuda.set_device(local_rank)
 
-    # if we don't pass `device` the init won't happen till the first `barrier` call.
+    # if we don't pass `device_id` arg, the memory allocation won't happen till the first `barrier` call in this example.
     dist.init_process_group(backend)
-    # if passing device some memory will get used earlier already in `init_process_group`
+    # if passing device_id arg, some memory will get used earlier already in `init_process_group`
     # device = torch.device("cuda", local_rank)
     # dist.init_process_group(backend, device_id=device)
     see_memory_usage("before barrier", force=True)
