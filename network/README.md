@@ -375,7 +375,7 @@ This is also known as scale-out networking.
 
 As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1 GBps = 8 Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
 
-When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, Google GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
+When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, GCP GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
 Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
 
@@ -387,7 +387,8 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 | AWS EFA v2           |      32x100 |        400 | H100      |
 | Intel Gaudi2         |      24x100 |        300 |           |
 | InfiniBand XDR1600   |       8x200 |        200 |           |
-| Intel GPUDirect-TCPX |       4x200 |        100 |           |
+| GCP GPUDirect-TCPXO  |       8x200 |        200 |           |
+| GCP GPUDirect-TCPX   |       4x200 |        100 |           |
 | HPE Slingshot        |       4x200 |        100 |           |
 | Omni-Path CN100      |       8x100 |        100 |           |
 | AWS EFA v1           |       4x100 |         50 |           |
@@ -483,7 +484,7 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 ### GPUDirect-TCPX
 
-GPUDirect-TCPX is a new hardware/software networking stack introduced in A3 instances of GCP. The docs are scarce, but here is [some information](https://cloud.google.com/compute/docs/gpus/gpudirect).
+GPUDirect-TCPX is an RDMA-over-TCP software solution developed by Google for A3 instances. GPUDirect-TCPXO is a hardware-accelerated extension of TCPX available only on A3 Mega. The docs are scarce, but here is some information on [TCPX](https://cloud.google.com/compute/docs/gpus/gpudirect) and [TCPXO](https://cloud.google.com/cluster-toolkit/docs/machine-learning/a3-mega-enable-gpudirect-tcpxo).
 
 This technology didn't catch on and will be phased out to be replaced with RoCE starting with Blackwell instances at GCP.
 
