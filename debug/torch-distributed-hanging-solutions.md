@@ -58,20 +58,16 @@ If the hanging happens inside a CPP extension, add `--native` `py-spy` and it'll
 Now, how do you do it for multiple processes. Doing it one-by-one is too slow. So let's do it at once.
 
 If the launch command was `python`, what you do is:
-
 ```
 pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}
 ```
 
 if `deepspeed`:
-
 ```
 pgrep -P $(pgrep -o deepspeed) | xargs -I {} py-spy dump --pid {}
 ```
 
 for `accelerate`:
-
-
 ```
 pgrep -P $(pgrep -o accelerate) | xargs -I {} py-spy dump --pid {}
 ```
@@ -80,20 +76,21 @@ you get the idea.
 
 This particular approach will only analyse the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 gpus and 8 processes, the above will generate 8 stack traces.
 
-If you have zombies from previously run processes and they are defunct and can't be killed you most likely need to switch to `pgrep -n` to grep the newest, rather than the oldest processes (`pgrep -o`).
-
-In some situations for `deepspeed` I noticed it calls python twice, so I had to do one more level of `pgrep -P`:
-
-```
-pgrep -P $(pgrep -P $(pgrep -n deepspeed)) | xargs -I {} py-spy dump --pid {}
-```
-
 Then you can pipe the output into this additional useful filter:
-
 ```
 pgrep -P $(pgrep -o deepspeed) | xargs -I {} py-spy dump --pid {} | grep -A5 MainThread
 ```
 so it'll show the first 5 entries of each traceback of the `MainThread`.
+
+If you have zombies from previously run processes and they are defunct and can't be killed you most likely need to switch to `pgrep -n` to grep the newest, rather than the oldest processes (`pgrep -o`).
+```
+pgrep -P $(pgrep -n deepspeed) | xargs -I {} py-spy dump --pid {}
+```
+
+In some situations for `deepspeed` I noticed it calls python twice, so I had to do one more level of `pgrep -P`:
+```
+pgrep -P $(pgrep -P $(pgrep -n deepspeed)) | xargs -I {} py-spy dump --pid {}
+```
 
 If you want all processes and their subprocesses, then you'd just run:
 ```
