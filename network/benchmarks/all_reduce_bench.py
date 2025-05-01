@@ -39,7 +39,7 @@ Important notes:
 
 Examples:
 
-*** To run on 4 nodes:
+*** To run on 4 nodes on SLURM:
 
 GPUS_PER_NODE=8
 NNODES=4
