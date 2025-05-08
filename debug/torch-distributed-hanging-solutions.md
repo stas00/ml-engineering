@@ -87,7 +87,7 @@ If you have zombies from previously run processes and they are defunct and can't
 pgrep -P $(pgrep -n deepspeed) | xargs -I {} py-spy dump --pid {}
 ```
 
-In some situations for `deepspeed` I noticed it calls python twice, so I had to do one more level of `pgrep -P`:
+In some situations when an additional launcher wrapper is added that let's say calls a `deepspeed` launcher, I will see that you end up with an additional Python parent process, so then you need to add one more level of `pgrep -P`:
 ```
 pgrep -P $(pgrep -P $(pgrep -n deepspeed)) | xargs -I {} py-spy dump --pid {}
 ```
