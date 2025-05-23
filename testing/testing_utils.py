@@ -237,17 +237,26 @@ def get_gpu_count():
 
 def torch_assert_equal(actual, expected, **kwargs):
     """
-    compare two tensors or non-tensor numbers for their equality
+    Compare two tensors or non-tensor numbers for their equality.
+    
+    Add msg=blah to add an additional comment to when assert fails.
     """
-    # assert_close was added around pt-1.9, it does better checks - e.g will check dimensions match
+    # assert_close was added around pt-1.9, it does better checks - e.g. will check that dimensions dtype, device and layout match
     return torch.testing.assert_close(actual, expected, rtol=0.0, atol=0.0, **kwargs)
 
 
 def torch_assert_close(actual, expected, **kwargs):
     """
-    compare two tensors or non-tensor numbers for their closeness.
+    Compare two tensors or non-tensor numbers for their closeness.
+
+    Add msg=blah to add an additional comment to when assert fails.
+
+    For default values of `rtol` and `atol` which are dtype dependent, see the table at https://docs.pytorch.org/docs/stable/testing.html#torch.testing.assert_close
+    For example for bf16 it is `rtol=1.6e-2` and `atol=1e-5`.
+    
+    The check doesn't assert when `|a - b| <= (atol + rtol * |b|)`
     """
-    # assert_close was added around pt-1.9, it does better checks - e.g will check dimensions match
+    # assert_close was added around pt-1.9, it does better checks - e.g. will check that dimensions dtype, device and layout match
     return torch.testing.assert_close(actual, expected, **kwargs)
 
 
