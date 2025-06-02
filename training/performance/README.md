@@ -193,7 +193,7 @@ Here is an overview of what features can help to either improve speed or save me
 | :----------------------  | :----  | :----- |
 | Gradient accumulation    | Yes    | Yes    |
 | Gradient checkpointing   | No*    | Yes    |
-| Mixed precision training | Yes    | No     |
+| Mixed precision training | Yes    | Yes    |
 | Batch size               | Yes    | Yes    |
 | Optimizer choice         | Yes    | Yes    |
 | DataLoader               | Yes    | No     |
