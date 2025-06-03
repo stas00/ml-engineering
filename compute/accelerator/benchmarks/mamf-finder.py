@@ -152,7 +152,7 @@ def get_accelerator_arch():
     if torch.xpu.is_available():
         return XPUArch()
 
-    raise ValueError("Currently only cuda, rocm and hpu are supported")
+    raise ValueError("Currently only cuda, rocm, hpu and xpu are supported")
 
 arch = get_accelerator_arch()
 
