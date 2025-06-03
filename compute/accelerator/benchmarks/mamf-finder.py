@@ -114,6 +114,28 @@ class HPUArch(Arch):
     def synchronize(self):
         ht.hpu.synchronize()
 
+class XPUArch(Arch):
+    """ Intel dGPUs (like ARC A770) """
+    def __init__(self):
+        self.arch = "xpu"
+
+    def device(self):
+        return torch.device('xpu')
+
+    def name(self):
+        return self.arch
+
+    def device_info(self):
+        return torch.xpu.get_device_properties(device)
+
+    def compute_info(self):
+        return f"xpu={torch.version.xpu}"
+
+    def event(self, enable_timing=True):
+        return torch.xpu.Event(enable_timing)
+
+    def synchronize(self):
+        torch.xpu.synchronize()
 
 def get_accelerator_arch():
     """
@@ -127,7 +149,10 @@ def get_accelerator_arch():
     if has_hpu:
         return HPUArch()
 
-    raise ValueError("Currently only cuda, rocm and hpu are supported")
+    if torch.xpu.is_available():
+        return XPUArch()
+
+    raise ValueError("Currently only cuda, rocm, hpu and xpu are supported")
 
 arch = get_accelerator_arch()
 
