@@ -315,7 +315,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
-| GPU  | Compute<b>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
+| GPU  | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |                      --: |                --: |                --: |                   --: |
 | V100 |                      125 |                  1 |                150 |                     1 |
 | A100 |                      312 |                2.5 |                300 |                     2 |
