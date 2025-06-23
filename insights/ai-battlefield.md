@@ -277,7 +277,7 @@ Emerging to general availability:
 
   * NVIDIA B200 and GB200 - are starting to emerge.
 
-  * AMD MI300X ~= H100 - Tier 2 clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here. AMD MI325X > H200 will be available shortly.
+  * AMD MI355X is starting to emerge on Neo clouds
 
   * Intel Gaudi3 > H200 - is available on Intel's cloud
 
