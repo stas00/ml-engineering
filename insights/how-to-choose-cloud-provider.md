@@ -17,12 +17,13 @@ These notes assume you already know what compute you want for your specific work
 - CSP: Cloud Service Provider
 - SLA: Service-level_agreement
 - SLO: Service Level Objective
+- TCO: Total Cost of Ownership
 
 
 
 ## Contracts
 
-If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in TCO savings (and time)!
+If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in Total Cost of Ownership (TCO) savings (and time)!
 
 ### Free Trials
 
