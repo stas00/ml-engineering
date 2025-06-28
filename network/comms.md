@@ -167,7 +167,7 @@ At each step `N/(S*B)` is sent, which is `S` times less than the naive algorithm
 
 The total time to broadcast `N` bytes to `k` GPUs will take:
 
-`S*N/(S*B) + (k − 2)*N*(SB) = N*(S + k − 2)/(S*B)`
+`S*N/(S*B) + (k − 2)*N*/(S*B) = N*(S + k − 2)/(S*B)`
 
 and if split messages are very small so that`S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`.
 
