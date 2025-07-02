@@ -266,11 +266,11 @@ Here is a rough breakdown of activation memory per GPU:
 
 1. Activation working memory: `dtype_size * num_of_hidden_states_copies * bs * seqlen * hidden_size`
 2. Activation checkpoints memory: `dtype_size * num_layers * bs * seqlen * hidden_size`
-3. Logits working_memory: `fp32_size * bs * seqlen * vocab_size`
+3. Logits working memory: `fp32_size * bs * seqlen * vocab_size`
 
 In all the following calculations:
-- `dtype_size`: size of the one element of `dtype` being used, e.g. 1 byte for fp8, 2 for bf16, 4 for fp32, etc.
-- `fp32_size`: 4 bytes
+- `dtype_size`: size of the one element of `dtype` being used, e.g. `1` byte for fp8, `2` for bf16, `4` for fp32, etc.
+- `fp32_size`: `4` bytes
 - `bs`: batch size
 - `hidden_size`: hidden size of the model
 - `seqlen`: the sequence length
@@ -279,7 +279,7 @@ In all the following calculations:
 
 And `dtype_size * bs * seqlen * hidden_size` is the size of the `hidden_states` tensor, because that's its shape `[bs, seqlen, hidden_size]` multiplied by the size in bytes of a single element.
 
-In the following explanation let's use LLama architecture and it's [8B configuration](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/config.json):
+In the following explanation let's use the Llama-3 architecture and its [8B configuration](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/config.json):
 ```
 hidden_size=4096
 num_layer=32
@@ -295,7 +295,7 @@ seqlen=32768
 
 We can immediately calculate the size of `hidden_states` tensor in bf16 to be: `2 * 1 * 32768 * 4096 / 2**30 = 0.25GiB`
 
-1. So first let's calculate how much working memory is needed to process a single layer forward:
+Part 1. So first let's calculate how much working memory is needed to process a single layer forward:
 
 `activation_memory_per_layer = num_of_hidden_states_copies * dtype_size * bs * seqlen * hidden_size`
 
@@ -309,7 +309,7 @@ The `num_of_hidden_states_copies` is typically between 20 and 50 and will vary b
 48.0 "google/gemma-1.1-2b-it"
 ```
 
-So it's easy to see that Gemma makes two times more copies of `hidden_states` than SmolLM2 to compute a single layer.
+So it's easy to see that Gemma makes two times more copies of `hidden_states` than SmolLM2 to compute a single layer forward.
 
 It'd be difficult to compare the models exactly if their `hidden_size` isn't the same, but comparing the `num_of_hidden_states_copies` co-efficient is easy.
 
@@ -319,27 +319,27 @@ Now to our example model:
 
 `activation_memory_per_layer = 2 * 28 * 1 * 32768 * 4096 / 2**30 = 7GiB`
 
-2. Now that we know the memory allocated by each layer, 2 possible things will happen next.
-
-- If [gradient checkpointing](#gradient-checkpointing) is not enabled, then activation memory will grow to `num_layers * activation_memory_per_layer`.
-
-In our example that would be: `32 * 7 = 224GiB`
+Part 2. Now that we know the memory allocated by each layer, 2 possible things will happen next depending on whether [gradient checkpointing](#gradient-checkpointing) is enabled or not:
 
 - If it's enabled, then we need to store `num_layers * hidden_states`.
 
-In our example that would be: `32 * 0.25 = 8GiB`
+In our example that would be: `32 * 0.25 = 8GiB` (we calculated `hidden_states = 0.25GiB` earlier).
 
-Notice 224GiB vs 8GiB - that's a huge difference - therefore, clearly everybody activates the [gradient checkpointing](#gradient-checkpointing) feature even if it comes at the cost of recalculating the forward pass twice.
+- If it's not enabled, then activation memory will grow to `num_layers * activation_memory_per_layer`.
 
-3. Finally we have the loss calculation which typically requires manifesting the logits in fp32 and here the `vocab_size` dimension is the big number, hence: `fp32_size * bs * seqlen * vocab_size`
+In our example that would be: `32 * 7 = 224GiB`
+
+Notice 8GiB vs 224GiB - that's a huge difference - therefore, clearly everybody activates the [gradient checkpointing](#gradient-checkpointing) feature despite the cost of recalculating the forward pass a second time.
+
+Part 3. Finally we have the loss calculation which typically requires manifesting the logits in fp32 and here the `vocab_size` dimension is typically the biggest dimension, hence: `fp32_size * bs * seqlen * vocab_size`
 
 In our example that would be: `4 * 1 * 32768 * 128256 /  2**30 = 15.7GiB` (~16GB)
 
 As you can see logits will use more memory than all the checkpointing activations for this model.
 
-Moreover, practically you typically end up with a factory of 6 instead of 4, since usually `logits` is first created in the lower precision and then upcast to fp32 so you have 2 copies of it, thus `2+4=6`.
+Moreover, practically you typically end up with a factor of 6 instead of 4 for `dtype_size`, since usually `logits` is first created in the lower precision and then upcast to fp32 so you have 2 copies of it, thus `2+4=6`.
 
-4. Total required activation memory is the sum for one layer forward calculation + activation checkpoints + logits activation memory when using gradient checkpointing. When not using gradient checkpointing it's the sum of 2 and 3, i.e. all the forwards activations and the logit memory.
+Part 4. Total required activation memory is the sum for one layer forward calculation + activation checkpoints + logits activation memory when using gradient checkpointing. When not using gradient checkpointing it's the sum of 2 and 3, i.e. all the forwards activations and the logits memory.
 
 In our example:
 
