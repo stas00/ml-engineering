@@ -317,7 +317,7 @@ Clearly some architectures allocate additional memory besides copies of `hidden_
 
 Now to our example model:
 
-`activation_memory_per_layer = 2 * 28 * 1 * 32768 * 4096 / 2**30 = 7GiB`
+`activation_memory_per_layer = 2 * 28 * 1 * 32768 * 4096 / 2**30 = 7GiB` (`28` came from the measurements output a few paragraphs earlier for `meta-llama/Llama-3.1-8B-Instruct`).
 
 Part 2. Now that we know the memory allocated by each layer, 2 possible things will happen next depending on whether [gradient checkpointing](#gradient-checkpointing) is enabled or not:
 
