@@ -339,7 +339,7 @@ As you can see logits will use more memory than all the checkpointing activation
 
 Moreover, practically you typically end up with a factor of 6 instead of 4 for `dtype_size`, since usually `logits` is first created in the lower precision and then upcast to fp32 so you have 2 copies of it, thus `2+4=6`.
 
-Part 4. Total required activation memory is the sum for one layer forward calculation + activation checkpoints + logits activation memory when using gradient checkpointing. When not using gradient checkpointing it's the sum of 2 and 3, i.e. all the forwards activations and the logits memory.
+Part 4. Total required activation memory is the sum of memory needed to compute one layer forward + activation checkpoints + logits activation memory when using gradient checkpointing. When not using gradient checkpointing it's the sum of 2 and 3, i.e. all the forwards activations and the logits memory.
 
 In our example:
 
