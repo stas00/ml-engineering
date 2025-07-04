@@ -135,7 +135,7 @@ Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
 
 [source](https://developer.nvidia.com/blog/cuda-11-features-revealed/)
 
-As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization).
+As you can see the difference in performance is non-linear due to [the tile and wave quantization effects](../../training/performance#tile-and-wave-quantization). Note the blue line in the graph corresponds to FP32 Tensor Core.
 
 #### How To Calculate Theoretical TFLOPS
 
@@ -268,7 +268,7 @@ General notes:
 
 * when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
 
-* also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
+* also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency [Hardware FLOPS Utilization](../../training/performance#mfu-vs-hfu) (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 
 
 
