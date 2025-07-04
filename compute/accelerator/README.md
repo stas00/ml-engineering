@@ -425,7 +425,7 @@ Notes:
 
 * I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
 
-Memory speed (bandwidth) is, of course, very important since if it's not fast enough, the compute ends up idling waiting for the data to be moved to and from the memory.
+Memory speed (bandwidth) is of course very important since if it's not fast enough, the compute ends up idling waiting for the data to be moved to and from the memory.
 
 
 ### Caches
