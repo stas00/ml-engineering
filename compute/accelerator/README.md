@@ -47,7 +47,7 @@ On Pods and racks:
 - SambaNova's DataScale
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as Q5-2025.
+That's about it as of Q5-2025.
 
 The rest of this document will compare most of the above in details and if you want to read the specs please head [here](#high-end-accelerators-for-ml-workloads).
 
