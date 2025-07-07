@@ -203,9 +203,9 @@ Let's calculate ourselves as before:
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
 To check the actual clock speed when your accelerator is under load:
-- NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs`
+- NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs` with X-server, or `nvidia-smi -q -d CLOCK -i 0 | grep -B2 " SM " | head -3` for headless (adapt `-i 0` if not measuring gpu0). Remove the `grep` to get the full output - `Max Clocks` shows the theoretical clock. Here is a continuous log of the same with timestamps: `nvidia-smi --query-gpu=index,timestamp,power.draw,clocks.sm,clocks.mem,clocks.gr --format=csv -l 1 -i 0`
 - AMD: `rocm-smi -g` for actual and `amd-smi metric --clock` for theoretical
-- Intel: `hl-smi –display CLOCK`
+- Intel: `hl-smi –display CLOCK` (note: apparently this seems to print the spec clock and not the actual clock)
 
 
 
@@ -493,7 +493,7 @@ I've observed that the same accelerator may have different clock rates published
 Clock speed is in Mhz
 
 | Accelerator          | Boost Clock | Notes              |
-| :------------------- | ----------: | :----              |
+| :------------------- | ----------: | :----------------- |
 | NVIDIA H200 SXM      |        1830 |                    |
 | NVIDIA H100 SXM      |        1830 |                    |
 | NVIDIA A100 SXM      |        1410 |                    |
