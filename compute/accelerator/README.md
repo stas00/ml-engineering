@@ -296,6 +296,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     |                                    |
+| NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128     |                                    |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
 | Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
