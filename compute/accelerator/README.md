@@ -295,7 +295,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                                    |
 | NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
-| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     |                                    |
+| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     | H200 is the same                   |
 | NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128     |                                    |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
@@ -308,6 +308,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes                    |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :-----                   |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
+| NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128 |                          |
 | NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
 | Intel Gaudi 2    |        |    865 |            |                   |             |                          |
 | Intel Gaudi 3    |        |   1677 |            |                   |             |                          |
@@ -339,6 +340,7 @@ Notes:
 - Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383 TFLOPS is reported for 2 GCDs.
+
 
 Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are close to 0 that you will ever hit that exact shape. Instead, to know your system well, you'd run the MAMF Finder with the actual shapes your model is using during its training. This is really the key intention of this tool. Once you have that TFLOPS measurement you will have a good sense of where you can stop optimizing when you measure the actual TFLOPS reported by your training.
 
