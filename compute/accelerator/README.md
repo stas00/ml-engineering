@@ -308,6 +308,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes                    |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :-----                   |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
+| NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128 |                          |
 | NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128 |                          |
 | NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
 | Intel Gaudi 2    |        |    865 |            |                   |             |                          |
@@ -315,7 +316,9 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | AMD MI300X       |        |   2600 |            |                   |             |                          |
 |                  |        |        |            |                   |             |                          |
 
-The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables.
+
+
+The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables (could use your help if you have access to Intel Gaudi 2+3 and can re-run the benchmarks).
 
 | Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
 | :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
