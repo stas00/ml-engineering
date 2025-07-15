@@ -408,8 +408,8 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA B300 SXM       |               288 | HBM3e |                         8.00 |
 | AMD MI355X            |               288 | HBM3e |                         8.00 |
 | AMD MI325X            |               256 | HBM3e |                         6.00 |
-| NVIDIA B200 SXM       |               192 | HBM3e |                         8.00 |
 | AMD MI300X            |               192 | HBM3  |                         5.30 |
+| NVIDIA B200 SXM       |               180 | HBM3e |                         8.00 |
 | NVIDIA GH200 SXM (2)  |               141 | HBM3e |                         4.80 |
 | NVIDIA H200 SXM       |               141 | HBM3e |                         4.80 |
 | Intel Gaudi3          |               128 | HBM2e |                         3.70 |
