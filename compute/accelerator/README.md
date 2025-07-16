@@ -580,7 +580,10 @@ For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
 NVIDIA:
-- B200 - no official spec yet - only can be derived from the DGX spec: https://www.nvidia.com/en-us/data-center/hgx/ (XXX: update when official specs are released)
+- [GB300 NVL72](https://www.nvidia.com/en-us/data-center/gb300-nvl72/) - the 72 GPUs supernode at NVLink speed with B300s (Grace Blackwell - 36x blocks of 2x B300 + Grace CPU)
+- [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) - the 72 GPUs supernode at NVLink speed with B200s. (Grace Blackwell - 36x blocks of 2x B200 + Grace CPU)
+- B300 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet (XXX: update when official specs are released)
+- B200 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet (XXX: update when official specs are released)
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, has been available on all Tier-1 compute clouds since Q4-2023.
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
