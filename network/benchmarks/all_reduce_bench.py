@@ -243,13 +243,25 @@ def run(local_rank):
     finish()
 
 
-def init_processes(local_rank, fn, backend='nccl'):
-    torch.cuda.set_device(local_rank)
-    device = torch.device("cuda")
-    dist.init_process_group(backend, device_id=device)
-    fn(local_rank)
+def device_id_kwargs(local_rank):
+    """
+    torch.dist in recent pytorch versions loudly complains about device_id not being set, but it's a very problematic setting.
+    this util returns a dict to be passed to `dist.init_process_group` to set `device_id` if it's safe to do so.
+    """
+
+    from packaging import version
+    import inspect
+    # 1. device_id arg was added in torch==2.3
+    # 2. setting device_id leads to hanging in 2.6.0<torch<2.7.1 https://github.com/pytorch/pytorch/issues/153960
+    if 'device_id' in inspect.signature(torch.distributed.init_process_group).parameters and not (version.parse("2.6.0") < version.parse(torch.__version__) < version.parse("2.7.1")):
+        return dict(device_id=torch.device(local_rank))
+    else:
+        return dict()
 
 
 if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
-    init_processes(local_rank=local_rank, fn=run)
+    torch.cuda.set_device(local_rank)
+    dist.init_process_group("nccl", **device_id_kwargs(local_rank))
+    run(local_rank)
+
