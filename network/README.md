@@ -795,8 +795,17 @@ Figuring out the payload can be tricky since it'd depend on the implementation o
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
 uni-directional 300GBs so we get about 78% of the theoretical speed with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
-We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark:
+We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark
 
+We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark. First, let's build it:
+
+```
+git clone https://github.com/NVIDIA/cuda-samples/
+cd cuda-samples/Samples/5_Domain_Specific/p2pBandwidthLatencyTest
+nvcc -o p2pBandwidthLatencyTest p2pBandwidthLatencyTest.cu -I ../../../Common
+```
+
+Now let's run it on A100:
 ```
 ./p2pBandwidthLatencyTest
 [...]
