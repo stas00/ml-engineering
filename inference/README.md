@@ -441,7 +441,7 @@ footnote: when I first wrote a simple benchmark using the openai client it worke
 
 This is somewhat of an equivalent of using [TFLOPS to measure training efficiency](../training/performance/README.md#tflops-as-a-performance-metric).
 
-In the ideal case you want your accelerator utilization to be as high as possible. Beware that at least for NVIDIA GPUs `gpug util` [isn't what you might think it is](../compute/accelerator/nvidia/debug.md#how-to-get-the-real-gpu-utilization-metrics), but if it reports a very low percentage it's good enough of a signal to know that there is definitely an inefficiency problem.
+In the ideal case you want your accelerator utilization to be as high as possible. Beware that at least for NVIDIA GPUs `gpu util` [isn't what you might think it is](../compute/accelerator/nvidia/debug.md#how-to-get-the-real-gpu-utilization-metrics), but if it reports a very low percentage it's good enough of a signal to know that there is definitely an inefficiency problem.
 
 #### Percentiles
 
