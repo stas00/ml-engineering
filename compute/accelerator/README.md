@@ -468,8 +468,8 @@ Sorting by L2 Total, as it seems to be the cache that is in all accelerators lis
 | NVIDIA A100 PCIe     | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
 | AMD MI300X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
 | AMD MI325X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
+| AMD MI355X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
 |                      |         |         |       |          |          |          |       |
-| AMD MI355X           | ???     |         |       |          |          |          |       |
 | NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
 |                      |         |         |       |          |          |          |       |
@@ -542,6 +542,7 @@ Some specs report TDP, others TGP/TBP so the table has different columns dependi
 | Accelerator           | TGP/TBP |   TDP | Notes |
 | :-------------------  | ------: | ----: | :---- |
 | NVIDIA GB300 SXM      |         |  1400 |       |
+| AMD MI355X            | 1400    |       |       |
 | NVIDIA B300 SXM       |         |  1300 |       |
 | NVIDIA GB200 SXM      |         |  1200 |       |
 | NVIDIA B200 SXM       |         |  1000 |       |
@@ -558,7 +559,6 @@ Some specs report TDP, others TGP/TBP so the table has different columns dependi
 | NVIDIA A100 SXM       |         |   400 | 1     |
 | NVIDIA A100 PCIe      |         |   300 |       |
 |                       |         |       |       |
-| AMD MI355X            | ??      |       |       |
 
 
 1. HGX A100-80GB custom thermal solution (CTS) SKU can support TDPs up to 500W
