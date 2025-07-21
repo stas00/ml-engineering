@@ -214,30 +214,31 @@ To check the actual clock speed when your accelerator is under load:
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS  |  fp32 |   tf32 | fp16 | bf16 |  fp8 | int8 | fp6  | fp4    | Notes |
+| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
 | :---------------      | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
-| NVIDIA GB200 SXM      |    80 | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  |     2 |
-| AMD MI355X            |    ?? |     ?? | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
-| NVIDIA B200 SXM       |    80 | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| Intel Gaudi3          | 229.0 |  459.0 |  459 | 1677 | 1677 |    V | X    | X      |   1,8 |
-| AMD MI325X            | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |     7 |
-| AMD MI300X            | 163.4 |  653.7 | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
-| NVIDIA H200 SXM       |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     4 |
-| NVIDIA H100 SXM       |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     3 |
-| NVIDIA GH200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 | X    | X      |     6 |
-| NVIDIA H100 PCIe      |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 | X    | X      |       |
-| AWS Trainium2 / Ultra | 181.0 |  667.0 |  667 |  667 | 1299 |    X | X    | X      |     9 |
-| Google TPU v5p        |     X |      X |    X |  459 |    X |  918 | X    | X      |       |
-| Intel Gaudi2          |     V |      V |    V |  432 |  865 |    V | X    | X      |     1 |
-| AMD MI250X            |  47.9 |      X |  383 |  383 |    X |  383 | X    | X      |       |
-| NVIDIA L40S           |  91.6 |  183.0 |  362 |  362 |  733 |  733 | X    | X      |       |
-| AMD MI250             |  45.3 |      X |  362 |  362 |    X |  362 | X    | X      |       |
-| NVIDIA A100 SXM       |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |       |
-| NVIDIA A100 PCIe      |  19.5 |  156.0 |  312 |  312 |    X |  624 | X    | X      |     5 |
-| Google TPU v4         |     X |      X |    X |  275 |    X |  275 | X    | X      |       |
-| Google TPU v5e        |     X |      X |    X |  197 |    X |  394 | X    | X      |       |
+| NVIDIA GB300 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 15000  | 10    |
+| NVIDIA GB200 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  | 2     |
+| AMD MI355X            | 157.3 | ??     | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
+| NVIDIA B200 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
+| Intel Gaudi3          | 229.0 | 459.0  | 459  | 1677 | 1677 | V    | X    | X      | 1,8   |
+| AMD MI325X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      | 7     |
+| AMD MI300X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
+| NVIDIA H200 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 4     |
+| NVIDIA H100 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 3     |
+| NVIDIA GH200 SXM      | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 6     |
+| NVIDIA H100 PCIe      | 51.0  | 378.0  | 756  | 756  | 1513 | 1513 | X    | X      |       |
+| AWS Trainium2 / Ultra | 181.0 | 667.0  | 667  | 667  | 1299 | X    | X    | X      | 9     |
+| Google TPU v5p        | X     | X      | X    | 459  | X    | 918  | X    | X      |       |
+| Intel Gaudi2          | V     | V      | V    | 432  | 865  | V    | X    | X      | 1     |
+| AMD MI250X            | 47.9  | X      | 383  | 383  | X    | 383  | X    | X      |       |
+| NVIDIA L40S           | 91.6  | 183.0  | 362  | 362  | 733  | 733  | X    | X      |       |
+| AMD MI250             | 45.3  | X      | 362  | 362  | X    | 362  | X    | X      |       |
+| NVIDIA A100 SXM       | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      |       |
+| NVIDIA A100 PCIe      | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      | 5     |
+| Google TPU v4         | X     | X      | X    | 275  | X    | 275  | X    | X      |       |
+| Google TPU v5e        | X     | X      | X    | 197  | X    | 394  | X    | X      |       |
 |                       |       |        |      |      |      |      |      |        |       |
-| NVIDIA B300 SXM       |    ?? |        |      |      |      |      |      |        |       |
+| NVIDIA B300 SXM       | ??    |        |      |      |      |      |      |        |       |
 |                       |       |        |      |      |      |      |      |        |       |
 
 Row-specific notes:
@@ -252,13 +253,15 @@ Row-specific notes:
 
 5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
 
-6. GH200 - same note as GB200 - this is 2 chips, so the table includes specs per chip w/o sparsity.
+6. GH200 - same note as GB200 - this is 2 GPUs in one package, so the table includes specs per chip w/o sparsity.
 
 7. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute).
 
 8. Gaudi3 as of this writing is running at 1600Mhz (MME) and not the planned 1750Mhz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 
 9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563 TFLOPS w/ 4:1 sparsity
+
+10. GB200 NVL72 and GB300 NVL72 seem to be the same but faster fp4 and more memory for the latter.
 
 General notes:
 
@@ -385,7 +388,7 @@ The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_
 
 Here are the specs:
 
-| Type  | Max data<br> rate speed per<br> pin (Gbps) | Stack<br> Height | Bits per<br> Channel | Number<br> of dies<br> per stack | Die capacity<br> per stack<br> (GBs) | Max capacity<br> per stack<br> (GBs) | Max data<br> rate per<br> stack (GBps) |
+| Type  | Max data<br> rate speed per<br> pin (Gbps) | Stack<br> Height | Bits per<br> Channel | Number<br> of dies<br> per stack | Die capacity<br> per stack<br> (GiBs) | Max capacity<br> per stack<br> (GiBs) | Max data<br> rate per<br> stack (GBps) |
 | :---- | --: | -: | --: | -: | -: | -: | ---: |
 | HBM1  | 1.0 |  8 | 128 |  4 |  1 |  4 |  128 |
 | HBM2  | 2.4 |  8 | 128 |  8 |  1 |  8 |  307 |
@@ -399,19 +402,22 @@ Notes:
 - While I was researching this table I found a wide variation of the above numbers. I think it's because either there were different implementations or the specs changed several times and different publications caught different specs. The table above comes from [wikipedia](https://en.wikipedia.org/wiki/High_Bandwidth_Memory).
 - Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how many chips are per device.
 
+Beware that sometimes memory specs may not be very clear about what GB means. Sometimes it's GiB (`2**30`), but written as GB. At other times it's actually GB (`10**9`). For example, you will see references to NVIDIA B200 having 192GB, where they actually mean GB and not GiB, because 192GB is 180GiB. Whereas bandwidth (GBps, TBps) almost always means decimals (1GBps:`10**9`Bytes per sec). To convert GiB to GB: `x*2**30/10**9`. To convert from GB to GiB `x*10**9/2**30`. Most often the memory size will be in GiB (but `i` omitted), for bandwidth it'll be GB.
+
 Typically, the more on-device memory an accelerator has, the better its performance. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
 Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator           |  Memory<br> (GBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
+| Accelerator           | Memory<br> (GiBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
 | :-------------------  | ----------------: | :---- |         -------------------: |
 | NVIDIA B300 SXM       |               288 | HBM3e |                         8.00 |
 | AMD MI355X            |               288 | HBM3e |                         8.00 |
 | AMD MI325X            |               256 | HBM3e |                         6.00 |
 | AMD MI300X            |               192 | HBM3  |                         5.30 |
+| NVIDIA GB200 SXM      |               185 | HBM3e |                         8.00 |
 | NVIDIA B200 SXM       |               180 | HBM3e |                         8.00 |
 | NVIDIA GH200 SXM (2)  |               141 | HBM3e |                         4.80 |
-| NVIDIA H200 SXM       |               141 | HBM3e |                         4.80 |
+| Nvidia H200 SXM       |               141 | HBM3e |                         4.80 |
 | Intel Gaudi3          |               128 | HBM2e |                         3.70 |
 | AMD MI250             |               128 | HBM2e |                         3.28 |
 | AMD MI250X            |               128 | HBM2e |                         3.28 |
@@ -444,7 +450,7 @@ It's somewhat difficult to show a comparison of caches on different accelerators
 
 Columns:
 
-- The **L3** column is for optional additional caches: Some accelerators have only L1/L2 caches, yet others have additional caches - e.g. MI300X has 256MB of AMD Infinity cache which they also call Last Level Cache (LLC), and Gaudi3 can have its L2 cache used as L3 cache.
+- The **L3** column is for optional additional caches: Some accelerators have only L1/L2 caches, yet others have additional caches - e.g. MI300X has 256MiB of AMD Infinity cache which they also call Last Level Cache (LLC), and Gaudi3 can have its L2 cache used as L3 cache.
 
 - Units can be different things in different accelerators, e.g. in AMD those would be Accelerator Complex Dies (XCD) or compute dies, for NVIDIA this is usually the SMs, for Intel these are DCOREs (Deep Learning Core).
 
@@ -452,16 +458,16 @@ Sorting by L2 Total, as it seems to be the cache that is in all accelerators lis
 
 | Accelerator          | L1/Unit | L2/Unit | Units | L1 Total | L2 Total | L3 Total | Notes |
 | :------------------- | ------: | ------: | ----: | -------: | -------: | -------: | :---- |
-| Intel Gaudi3         |         | 24MB    |     4 |          | 96MB     |          | 2,4   |
-| NVIDIA GH100 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
-| NVIDIA GH200 SXM     | 256KB   |         |   132 | 33.00MB  | 60MB     |          |       |
-| NVIDIA H200 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
-| NVIDIA H100 SXM      | 192KB   |         |   132 | 24.75MB  | 50MB     |          |       |
-| Intel Gaudi2         |         |         |       |          | 48MB     |          | 2,3   |
-| NVIDIA A100 SXM      | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
-| NVIDIA A100 PCIe     | 128KB   |         |   108 | 20.25MB  | 40MB     |          |       |
-| AMD MI300X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    | 1     |
-| AMD MI325X           | 32KB    | 4MB     |     8 | 0.25MB   | 32MB     | 256MB    | 1     |
+| Intel Gaudi3         |         | 24MiB   |     4 |          | 96MiB    |          | 2,4   |
+| NVIDIA GH100 SXM     | 256KiB  |         |   132 | 33.00MiB | 60MiB    |          |       |
+| NVIDIA GH200 SXM     | 256KiB  |         |   132 | 33.00MiB | 60MiB    |          |       |
+| NVIDIA H200 SXM      | 192KiB  |         |   132 | 24.75MiB | 50MiB    |          |       |
+| NVIDIA H100 SXM      | 192KiB  |         |   132 | 24.75MiB | 50MiB    |          |       |
+| Intel Gaudi2         |         |         |       |          | 48MiB    |          | 2,3   |
+| NVIDIA A100 SXM      | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
+| NVIDIA A100 PCIe     | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
+| AMD MI300X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
+| AMD MI325X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
 |                      |         |         |       |          |          |          |       |
 | AMD MI355X           | ???     |         |       |          |          |          |       |
 | NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
@@ -476,7 +482,7 @@ Notes:
 
 3. Gaudi2 doesn’t have a cache. It has scratchpad SRAM instead of a cache, meaning that software determines what goes in or out of the SRAM at any moment. There are dedicated DMA engines that software needs to program to perform all the data movement between SRAM and HBM.
 
-4. The 96MB cache can be configured by software to be either a single L3 cache or 4 slices of 24MB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
+4. The 96MiB cache can be configured by software to be either a single L3 cache or 4 slices of 24MiB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
 
 
 
@@ -495,22 +501,22 @@ These numbers are useful if you need to [calculate theoretical TFLOPS](#how-to-c
 
 I've observed that the same accelerator may have different clock rates published in different specs, probably because not "final" versions are created equal. So always double check your specific accelerator for its actual specs.
 
-Clock speed is in Mhz
+Clock speed is in Mhz.
 
 | Accelerator          | Boost Clock | Notes              |
 | :------------------- | ----------: | :----------------- |
-| NVIDIA H200 SXM      |        1830 |                    |
-| NVIDIA H100 SXM      |        1830 |                    |
-| NVIDIA A100 SXM      |        1410 |                    |
-| NVIDIA A100 PCIe     |        1410 |                    |
+| AMD MI355X           |        2400 |                    |
 | AMD MI300X           |        2100 |                    |
 | AMD MI325X           |        2100 |                    |
+| NVIDIA H200 SXM      |        1830 |                    |
+| NVIDIA H100 SXM      |        1830 |                    |
 | Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
 | Intel Gaudi3         |        1600 | MME=1600, TPC=1600 |
+| NVIDIA A100 SXM      |        1410 |                    |
+| NVIDIA A100 PCIe     |        1410 |                    |
 |                      |             |                    |
 | NVIDIA B200 SXM      |           ? |                    |
 | NVIDIA B300 SXM      |           ? |                    |
-| AMD MI355X           |           ? |                    |
 |                      |             |                    |
 
 
