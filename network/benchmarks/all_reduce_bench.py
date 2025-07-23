@@ -192,7 +192,9 @@ def run(local_rank):
         if not is_global_rank_0:
             return
 
-        print(f"Device info: {get_device_info()}\n")
+        print(f"\nEnvironment:")
+        print(f"- software: torch={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
+        print(f"- hardware: {get_device_info()}\n")
         print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
         print(f"| payload |    busbw   |    algbw   |")
         print(f"| ------: | ---------: | ---------: |")
@@ -264,4 +266,3 @@ if __name__ == "__main__":
     torch.cuda.set_device(local_rank)
     dist.init_process_group("nccl", **device_id_kwargs(local_rank))
     run(local_rank)
-
