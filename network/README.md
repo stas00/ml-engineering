@@ -864,6 +864,14 @@ Here is another similar plot but it compares the message sizes and several netwo
 
 That last plot is from 2011, and the former ones are from 2024 - comparing these you can appreciate how much faster the networks have become and how much bigger messages are being sent.
 
+Here are 2025 performance plots that show the actual achievable bandwidth with the modern technologies in the context of all-reduce and all-to-all collectives:
+
+![all-reduce bw](images/all-reduce-bw-2025.png)
+![all-to-all bw](images/all-to-all-bw-2025.png)
+
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc25-s72583/)
+
+
 Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
 
 ### Latency
