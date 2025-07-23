@@ -157,6 +157,7 @@ If you use, say, 1024 accelerators, you'll have tiny shards per accelerator and 
 So you either need to deploy [Tensor Parallelism](#tensor-parallelism) which is non-trivial to implement, or often it's much simpler to deploy [Sequence Parallelism](#sequence-parallelism). I'm yet to try it in action, but so far what I gathered is for:
 
 - Deepspeed ZeRO use [Deepspeed-Ulysses](#deepspeed-ulysses-sp)
+- [Arctic Long Sequence Training](#arctic-long-sequence-training)
 - FSDP use [Paged Ring Attention](https://github.com/lucidrains/ring-attention-pytorch) ([paper](https://arxiv.org/abs/2402.08268))
 
 Please note that most likely it won't be as efficient as [Tensor Parallelism](#tensor-parallelism) - but I don't yet know of the actual additional overhead.
@@ -471,6 +472,13 @@ the same logic is performed on the remaining 7 GPUs, each computing 8k attention
 You can read the specifics of the very efficient comms [here](https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction).
 
 DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs proportional to message size or sequence length.
+
+### Arctic Long Sequence Training
+
+Arctic Long Sequence Training ports [Deepspeed-Ulysses](#deepspeed-ulysses-sp) to Hugging Face Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
+
+- paper: https://www.arxiv.org/abs/2506.13996
+- implementation and integration: [ArtcticTraining](https://github.com/snowflakedb/ArcticTraining/blob/main/projects/sequence-parallelism/) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
 
 ### Colossal-AI's SP
 
