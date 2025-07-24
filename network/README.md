@@ -528,7 +528,7 @@ To take advantage of this great feature:
 
 XXX: what happens with NVL36 or NVL72, do you have to engage all GPUs there as well for it to work?
 
-This slide show a nice 30% speed up of all-reduce bw NVLink 4 SHARP vs NVLink 4 non-SHARP.
+This slide show a nice 30% speed up of all-reduce bandwidth from NVLink 4 non-SHARP (370GBps) to NVLink 4 SHARP (480GBps). I was able to match the results with a payload of about 8GB.
 
 ![all-reduce bw](images/all-reduce-bw-2025.png)
 
