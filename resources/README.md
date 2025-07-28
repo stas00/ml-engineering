@@ -12,7 +12,6 @@
 
 - Jacob Austin maintains [How to Scale Your Model: A Systems View of LLMs on TPUs](https://jax-ml.github.io/scaling-book/)
 
-https://jax-ml.github.io/scaling-book/
 
 ## Publicly available training LLM/VLM logbooks
 
