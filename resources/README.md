@@ -10,6 +10,10 @@
 
 - The HuggingFace team published [The Ultra-Scale Playbook: Training LLMs on GPU Clusters](https://huggingface.co/spaces/nanotron/ultrascale-playbook).
 
+- Jacob Austin maintains [How to Scale Your Model: A Systems View of LLMs on TPUs](https://jax-ml.github.io/scaling-book/)
+
+https://jax-ml.github.io/scaling-book/
+
 ## Publicly available training LLM/VLM logbooks
 
 Logbooks and chronicles of training LLM/VLM are one of the best sources to learn from about dealing with training instabilities and choosing good hyper parameters.
