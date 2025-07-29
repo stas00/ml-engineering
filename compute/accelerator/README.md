@@ -156,17 +156,17 @@ Let's validate that this formula checks out. Let's compute some BF16 (half preci
 
 First, let's extract the necessary accelerator specs from [wiki](https://en.wikipedia.org/wiki/Hopper_(microarchitecture)#H100_accelerator_and_DGX_H100).
 
-The tricky part was to find the FMAs ops per CUDA core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2). Most are coming from the [A100 whitepaper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf) (search the pdf for "FMA" and then choose the ones listed for the target precision you're after). The [H100 whitepaper](https://resources.nvidia.com/en-us-tensor-core) omitted a lot of specific FMA numbers, but included the multipliers wrt FMAs listed in the A100 whitepaper).
+The tricky part was to find the FMAs ops per Tensor Core per clock cycle for BF16 (half precision). I found them [here](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2). Most are coming from the [A100 whitepaper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf) (search the pdf for "FMA" and then choose the ones listed for the target precision you're after). The [H100 whitepaper](https://resources.nvidia.com/en-us-tensor-core) omitted a lot of specific FMA numbers, but included the multipliers wrt FMAs listed in the A100 whitepaper).
 
 
 **For NVIDIA @ BF16**:
 
-For NVIDIA BF16 operations a compute unit is a CUDA core.
+For NVIDIA BF16 operations are performed by Tensor cores.
 
-| Accelerator | Boost Clock | FMAs ops per CUDA Core per clock cycle |  CUDA Cores | Spec TFLOPS |
-| :---------  | ---------:  | -------------------------------------: | ----------: | ----------: |
-| H100 SXM    | 1980Mhz     |                                    512 |         528 |         989 |
-| A100 SXM    | 1410MHz     |                                    256 |         432 |         312 |
+| Accelerator | Boost Clock | FMAs ops per Tensor Core per clock cycle | Tensor Cores | Spec TFLOPS |
+| :---------  | ---------:  | ---------------------------------------: | -----------: | ----------: |
+| H100 SXM    | 1980Mhz     |                                      512 |          528 |         989 |
+| A100 SXM    | 1410MHz     |                                      256 |          432 |         312 |
 
 Now let's do the math, by inserting the numbers from the table above into the last FMA-based formula:
 
