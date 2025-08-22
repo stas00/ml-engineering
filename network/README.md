@@ -203,7 +203,7 @@ The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 l
 
 NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVLink is 7x faster than PCIe.
 
-NVIDIA Blackwell nodes will be equipped with PCIe 5 and NVLink 5. So there NVLink will be 14x faster than PCIe.
+NVIDIA Blackwell nodes come equipped with PCIe 5 and NVLink 5. So there NVLink is 14x faster than PCIe.
 
 Let's look at several examples of nodes and correlate the theory with reality.
 
