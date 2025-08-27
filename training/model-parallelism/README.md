@@ -523,7 +523,7 @@ PyTorch is also working on this feature and calling it Context Parallel (CP).
 
 ## Expert Parallelism
 
-When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts.
+When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough), which is referred to as Expert Parallelism (EP). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts. Instead of communicating model weights, in EP tokens are being communicated instead. EP leads to a more efficient compute as matrix multiplication then deal with bigger inputs.
 
 For detailed explanations please see:
 - [DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training to Power Next-Generation AI Scale](https://arxiv.org/abs/2201.05596)
