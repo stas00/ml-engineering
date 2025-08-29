@@ -270,6 +270,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         # Simplified call for PyTorch 2.5+
         @time_it(total_iterations)
         def time_iterations():
+            # must not move `out=C` as `C = ...` as Gaudi needs it this way to work
             torch._scaled_mm(A, B, scale, scale, out=C)
 
     else:
