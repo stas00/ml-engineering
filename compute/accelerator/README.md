@@ -293,35 +293,35 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 
 **BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver       | Notes                              |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :-------------- | :-----                             |
-| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126     |                                    |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126     | 900W 141GB HBM3e version           |
-| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124     |                                    |
-| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126     | H200 is the same                   |
-| NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128     |                                    |
-| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4     | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
-| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131 | PYTORCH_TUNABLEOP_ENABLED=1        |
-| Intel Gaudi 2    |        |    432 |            |                   |                 |                                    |
-| Intel Gaudi 3    |        |   1677 |            |                   |                 |                                    |
-|                  |        |        |            |                   |                 |                                    |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver                      | Notes                              |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :--------------------------------- |
+| Intel Gaudi 2    |  418.7 |    432 |      96.9% |  14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126                    |                                    |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126                    | 900W 141GB HBM3e version           |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124                    |                                    |
+| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
+| NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
+| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
+| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
+| Intel Gaudi 3    |        |   1677 |            |                   |                                |                                    |
+|                  |        |        |            |                   |                                |                                    |
 
 **FP8 (`float8_e4m3fn`)**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver   | Notes                    |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :---------- | :-----                   |
-| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126 | 900W 141GB HBM3e version |
-| NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128 |                          |
-| NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128 |                          |
-| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126 |                          |
-| Intel Gaudi 2    |        |    865 |            |                   |             |                          |
-| Intel Gaudi 3    |        |   1677 |            |                   |             |                          |
-| AMD MI300X       |        |   2600 |            |                   |             |                          |
-|                  |        |        |            |                   |             |                          |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver                      | Notes                    |
+| :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :----------------------- |
+| Intel Gaudi 2    |  826.5 |    865 |      95.5% |   6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1       |
+| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GB HBM3e version |
+| NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128                    |                          |
+| NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128                    |                          |
+| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126                    |                          |
+| Intel Gaudi 3    |        |   1677 |            |                   |                                |                          |
+| AMD MI300X       |        |   2600 |            |                   |                                |                          |
+|                  |        |        |            |                   |                                |                          |
 
 
 
-The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables (could use your help if you have access to Intel Gaudi 2+3 and can re-run the benchmarks).
+The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables (could use your help if you have access to Intel Gaudi 3 and can re-run the benchmarks).
 
 | Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
 | :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
