@@ -2,7 +2,7 @@
 
 This is a tiny chapter, since usually there are very few nuances one needs to know about CPU memory - which is a good thing!
 
-Most of the ML workload compute happens on GPUs, but typically there should be at least as much CPU memory on each node as there is on the GPUs. So, for example, if you're on a H100 node with 8x 80GB GPUs, you have 640GB of GPU memory. Thus you want at least as much of CPU memory. But most recent high end cloud packages usually come with 1-2TBs of CPU memory.
+Most of the ML workload compute happens on GPUs, but typically there should be at least as much CPU memory on each node as there is on the GPUs. So, for example, if you're on a H100 node with 8x 80GB GPUs, you have 640GB of GPU memory. Thus you want at least as much of CPU memory. Most recent high end cloud packages usually come with 1-2TBs of CPU memory.
 
 ## What CPU memory is needed for in ML workloads
 
