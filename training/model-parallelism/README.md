@@ -7,7 +7,7 @@ In the modern machine learning the various approaches to parallelism are used to
 
 1. Overcome GPU memory limitations. Examples:
    - fit very large models - e.g., t5-11b is 45GB in just model params
-   - fit very long sequences - e.g.,
+   - fit very long sequences - e.g., 128K context length for Llama 3.1 models
 2. significantly speed up training - finish training that would take a year in hours
 
 We will first discuss in depth various 1D parallelism techniques and their pros and cons and then look at how they can be combined into 2D and 3D parallelism to enable an even faster training and to support even bigger models. Various other powerful alternative approaches will be presented.
