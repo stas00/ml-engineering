@@ -205,7 +205,7 @@ It should become obvious now that if your accelerator runs at a lower boost cloc
 To check the actual clock speed when your accelerator is under load:
 - NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs` with X-server, or `nvidia-smi -q -d CLOCK -i 0 | grep -B2 " SM " | head -3` for headless (adapt `-i 0` if not measuring gpu0). Remove the `grep` to get the full output - `Max Clocks` shows the theoretical clock. Here is a continuous log of the same with timestamps: `nvidia-smi --query-gpu=index,timestamp,power.draw,clocks.sm,clocks.mem,clocks.gr --format=csv -l 1 -i 0`
 - AMD: `rocm-smi -g` for actual and `amd-smi metric --clock` for theoretical
-- Intel: `hl-smi –display CLOCK` (note: apparently this seems to print the spec clock and not the actual clock)
+- Intel: `hl-smi -Q clocks.current.soc --format=csv` for actual and `hl-smi -Q clocks.max.soc --format=csv` or `hl-smi -Q clocks.limit.soc --format=csv` for theoretical
 
 
 
@@ -301,9 +301,9 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124                    |                                    |
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
 | NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
+| Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |    16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
-| Intel Gaudi 3    |        |   1677 |            |                   |                                |                                    |
 |                  |        |        |            |                   |                                |                                    |
 
 **FP8 (`float8_e4m3fn`)**:
@@ -312,28 +312,13 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :----------------------- |
 | Intel Gaudi 2    |  826.5 |    865 |      95.5% |   6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1       |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GB HBM3e version |
+| Intel Gaudi 3    | 1289.5 |   1677 |      76.9% |   16640x1536x3072 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1       |
 | NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128                    |                          |
 | NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128                    |                          |
 | NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126                    |                          |
-| Intel Gaudi 3    |        |   1677 |            |                   |                                |                          |
 | AMD MI300X       |        |   2600 |            |                   |                                |                          |
 |                  |        |        |            |                   |                                |                          |
 
-
-
-The following is the older v1 version table that didn't reset the cache during the benchmark and in theory should have given higher scores -  It will get removed once I re-populate the v2 tables (could use your help if you have access to Intel Gaudi 3 and can re-run the benchmarks).
-
-| Accelerator      |   MAMF | Theory | Efficiency |        Best Shape | Notes            |
-| :--------------- | -----: | -----: | ---------: | :---------------- | ---------------: |
-| Intel Gaudi 2    |  429.3 |  432.0 |      99.4% | 20224x19968x11520 | Gaudi 1.15       |
-| NVIDIA A100 SXM  |  267.9 |  312.0 |      85.9% |   6912x2048x16384 | CUDA-12.1        |
-| NVIDIA GH200 SXM |  821.0 |  989.0 |      83.0% |  11264x1536x19712 | CUDA-12.5        |
-| NVIDIA A100 PCIe |  256.4 |  312.0 |      82.2% |    2304x1536x5120 | CUDA-12.1        |
-| NVIDIA H100 SXM  |  792.1 |  989.0 |      80.1% |   6144x2816x17920 | CUDA-12.1        |
-| Intel Gaudi 3    | 1288.8 | 1677.0 |      76.8% |  22272x12288x7936 | Gaudi 1.19       |
-| AMD MI250X       |  147.0 |  191.5 |      76.7% |  1024x19968x14080 | ROCm-6.2 / 1 GCD |
-| AMD MI300X       |  781.9 | 1300.0 |      60.1% |   4096x4864x10240 | ROCm-6.2         |
-|                  |        |        |            |                   |                  |
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-run every 6 months or so.
 
