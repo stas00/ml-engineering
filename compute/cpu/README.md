@@ -19,7 +19,7 @@ Besides preprocessing if you're pulling dynamically from the cloud instead of lo
 
 Multiply that by the number of accelerators, add a few cores for the Operation system (let's say 4).
 
-If the node has 8 accelerators, and you have n_workers, then you need `8*(num_workers+1)+4`. If you're doing NLP, it'd be usually about 2 workers per accelerator, so `8*(2+1)+4` => 28 cpu cores. If you do CV training, and, say, you need 4 workers per accelerator, then it'd be `8(4+1)+4` => 44 cpu cores.
+If the node has 8 accelerators, and you have `num_workers`, then you need `8*(num_workers+1)+4`. If you're doing NLP, it'd be usually about 2 workers per accelerator, so `8*(2+1)+4` => 28 cpu cores. If you do CV training, and, say, you need 4 workers per accelerator, then it'd be `8(4+1)+4` => 44 cpu cores.
 
 What happens if you have more very active processes than the total number of cpu cores? Some processes will get preempted (put in the queue for when cpu cores become available) and you absolutely want to avoid any context switching.
 
