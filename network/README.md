@@ -645,7 +645,7 @@ For example, when you read, the [A100 spec](https://www.nvidia.com/en-us/data-ce
 
 So let's define these abbreviations exactly:
 
-- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s)
+- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s or TFLOPs/s)
 - TFLOP - TeraFLoatingpointOPerations (or TFLOPs - lower case `s` but it's already confusing)
 
 Also see the [wiki page](https://en.wikipedia.org/wiki/FLOPS) for more clarifications.
@@ -685,7 +685,7 @@ So if we do a mixed half-precision training and most of the operations are done 
 
 footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
 
-So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
+So continuing this train of thought it means that the setup will have about 156TFLOPS for mixed half-precision training - and so it'll take 0.42 secs on A100 GPU to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
 
 Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
 
