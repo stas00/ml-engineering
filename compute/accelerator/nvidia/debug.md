@@ -147,7 +147,7 @@ On a good node, this should return nothing, as all counters should be 0. But in 
 ```
 The first entry is for `Volatile` (errors counted since the last time the GPU driver reload) and the second is for `Aggregate` (total errors counter for the whole life time of the GPU). In this example we see a Volatile counter for SRAM Uncorrectable errors to be 1 and for the life-time counter it's 5 - that is this is not the first time the GPU runs into this problem.
 
-This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48.
+This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48).
 
 To overcome this issue as in the previous section, reset the problematic GPU:
 ```
