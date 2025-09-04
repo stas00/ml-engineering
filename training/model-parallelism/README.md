@@ -288,7 +288,7 @@ Problems with traditional Pipeline API solutions:
 I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
 Implementations:
-- [Pytorch](https://pytorch.org/docs/stable/pipeline.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
+- [Pytorch](https://docs.pytorch.org/docs/stable/distributed.pipelining.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
 - [FairScale](https://fairscale.readthedocs.io/en/latest/tutorials/pipe.html)
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/pipeline/)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation - no API.

@@ -596,7 +596,7 @@ Amazon:
 
 
 Graphcore:
-- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://thytu.com/posts/ipus-101/).
+- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://web.archive.org/web/20250521173833/https://thytu.com/posts/ipus-101/).
 
 SambaNova:
 - [DataScale SN30](https://sambanova.ai/products/datascale/)
@@ -604,10 +604,7 @@ SambaNova:
 
 ### On-premises accelerator clusters
 
-Cerebras:
-- [clusters](https://www.cerebras.net/product-cluster/)
-- [systems](https://www.cerebras.net/product-system/)
-based on WaferScale Engine (WSE).
+[Cerebras](https://www.cerebras.net/) cluster and systems based on WaferScale Engine (WSE).
 
 
 
@@ -694,7 +691,7 @@ for example, AMD MI250 has:
 
 A server/node is built from 8 GPUs, which can then be expanded with racks of those servers.
 
-There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://developer.habana.ai/resources/habana-models-performance/) but I'm not sure how these can be used to compare this compute to other providers.
+There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://www.intel.com/content/www/us/en/developer/platform/gaudi/model-performance.html) but I'm not sure how these can be used to compare this compute to other providers.
 
 Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
