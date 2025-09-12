@@ -580,7 +580,7 @@ Here is a useful tidbit: the all-reduce collective can be decomposed into two se
 Here is the breakdown of which collectives are used for which parallelization strategies:
 
 - DDP: 1x all-reduce for the gradients - ideally overlapping with compute - total volume: 2x model params comms
-- ZeRO-DP ZeRO-1/ZeRO-2: 1x all-gather for optimizer states plus 1x reduce-scatter for gradients - total volume: 2x model params comms
+- ZeRO-DP ZeRO-1/ZeRO-2: 1x reduce-scatter for gradients plus 1x all-gather to collect all the updated parameters- total volume: 2x model params comms
 - ZeRO-DP ZeRO-3: 2x all-gather for weights (before `forward` + before `backward`) plus 1x reduce-scatter for gradients - total volume: 3x model params comms (1.5x more than DDP and ZeRO-1/ZeRO-2)
 - TP: 2x all-gather and 2x reduce-scatter
 - PP: 2x send + 2x recv - overlapping with compute in the steady phase
