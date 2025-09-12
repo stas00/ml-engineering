@@ -65,9 +65,9 @@ I announce any significant updates on my twitter channel [https://twitter.com/St
 
 Download the [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true) version of the book.
 
-I will try to rebuild it once a week or so, but if you want the latest, the instructions for building are [here](build).
+I will try to rebuild it once in a few weeks or so, but if you want the latest pdf, the instructions for building are [here](build).
 
-Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/).
+Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
 ## Discussions
 
