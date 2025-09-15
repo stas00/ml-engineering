@@ -11,7 +11,7 @@ NNODES=$SLURM_NNODES
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 MASTER_PORT=6000
 
-srun --container-image=nvcr.io#nvidia/pytorch:25.02-py3 \
+srun --container-image=nvcr.io#nvidia/pytorch:25.08-py3 \
      --container-mounts=$PWD:/workspace \
      python -u -m torch.distributed.run \
          --nproc_per_node $GPUS_PER_NODE \
