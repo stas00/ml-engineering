@@ -202,10 +202,7 @@ Let's calculate ourselves as before:
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
-To check the actual clock speed when your accelerator is under load:
-- NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs` with X-server, or `nvidia-smi -q -d CLOCK -i 0 | grep -B2 " SM " | head -3` for headless (adapt `-i 0` if not measuring gpu0). Remove the `grep` to get the full output - `Max Clocks` shows the theoretical clock. Here is a continuous log of the same with timestamps: `nvidia-smi --query-gpu=index,timestamp,power.draw,clocks.sm,clocks.mem,clocks.gr --format=csv -l 1 -i 0`
-- AMD: `rocm-smi -g` for actual and `amd-smi metric --clock` for theoretical
-- Intel: `hl-smi -Q clocks.current.soc --format=csv` for actual and `hl-smi -Q clocks.max.soc --format=csv` or `hl-smi -Q clocks.limit.soc --format=csv` for theoretical
+To check the actual clock speed when your accelerator is under load see the [clock speed](#clock-speed) section.
 
 
 
@@ -495,7 +492,8 @@ Clock speed is in Mhz.
 | AMD MI355X           |        2400 |                    |
 | AMD MI300X           |        2100 |                    |
 | AMD MI325X           |        2100 |                    |
-| NVIDIA B200 SXM      |        1837 |                    |
+| NVIDIA GB200 SXM     |        2062 |                    |
+| NVIDIA B200 SXM      |        1965 |                    |
 | NVIDIA H200 SXM      |        1830 |                    |
 | NVIDIA H100 SXM      |        1830 |                    |
 | Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
@@ -505,6 +503,15 @@ Clock speed is in Mhz.
 |                      |             |                    |
 | NVIDIA B300 SXM      |           ? |                    |
 |                      |             |                    |
+
+Since now there are custom SKUs for the same type of GPU, always check your actual clock, since it could be different from the "general" spec.
+
+
+Here is how to get the actual clock speed (in particular when your accelerator is under load):
+
+- NVIDIA: `nvidia-settings -q GPUCurrentClockFreqs` with X-server, or `nvidia-smi -q -d CLOCK -i 0 | grep -B2 " SM " | head -3` for headless (adapt `-i 0` if not measuring gpu0, or remove it to show all available GPUs). Remove the `grep` to get the full output - `Max Clocks` shows the theoretical clock. Here is a continuous log of the same with timestamps: `nvidia-smi --query-gpu=index,timestamp,power.draw,clocks.sm,clocks.mem,clocks.gr --format=csv -l 1 -i 0`
+- AMD: `rocm-smi -g` for actual and `amd-smi metric --clock` for theoretical
+- Intel: `hl-smi -Q clocks.current.soc --format=csv` for actual and `hl-smi -Q clocks.max.soc --format=csv` or `hl-smi -Q clocks.limit.soc --format=csv` for theoretical
 
 
 
