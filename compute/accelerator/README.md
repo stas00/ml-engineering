@@ -302,6 +302,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
 | NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
 | Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |    16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
+| NVIDIA GB200 SXM | 1822.0 |   2500 |      72.9% |    4096x9728x2048 | 2.10.0.dev20250916+cu130       |                                    |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
 |                  |        |        |            |                   |                                |                                    |
@@ -314,6 +315,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GB HBM3e version |
 | Intel Gaudi 3    | 1289.5 |   1677 |      76.9% |   16640x1536x3072 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1       |
 | NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128                    |                          |
+| NVIDIA GB200 SXM | 3615.6 |   5000 |      72.3% |   19456x5120x1536 | 2.10.0.dev20250916+cu130       |                          |
 | NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128                    |                          |
 | NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126                    |                          |
 | AMD MI300X       |        |   2600 |            |                   |                                |                          |
@@ -402,7 +404,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA GB200 SXM      |               185 | HBM3e |                         8.00 |
 | NVIDIA B200 SXM       |               180 | HBM3e |                         8.00 |
 | NVIDIA GH200 SXM (2)  |               141 | HBM3e |                         4.80 |
-| Nvidia H200 SXM       |               141 | HBM3e |                         4.80 |
+| NVIDIA H200 SXM       |               141 | HBM3e |                         4.80 |
 | Intel Gaudi3          |               128 | HBM2e |                         3.70 |
 | AMD MI250             |               128 | HBM2e |                         3.28 |
 | AMD MI250X            |               128 | HBM2e |                         3.28 |
@@ -493,6 +495,7 @@ Clock speed is in Mhz.
 | AMD MI355X           |        2400 |                    |
 | AMD MI300X           |        2100 |                    |
 | AMD MI325X           |        2100 |                    |
+| NVIDIA B200 SXM      |        1837 |                    |
 | NVIDIA H200 SXM      |        1830 |                    |
 | NVIDIA H100 SXM      |        1830 |                    |
 | Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
@@ -500,7 +503,6 @@ Clock speed is in Mhz.
 | NVIDIA A100 SXM      |        1410 |                    |
 | NVIDIA A100 PCIe     |        1410 |                    |
 |                      |             |                    |
-| NVIDIA B200 SXM      |           ? |                    |
 | NVIDIA B300 SXM      |           ? |                    |
 |                      |             |                    |
 
