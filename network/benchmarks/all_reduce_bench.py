@@ -39,6 +39,11 @@ Important notes:
 
 Examples:
 
+*** To do a quick test on 2 GPUs:
+
+python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
+all_reduce_bench.py
+
 *** To run on 4 nodes on SLURM:
 
 GPUS_PER_NODE=8
@@ -65,10 +70,30 @@ srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.ru
 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend \
 c10d all_reduce_bench.py
 
-*** To do a quick test on 2 GPUs:
+*** To run on 2 nodes with pdsh
 
-python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
-all_reduce_bench.py
+This approach requires passwordless ssh between participating nodes:
+
+You can hardcode the ips or hostnames:
+
+MASTER_HOST=10.0.0.10
+HOSTS=10.0.0.10,10.0.0.11
+
+or if you already have a deepspeed-style hostfile w/ "hostname slots=x" entries per line entries or mpi-style hostfile w/ "hostname" per line entries:
+
+MASTER_HOST=$(cat ~/hostfile | cut -d " " -f1 | head -1)
+HOSTS=$(cat ~/hostfile | cut -d " " -f1 | tr '\n' ',' | sed 's/,*$//g')
+NNODES=2
+
+You can first test that your pdsh setup works with this quick command, which will print the hostname of each participating node:
+
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS hostname
+
+Now you're ready to run the benchmark after adjusting `DIR` - it's critical since current working won't be the same as where you launched things from:
+
+DIR=/change/the/path/benchmarks
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS python -u -m torch.distributed.run --nproc_per_node=8 --nnodes=$NNODES --rdzv_endpoint $MASTER_HOST:6003  --rdzv_backend c10d $DIR/all_reduce_bench.py
+
 
 """
 
