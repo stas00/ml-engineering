@@ -859,7 +859,7 @@ Bottom line - in this particular setup:
 2. if the payload of each communication is smallish it could be far far lower.
 
 
-On GB200 (NVLink 5.0):
+On GB200 (NVLink 5.0) (on a single nvl4 node w/ 4 GPUs):
 ```
 Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
    D\D     0      1      2      3
@@ -868,7 +868,7 @@ Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
      2 746.16 750.28 5814.63 746.71
      3 744.82 749.00 747.16 5816.66
 ```
-746GBps out of 900GBps (82.8%)
+746GBps out of 900GBps (82.8%) - very similar to NVLink4's efficiency.
 
 note: [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth) is supposed to be a more detailed and correct benchmark to replace `p2pBandwidthLatencyTest`, but I found the latter to provide very similar results.
 
