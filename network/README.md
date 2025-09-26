@@ -284,6 +284,11 @@ You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
 Of course, other A100 and H100s node reports may vary, e.g. the number of cpu cores is likely to be different.
 
+### NVLink-C2C
+
+This is a high-bandwidth connection between Grace CPU and GPUs on GB200 (GB300, and higher) modules. As of this writing there is no public spec of the speed, but found 450GBps unidirect mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirect bandwidth for NVLink-5 - so half the speed of the latter.
+
+I'm looking for an official spec if you find one please let me know.
 
 
 ### NVSwitch
