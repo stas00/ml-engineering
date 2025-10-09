@@ -4,7 +4,11 @@
 
 This is Maximum Achievable Matmul FLOPS (MAMF) Finder
 
-For discussion and multiple important nuances please refer to
+For a quick run use:
+
+python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+
+But this usually is an insufficient range to get the best results, therefore for discussion and multiple important nuances please refer to
 https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
 
 Credits:
@@ -29,6 +33,7 @@ import sys
 import time
 import torch
 from packaging import version
+from warnings import warn
 
 # important: when changing how the benchmark measures things bump up its version, so that the old
 # reports could be differentiated from the new ones
@@ -70,15 +75,19 @@ class CUDAArch(Arch):
         else:
             self.arch = "cuda"
 
+    @property
     def device(self):
         return torch.device('cuda:0')
 
+    @property
     def name(self):
         return self.arch
 
+    @property
     def device_info(self):
         return torch.cuda.get_device_properties(device)
 
+    @property
     def compute_info(self):
         if self.arch == "rocm":
             return f"hip={torch.version.hip}, cuda={torch.version.cuda}"
@@ -96,15 +105,19 @@ class HPUArch(Arch):
     def __init__(self):
         self.arch = "hpu"
 
+    @property
     def device(self):
         return torch.device('hpu')
 
+    @property
     def name(self):
         return self.arch
 
+    @property
     def device_info(self):
         return torch.hpu.get_device_properties(device)
 
+    @property
     def compute_info(self):
         return f"hpu={torch.hpu}"
 
@@ -119,15 +132,19 @@ class XPUArch(Arch):
     def __init__(self):
         self.arch = "xpu"
 
+    @property
     def device(self):
         return torch.device('xpu')
 
+    @property
     def name(self):
         return self.arch
 
+    @property
     def device_info(self):
         return torch.xpu.get_device_properties(device)
 
+    @property
     def compute_info(self):
         return f"xpu={torch.version.xpu}"
 
@@ -184,8 +201,8 @@ class Tee(object):
 
 def print_benchmark_header(dtype, device, notes="None"):
 
-    device_info = arch.device_info()
-    compute_info = arch.compute_info()
+    device_info = arch.device_info
+    compute_info = arch.compute_info
 
     print(f"""
 Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
@@ -196,15 +213,18 @@ Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
 ** Dtype: {dtype}
 
 ** Platform/Device info:
-{" ".join(platform.uname())}
-{device_info}
+- {" ".join(platform.uname())}
+- {device_info}
 
 ** Critical software versions:
-torch={torch.__version__}
-{compute_info}
+- torch={torch.__version__}
+- {compute_info}
+
+** Critical environment variables:
+- PYTORCH_TUNABLEOP_ENABLED={os.environ.get("PYTORCH_TUNABLEOP_ENABLED", "0")}
 
 ** Additional notes:
-benchmark version: {benchmark_version}
+- benchmark version: {benchmark_version}
 {notes}
 
 {"-" * 80}
@@ -258,7 +278,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         # torch._scaled_mm is different before pt-2.5
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
-        if dtype == torch.float8_e4m3fn and arch.name() == "rocm":
+        if dtype == torch.float8_e4m3fn and arch.name == "rocm":
             raise ValueError("ROCm doesn't support float8_e4m3fn, use --dtype float8_e4m3fnuz instead")
 
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
@@ -295,6 +315,10 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     return mean_tflops, median_tflops, max_tflops
 
+def setup_checks():
+    if arch.name == "rocm":
+        if int(os.environ.get("PYTORCH_TUNABLEOP_ENABLED", "0")) == 0:
+            warn("AMD gpus usually requires PYTORCH_TUNABLEOP_ENABLED=1 to report efficient results, but it's not so, proceeding as is - expect bad results")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -325,7 +349,9 @@ if __name__ == '__main__':
     k = args.k
 
     dtype = get_torch_dtype(args.dtype)
-    device = arch.device()
+    device = arch.device
+
+    setup_checks()
 
     range_info = (
         f"m={args.m_range if m is None else args.m} | "
