@@ -265,7 +265,8 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA H200s are gradually replacing A100s and H100s. H200s have more of and a more efficient HBM and thus make them more cost-effective than H100s.
+  * NVIDIA H200
+  * AMD MI325 on neoclouds primarily, MI355 is starting to appear
 
 Available, but locks you in:
 
@@ -273,18 +274,11 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these).
-
-  * NVIDIA B200 and GB200 - are starting to emerge.
-
-  * AMD MI355X is starting to emerge on Neo clouds
-
+  * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
+  * AMD MI355X are starting to emerge on Neo clouds
   * Intel Gaudi3 > H200 - is available on Intel's cloud
-
   * Amazon's Trainium2 < H100 is available on AWS
-
   * GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
-
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
 For the full list and more recently announced accelerators see [Accelerators](../compute/accelerator).
@@ -298,7 +292,7 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda-toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
-- AMD MI250/MI300X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
+- AMD MI250/MI3**X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
 - Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
@@ -341,9 +335,10 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 NVIDIA:
 
-- NVIDIA-based compute nodes come with 50GBps duplex NVLInk
+- NVIDIA-based compute nodes come with 50GBps duplex NVLink
 
-- Some have a lot of NVLinks, others less but typically plenty w/ at least 450GBps (3.6Tbps) unidirectional bandwidth for H100, 300GBps for A100 nodes
+- Some have a lot of NVLinks, others less but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200, H100
+450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes
 
 Intel Gaudi2:
 
