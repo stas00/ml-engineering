@@ -27,7 +27,7 @@ AMD:
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs started transitioning from NVIDIA H100s to H200s and this is going to take some months due to the usual shortage of NVIDIA GPUs. B200, GB200 are starting to emerge. B300 and GB300 were announced on 2024-12!
+- As of today, ML clouds/HPCs already have B200s. GB200 and B300 are starting to emerge.
 - AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI400X hopefully in 2026.
 
 HPU:
@@ -211,32 +211,32 @@ To check the actual clock speed when your accelerator is under load see the [clo
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | Notes |
-| :---------------      | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ----: |
-| NVIDIA GB300 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 15000  | 10    |
-| NVIDIA GB200 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  | 2     |
-| AMD MI355X            | 157.3 | ??     | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   |       |
-| NVIDIA B200 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   |       |
-| Intel Gaudi3          | 229.0 | 459.0  | 459  | 1677 | 1677 | V    | X    | X      | 1,8   |
-| AMD MI325X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      | 7     |
-| AMD MI300X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      |       |
-| NVIDIA H200 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 4     |
-| NVIDIA H100 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 3     |
-| NVIDIA GH200 SXM      | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | 6     |
-| NVIDIA H100 PCIe      | 51.0  | 378.0  | 756  | 756  | 1513 | 1513 | X    | X      |       |
-| AWS Trainium2 / Ultra | 181.0 | 667.0  | 667  | 667  | 1299 | X    | X    | X      | 9     |
-| Google TPU v5p        | X     | X      | X    | 459  | X    | 918  | X    | X      |       |
-| Intel Gaudi2          | V     | V      | V    | 432  | 865  | V    | X    | X      | 1     |
-| AMD MI250X            | 47.9  | X      | 383  | 383  | X    | 383  | X    | X      |       |
-| NVIDIA L40S           | 91.6  | 183.0  | 362  | 362  | 733  | 733  | X    | X      |       |
-| AMD MI250             | 45.3  | X      | 362  | 362  | X    | 362  | X    | X      |       |
-| NVIDIA A100 SXM       | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      |       |
-| NVIDIA A100 PCIe      | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      | 5     |
-| Google TPU v4         | X     | X      | X    | 275  | X    | 275  | X    | X      |       |
-| Google TPU v5e        | X     | X      | X    | 197  | X    | 394  | X    | X      |       |
-|                       |       |        |      |      |      |      |      |        |       |
-| NVIDIA B300 SXM       | ??    |        |      |      |      |      |      |        |       |
-|                       |       |        |      |      |      |      |      |        |       |
+| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8  | int8 | fp6  | fp4    | nvfp4   | Notes |
+| :---------------      | ----: | -----: | ---: | ---: | ---: | ---: | --:  | -----: | ------: | ----: |
+| NVIDIA GB300 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 15000  | ?       | 10    |
+| NVIDIA GB200 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000 | 5000 | 5000 | 10000  | ?       | 2     |
+| AMD MI355X            | 157.3 | ??     | 2300 | 2300 | 4600 | 4600 | 9200 | 9200   | X       |       |
+| NVIDIA B300 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 12600  | 15000   |       |
+| NVIDIA B200 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500 | 4500 | 4500 | 9000   | 10000   |       |
+| Intel Gaudi3          | 229.0 | 459.0  | 459  | 1677 | 1677 | V    | X    | X      | X       | 1,8   |
+| AMD MI325X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      | X       | 7     |
+| AMD MI300X            | 163.4 | 653.7  | 1300 | 1300 | 2600 | 2600 | X    | X      | X       |       |
+| NVIDIA H200 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | X       | 4     |
+| NVIDIA H100 SXM       | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | X       | 3     |
+| NVIDIA GH200 SXM      | 67.0  | 494.5  | 989  | 989  | 1979 | 1979 | X    | X      | X       | 6     |
+| NVIDIA H100 PCIe      | 51.0  | 378.0  | 756  | 756  | 1513 | 1513 | X    | X      | X       |       |
+| AWS Trainium2 / Ultra | 181.0 | 667.0  | 667  | 667  | 1299 | X    | X    | X      | X       | 9     |
+| Google TPU v5p        | X     | X      | X    | 459  | X    | 918  | X    | X      | X       |       |
+| Intel Gaudi2          | V     | V      | V    | 432  | 865  | V    | X    | X      | X       | 1     |
+| AMD MI250X            | 47.9  | X      | 383  | 383  | X    | 383  | X    | X      | X       |       |
+| NVIDIA L40S           | 91.6  | 183.0  | 362  | 362  | 733  | 733  | X    | X      | X       |       |
+| AMD MI250             | 45.3  | X      | 362  | 362  | X    | 362  | X    | X      | X       |       |
+| NVIDIA A100 SXM       | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      | X       |       |
+| NVIDIA A100 PCIe      | 19.5  | 156.0  | 312  | 312  | X    | 624  | X    | X      | X       | 5     |
+| Google TPU v4         | X     | X      | X    | 275  | X    | 275  | X    | X      | X       |       |
+| Google TPU v5e        | X     | X      | X    | 197  | X    | 394  | X    | X      | X       |       |
+|                       |       |        |      |      |      |      |      |        |         |       |
+|                       |       |        |      |      |      |      |      |        |         |       |
 
 Row-specific notes:
 
