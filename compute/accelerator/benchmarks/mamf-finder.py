@@ -318,7 +318,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 def setup_checks():
     if arch.name == "rocm":
         if int(os.environ.get("PYTORCH_TUNABLEOP_ENABLED", "0")) == 0:
-            warn("AMD gpus usually requires PYTORCH_TUNABLEOP_ENABLED=1 to report efficient results, but it's not so, proceeding as is - expect bad results")
+            warn("AMD GPUs usually require `export PYTORCH_TUNABLEOP_ENABLED=1` to measure the best possible compute, but it hasn't been set. Proceeding as is - expect potentially bad/invalid results.")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
