@@ -89,7 +89,7 @@ You can first test that your pdsh setup works with this quick command, which wil
 
 PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS hostname
 
-Now you're ready to run the benchmark after adjusting `DIR` - it's critical since current working won't be the same as where you launched things from:
+Now you're ready to run the benchmark after adjusting the `DIR` value - it's critical since your current working dir with `pdsh` won't be the same as where you launched things from:
 
 DIR=/change/the/path/benchmarks
 PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS python -u -m torch.distributed.run --nproc_per_node=8 --nnodes=$NNODES --rdzv_endpoint $MASTER_HOST:6003  --rdzv_backend c10d $DIR/all_reduce_bench.py
