@@ -39,6 +39,10 @@ Important notes:
 
 Examples:
 
+The following are recipes to use to run on:
+1. single node - using `torchdist`, which can be easily adapted to use `deepspeed`, `accelerate` and other distributed launchers
+2. multi-node - using SLURM or `pdsh` (k8s)
+
 *** To do a quick test on 2 GPUs:
 
 python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
