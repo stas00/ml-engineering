@@ -53,13 +53,13 @@ Here we do `torch.mm(MxK,KxN) -> MxN`
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.
 
 ```
-./mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 2. A more exhaustive search (15-30min) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
-./mamf-finder.py --m_range 0 16384 1024 --n_range 0 16384 1024 --k_range 0 16384 1024  --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 16384 1024 --n_range 0 16384 1024 --k_range 0 16384 1024  --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 Feel free to make the steps smaller from 1024 to 512 or 256 - but it'd 8x or 64x the run time correspondingly. 1k steps should cover the different shape ranges well and fast.
@@ -67,13 +67,13 @@ Feel free to make the steps smaller from 1024 to 512 or 256 - but it'd 8x or 64x
 3. A super long exhaustive search (may take many hours/days) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
 ```
-./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 4. If you want to measure a specific shape that is used by your training, use the exact shape, instead of the range, so let's say you wanted to measure 1024x1024x1024 - you'd run:
 
 ```
-./mamf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 5. Accelerator specific range seeking suggestions
@@ -83,13 +83,13 @@ But then it appears that different accelerators have different ranges of shapes 
 - **A100** + **MI300X**
 
 ```
-./mamf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 - **H100**
 
 ```
-./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 To understand better which shapes give the highest matmul FLOPS for a particular accelerator, see [Vector and matrix size divisibility](../../../training/performance/README.md#vector-and-matrix-size-divisibility).

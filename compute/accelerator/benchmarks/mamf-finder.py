@@ -6,7 +6,7 @@ This is Maximum Achievable Matmul FLOPS (MAMF) Finder
 
 For a quick run use:
 
-python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +"%Y-%m-%d-%H:%M:%S").txt
+python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 But this usually is an insufficient range to get the best results, therefore for discussion and multiple important nuances please refer to
 https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
