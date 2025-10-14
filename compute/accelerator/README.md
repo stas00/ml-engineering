@@ -300,9 +300,11 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
 | Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |    16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
 | NVIDIA GB200 SXM | 1822.0 |   2500 |      72.9% |    4096x9728x2048 | 2.10.0.dev20250916+cu130       |                                    |
+| AMD MI355X       | 1446.0 |   2300 |      62.8% |    4096x4096x4864 | 2.8.0+rocm7.0.0.git64359f59    | PYTORCH_TUNABLEOP_ENABLED=1        |
 | AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
 |                  |        |        |            |                   |                                |                                    |
+
 
 **FP8 (`float8_e4m3fn`)**:
 
@@ -450,9 +452,9 @@ Sorting by L2 Total, as it seems to be the cache that is in all accelerators lis
 | Intel Gaudi2         |         |         |       |          | 48MiB    |          | 2,3   |
 | NVIDIA A100 SXM      | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
 | NVIDIA A100 PCIe     | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
-| AMD MI300X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
-| AMD MI325X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
 | AMD MI355X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
+| AMD MI325X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
+| AMD MI300X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
 |                      |         |         |       |          |          |          |       |
 | NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
 | NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
@@ -593,7 +595,9 @@ NVIDIA:
 AMD:
 - [MI250](https://www.amd.com/en/products/accelerators/instinct/mi200/mi250.html) ~= A100 - very few clouds have them
 - [MI300X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html) ~= H100 - available mainly on Tier-2 clouds (lots of new startups)
-- [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html) ~= H200 - just starting to emerge, mainly on Tier-2 clouds
+- [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html) ~= H200 - available mainly on Tier-2 clouds
+- [MI350X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350x.html) ~= B200 - it seems that MI355X is made available instead of MI350X
+- [MI355X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) ~= B200 - just starting to emerge, mainly on Tier-2 clouds
 
 
 Intel:
@@ -690,6 +694,7 @@ for example, AMD MI250 has:
 - 13,312 Stream Processors
 - 208 Compute Units
 
+[AMD's table comparing its high-end gpus](https://rocm.docs.amd.com/en/latest/reference/gpu-arch-specs.html)
 
 ### Intel Gaudi
 
