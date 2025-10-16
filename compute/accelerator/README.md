@@ -28,7 +28,7 @@ While this might be changing in the future, unlike the consumer GPU market, as o
 
 GPUs:
 - As of today, ML clouds/HPCs already have B200s. GB200 and B300 are starting to emerge.
-- AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI400X hopefully in 2026.
+- AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI400X hopefully in 2026. New: large CSPs started to offer AMD GPUs
 
 HPU:
 - Intel's Gaudi2 and Gaudi3 are available at Intel's cloud.

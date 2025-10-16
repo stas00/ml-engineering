@@ -275,7 +275,7 @@ Available, but locks you in:
 Emerging to general availability:
 
   * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
-  * AMD MI355X are starting to emerge on Neo clouds
+  * AMD MI355X are starting to emerge on Neo clouds and also large CSPs started to offer AMD GPUs
   * Intel Gaudi3 > H200 - is available on Intel's cloud
   * Amazon's Trainium2 < H100 is available on AWS
   * GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
