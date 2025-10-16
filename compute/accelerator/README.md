@@ -290,7 +290,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 
 **BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver                      | Notes                              |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch version                  | Notes                              |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :--------------------------------- |
 | Intel Gaudi 2    |  418.7 |    432 |      96.9% |  14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
 | NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126                    |                                    |
@@ -300,15 +300,15 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
 | Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |    16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
 | NVIDIA GB200 SXM | 1822.0 |   2500 |      72.9% |    4096x9728x2048 | 2.10.0.dev20250916+cu130       |                                    |
-| AMD MI355X       | 1446.0 |   2300 |      62.8% |    4096x4096x4864 | 2.8.0+rocm7.0.0.git64359f59    | PYTORCH_TUNABLEOP_ENABLED=1        |
-| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | 1000W, PYTORCH_TUNABLEOP_ENABLED=1 |
+| AMD MI355X       | 1565.0 |   2300 |      68.0% |   12288x8192x8192 | 2.8.0+rocm7.0.2.git245bf6ed    | PYTORCH_TUNABLEOP_ENABLED=0        |
+| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | PYTORCH_TUNABLEOP_ENABLED=1, 1000W |
 | AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
 |                  |        |        |            |                   |                                |                                    |
 
 
 **FP8 (`float8_e4m3fn`)**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch ver                      | Notes                    |
+| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch version                  | Notes                    |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :----------------------- |
 | Intel Gaudi 2    |  826.5 |    865 |      95.5% |   6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1       |
 | NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GB HBM3e version |
