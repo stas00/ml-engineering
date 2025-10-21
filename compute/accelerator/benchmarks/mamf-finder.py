@@ -448,18 +448,21 @@ if __name__ == '__main__':
 
     def finish():
 
-        geo_mean_tflops = np.exp(np.log(all_mean_tflops).mean())
+        all_tried_shapes_geometric_mean_tflops  = np.exp(np.log(all_mean_tflops).mean())
+        all_tried_shapes_arithmetic_mean_tflops = np.mean(all_mean_tflops)
 
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print("", end="\033[K")
         print(f"""
-Tried  {num_shapes} shapes => the best outcomes were:
+Tried {num_shapes} shapes => the best outcomes were:
 mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
 median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
 max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
 
-geomean: {geo_mean_tflops:.1f} TFLOPS for {num_shapes} shapes in range: {range_info}
+Across {num_shapes} shapes in range: {range_info} in this run:
+arithmetic mean: {all_tried_shapes_arithmetic_mean_tflops:.1f} TFLOPS
+geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
 """)
         print(f"Legend: TFLOPS = 10**12 FLOPS")
         print(f"Elapsed time: {time_str}")
