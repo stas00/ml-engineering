@@ -14,6 +14,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 - [Horace He](https://github.com/Chillee)
 - [Ivan Yashchuk](https://github.com/IvanYashchuk)
 - [Jack Dent](https://github.com/jackdent)
+- [Jon Stevens](https://github.com/jon-hotaisle)
 - [Jordan Nanos](https://github.com/JordanNanos)
 - [Mark Saroufim](https://github.com/msaroufim)
 - [Olatunji Ruwase](https://github.com/tjruwase)
