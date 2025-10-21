@@ -154,6 +154,56 @@ class XPUArch(Arch):
     def synchronize(self):
         torch.xpu.synchronize()
 
+class MPSEvent:
+    """Fallback event implementation for Apple's MPS backend."""
+    def __init__(self):
+        self._timestamp = None
+
+    def record(self):
+        torch.mps.synchronize()
+        self._timestamp = time.perf_counter()
+
+    def elapsed_time(self, other):
+        if self._timestamp is None or other._timestamp is None:
+            raise RuntimeError("Attempted to measure elapsed time before events were recorded")
+        return (other._timestamp - self._timestamp) * 1000.0
+
+class MPSArch(Arch):
+    """ Apple Silicon GPUs via Metal Performance Shaders """
+    def __init__(self):
+        self.arch = "mps"
+
+    @property
+    def device(self):
+        return torch.device('mps')
+
+    @property
+    def name(self):
+        return self.arch
+
+    @property
+    def device_info(self):
+        return "Apple Metal Performance Shaders (MPS)"
+
+    @property
+    def compute_info(self):
+        driver_version = None
+        if hasattr(torch.backends, "mps") and hasattr(torch.backends.mps, "driver_version"):
+            try:
+                driver_version = torch.backends.mps.driver_version()
+            except TypeError:
+                # driver_version may be a property on some torch releases
+                driver_version = torch.backends.mps.driver_version
+        if driver_version:
+            return f"mps={driver_version}"
+        return "mps"
+
+    def event(self, enable_timing=True):
+        return MPSEvent()
+
+    def synchronize(self):
+        torch.mps.synchronize()
+
 def get_accelerator_arch():
     """
     returns: CUDAArch or HPUArch object
@@ -169,7 +219,10 @@ def get_accelerator_arch():
     if torch.xpu.is_available():
         return XPUArch()
 
-    raise ValueError("Currently only cuda, rocm, hpu and xpu are supported")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return MPSArch()
+
+    raise ValueError("Currently only cuda, rocm, hpu, xpu and mps are supported")
 
 arch = get_accelerator_arch()
 
