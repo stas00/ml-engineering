@@ -147,7 +147,7 @@ On a good node, this should return nothing, as all counters should be 0. But in 
 ```
 The first entry is for `Volatile` (errors counted since the last time the GPU driver reload) and the second is for `Aggregate` (total errors counter for the whole life time of the GPU). In this example we see a Volatile counter for SRAM Uncorrectable errors to be 1 and for the life-time counter it's 5 - that is this is not the first time the GPU runs into this problem.
 
-This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48.
+This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48).
 
 To overcome this issue as in the previous section, reset the problematic GPU:
 ```
@@ -374,7 +374,7 @@ Cloud providers usually have a mechanism of reporting bad nodes. Therefore other
 
 ## How to get the real GPU utilization metrics
 
-As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `Volatile GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a a very high gpu util, while most of the GPU isn't doing anything.
+As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a very high gpu util, while most of the GPU isn't doing anything.
 
 footnote: I have seen GPU util column showing 100% on all gpus when one GPU would stop responding and then whole machinery was blocked waiting for that gpu to respond. Which is how I discovered that it couldn't be showing the real GPU utilization in the first place.
 

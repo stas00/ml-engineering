@@ -33,6 +33,12 @@ sudo echo 0 > /proc/sys/kernel/yama/ptrace_scope
 ```
 which will allow you running `py-spy` (and `strace`) without needing `sudo`. Beware of the possible [security implications](https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace_Protection) - but typically if your compute node is inaccessible from the Internet it's less likely to be a risk.
 
+If the above fails with "Permission denied" error, either of the following 2 ways should do the trick:
+```
+sudo sysctl -w kernel.yama.ptrace_scope=0
+sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
+```
+
 To make this change permanent edit `/etc/sysctl.d/10-ptrace.conf` and set:
 ```
 kernel.yama.ptrace_scope = 0

@@ -17,12 +17,13 @@ These notes assume you already know what compute you want for your specific work
 - CSP: Cloud Service Provider
 - SLA: Service-level_agreement
 - SLO: Service Level Objective
+- TCO: Total Cost of Ownership
 
 
 
 ## Contracts
 
-If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in TCO savings (and time)!
+If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in total cost of ownership (TCO) savings (and time)!
 
 ### Free Trials
 
@@ -120,6 +121,9 @@ Nobody wants to use a 2-5x slower accelerator when a much faster version is avai
 
 You need to negotiate the ability to move to the new generation before the end of the term, which would obviously require some additional money paid for this to happen.
 
+### Ensure all accelerators are at the same region/locale
+
+As new accelerators emerge it's very often the case that if you want them early they won't be available in the same region as your current accelerators are. Unless you drop the previous allocation completely and move to a new one at a different region you will have a nightmare of maintaining multiple storage copies, because for performance reasons you need the storage to be where the accelerators are. If you don't you will have issues with syncing multiple copies of the same storage and paying potentially huge ongoing egress/ingress costs. So plan for that and discuss that the CSP moves your older generation accelerator allocation to the same region where the new generation is. That's, of course, not always possible and you may have to wait till more accelerators become available. But it's an important clause to discuss.
 
 ## Accelerators
 

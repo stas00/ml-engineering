@@ -262,6 +262,90 @@ Let's look at the details.
 
 There are the input and output that are being passed and returned by the forward and the backward functions and the forward activations saved for gradient computation.
 
+Here is a rough breakdown of activation memory per GPU:
+
+1. Activation working memory: `dtype_size * num_of_hidden_states_copies * bs * seqlen * hidden_size`
+2. Activation checkpoints memory: `dtype_size * num_layers * bs * seqlen * hidden_size`
+3. Logits working memory: `fp32_size * bs * seqlen * vocab_size`
+
+In all the following calculations:
+- `dtype_size`: size of the one element of `dtype` being used, e.g. `1` byte for fp8, `2` for bf16, `4` for fp32, etc.
+- `fp32_size`: `4` bytes
+- `bs`: batch size
+- `hidden_size`: hidden size of the model
+- `seqlen`: the sequence length
+- `num_layers`: the number of layers the model has
+- `vocab_size`: vocabulary size
+
+And `dtype_size * bs * seqlen * hidden_size` is the size of the `hidden_states` tensor, because that's its shape `[bs, seqlen, hidden_size]` multiplied by the size in bytes of a single element.
+
+In the following explanation let's use the Llama-3 architecture and its [8B configuration](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/config.json):
+```
+hidden_size=4096
+num_layer=32
+vocab_size=128256
+```
+
+and let's use
+```
+dtype=bf16 (2 bytes)
+bs=1
+seqlen=32768
+```
+
+We can immediately calculate the size of `hidden_states` tensor in bf16 to be: `2 * 1 * 32768 * 4096 / 2**30 = 0.25GiB`
+
+Part 1. So first let's calculate how much working memory is needed to process a single layer forward:
+
+`activation_memory_per_layer = num_of_hidden_states_copies * dtype_size * bs * seqlen * hidden_size`
+
+The `num_of_hidden_states_copies` is typically between 20 and 50 and will vary between different model architectures. To get a good feeling for the variations - let's measure a handful of models using [activation-memory-per-layer.py](benchmarks/activation-memory-per-layer.py). What we get is:
+```
+24.0 "HuggingFaceTB/SmolLM2-360M"
+28.0 "meta-llama/Llama-3.1-8B-Instruct"
+28.0 "mistralai/Mistral-7B-Instruct-v0.3"
+29.8 "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B"
+38.0 "Qwen/Qwen3-4B"
+48.0 "google/gemma-1.1-2b-it"
+```
+
+So it's easy to see that Gemma makes two times more copies of `hidden_states` than SmolLM2 to compute a single layer forward.
+
+It'd be difficult to compare the models exactly if their `hidden_size` isn't the same, but comparing the `num_of_hidden_states_copies` co-efficient is easy.
+
+Clearly some architectures allocate additional memory besides copies of `hidden_states` as can be seen with `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` whose co-efficient isn't an integer.
+
+Now to our example model:
+
+`activation_memory_per_layer = 2 * 28 * 1 * 32768 * 4096 / 2**30 = 7GiB` (`28` came from the measurements output a few paragraphs earlier for `meta-llama/Llama-3.1-8B-Instruct`).
+
+Part 2. Now that we know the memory allocated by each layer, 2 possible things will happen next depending on whether [gradient checkpointing](#gradient-checkpointing) is enabled or not:
+
+- If it's enabled, then we need to store `num_layers * hidden_states`.
+
+In our example that would be: `32 * 0.25 = 8GiB` (we calculated `hidden_states = 0.25GiB` earlier).
+
+- If it's not enabled, then activation memory will grow to `num_layers * activation_memory_per_layer`.
+
+In our example that would be: `32 * 7 = 224GiB`
+
+Notice 8GiB vs 224GiB - that's a huge difference - therefore, clearly everybody activates the [gradient checkpointing](#gradient-checkpointing) feature despite the cost of recalculating the forward pass a second time.
+
+Part 3. Finally we have the loss calculation which typically requires manifesting the logits in fp32 and here the `vocab_size` dimension is typically the biggest dimension, hence: `fp32_size * bs * seqlen * vocab_size`
+
+In our example that would be: `4 * 1 * 32768 * 128256 /  2**30 = 15.7GiB` (~16GB)
+
+As you can see logits will use more memory than all the checkpointing activations for this model.
+
+Moreover, practically you typically end up with a factor of 6 instead of 4 for `dtype_size`, since usually `logits` is first created in the lower precision and then upcast to fp32 so you have 2 copies of it, thus `2+4=6`.
+
+Part 4. Total required activation memory is the sum of memory needed to compute one layer forward + activation checkpoints + logits activation memory when using gradient checkpointing. When not using gradient checkpointing it's the sum of 2 and 3, i.e. all the forwards activations and the logits memory.
+
+In our example:
+
+- w/ gradient checkpointing: `7 + 8 + 16 = 31GB`
+- w/o gradient checkpointing: `224 + 16 = 240GiB`
+
 **Temporary Memory**
 
 Additionally there are all kinds of temporary variables which get released once the calculation is done, but in the moment these could require additional memory and could push to OOM. Therefore when coding it's crucial to think strategically about such temporary variables and sometimes to explicitly free those as soon as they are no longer needed.
@@ -357,10 +441,10 @@ So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) too
 
 #### Memory fragmentation
 
-As the model allocates and frees tensors, the memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
+As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
 Environment variable `PYTORCH_CUDA_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
-
+I found `PYTORCH_CUDA_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
 
 
 

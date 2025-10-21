@@ -7,7 +7,7 @@ In the modern machine learning the various approaches to parallelism are used to
 
 1. Overcome GPU memory limitations. Examples:
    - fit very large models - e.g., t5-11b is 45GB in just model params
-   - fit very long sequences - e.g.,
+   - fit very long sequences - e.g., 128K context length for Llama 3.1 models
 2. significantly speed up training - finish training that would take a year in hours
 
 We will first discuss in depth various 1D parallelism techniques and their pros and cons and then look at how they can be combined into 2D and 3D parallelism to enable an even faster training and to support even bigger models. Various other powerful alternative approaches will be presented.
@@ -157,6 +157,7 @@ If you use, say, 1024 accelerators, you'll have tiny shards per accelerator and 
 So you either need to deploy [Tensor Parallelism](#tensor-parallelism) which is non-trivial to implement, or often it's much simpler to deploy [Sequence Parallelism](#sequence-parallelism). I'm yet to try it in action, but so far what I gathered is for:
 
 - Deepspeed ZeRO use [Deepspeed-Ulysses](#deepspeed-ulysses-sp)
+- [Arctic Long Sequence Training](#arctic-long-sequence-training)
 - FSDP use [Paged Ring Attention](https://github.com/lucidrains/ring-attention-pytorch) ([paper](https://arxiv.org/abs/2402.08268))
 
 Please note that most likely it won't be as efficient as [Tensor Parallelism](#tensor-parallelism) - but I don't yet know of the actual additional overhead.
@@ -287,7 +288,7 @@ Problems with traditional Pipeline API solutions:
 I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
 Implementations:
-- [Pytorch](https://pytorch.org/docs/stable/pipeline.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
+- [Pytorch](https://docs.pytorch.org/docs/stable/distributed.pipelining.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
 - [FairScale](https://fairscale.readthedocs.io/en/latest/tutorials/pipe.html)
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/pipeline/)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation - no API.
@@ -472,6 +473,13 @@ You can read the specifics of the very efficient comms [here](https://github.com
 
 DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs proportional to message size or sequence length.
 
+### Arctic Long Sequence Training
+
+Arctic Long Sequence Training ports [Deepspeed-Ulysses](#deepspeed-ulysses-sp) to Hugging Face Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
+
+- paper: https://www.arxiv.org/abs/2506.13996
+- implementation and integration: [ArtcticTraining](https://github.com/snowflakedb/ArcticTraining/blob/main/projects/sequence-parallelism/) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
+
 ### Colossal-AI's SP
 
 Paper: [Sequence parallelism: Long sequence training from system perspective](https://arxiv.org/abs/2105.13120)
@@ -515,7 +523,7 @@ PyTorch is also working on this feature and calling it Context Parallel (CP).
 
 ## Expert Parallelism
 
-When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts.
+When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough), which is referred to as Expert Parallelism (EP). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts. Instead of communicating model weights, in EP tokens are being communicated instead. EP leads to a more efficient compute as matrix multiplication then deal with bigger inputs.
 
 For detailed explanations please see:
 - [DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training to Power Next-Generation AI Scale](https://arxiv.org/abs/2201.05596)
@@ -572,7 +580,7 @@ Here is a useful tidbit: the all-reduce collective can be decomposed into two se
 Here is the breakdown of which collectives are used for which parallelization strategies:
 
 - DDP: 1x all-reduce for the gradients - ideally overlapping with compute - total volume: 2x model params comms
-- ZeRO-DP ZeRO-1/ZeRO-2: 1x all-gather for optimizer states plus 1x reduce-scatter for gradients - total volume: 2x model params comms
+- ZeRO-DP ZeRO-1/ZeRO-2: 1x reduce-scatter for gradients plus 1x all-gather to collect all the updated parameters- total volume: 2x model params comms
 - ZeRO-DP ZeRO-3: 2x all-gather for weights (before `forward` + before `backward`) plus 1x reduce-scatter for gradients - total volume: 3x model params comms (1.5x more than DDP and ZeRO-1/ZeRO-2)
 - TP: 2x all-gather and 2x reduce-scatter
 - PP: 2x send + 2x recv - overlapping with compute in the steady phase

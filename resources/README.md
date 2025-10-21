@@ -1,10 +1,20 @@
 # Resources
 
+## Similar online guides
+
+- Boris Dayma wrote [A Recipe for Training Large Models](https://wandb.ai/craiyon/report/reports/Recipe-Training-Large-Models--VmlldzozNjc4MzQz)
+
+- The HuggingFace team published [The Ultra-Scale Playbook: Training LLMs on GPU Clusters](https://huggingface.co/spaces/nanotron/ultrascale-playbook).
+
+- Jacob Austin maintains [How to Scale Your Model: A Systems View of LLMs on TPUs](https://jax-ml.github.io/scaling-book/)
+
+
 ## Useful compilations
 
 - [@StellaAthena](https://github.com/StellaAthena) created the [Common LLM Settings spreadsheet](https://docs.google.com/spreadsheets/d/14vbBbuRMEHoqeuMHkTfw3uiZVmyXNuoSp8s-aHvfvZk/edit#gid=0) which can be a super-useful resource when you're about to embark on a new LLM training - as it tells you how many known LLM trainings were created.
 
 - A few years back I started compiling information on [which dtype the models were trained in](https://discuss.huggingface.co/t/model-pre-training-precision-database-fp16-fp32-bf16/5671) - it only contains a handful of models but if you're doing a research on dtypes it can still be useful. I was using this information to try and write [a model pretraining dtype auto-detection](https://github.com/stas00/ml-ways/blob/master/numbers/detect-model-pretrained-in-bf16-fp16-fp32.ipynb) and here is a related [float16 vs bfloat16 numerical properties comparison](https://github.com/stas00/ml-ways/blob/master/numbers/bfloat16-vs-float16-study.ipynb).
+
 
 ## Publicly available training LLM/VLM logbooks
 

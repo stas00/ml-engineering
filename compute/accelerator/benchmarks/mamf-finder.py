@@ -4,15 +4,21 @@
 
 This is Maximum Achievable Matmul FLOPS (MAMF) Finder
 
-For discussion and multiple important nuances please refer to
+For a quick run use:
+
+python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+
+But this usually is an insufficient range to get the best results, therefore for multiple examples, discussion and multiple important nuances please refer to
 https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
+
+The results are shared here: https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#maximum-achievable-matmul-flops-comparison-table
 
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 - Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
 - Oren Leung https://github.com/OrenLeung - flagging the lack of cache/dest-matrix reset and suggesting a fix - also proposing geomean
-
+- Ivan Fioravanti https://github.com/ivanfioravanti - MPS support
 """
 
 from pathlib import Path
@@ -29,6 +35,7 @@ import sys
 import time
 import torch
 from packaging import version
+from warnings import warn
 
 # important: when changing how the benchmark measures things bump up its version, so that the old
 # reports could be differentiated from the new ones
@@ -70,15 +77,19 @@ class CUDAArch(Arch):
         else:
             self.arch = "cuda"
 
+    @property
     def device(self):
         return torch.device('cuda:0')
 
+    @property
     def name(self):
         return self.arch
 
+    @property
     def device_info(self):
         return torch.cuda.get_device_properties(device)
 
+    @property
     def compute_info(self):
         if self.arch == "rocm":
             return f"hip={torch.version.hip}, cuda={torch.version.cuda}"
@@ -96,15 +107,19 @@ class HPUArch(Arch):
     def __init__(self):
         self.arch = "hpu"
 
+    @property
     def device(self):
         return torch.device('hpu')
 
+    @property
     def name(self):
         return self.arch
 
+    @property
     def device_info(self):
         return torch.hpu.get_device_properties(device)
 
+    @property
     def compute_info(self):
         return f"hpu={torch.hpu}"
 
@@ -114,6 +129,82 @@ class HPUArch(Arch):
     def synchronize(self):
         ht.hpu.synchronize()
 
+class XPUArch(Arch):
+    """ Intel dGPUs (like ARC A770) """
+    def __init__(self):
+        self.arch = "xpu"
+
+    @property
+    def device(self):
+        return torch.device('xpu')
+
+    @property
+    def name(self):
+        return self.arch
+
+    @property
+    def device_info(self):
+        return torch.xpu.get_device_properties(device)
+
+    @property
+    def compute_info(self):
+        return f"xpu={torch.version.xpu}"
+
+    def event(self, enable_timing=True):
+        return torch.xpu.Event(enable_timing)
+
+    def synchronize(self):
+        torch.xpu.synchronize()
+
+class MPSEvent:
+    """Fallback event implementation for Apple's MPS backend."""
+    def __init__(self):
+        self._timestamp = None
+
+    def record(self):
+        torch.mps.synchronize()
+        self._timestamp = time.perf_counter()
+
+    def elapsed_time(self, other):
+        if self._timestamp is None or other._timestamp is None:
+            raise RuntimeError("Attempted to measure elapsed time before events were recorded")
+        return (other._timestamp - self._timestamp) * 1000.0
+
+class MPSArch(Arch):
+    """ Apple Silicon GPUs via Metal Performance Shaders """
+    def __init__(self):
+        self.arch = "mps"
+
+    @property
+    def device(self):
+        return torch.device('mps')
+
+    @property
+    def name(self):
+        return self.arch
+
+    @property
+    def device_info(self):
+        return "Apple Metal Performance Shaders (MPS)"
+
+    @property
+    def compute_info(self):
+        driver_version = None
+        if hasattr(torch.backends, "mps") and hasattr(torch.backends.mps, "driver_version"):
+            try:
+                driver_version = torch.backends.mps.driver_version()
+            except TypeError:
+                # driver_version may be a property on some torch releases
+                driver_version = torch.backends.mps.driver_version
+        if driver_version:
+            return f"mps={driver_version}"
+        return "mps"
+
+    def event(self, enable_timing=True):
+        return MPSEvent()
+
+    def synchronize(self):
+        torch.mps.synchronize()
 
 def get_accelerator_arch():
     """
@@ -127,7 +218,13 @@ def get_accelerator_arch():
     if has_hpu:
         return HPUArch()
 
-    raise ValueError("Currently only cuda, rocm and hpu are supported")
+    if torch.xpu.is_available():
+        return XPUArch()
+
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return MPSArch()
+
+    raise ValueError("Currently only cuda, rocm, hpu, xpu and mps are supported")
 
 arch = get_accelerator_arch()
 
@@ -194,8 +291,8 @@ def to_blocked(input_matrix) -> torch.Tensor:
 
 def print_benchmark_header(dtype, device, notes="None"):
 
-    device_info = arch.device_info()
-    compute_info = arch.compute_info()
+    device_info = arch.device_info
+    compute_info = arch.compute_info
 
     print(f"""
 Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
@@ -206,15 +303,18 @@ Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
 ** Dtype: {dtype}
 
 ** Platform/Device info:
-{" ".join(platform.uname())}
-{device_info}
+- {" ".join(platform.uname())}
+- {device_info}
 
 ** Critical software versions:
-torch={torch.__version__}
-{compute_info}
+- torch={torch.__version__}
+- {compute_info}
+
+** Critical environment variables:
+- PYTORCH_TUNABLEOP_ENABLED={os.environ.get("PYTORCH_TUNABLEOP_ENABLED", "0")}
 
 ** Additional notes:
-benchmark version: {benchmark_version}
+- benchmark version: {benchmark_version}
 {notes}
 
 {"-" * 80}
@@ -268,7 +368,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         # torch._scaled_mm is different before pt-2.5
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
-        if dtype == torch.float8_e4m3fn and arch.name() == "rocm":
+        if dtype == torch.float8_e4m3fn and arch.name == "rocm":
             raise ValueError("ROCm doesn't support float8_e4m3fn, use --dtype float8_e4m3fnuz instead")
 
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous()
@@ -288,7 +388,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
             scale_a = to_blocked(scale_a)
             scale_b = to_blocked(scale_b)
 
-            out_dtype = torch.torch.bfloat16
+            out_dtype = torch.bfloat16
         else:
             scale_a = torch.tensor([1.0]).to(device)
             scale_b = scale_a
@@ -299,7 +399,8 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         # Simplified call for PyTorch 2.5+
         @time_it(total_iterations)
         def time_iterations():
-            C = torch._scaled_mm(A, B, scale_a, scale_b, out_dtype=out_dtype)
+            # must not move `out=C` as `C = ...` as Gaudi needs it this way to work
+            torch._scaled_mm(A, B, scale_a, scale_b, out_dtype=out_dtype, out=C)
 
     else:
         A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
@@ -323,6 +424,10 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     return mean_tflops, median_tflops, max_tflops
 
+def setup_checks():
+    if arch.name == "rocm":
+        if int(os.environ.get("PYTORCH_TUNABLEOP_ENABLED", "0")) == 0:
+            warn("AMD GPUs usually require `export PYTORCH_TUNABLEOP_ENABLED=1` to measure the best possible compute, but it hasn't been set. Proceeding as is - expect potentially bad/invalid results.")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -353,7 +458,9 @@ if __name__ == '__main__':
     k = args.k
 
     dtype = get_torch_dtype(args.dtype)
-    device = arch.device()
+    device = arch.device
+
+    setup_checks()
 
     range_info = (
         f"m={args.m_range if m is None else args.m} | "

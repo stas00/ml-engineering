@@ -265,7 +265,8 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA H200s are gradually replacing A100s and H100s. H200s have more of and a more efficient HBM and thus make them more cost-effective than H100s.
+  * NVIDIA H200
+  * AMD MI325 on neoclouds primarily, MI355 is starting to appear
 
 Available, but locks you in:
 
@@ -273,19 +274,15 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA H200 - faster HBM and more memory than H100 - Q4-2024 on select clouds (not all big clouds are planning to stock on these).
-
-  * NVIDIA B200 and GB200 - are starting to emerge.
-
-  * AMD MI300X ~= H100 - Tier 2 clouds have those since Q2-2024 - you need to use the latest ROCm and activate many optimizations to get the high TFLOPs here. AMD MI325X > H200 will be available shortly.
-
+  * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
+  * AMD MI355X are starting to emerge on Neo clouds and also large CSPs started to offer AMD GPUs
   * Intel Gaudi3 > H200 - is available on Intel's cloud
-
   * Amazon's Trainium2 < H100 is available on AWS
-
-  * GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
-
   * Cerebras WaferScale Engine - available on Cerebras' cloud
+
+No longer available:
+
+* GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
 
 For the full list and more recently announced accelerators see [Accelerators](../compute/accelerator).
 
@@ -298,7 +295,7 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda-toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
-- AMD MI250/MI300X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
+- AMD MI250/MI3**X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
 - Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
@@ -315,7 +312,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
-| GPU  | Compute<b>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
+| GPU  | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
 | :--- |                      --: |                --: |                --: |                   --: |
 | V100 |                      125 |                  1 |                150 |                     1 |
 | A100 |                      312 |                2.5 |                300 |                     2 |
@@ -341,9 +338,10 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 NVIDIA:
 
-- NVIDIA-based compute nodes come with 50GBps duplex NVLInk
+- NVIDIA-based compute nodes come with 50GBps duplex NVLink
 
-- Some have a lot of NVLinks, others less but typically plenty w/ at least 450GBps (3.6Tbps) unidirectional bandwidth for H100, 300GBps for A100 nodes
+- Some have a lot of NVLinks, others less but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200, H100
+450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes
 
 Intel Gaudi2:
 
@@ -519,7 +517,7 @@ So if you ask me something, chances are that I don't know it, but the saving gra
 
 Because the ML field is in a huge race, a lot of the open source software is half-baked, badly documented, badly tested, at times poorly supported. So if you think you can save time by re-using software written by others expect spending hours to weeks trying to figure out how to make it work. And then keeping it working when the updates break it.
 
-The next problem is that most of this software depends on other software which often can be just as bad. It's not uncommon where I start fixing some integration problem, just to discover a problem in a dependent package, which in its turn has another problem from another package. This can be extremely frustrating and discouraging. Once excepts to save time by reuse, but ends up spending a long time figuring out how to make it work. At least if I write my own software I have fun and it's a creative process, trying to make other people's software work is not.
+The next problem is that most of this software depends on other software which often can be just as bad. It's not uncommon where I start fixing some integration problem, just to discover a problem in a dependent package, which in its turn has another problem from another package. This can be extremely frustrating and discouraging. One tries to save time by code reuse, but ends up spending a long time figuring out how to make it work. At least if I write my own software I have fun and it's a creative process, trying to make other people's software work is not.
 
 So at the end of the day we are still better off re-using other people's software, except it comes at an emotional price and exhaustion.
 

@@ -69,12 +69,12 @@ Since there is a huge variety of systems and components being used it's impossib
 This is added to your slurm launcher script (or whatever other way you use to launch the training) - this is Bash script:
 
 ```bash
-SAVE_DIR=/tmp # edit to a real path
+SAVE_DIR=/tmp # edit to a real persistent path
 export REPRO_DIR=$SAVE_DIR/repro/$SLURM_JOB_ID
 mkdir -p $REPRO_DIR
-# 1. modules (writes to stderr)
+# 1. modules (writes to stderr) (remove if you don't use lmod or similar modules implementation)
 module list 2> $REPRO_DIR/modules.txt
-# 2. env
+# 2. shell env vars
 /usr/bin/printenv | sort > $REPRO_DIR/env.txt
 # 3. pip (this includes devel installs SHA)
 pip freeze > $REPRO_DIR/requirements.txt
@@ -82,18 +82,27 @@ pip freeze > $REPRO_DIR/requirements.txt
 perl -nle 'm|"file://(.*?/([^/]+))"| && qx[cd $1; if [ ! -z "\$(git diff)" ]; then git diff > \$REPRO_DIR/$2.diff; fi]' $CONDA_PREFIX/lib/python*/site-packages/*.dist-info/direct_url.json
 ```
 
-As you can see this recipe is used in a SLURM environment, so every new training will dump the environment specific to the SLURM job.
+As you can see this recipe is used in a SLURM environment, so every new training will dump the environment specific to the SLURM job. But you can adapt it to any other environment.
 
-1. We save which `modules` were loaded, e.g. in cloud cluster/HPC setups you're like to be loading the CUDA and cuDNN libraries using this
+Let's expend on each step in the recipe:
+
+1. We save which `modules` were loaded, e.g. in cloud cluster/HPC setups you're like to be loading the CUDA and cuDNN libraries using this.
 
    If you don't use `modules` then remove that entry
 
-2. We dump the environment variables. This can be crucial since a single env var like `LD_PRELOAD` or `LD_LIBRARY_PATH` could make a huge impact on performance in some environments
+2. We dump the shell environment variables. This can be crucial since a single env var like `LD_PRELOAD` or `LD_LIBRARY_PATH` could make a huge impact on performance in some environments
 
-3. We then dump the conda environment packages and their versions - this should work with any virtual python environment.
+3. We then dump the python environment packages and their versions - this should work with any virtual python environment like `conda`, `venv` or even if you don't use a virtual environment.
+
+   If you use `uv` instead of `pip`, switch to `uv pip freeze` as it'd be much faster.
 
 4. If you use a devel install with `pip install -e .` it doesn't know anything about the git clone repository it was installed from other than its git SHA. But the issue is that it's likely that you have modified the files locally and now `pip freeze` will miss those changes. So this part will go through all packages that are not installed into the conda environment (we find them by looking inside `site-packages/*.dist-info/direct_url.json`)
 
-An additionally useful tool is [conda-env-compare.pl](https://github.com/stas00/conda-tools/blob/master/conda-env-compare.md) which helps you to find out the exact differences 2 conda environments have.
+To save the `apt` packages add:
+```
+apt list --installed > $REPRO_DIR/apt-packages.txt
+```
 
-Anecdotally, me and my colleague were getting very different training TFLOPs on a cloud cluster running the exact same code - literally launching the same slurm script from the same shared directory. We first compared our conda environments using [conda-env-compare.pl](https://github.com/stas00/conda-tools/blob/master/conda-env-compare.md) and found some differences - I installed the exact packages she had to match her environment and it was still showing a huge performance difference. We then compared the output of `printenv` and discovered that I had `LD_PRELOAD` set up and she didn't - and that made a huge difference since this particular cloud provider required multiple env vars to be set to custom paths to get the most of their hardware.
+If using `conda` an additionally useful tool is [conda-env-compare.pl](https://github.com/stas00/conda-tools/blob/master/conda-env-compare.md) which helps you to find out the exact differences 2 conda environments have.
+
+Anecdotally, me and my colleague were getting very different training TFLOPs on a cloud cluster running the exact same code - literally launching the same slurm script from the same shared directory. We first compared our conda environments using [conda-env-compare.pl](https://github.com/stas00/conda-tools/blob/master/conda-env-compare.md) and found some differences - I installed the exact packages she had to match her environment and it was still showing a huge performance difference. We then compared the output of `printenv` and discovered that I had `LD_PRELOAD` set up whereas she didn't - and that made a huge difference since this particular cloud provider required multiple env vars to be set to custom paths to get the most of their hardware.

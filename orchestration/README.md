@@ -9,7 +9,7 @@ So far I have been working with SLURM:
 
 The other most popular orchestrator is Kubernetes:
 
-- [Kubernetes](https://kubernetes.io/) - also known as K8s, is an open source system for automating deployment, scaling, and management of containerized applications. Here is a good [comparison between SLURM and K8s](https://www.fluidstack.io/post/is-kubernetes-or-slurm-the-best-orchestrator-for-512-gpu-jobs).
+- [Kubernetes](https://kubernetes.io/) - also known as K8s, is an open source system for automating deployment, scaling, and management of containerized applications. Here is a good [comparison between SLURM and K8s](https://web.archive.org/web/20250324222116/https://www.fluidstack.io/post/is-kubernetes-or-slurm-the-best-orchestrator-for-512-gpu-jobs).
 
 Here are various other less popular, but still very mighty orchestration solutions:
 

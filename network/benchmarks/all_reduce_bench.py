@@ -39,6 +39,15 @@ Important notes:
 
 Examples:
 
+The following are recipes to use to run on:
+1. single node - using `torchdist`, which can be easily adapted to use `deepspeed`, `accelerate` and other distributed launchers
+2. multi-node - using SLURM or `pdsh` (k8s)
+
+*** To do a quick test on 2 GPUs:
+
+python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
+all_reduce_bench.py
+
 *** To run on 4 nodes on SLURM:
 
 GPUS_PER_NODE=8
@@ -65,10 +74,30 @@ srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.ru
 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend \
 c10d all_reduce_bench.py
 
-*** To do a quick test on 2 GPUs:
+*** To run on 2 nodes with pdsh
 
-python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
-all_reduce_bench.py
+This approach requires passwordless ssh between participating nodes:
+
+You can hardcode the ips or hostnames:
+
+MASTER_HOST=10.0.0.10
+HOSTS=10.0.0.10,10.0.0.11
+
+or if you already have a deepspeed-style hostfile w/ "hostname slots=x" entries per line entries or mpi-style hostfile w/ "hostname" per line entries:
+
+MASTER_HOST=$(cat ~/hostfile | cut -d " " -f1 | head -1)
+HOSTS=$(cat ~/hostfile | cut -d " " -f1 | tr '\n' ',' | sed 's/,*$//g')
+NNODES=2
+
+You can first test that your pdsh setup works with this quick command, which will print the hostname of each participating node:
+
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS hostname
+
+Now you're ready to run the benchmark after adjusting the `DIR` value - it's critical since your current working dir with `pdsh` won't be the same as where you launched things from:
+
+DIR=/change/the/path/benchmarks
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS python -u -m torch.distributed.run --nproc_per_node=8 --nnodes=$NNODES --rdzv_endpoint $MASTER_HOST:6003  --rdzv_backend c10d $DIR/all_reduce_bench.py
+
 
 """
 
@@ -192,7 +221,9 @@ def run(local_rank):
         if not is_global_rank_0:
             return
 
-        print(f"Device info: {get_device_info()}\n")
+        print(f"\nEnvironment:")
+        print(f"- software: torch={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
+        print(f"- hardware: {get_device_info()}\n")
         print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
         print(f"| payload |    busbw   |    algbw   |")
         print(f"| ------: | ---------: | ---------: |")
@@ -243,12 +274,24 @@ def run(local_rank):
     finish()
 
 
-def init_processes(local_rank, fn, backend='nccl'):
-    torch.cuda.set_device(local_rank)
-    dist.init_process_group(backend)
-    fn(local_rank)
+def device_id_kwargs(local_rank):
+    """
+    torch.dist in recent pytorch versions loudly complains about device_id not being set, but it's a very problematic setting.
+    this util returns a dict to be passed to `dist.init_process_group` to set `device_id` if it's safe to do so.
+    """
+
+    from packaging import version
+    import inspect
+    # 1. device_id arg was added in torch==2.3
+    # 2. setting device_id leads to hanging in 2.6.0<torch<2.7.1 https://github.com/pytorch/pytorch/issues/153960
+    if 'device_id' in inspect.signature(torch.distributed.init_process_group).parameters and not (version.parse("2.6.0") < version.parse(torch.__version__) < version.parse("2.7.1")):
+        return dict(device_id=torch.device(local_rank))
+    else:
+        return dict()
 
 
 if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
-    init_processes(local_rank=local_rank, fn=run)
+    torch.cuda.set_device(local_rank)
+    dist.init_process_group("nccl", **device_id_kwargs(local_rank))
+    run(local_rank)

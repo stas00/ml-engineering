@@ -203,7 +203,7 @@ The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 l
 
 NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVLink is 7x faster than PCIe.
 
-NVIDIA Blackwell nodes will be equipped with PCIe 5 and NVLink 5. So there NVLink will be 14x faster than PCIe.
+NVIDIA Blackwell nodes come equipped with PCIe 5 and NVLink 5. So there NVLink is 14x faster than PCIe.
 
 Let's look at several examples of nodes and correlate the theory with reality.
 
@@ -284,6 +284,11 @@ You can see there are 18 NVLinks and 2 NUMA Groups (2 CPUs w/ 52 cores each)
 
 Of course, other A100 and H100s node reports may vary, e.g. the number of cpu cores is likely to be different.
 
+### NVLink-C2C
+
+This is a high-bandwidth connection between Grace CPU and GPUs on GB200 (GB300, and higher) modules. As of this writing there is no public spec of the speed, but found 450GBps unidirect mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirect bandwidth for NVLink-5 - so half the speed of the latter.
+
+I'm looking for an official spec if you find one please let me know.
 
 
 ### NVSwitch
@@ -304,7 +309,7 @@ NVIDIA DGX A100 has 6 switches of 12 NVLinks for a total of 72.
 
 [DGX H100 SuperPOD](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) combines 32 DGX H100 servers, for a total of 256 GPUs. It looks like here they use only half the NVLinks they used for a single DGX H100, so only 1.8 TBps per node, for a total of 57.6 TBps in total.
 
-Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds. For example, NCCL is working on `NCCL_ALGO=NVLS` which already boosts the intra-node bandwidth above the normal spec and as of this writing work is being done to boost inter-node bandwidth as well.
+Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds for `all-reduce`. NCCL versions now have `NCCL_ALGO=NVLS` which boosts the intra-node `all-reduce` bandwidth up to 30%, and inter-node `all-reduce` by about 25%.
 
 Recently [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) has been introduced, which uses NVSwitch to put 72 Blackwell GPUs into a single node all inter-connected at NVLink 5 900GBps unidirectional speed. So instead of having a 8-gpu node, now we have a 72-gpu node (even though physically they don't all reside on the same board).
 
@@ -514,13 +519,26 @@ Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_acc
 
 NVIDIA [Scalable Hierarchical Aggregation and Reduction Protocol (SHARP)](https://docs.nvidia.com/networking/display/sharpv300) - allows performing data reductions and aggregations on the network itself (in-network computing). This is very useful if you do a lot of MPI, NCCL and other network collectives that support SHARP, as those should get their latencies much improved.
 
-To understand the importance of this technology - for all-reduce operations, instead of 2N sends, it will only need N+1 sends - so for a large N - it almost doubles the effective all-reduce throughput. (N is the number of communicating ranks/gpus). For details see [all-reduce operation compatibility](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (you'd have to scroll down to get to that section).
+To understand the importance of this technology - for `all-reduce` operations, instead of 2N sends, it will only need N+1 sends - so for a large N - it almost doubles the effective all-reduce throughput. (N is the number of communicating ranks/gpus). For details see [all-reduce operation compatibility](https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (you'd have to scroll down to get to that section).
 
-Recent NCCL versions will automatically use this technology if it is available.
+Recent NCCL versions will automatically use this technology if it is available via `NCCL_ALGO=NVLS`. Practically at the moment the intra-node `all-reduce` bandwidth is improved by 30%, and inter-node `all-reduce` by about 25%.
 
-The SHARP hardware that is part of the NVSwitch or Infiniband switches includes arithmetic logic units (ALU) that perform the compute directly rather than using GPUs. It's said that it can perform math in FP64, FP32, FP16 and BF16 dtypes.
+The SHARP hardware, that is part of the NVSwitch or Infiniband switches and also NVLink 4 and higher, includes arithmetic logic units (ALU) that perform the compute directly rather than using GPUs. It's said that it can perform math in FP64, FP32, FP16 and BF16 dtypes.
 
 case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo as it detected Infiniband SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
+
+To take advantage of this great feature:
+- a comm collective has to use all 8 GPUs for it to activate. If you engage less than 8 you will get the normal NVLink speed.
+- ensure that the env var `NCCL_NVLS_ENABLE` is either unset or set to `1`.
+
+In the case of NVL36, NVL72 and others bigger than NVL8, the collective has to engage multiples of 8 gpus, because multi-cast groups are setup this way ([NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) and multi-cast is a requirement for NVLink SHARP to work. For more clarify to why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042). Also please note that GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200.
+
+The left side of the following slide shows a nice 30% speed up of `all-reduce` bandwidth from NVLink 4 non-SHARP (370GBps) to NVLink 4 SHARP (480GBps). I was able to match the results with a payload of about 8GB. For `all-reduce` on NVL72 (right side) it shows a 25% improvement (`850/680`).
+
+![all-reduce bw](images/all-reduce-bw-2025.png)
+
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc25-s72583/)
+
 
 ## Understanding why inter-node network speed is of a huge importance
 
@@ -530,11 +548,11 @@ This is probably one of the most important multi-segment section that you really
 
 First, let's get a bit of a feeling what all those Gbps/GBps practically mean.
 
-If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send `80*4` 320GB of data, or 2560Gb (`*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds. Why does it matter?
+If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send 320GB (`80*4`) of data, or 2560Gb (`320*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds. Why does it matter?
 
 ### 1-GPU training
 
-Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../training/performance/README.md#anatomy-of-models-memory-usage) in mixed half precision. So `18*2` 36GB of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations and it'll depend on the batch size and sequence length. But with 80GB A100 GPU we can definitely train this model on a single GPU.
+Let's start with a much smaller model of say 2B params, to train it you'd need at least [18 bytes per parameter](../training/performance/README.md#anatomy-of-models-memory-usage) in mixed half precision which requires 2 bytes to store. So 36GB (`18*2`) of memory just for model weights, optimizer states and gradients. Plus you need additional memory for activations, which depends on the batch size and sequence length. A rule of thumb is activation memory scales linearly with batch size and quadratically with the sequence length. Taking 80GB A100 GPU for example, we can definitely train this model on a single GPU.
 
 We then assume for the moment that the DataLoader is fast enough to be negligible in duration compared to the compute time. And thus we get a close to a perfect MFU (Model FLOPs Utilization):
 
@@ -544,7 +562,7 @@ We then assume for the moment that the DataLoader is fast enough to be negligibl
 |<--iteration-->||<--iteration-->||<--iteration-->|
 ```
 
-which means that the GPU just needs to do many matmuls and it'd do it amazing fast. In this situation you get the highest ROI (Return on Investment).
+which means that the GPU just needs to do many matmuls and it'd do it amazingly fast. In this situation you will get the highest ROI (Return on Investment).
 
 ### Single node training
 
@@ -552,7 +570,7 @@ The previous situation was fantastic due to the close to perfect MFU, but you re
 
 footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
 
-footnote: in the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements, this is not the case.
+footnote: In the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements, this is not the case.
 
 If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
 
@@ -562,9 +580,9 @@ Here is the all-reduce collective visualized:
 
 ([source](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication))
 
-So we need to send 8GB twice, which means we need to send 16GB of data.
+So we need to send 8GB twice on every iteration, which means we need to send 16GB of data.
 
-footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating GPUs. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75` and it becomes already very close to 2 at n=64.
+footnote: and to be exact the 2x comms volume for all-reduce is really `2*(n-1)/n` where n is the number of participating GPUs. So if n=2, the coefficient is just 1 since `2*(2-1)/2=1` and 1.75 for n=8 since `2*(8-1)/8=1.75`. It becomes already very close to 2 at n=64.
 
 footnote: there is also the important issue of latency of the network - which is multiplied several times due to how data is gathered from all participating GPUs. But, given that here we are moving a very large payload the latency contributes a very small overhead and for simplicity can be ignored.
 
@@ -599,7 +617,7 @@ Even with this really fast comms the network still creates a bottleneck and lead
 
 so once the last layer (-1) computed its gradients it all-reduces them while the 2nd to last layer performs its `backward`, and so on, until the first layer finished with gradients and it finally sends its gradients out.
 
-So now you understand how overlapping works, So we can now update our bigger picture diagram to be:
+So now you understand how overlapping works. We can now update our bigger picture diagram to be:
 
 Now our timing diagram becomes very similar to the diagram we had for a single GPU:
 
@@ -632,7 +650,7 @@ For example, when you read, the [A100 spec](https://www.nvidia.com/en-us/data-ce
 
 So let's define these abbreviations exactly:
 
-- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s)
+- TFLOPS - TeraFLoatingpointOPerations per Second (another way is TFLOP/s or TFLOPs/s)
 - TFLOP - TeraFLoatingpointOPerations (or TFLOPs - lower case `s` but it's already confusing)
 
 Also see the [wiki page](https://en.wikipedia.org/wiki/FLOPS) for more clarifications.
@@ -672,7 +690,7 @@ So if we do a mixed half-precision training and most of the operations are done 
 
 footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
 
-So continuing this train of thought it means that the setup will have about 156TFLOPS - and so it'll take 0.42 secs to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
+So continuing this train of thought it means that the setup will have about 156TFLOPS for mixed half-precision training - and so it'll take 0.42 secs on A100 GPU to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
 
 Earlier we said that a typical A100 node has an intra-node NVLink connection of 300GBps, and thus we said that to send 16GB of grads will take `16/300` = 0.053 secs.
 
@@ -795,8 +813,17 @@ Figuring out the payload can be tricky since it'd depend on the implementation o
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
 uni-directional 300GBs so we get about 78% of the theoretical speed with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
-We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark:
+We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark.
 
+First, let's build it:
+
+```
+git clone https://github.com/NVIDIA/cuda-samples/
+cd cuda-samples/Samples/5_Domain_Specific/p2pBandwidthLatencyTest
+nvcc -o p2pBandwidthLatencyTest p2pBandwidthLatencyTest.cu -I ../../../Common
+```
+
+Now let's run it on A100:
 ```
 ./p2pBandwidthLatencyTest
 [...]
@@ -836,6 +863,20 @@ Bottom line - in this particular setup:
 1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
 2. if the payload of each communication is smallish it could be far far lower.
 
+
+On GB200 (NVLink 5.0) (on a single nvl4 node w/ 4 GPUs):
+```
+Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
+   D\D     0      1      2      3
+     0 5714.94 746.74 746.56 748.08
+     1 743.89 5820.72 747.18 746.83
+     2 746.16 750.28 5814.63 746.71
+     3 744.82 749.00 747.16 5816.66
+```
+746GBps out of 900GBps (82.8%) - very similar to NVLink4's efficiency.
+
+note: [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth) is supposed to be a more detailed and correct benchmark to replace `p2pBandwidthLatencyTest`, but I found the latter to provide very similar results.
+
 The following plot demonstrates how the actual bandwidth changes for all-reduce with the size of the message and the number of participating nodes (4 to 512 nodes):
 
 ![nccl all-reduce scan benchmark](images/nccl-all-reduce-scan.png)
@@ -852,6 +893,14 @@ Here is another similar plot but it compares the message sizes and several netwo
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
 That last plot is from 2011, and the former ones are from 2024 - comparing these you can appreciate how much faster the networks have become and how much bigger messages are being sent.
+
+Here are 2025 performance plots that show the actual achievable bandwidth with the modern technologies in the context of all-reduce and all-to-all collectives:
+
+![all-reduce bw](images/all-reduce-bw-2025.png)
+![all-to-all bw](images/all-to-all-bw-2025.png)
+
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc25-s72583/)
+
 
 Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
 

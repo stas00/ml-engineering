@@ -13,16 +13,19 @@
 # limitations under the License.
 
 import collections
+import torch
+from enum import Enum
 
-from .utils import ExplicitEnum, is_torch_available, logging
+class ExplicitEnum(str, Enum):
+    """
+    Enum with more explicit error message for missing values.
+    """
 
-
-if is_torch_available():
-    import torch
-
-
-logger = logging.get_logger(__name__)
-
+    @classmethod
+    def _missing_(cls, value):
+        raise ValueError(
+            f"{value} is not a valid {cls.__name__}, please select one of {list(cls._value2member_map_.keys())}"
+        )
 
 class DebugUnderflowOverflow:
     """

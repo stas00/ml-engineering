@@ -17,7 +17,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 - [Jordan Nanos](https://github.com/JordanNanos)
 - [Mark Saroufim](https://github.com/msaroufim)
 - [Olatunji Ruwase](https://github.com/tjruwase)
-- [Oren Leung](https://github.com/OrenLeung)
+- Oren Leung
 - [Quentin Anthony](https://github.com/Quentin-Anthony)
 - [Ross Wightman](https://github.com/rwightman)
 - [Samyam Rajbhandari](https://github.com/samyam)
