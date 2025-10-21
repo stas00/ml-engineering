@@ -8,15 +8,17 @@ For a quick run use:
 
 python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
-But this usually is an insufficient range to get the best results, therefore for discussion and multiple important nuances please refer to
+But this usually is an insufficient range to get the best results, therefore for multiple examples, discussion and multiple important nuances please refer to
 https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
+
+The results are shared here: https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#maximum-achievable-matmul-flops-comparison-table
 
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing (highly recommended!)
 - Imtiaz Sajwani: HPU porting
 - Xiaoyu Zhang https://github.com/BBuf - flexible dtype support
 - Oren Leung https://github.com/OrenLeung - flagging the lack of cache/dest-matrix reset and suggesting a fix - also proposing geomean
-
+- Ivan Fioravanti https://github.com/ivanfioravanti - MPS support
 """
 
 from pathlib import Path
