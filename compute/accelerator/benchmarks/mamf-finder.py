@@ -455,7 +455,7 @@ if __name__ == '__main__':
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
         print("", end="\033[K")
         print(f"""
-Tried  {num_shapes} shapes => the best outcomes were:
+Tried {num_shapes} shapes => the best outcomes were:
 mean:   {best_tflops["mean"]:.1f} TFLOPS @ {best_config["mean"]}
 median: {best_tflops["median"]:.1f} TFLOPS @ {best_config["median"]}
 max:    {best_tflops["max"]:.1f} TFLOPS @ {best_config["max"]}
