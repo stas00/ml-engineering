@@ -273,7 +273,7 @@ There are 2 groups of PP solutions - the traditional Pipeline API and the more m
 - PyTorch
 
 2. Modern solutions:
-- PiPPy
+- PyTorch (`torch.distributed.pipelining`) - The API is in alpha state and under development
 - Varuna
 - Sagemaker
 - DeepSeek
@@ -295,7 +295,7 @@ Implementations:
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
-- [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`
+- [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`. This package is moved into PyTorch as a subpackage: [`torch.distributed.pipelining`](https://github.com/pytorch/pytorch/tree/main/torch/distributed/pipelining).
 - [nanotron](https://github.com/huggingface/nanotron)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
