@@ -693,6 +693,16 @@ footnote: while `/scratch` is quite common - the mounted local SSD disk mount po
 
 You can also arrange for the SLURM setup to automatically clean up such folders on job's termination.
 
+Beware that Python facilities like `tempfile` will silently ignore the `TMPDIR` override if the path doesn't exist:
+```
+export TMPDIR=/scratch/some-new-path
+```
+So if you still get `No space left on device` errors, after setting the override, ensure the path set in `TMPDIR` exists before launching your program:
+```
+export TMPDIR=/scratch/some-new-path
+mkdir -p $TMPDIR
+```
+
 
 ### How to find users whose checkpoints consume a lot of disk space
 
