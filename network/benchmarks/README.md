@@ -45,6 +45,9 @@ This table should give a good sense for what scores you should expect for all-re
 
 If you're benchmarking a different collective the expected bandwidth can be very different from the above all-reduce results. [This presentation](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/) also gives point-to-point communication bandwidth expectations.
 
+To check the stability of all-reduce over time, rather than averaging the results, you can profile a single payload size with these 2 flags `--profile_stability --payload_size_in_gib 0.5` (change the last value to the desired payload size in GiB). Beware that a typical ML workload doesn't call all-reduce back to back non-stop so this approach puts the network through a stress test, which is a somewhat non-typical. But it can still show if the network has issues with sustained load. Here is an example of a plot generated on a 8x B200 with a payload of 2GiB:
+
+![all-reduce-bench 2GiB profile](images/all-reduce-bench-profile-2gib.png)
 
 
 ### all_gather_object vs all_reduce

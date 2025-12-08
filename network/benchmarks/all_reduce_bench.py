@@ -37,6 +37,8 @@ Important notes:
 - you can interrupt (Ctrl-C) the benchmark in the middle and it'll complete with the results it has
   measured so far.
 
+- you can also profile a single payload and get a plot with results for each iteration - for that use --profile_stability --payload_size_in_gib 0.5 (change the last value to the desired payload size in GiB)
+
 Examples:
 
 The following are recipes to use to run on:
@@ -102,6 +104,7 @@ PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS python -u -m torch.distributed.run --nproc_per
 """
 
 from pathlib import Path
+import argparse
 import datetime
 import gc
 import os
@@ -121,9 +124,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-
-WARMUPS = 5
-TRIALS = 20
+args = None
 
 # https://stackoverflow.com/a/75332100/9201239
 fmt_bytes = lambda v : str(v >> ((max(v.bit_length()-1, 0)//10)*10)) +["", "K", "M", "G", "T", "P", "E"][max(v.bit_length()-1, 0)//10]+"iB"
@@ -138,7 +139,7 @@ def get_device_info():
     else:
         return "Unknown accelerator"
 
-def plot(path, x, y, ranks):
+def plot_averages(path, x, y, ranks):
 
     try:
         import matplotlib.pyplot as plt
@@ -146,12 +147,46 @@ def plot(path, x, y, ranks):
         print("!!! Can't generate plot. Please run `pip install matplotlib` to enable plotting. !!!\n")
         return
 
+    print(f"\n*** Plotting results into {path}\n")
+
     plt.figure(dpi=500)
     plt.plot(x, y)
     plt.xlabel(f"Message size")
-    plt.ylabel("Throughput (GBps)")
-    plt.title(f"Bandwidth Throughput for ranks={ranks}")
+    plt.ylabel("Bus bandwidth (GBps)")
+    plt.title(f"all-reduce bus bandwidth on ranks={ranks}")
     plt.xticks(rotation=45)
+
+    device_info = get_device_info()
+
+    # wrap notes - this can now handle several lines of text.
+    notes = "\n".join(textwrap.wrap(device_info, width=60))
+
+    plt.annotate(notes,
+                 xy=(0.001, -0.3),
+                 xycoords='axes fraction',
+                 ha='left',
+                 va="center",
+                 fontsize=10)
+
+    plt.savefig(path, bbox_inches='tight')
+
+
+def plot_profile(path, y, ranks):
+
+    try:
+        import matplotlib.pyplot as plt
+    except:
+        print("!!! Can't generate plot. Please run `pip install matplotlib` to enable plotting. !!!\n")
+        return
+
+    print(f"\n*** Plotting results into {path}\n")
+
+    plt.figure(dpi=500)
+    plt.plot(y)
+    plt.xlabel(f"Iteration")
+    plt.ylabel("Bus bandwidth (GBps)")
+    plt.title(f"all-reduce bus bandwidth profile for {args.payload_size_in_gib}GiB payload on ranks={ranks}")
+    #plt.xticks(rotation=45)
 
     device_info = get_device_info()
 
@@ -195,18 +230,19 @@ def run(local_rank):
     is_global_rank_0 = dist.get_rank() == 0
     ranks = dist.get_world_size()
 
-    plot_path = f"busbw-{hostname}-{ranks}.png"
-
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
 
-    lower_limit = 15
-    upper_limit = 34
+    if args.payload_size_in_gib is None:
+        lower_limit = 15
+        upper_limit = 34
 
-    #lower_limit = 32
-    #upper_limit = 20
-    # 2**15 to 2**34 => 32KB to 16GB
-    sizes = [2**x for x in range(lower_limit, upper_limit+1)]
+        #lower_limit = 32
+        #upper_limit = 32
+        # 2**15 to 2**34 => 32KB to 16GB
+        sizes = [2**x for x in range(lower_limit, upper_limit+1)]
+    else:
+        sizes = [int(args.payload_size_in_gib * 2**30)]
 
     # this is useful for when one wants to interrupt the run - and still report the best outcome so far
     def sigkill_handler(signum, frame):
@@ -224,21 +260,34 @@ def run(local_rank):
         print(f"\nEnvironment:")
         print(f"- software: torch={torch.__version__}, cuda={torch.version.cuda}, nccl={torch.cuda.nccl.version()}")
         print(f"- hardware: {get_device_info()}\n")
-        print(f"The average bandwidth of all_reduce over {ranks} ranks ({WARMUPS} warmups / {TRIALS} trials):\n")
-        print(f"| payload |    busbw   |    algbw   |")
-        print(f"| ------: | ---------: | ---------: |")
-        for size in busbw.keys():
-            print(f"| {fmt_bytes(size):>7} | {conv_to_GBps(busbw[size]):6.2f}GBps | {conv_to_GBps(algbw[size]):6.2f}GBps |")
 
-        print(f"\n*** Plotting results into {plot_path}\n")
-        busbw_GBps = [conv_to_GBps(x) for x in busbw.values()]
-        sizes_fmted = [fmt_bytes(x) for x in busbw.keys()]
-        plot(plot_path, sizes_fmted, busbw_GBps, ranks)
+        if args.profile_stability:
+            print(f"The {args.payload_size_in_gib}GiB payload bandwidth of all_reduce over {ranks} ranks ({args.num_warmup_iterations} warmups / {args.num_iterations} trials):\n")
+            print(f"|    busbw   |    algbw   |")
+            print(f"| ---------: | ---------: |")
+            for i in range(len(busbw_points)):
+                print(f"| {conv_to_GBps(busbw_points[i]):6.2f}GBps | {conv_to_GBps(algbw_points[i]):6.2f}GBps |")
+            busbw_GBps = [conv_to_GBps(x) for x in busbw_points]
+            plot_path = f"busbw-profile-{hostname}-{ranks}.png"
+            plot_profile(plot_path, busbw_GBps, ranks)
+
+
+        else:
+            print(f"The average bandwidth of all_reduce over {ranks} ranks ({args.num_warmup_iterations} warmups / {args.num_iterations} trials):\n")
+            print(f"| payload |    busbw   |    algbw   |")
+            print(f"| ------: | ---------: | ---------: |")
+            for size in busbw.keys():
+                print(f"| {fmt_bytes(size):>7} | {conv_to_GBps(busbw[size]):6.2f}GBps | {conv_to_GBps(algbw[size]):6.2f}GBps |")
+
+            busbw_GBps = [conv_to_GBps(x) for x in busbw.values()]
+            sizes_fmted = [fmt_bytes(x) for x in busbw.keys()]
+            plot_path = f"busbw-mean-{hostname}-{ranks}.png"
+            plot(plot_path, sizes_fmted, busbw_GBps, ranks)
 
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
-        print(f"Legend: 1KiB = 2**10Bytes, 1MiB = 2**20Bytes, 1GiB = 2**30Bytes")
-        print(f"        1GBps = 10**9Bytes per second (networking bw spec convention)")
+        print(f"Legend: 1KiB = 2**10 Bytes, 1MiB = 2**20 Bytes, 1GiB = 2**30 Bytes")
+        print(f"        1GBps = 10**9 Bytes per second (networking bw spec convention)")
         print(f"Elapsed time: {time_str}")
 
     algbw = {}
@@ -252,24 +301,30 @@ def run(local_rank):
         tensor = torch.rand(size//4, 1, dtype=torch.float32).cuda(local_rank)
 
         # do a few warm up iterations
-        for i in range(WARMUPS):
+        for i in range(args.num_warmup_iterations):
             timed_allreduce(tensor, size, start_event, end_event)
 
         # real benchmark
         algbw_gather = []
-        for i in range(TRIALS):
+        for i in range(args.num_iterations):
             if is_global_rank_0:
                 print(f"{fmt_bytes(size):>6}: {i+1}", end="\r")
             algbw_gather += timed_allreduce(tensor, size, start_event, end_event)
         if is_global_rank_0:
             print()
 
-        algbw[size] = torch.mean(torch.stack(algbw_gather)).item()
 
         # the 2*(n-1)/n busbw correction factor specific to all-reduce is explained here:
         # https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#allreduce
         # busbw reflects how optimally the hardware is used
-        busbw[size] = algbw[size] * (2*(ranks - 1) / ranks)
+        busbw_coeff = (2*(ranks - 1) / ranks)
+
+        if args.profile_stability:
+            algbw_points = [x.item() for x in algbw_gather]
+            busbw_points = [x * busbw_coeff for x in algbw_points]
+        else:
+            algbw[size] = torch.mean(torch.stack(algbw_gather)).item()
+            busbw[size] = algbw[size] * busbw_coeff
 
     finish()
 
@@ -290,7 +345,25 @@ def device_id_kwargs(local_rank):
         return dict()
 
 
+def parse_args():
+    global args
+    parser = argparse.ArgumentParser()
+
+    # this arg is not used directly, but a launcher may pass it
+    parser.add_argument("--local_rank", type=int, default=0, help='local rank')
+    parser.add_argument("--num_iterations", type=int, default=20, help='The number of iterations used to benchmark each collective call')
+    parser.add_argument("--num_warmup_iterations", type=int, default=5, help='The number of warmup iterations')
+    parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If not specified the full range 2**15 .. 2**32 will be benchmarked')
+    parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
+
+    args = parser.parse_args(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    if args.profile_stability and args.payload_size_in_gib is None:
+        raise ValueError("--profile_stability requires --payload_size_in_gib to profile one specific payload, e.g. to profile a 0.5GiB payload use: --profile_stability --payload_size_in_gib 0.5")
+
+
 if __name__ == "__main__":
+    parse_args()
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
     dist.init_process_group("nccl", **device_id_kwargs(local_rank))
