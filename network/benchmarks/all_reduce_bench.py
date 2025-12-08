@@ -282,7 +282,7 @@ def run(local_rank):
             busbw_GBps = [conv_to_GBps(x) for x in busbw.values()]
             sizes_fmted = [fmt_bytes(x) for x in busbw.keys()]
             plot_path = f"busbw-mean-{hostname}-{ranks}.png"
-            plot(plot_path, sizes_fmted, busbw_GBps, ranks)
+            plot_averages(plot_path, sizes_fmted, busbw_GBps, ranks)
 
         time_delta = time.time() - start_time
         time_str = str(datetime.timedelta(seconds=time_delta)).split(".")[0]
