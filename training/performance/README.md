@@ -443,8 +443,8 @@ So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) too
 
 As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
-Environment variable `PYTORCH_CUDA_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
-I found `PYTORCH_CUDA_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
+Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
+I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
 
 
 
