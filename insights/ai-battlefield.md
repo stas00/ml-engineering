@@ -352,20 +352,13 @@ Intel Gaudi2:
 
 #### Inter-node Network
 
-- An order of magnitude slower than Intra-node
+- You will see a wide range of speeds from 200Gbps to 6400Gbps
 
-- You will see a wide range of speeds from 50Gbps to 3200 Gbps
+- Originally an order of magnitude slower than Intra-node, now inter-node speed is starting to approach inter-node (e.g. 800GBps EFA vs 900GBps NVLink-5 on B300 instances)
 
-- You need to reduce gradients and other bits faster than compute to avoid idling accelerators
+- You need to reduce gradients and other tensors (e.g. MoE) faster than compute to avoid idling accelerators
 
-- You typically get at most 80% of advertised speed. e.g., if you are told you get 800Gbps, expect ~640Gbps.
-
-- If moving to fp8 H100 is 18x faster than V100
-
-- We are yet to see if 3200Gbps for H100s will be enough to keep high MFU.
-
-
-* Practically less than 3x but it's a good estimate
+- You typically get at most 80% of advertised speed. e.g., if you are told you get 800Gbps, expect ~640Gbps
 
 [More details](../network/README.md#inter-node-networking).
 
