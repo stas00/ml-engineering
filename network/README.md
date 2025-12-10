@@ -386,13 +386,14 @@ Here is inter-node unidirectional theoretical peak bandwidth cross-comparison fo
 
 | Interconnect         | NICs x Gbps | Total GBps | Notes     |
 | :------------------- | ----------: | ---------: | :------   |
-| AWS EFA v4           |      16x400 |        800 | B300.     |
+| AWS EFA v4           |      16x400 |        800 | B300      |
+| InfiniBand XDR800    |       8x800 |        800 | DGX B300  |
 | Intel Gaudi3         |      24x200 |        600 |           |
 | AWS EFA v3           |      16x200 |        400 | Tranium 2 |
 | NVIDIA Quantum-2 IB  |       8x400 |        400 | H100      |
 | AWS EFA v2           |      32x100 |        400 | H100      |
 | Intel Gaudi2         |      24x100 |        300 |           |
-| InfiniBand XDR1600   |       8x200 |        200 |           |
+| InfiniBand XDR200    |       8x200 |        200 |           |
 | GCP GPUDirect-TCPXO  |       8x200 |        200 |           |
 | GCP GPUDirect-TCPX   |       4x200 |        100 |           |
 | HPE Slingshot        |       4x200 |        100 |           |
@@ -493,7 +494,7 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 
 GPUDirect-TCPX is an RDMA-over-TCP software solution developed by Google for A3 instances. GPUDirect-TCPXO is a hardware-accelerated extension of TCPX available only on A3 Mega. The docs are scarce, but here is some information on [TCPX](https://cloud.google.com/compute/docs/gpus/gpudirect) and [TCPXO](https://cloud.google.com/cluster-toolkit/docs/machine-learning/a3-mega-enable-gpudirect-tcpxo).
 
-This technology didn't catch on and will be phased out to be replaced with RoCE starting with Blackwell instances at GCP.
+This technology didn't catch on and has been phasing out while getting replaced with RoCE starting with Blackwell instances at GCP.
 
 ### Omni-Path
 
