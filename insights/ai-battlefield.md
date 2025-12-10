@@ -261,7 +261,7 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 ### Accelerators
 
-As of this writing here are the most common accelerators that can be used for training, finetuning and inference ML models:
+As of this writing here are the most common accelerators that can be used for training, finetuning and inferencing ML models:
 
 Widely available:
 
@@ -270,14 +270,14 @@ Widely available:
 
 Available, but locks you in:
 
-  * Google TPUs - fast! but the cost is a lock-in into a single vendor and cloud
+  * Google TPUs - fast! but the cost is a lock-in into a single vendor and cloud. It appears Google started to sell TPUs to some companies (outside of their cloud).
 
 Emerging to general availability:
 
   * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
   * AMD MI355X are starting to emerge on Neo clouds and also large CSPs started to offer AMD GPUs
   * Intel Gaudi3 > H200 - is available on Intel's cloud
-  * Amazon's Trainium2 < H100 is available on AWS
+  * Amazon's Trainium2 < H100 is available on AWS, Trainium3 has been just announced
   * Cerebras WaferScale Engine - available on Cerebras' cloud
 
 No longer available:
@@ -340,8 +340,8 @@ NVIDIA:
 
 - NVIDIA-based compute nodes come with 50GBps duplex NVLink
 
-- Some have a lot of NVLinks, others less but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200, H100
-450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes
+- Some have a lot of NVLinks, others less, but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200/B300,
+450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes.
 
 Intel Gaudi2:
 

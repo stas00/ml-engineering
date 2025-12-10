@@ -396,7 +396,7 @@ if __name__ == '__main__':
     parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
     parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction, help='log to stdout besides output_file?')
     parser.add_argument("--dtype", type=str, default="bfloat16",
-                        help="Data type to use for the benchmark (e.g. float16, bfloat16, float32)")
+                        help="Data type to use for the benchmark (e.g., float32, float16, bfloat16, float8_e4m3fn, torch.float8_e4m3fnuz)")
     args = parser.parse_args()
 
     m = args.m

@@ -678,12 +678,12 @@ tmpfs             16M  1.9K   16M    1% /run
 
 Normally compute nodes will use `/tmp/` for temp files. The problem is on most set ups `/tmp` resides on the tiny `/` filesystem of each node (often <100GB) and since `/tmp/` only gets reset on reboot, this doesn't get cleaned up between SLURM jobs and this leads to `/tmp` running out of space and so when you try to run something that let's say untars a file you're likely to run into:
 
-```
+```bash
 OSError: [Errno 28] No space left on device
 ```
 
 The solution is to set in your SLURM launcher script.
-```
+```bash
 export TMPDIR=/scratch
 ```
 
@@ -698,25 +698,25 @@ You can also arrange for the SLURM setup to automatically clean up such folders 
 
 Do you have a problem when your team trains models and you constantly have to buy more storage because huge model checkpoints aren't being offloaded to bucket storage fast enough?
 
-Here is a one-liner that will recursively analyze a path of your choice, find all the checkpoints, sum up their sizes and print the totals sorted by the biggest user, so that you could tell them to clean up their act :) Just edit `/mypath` to the actual path
+Here is a one-liner that will recursively analyze a path of your choice, find all the checkpoints, sum up their sizes and print the totals sorted by the biggest user, so that you could tell them to clean up their act :) Just edit `/mypath` to the actual path:
 
-```
+```bash
 find /mypath/ -type f -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-gives:
+This produces an output like:
 ```
-user_a    :     2.5TB
-user_c    :     1.6TB
-user_b   :      1.2TB
+user_a   :     2.5TB
+user_c   :     1.6TB
+user_b   :     1.2TB
 ```
 
 Of course, you can change the regex to match other patterns or you can remove it altogether to measure all files:
 
-```
+```bash
 find /mypath/ -type f | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
@@ -725,7 +725,7 @@ sort { $x{$b} <=> $x{$a} } keys %x }'
 
 If you want to exclude some sub-dirs efficiently:
 
-```
+```bash
 find /mypath/ -regextype posix-egrep \
 -type d -regex "/mypath/(exlude_a|exclude_b|exclude_c)/.*" -prune -o \
 -type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
@@ -743,7 +743,7 @@ Continuing the item from above, if you want to automatically delete old checkpoi
 
 First try to ensure the candidates are indeed good to delete:
 
-```
+```bash
 find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30
 ```
 
