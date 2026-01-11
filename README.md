@@ -69,6 +69,10 @@ I will try to rebuild it once in a few weeks or so, but if you want the latest p
 
 Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
+## Lectures/Talks
+
+- [Building resilient ML Engineering skills](https://www.youtube.com/watch?v=IBJUt9JPKHk) given on 2026-01-10 for the [GPU Mode community](https://github.com/gpu-mode). Only had time to discuss performance reality of accelerators, network and storage and how each of them can be crucial to the ensemble's performance. Thanks to [Mark Saroufim](https://github.com/msaroufim) for organizing and providing an awesome support during the talk.
+
 ## Discussions
 
 If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
