@@ -1,6 +1,6 @@
 # usage: make help
 
-.PHONY: help spell html pdf checklinks clean
+.PHONY: help spell html pdf epub checklinks clean
 .DEFAULT_GOAL := help
 
 help: ## this help
@@ -22,6 +22,30 @@ html-local: prep-html-files ## make html version w/ scripts remaining local
 
 pdf: html ## make pdf version (from html files)
 	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")
+
+epub: html ## make epub version (from html files)
+	# Build EPUB: collect images, copy HTML files, convert with TOC and file-scoped IDs, cleanup
+	mkdir -p epub-build && \
+	mkdir -p epub-build/images && \
+	find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | \
+		xargs -I {} cp {} epub-build/images/ && \
+	for file in $$(cat chapters-html.txt); do \
+		cp "$$file" epub-build/; \
+	done && \
+	pandoc --from html --to epub3 \
+		--file-scope \
+		--toc \
+		--toc-depth=3 \
+		--output "Stas Bekman - Machine Learning Engineering.epub" \
+		--metadata title="Machine Learning Engineering" \
+		--metadata author="Stas Bekman" \
+		--metadata date="$$(date +%Y-%m-%d)" \
+		--metadata language="en" \
+		--css build/prince_style.css \
+		--epub-cover-image=epub-build/images/Machine-Learning-Engineering-book-cover.png \
+		--resource-path=epub-build \
+		epub-build/*.html && \
+	rm -rf epub-build
 
 pdf-upload: pdf ## upload pdf to the hub
 	cp "Stas Bekman - Machine Learning Engineering.pdf" ml-engineering-book/
