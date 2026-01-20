@@ -24,18 +24,15 @@ pdf: html ## make pdf version (from html files)
 	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")
 
 epub: html ## make epub version (from html files)
-	# Build EPUB: collect images, copy HTML files, convert with TOC and file-scoped IDs, cleanup
 	mkdir -p epub-build && \
 	mkdir -p epub-build/images && \
-	find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | \
-		xargs -I {} cp {} epub-build/images/ && \
+	find . -path "./epub-build" -prune -o \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \) -print | \
+		xargs -I {} cp -f {} epub-build/images/ && \
 	for file in $$(cat chapters-html.txt); do \
-		cp "$$file" epub-build/; \
+		mkdir -p "epub-build/$$(dirname "$$file")" && \
+		cp "$$file" "epub-build/$$file"; \
 	done && \
 	pandoc --from html --to epub3 \
-		--file-scope \
-		--toc \
-		--toc-depth=3 \
 		--output "Stas Bekman - Machine Learning Engineering.epub" \
 		--metadata title="Machine Learning Engineering" \
 		--metadata author="Stas Bekman" \
@@ -44,7 +41,7 @@ epub: html ## make epub version (from html files)
 		--css build/prince_style.css \
 		--epub-cover-image=epub-build/images/Machine-Learning-Engineering-book-cover.png \
 		--resource-path=epub-build \
-		epub-build/*.html && \
+		$$(for file in $$(cat chapters-html.txt); do echo "epub-build/$$file"; done) && \
 	rm -rf epub-build
 
 pdf-upload: pdf ## upload pdf to the hub
