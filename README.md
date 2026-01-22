@@ -133,7 +133,7 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 @misc{bekman2024mlengineering,
   author = {Bekman, Stas},
   title = {Machine Learning Engineering Open Book},
-  year = {2023-2024},
+  year = {2023-2026},
   publisher = {Stasosphere Online Inc.},
   journal = {GitHub repository},
   url = {https://github.com/stas00/ml-engineering}
