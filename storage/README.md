@@ -116,7 +116,7 @@ Here are shared file system storage solutions made available by various cloud pr
 
 - [GCP](https://cloud.google.com/architecture/filers-on-compute-engine)
 - [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
-- [AWS](https://aws.amazon.com/what-is/nas/#seo-faq-pairs#how-can-aws-help-with-storage-solutions)
+- [AWS](https://aws.amazon.com/what-is/nas/#how-can-aws-help-with-storage-solutions--mxce5s)
 
 
 ## Local storage beats cloud storage
