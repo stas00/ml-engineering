@@ -1,8 +1,8 @@
 # Storage: File Systems and IO
 
-## 3 Machine Learning IO needs
+## Machine Learning IO needs
 
-There are 3 distinct IO needs in the ML workload:
+For training workloads there are 3 distinct IO needs:
 
 1. You need to be able to feed the DataLoader fast - (super fast read, don't care about fast write) - requires sustainable load for hours and days
 2. You need to be able to write checkpoints fast - (super fast write, fastish read as you will be resuming a few times) - requires burst writing - you want super fast to not block the training for long (unless you use some sort of cpu offloading to quickly unblock the training)
@@ -12,7 +12,16 @@ As you can see these 3 have very different requirements both on speed and sustai
 
 If you have infinite funds, of course, get a single super-fast read, super-fast write, that can do that for days non-stop. But for most of us, this is not possible so getting 2 or 3 different types of partitions where you end up paying much less is a wiser choice.
 
+For inference, it's mostly about startup time to be able to start serving inference asap
+1. Reading the checkpoint fast
+2. Loading the codebase fast 
 
+For batched inference, you'd have additionally:
+1. Reading prompts
+2. Writing generated outputs
+If this is done asynchroniously to generation then this IO overhead can be completely hidden, since typically generation will be much longer than loading the text it generates from and writing the generated text back to the disk.
+
+If you KV-cache offloading to disk, this would be another important use-case for inference. You will need to be able to seek fast to get to the desired KV-cache and probably less crucial writing it out if the latter is done asynchronously. 
 
 
 ## Glossary
