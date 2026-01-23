@@ -72,6 +72,10 @@ I will try to rebuild these once in a few weeks or so, but if you want the lates
 
 Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
+## The Art of Debugging
+
+Make sure to also read  [The Art of Debugging Open book](https://github.com/stas00/the-art-of-debugging) which has a lot of related recipes and methodologies.
+
 ## Lectures/Talks
 
 - [Building resilient ML Engineering skills](https://www.youtube.com/watch?v=IBJUt9JPKHk) given on 2026-01-10 for the [GPU Mode community](https://github.com/gpu-mode). Only had time to discuss performance reality of accelerators, network and storage and how each of them can be crucial to the ensemble's performance. Thanks to [Mark Saroufim](https://github.com/msaroufim) for organizing and providing an awesome support during the talk.
