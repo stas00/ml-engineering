@@ -28,6 +28,14 @@ make pdf
 
 It will first build the html target and then will use it to build the pdf version.
 
+## Build epub
+
+```
+make epub
+```
+
+It will first build the html target and then will use it to build the epub version.
+
 
 ## Check links and anchors
 

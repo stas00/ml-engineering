@@ -61,13 +61,16 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 I announce any significant updates on my twitter channel [https://twitter.com/StasBekman](https://twitter.com/StasBekman).
 
-## PDF version
+## Ebook versions of the book
 
-Download the [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true) version of the book.
+You can download various ebook formats of this book:
+* [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true)
+* [EPUB](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.epub?download=true)
 
-I will try to rebuild it once in a few weeks or so, but if you want the latest pdf, the instructions for building are [here](build).
 
-Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
+I will try to rebuild these once in a few weeks or so, but if you want the latest ebook versions, the instructions for building are [here](build).
+
+Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
 ## Lectures/Talks
 

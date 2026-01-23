@@ -42,9 +42,9 @@ def make_cover_page_file(cover_md_file, date):
 
 ## Machine Learning Engineering Open Book
 
-This is a PDF version of [Machine Learning Engineering Open Book by Stas Bekman](https://github.com/stas00/ml-engineering/) generated on {date}.
+This is an ebook version of [Machine Learning Engineering Open Book by Stas Bekman](https://github.com/stas00/ml-engineering/) generated on {date}.
 
-As this book is constantly being updated, if you downloaded it as a pdf file and the date isn't recent, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering/).
+As this book is constantly being updated, if you downloaded it as a pdf or an epub file and the date isn't recent, chances are that it's already outdated - make sure to check the latest version at [https://github.com/stas00/ml-engineering](https://github.com/stas00/ml-engineering/).
 """)
     return Path(cover_md_file)
 

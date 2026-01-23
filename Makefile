@@ -1,6 +1,6 @@
 # usage: make help
 
-.PHONY: help spell html pdf epub checklinks clean
+.PHONY: help spell prep-html-files html html-local pdf epub upload check-links-local check-links-all clean
 .DEFAULT_GOAL := help
 
 help: ## this help
@@ -35,9 +35,10 @@ epub: html ## make epub version (from html files)
 		--resource-path=.:$$(cat chapters-html.txt | xargs -n1 dirname | awk '!seen[$$0]++' | tr "\n" ":") \
 		$$(cat chapters-html.txt | tr "\n" " ")
 
-pdf-upload: pdf ## upload pdf to the hub
+upload: pdf epub ## upload pdf to the hub
 	cp "Stas Bekman - Machine Learning Engineering.pdf" ml-engineering-book/
-	cd ml-engineering-book/ && git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf" && git push
+	cp "Stas Bekman - Machine Learning Engineering.epub" ml-engineering-book/
+	cd ml-engineering-book/ && git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf" "Stas Bekman - Machine Learning Engineering.epub" && git push
 
 check-links-local: html-local ## check local links
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee linkchecker-local.txt
