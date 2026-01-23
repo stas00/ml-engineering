@@ -19,7 +19,7 @@ For inference, it's mostly about startup time to be able to start serving infere
 For batched inference, you'd have additionally:
 1. Reading prompts
 2. Writing generated outputs
-3. 
+
 If this is done asynchroniously to generation then this IO overhead can be completely hidden, since typically generation will be much slower than loading the text it generates from and writing the generated text back to the disk.
 
 If you do KV-cache offloading to disk, this would be another important IO use-case for inference. You will need to be able to seek fast to get to the desired KV-cache index and less crucial writing it out if the latter is done asynchronously. 
