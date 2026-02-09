@@ -213,6 +213,21 @@ In asynchronous IO the client may submit multiple IO requests one after another 
 - moving around a file using `seek`
 
 
+### Misreported file size
+
+I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read. 
+
+If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
+
+If you have to force re-hydration you can run something like:
+
+```bash
+find /mountpoint/ -type f -exec cat {} >/dev/null \;
+```
+and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
+
+If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct filesizes, because when this occurs you may be unaware that you're partition is close to being full. For example, it may report being 5% full when it's 95% full.
+
 
 ## Benchmarks
 
