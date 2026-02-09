@@ -226,7 +226,7 @@ find /mountpoint/ -type f -exec cat {} >/dev/null \;
 ```
 and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
 
-If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct filesizes, because when this occurs you may be unaware that you're partition is close to being full. For example, it may report being 5% full when it's 95% full.
+If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
 
 
 ## Benchmarks
