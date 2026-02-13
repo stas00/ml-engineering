@@ -28,6 +28,7 @@ orchestration/slurm/admin.md
 orchestration/slurm/users.md
 orchestration/slurm/performance.md
 orchestration/slurm/launchers/README.md
+orchestration/kubernetes/README.md
 
 training/README.md
 training/model-parallelism/README.md
