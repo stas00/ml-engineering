@@ -345,7 +345,7 @@ NVIDIA:
 
 Intel Gaudi2:
 
-- 8 x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
+- 8 x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1TBps
 
 [More details](../network/README.md#intra-node-networking)
 
