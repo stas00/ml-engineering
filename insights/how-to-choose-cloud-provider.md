@@ -59,11 +59,9 @@ In my experience "we will do our best" is demonstrated by Tier-1 clouds by sendi
 
 What you need is just 2 cloud support people on the call - one product manager and one engineer directly responsible for solving the problem at hand. And in my experience this sort of meeting could take weeks to months to manifest or not at all. Usually one needs to have good connections to be able to escalate the issue to "top brass".
 
-For every critical component of the package you're purchasing you need a quantifiable delivery. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the CSP will do when this happens. How long do they have to fix the problem and whether you can break a contract should this not happen within the agreed by both sides time.
+For every critical component of the package you're purchasing you need a quantifiable delivery metric. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the CSP will do when this happens. Same goes for storage, accelerators and any other critical component that you plan to rely on.
 
-Same goes for storage, accelerators and any other critical component that you plan to rely on.
-
-Of course, it's up to you to negotiate the specific repercussions, but probably the best one is that you stop paying until the problem is fixed. That way there is a huge incentive for the problem to be fixed.
+Of course, it's up to you to negotiate the specific repercussions, but probably the best one is that you stop paying until the problem is fixed. That way there is an incentive for the problem to be fixed.
 
 Alas, not paying helps, but not being able to use the compute is still a huge problem. And breaking the contract and migrating to another provider is a huge undertaking not to be taken lightly. But at least there is something you could do if you don't get what you need.
 
