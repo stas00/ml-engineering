@@ -265,8 +265,8 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA H200
-  * AMD MI325 on neoclouds primarily, MI355 is starting to appear
+  * NVIDIA H200+B200
+  * AMD MI325X and MI355X on neoclouds primarily, MI450X is planned to come out in 2026 and also large CSPs started to offer AMD GPUs
 
 Available, but locks you in:
 
@@ -274,8 +274,8 @@ Available, but locks you in:
 
 Emerging to general availability:
 
-  * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
-  * AMD MI355X are starting to emerge on Neo clouds and also large CSPs started to offer AMD GPUs
+  * NVIDIA B300s/GB200/GB300s are starting to emerge. Rubin is supposed to come out in 2026
+  * AMD MI450X is planned to come out in 2026
   * Intel Gaudi3 > H200 - is available on Intel's cloud
   * Amazon's Trainium2 < H100 is available on AWS, Trainium3 has been just announced
   * Cerebras WaferScale Engine - available on Cerebras' cloud
@@ -312,12 +312,13 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
-| GPU  | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
-| :--- |                      --: |                --: |                --: |                   --: |
-| V100 |                      125 |                  1 |                150 |                     1 |
-| A100 |                      312 |                2.5 |                300 |                     2 |
-| H100 |                      989 |                  8 |                450 |                     3 |
-| B200 |                     2250 |                 18 |                900 |                     6 |
+| GPU   | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
+| :---- |                      --: |                 --: |                --: |                   --: |
+| V100  |                      125 |                   1 |                150 |                     1 |
+| A100  |                      312 |                 2.5 |                300 |                     2 |
+| H100  |                      989 |                   8 |                450 |                     3 |
+| B200  |                     2250 |                  18 |                900 |                     6 |
+| Rubin |                     4000 |                  32 |               1800 |                    12 |
 
 - You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation. NVLink 5.0 doubled the speed over NVLink 4.0 so it catches up a little bit with the compute speed ups. But the speed up is still insufficient.
 
@@ -332,7 +333,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - Pay attention to bytes vs bits. 1Byte = 8bits. 1GBps = 8Gbps.
 
-- If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, so intra-node speed doesn't matter then
+- If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, though hierarchical algorithms sometimes can speed things up taking advantage of the faster intra-node bandwidth
 
 - [Tensor parallelism](../training/model-parallelism#tensor-parallelism) and [sequence parallelism](../training/model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
 
@@ -340,7 +341,8 @@ NVIDIA:
 
 - NVIDIA-based compute nodes come with 50GBps duplex NVLink
 
-- Some have a lot of NVLinks, others less, but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200/B300,
+- Some have a lot of NVLinks, others less, but typically plenty with 1800GBps (14.4Tbps) unidirectional bandwidth for Rubin,
+900GBps (7.2Tbps) for B200/B300,
 450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes.
 
 Intel Gaudi2:
