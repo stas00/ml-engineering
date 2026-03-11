@@ -400,32 +400,31 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 
 | Accelerator           | Memory<br> (GiBs) | Type  | Peak<br>Bandwidth<br> (TBps) |
 | :-------------------  | ----------------: | :---- |         -------------------: |
-| AMD MI450X            |               402 | HBM4  |                        19.60 |
-| NVIDIA Rubin SXM      |               268 | HBM4  |                        22.00 |
-| NVIDIA B300 SXM       |               268 | HBM3e |                         8.00 |
-| AMD MI355X            |               268 | HBM3e |                         8.00 |
-| AMD MI325X            |               238 | HBM3e |                         6.00 |
-| Google TPU v7x        |               192 | HBM3e |                         7.38 |
-| AMD MI300X            |               179 | HBM3  |                         5.30 |
-| NVIDIA GB200 SXM      |               173 | HBM3e |                         8.00 |
-| NVIDIA B200 SXM       |               168 | HBM3e |                         8.00 |
-| NVIDIA GH200 SXM (2)  |               131 | HBM3e |                         4.80 |
-| NVIDIA H200 SXM       |               131 | HBM3e |                         4.80 |
-| Intel Gaudi3          |               119 | HBM2e |                         3.70 |
-| AMD MI250             |               119 | HBM2e |                         3.28 |
-| AMD MI250X            |               119 | HBM2e |                         3.28 |
-| Google TPU v5p        |                95 | HBM2e |                         2.76 |
-| NVIDIA GH200 SXM (1)  |                89 | HBM3  |                         4.00 |
-| Intel Gaudi2          |                89 | HBM2e |                         2.46 |
-| AWS Trainium2 / Ultra |                89 | HBM3  |                         2.90 |
-| NVIDIA H100 SXM       |                74 | HBM3  |                         3.35 |
-| NVIDIA A100 SXM       |                74 | HBM2e |                         2.00 |
-| NVIDIA H100 PCIe      |                74 | HBM3  |                         2.00 |
-| NVIDIA A100 PCIe      |                74 | HBM2e |                         1.94 |
-| NVIDIA L40S           |                44 | GDDR6 |                         0.86 |
-| Google TPU v6e        |                32 | HBM3  |                         1.60 |
+| AMD MI450X            |               432 | HBM4  |                        19.60 |
+| NVIDIA Rubin SXM      |               288 | HBM4  |                        22.00 |
+| NVIDIA B300 SXM       |               288 | HBM3e |                         8.00 |
+| AMD MI355X            |               288 | HBM3e |                         8.00 |
+| AMD MI325X            |               256 | HBM3e |                         6.00 |
+| AMD MI300X            |               192 | HBM3  |                         5.30 |
+| NVIDIA GB200 SXM      |               185 | HBM3e |                         8.00 |
+| NVIDIA B200 SXM       |               180 | HBM3e |                         8.00 |
+| NVIDIA GH200 SXM (2)  |               141 | HBM3e |                         4.80 |
+| NVIDIA H200 SXM       |               141 | HBM3e |                         4.80 |
+| Intel Gaudi3          |               128 | HBM2e |                         3.70 |
+| AMD MI250             |               128 | HBM2e |                         3.28 |
+| AMD MI250X            |               128 | HBM2e |                         3.28 |
+| NVIDIA GH200 SXM (1)  |                96 | HBM3  |                         4.00 |
+| Intel Gaudi2          |                96 | HBM2e |                         2.46 |
+| AWS Trainium2 / Ultra |                96 | HBM3  |                         2.90 |
+| Google TPU v5p        |                95 | HBM2e |                         4.80 |
+| NVIDIA H100 SXM       |                80 | HBM3  |                         3.35 |
+| NVIDIA A100 SXM       |                80 | HBM2e |                         2.00 |
+| NVIDIA H100 PCIe      |                80 | HBM3  |                         2.00 |
+| NVIDIA A100 PCIe      |                80 | HBM2e |                         1.94 |
+| NVIDIA L40S           |                48 | GDDR6 |                         0.86 |
 | Google TPU v4         |                32 | HBM2  |                         1.20 |
 | Google TPU v5e        |                16 | HBM2  |                         1.60 |
+
 
 Notes:
 
