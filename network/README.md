@@ -116,18 +116,19 @@ There are multiple platforms/solutions out there that provide intra-node network
 
 Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
-| Interconnect    | Accelerator |  GBps |
-| :-------------- | :---------- | ----: |
-| NVIDIA NVLink 5 | B200, B*    | 900.0 |
-| Intel           | Gaudi3      | 600.0 |
-| NVIDIA NVLink 4 | H100, H*    | 450.0 |
-| AMD XGMI        | MI325X      | 448.0 |
-| AMD XGMI        | MI300X      | 448.0 |
-| AMD XGMI        | MI250X      | 350.0 |
-| NVIDIA NVLink 3 | A100        | 300.0 |
-| Intel           | Gaudi2      | 300.0 |
-| PCIe 5          |             |  63.0 |
-| PCIe 4          |             |  31.0 |
+| Interconnect    | Accelerator |  GBps  |
+| :-------------- | :---------- | -----: |
+| NVIDIA NVLink 6 | Rubin       | 1800.0 |
+| NVIDIA NVLink 5 | B200, B*    |  900.0 |
+| Intel           | Gaudi3      |  600.0 |
+| NVIDIA NVLink 4 | H100, H*    |  450.0 |
+| AMD XGMI        | MI325X      |  448.0 |
+| AMD XGMI        | MI300X      |  448.0 |
+| AMD XGMI        | MI250X      |  350.0 |
+| NVIDIA NVLink 3 | A100        |  300.0 |
+| Intel           | Gaudi2      |  300.0 |
+| PCIe 5          |             |   63.0 |
+| PCIe 4          |             |   31.0 |
 
 Notes:
 
@@ -141,16 +142,17 @@ Some vendors have their all-to-all and peer-to-peer (GPU-to-GPU) bandwidth the s
 
 Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
-| Interconnect    | Accelerator |  GBps |
-| :-------------- | :---------- | ----: |
-| NVIDIA NVLink 5 | B200, B*    | 900.0 |
-| Intel           | Gaudi3      | 600.0 |
-| NVIDIA NVLink 4 | H100, H*    | 450.0 |
-| NVIDIA NVLink 3 | A100        | 300.0 |
-| Intel           | Gaudi2      | 300.0 |
-| AMD XGMI        | MI325X      |  64.0 |
-| AMD XGMI        | MI300X      |  64.0 |
-| AMD XGMI        | MI250X      |  50.0 |
+| Interconnect    | Accelerator |  GBps  |
+| :-------------- | :---------- | -----: |
+| NVIDIA NVLink 6 | Rubin       | 1800.0 |
+| NVIDIA NVLink 5 | B200, B*    |  900.0 |
+| Intel           | Gaudi3      |  600.0 |
+| NVIDIA NVLink 4 | H100, H*    |  450.0 |
+| NVIDIA NVLink 3 | A100        |  300.0 |
+| Intel           | Gaudi2      |  300.0 |
+| AMD XGMI        | MI325X      |   64.0 |
+| AMD XGMI        | MI300X      |   64.0 |
+| AMD XGMI        | MI250X      |   50.0 |
 
 When peer-to-peer bandwidth is much lower than all-to-all it means that if you don't use all of the accelerators on the node by the same application, you will end up with a much lower bandwidth and your application will have a performance impact if the accelerators have to communicate between each others.
 
@@ -196,14 +198,17 @@ Effective payload rate of intra-node GPU-to-GPU communication hardware:
 | NVLink 3     | 6.25 GBps      |     4 |    12 | 300 GBps     | 600 GBps   | A100              |
 | NVLink 4     | 12.50 GBps     |     2 |    18 | 450 GBps     | 900 GBps   | H100, H200, GH200 |
 | NVLink 5     | 25.00 GBps     |     2 |    18 | 900 GBps     | 1800 GBps  | B200, B\*, GB\*   |
+| NVLink 6     | 25.00 GBps     |     2 |    36 | 1800 GBps    | 3600 GBps  | Rubin             |
 
 There is a good overview of evolution of NVLink (1 to 4) [here](https://www.naddod.com/blog/unveiling-the-evolution-of-nvlink).
 
 The largest PCIe 16x slot has 16 lanes. Smaller slots have less lanes, 1x == 1 lane.
 
-NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVLink is 7x faster than PCIe.
+NVIDIA Rubin nodes come equipped with PCIe 6 and NVLink 6. So there NVLink is ~15x faster than PCIe.
 
-NVIDIA Blackwell nodes come equipped with PCIe 5 and NVLink 5. So there NVLink is 14x faster than PCIe.
+NVIDIA Blackwell nodes come equipped with PCIe 6 and NVLink 5. So there NVLink is ~7x faster than PCIe.
+
+NVIDIA Hopper nodes typically come equipped with PCIe 5 and NVLink 4. So there NVLink is ~7x faster than PCIe.
 
 Let's look at several examples of nodes and correlate the theory with reality.
 
@@ -286,9 +291,58 @@ Of course, other A100 and H100s node reports may vary, e.g. the number of cpu co
 
 ### NVLink-C2C
 
-This is a high-bandwidth connection between Grace CPU and GPUs on GB200 (GB300, and higher) modules. As of this writing there is no public spec of the speed, but found 450GBps unidirect mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirect bandwidth for NVLink-5 - so half the speed of the latter.
+This is a high-bandwidth connection between Grace CPU and GPUs on GB200+ modules, Vera CPU and Rubin GPUs.
 
-I'm looking for an official spec if you find one please let me know.
+As of this writing there is no public spec of the speed, but found 450GBps unidirect mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirect bandwidth for NVLink-5 - so half the speed of the latter.
+
+request: I'm looking for an official spec if you find one please let me know.
+
+| Architecture    | Unidirection   | NVLink (gen) |
+| :-------------  | -------------: | -----------: |
+| Grace/Blackwell |  450GBps       |  900GBps (5) |
+| Vera/Rubin      |  900GBps       | 1800GBps (6) |
+
+Next, it's important to understand that these speeds are of a standalone C2C technology and it can be much lower when integrated into the system, when bottlenecked by other components.
+
+On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using [nvbandwidth benchmark](https://github.com/NVIDIA/nvbandwidth).
+
+```
+$ ./nvbandwidth
+[...]
+Running host_to_device_memcpy_ce.
+memcpy CE CPU(row) -> GPU(column) bandwidth (GB/s)
+           0
+ 0    359.05
+
+SUM host_to_device_memcpy_ce 359.05
+
+Running device_to_host_memcpy_ce.
+memcpy CE CPU(row) <- GPU(column) bandwidth (GB/s)
+           0
+ 0    377.15
+
+SUM device_to_host_memcpy_ce 377.15
+
+Running host_to_device_bidirectional_memcpy_ce.
+memcpy CE CPU(row) <-> GPU(column) bandwidth (GB/s)
+           0
+ 0    175.38
+
+SUM host_to_device_bidirectional_memcpy_ce 175.38
+
+Running device_to_host_bidirectional_memcpy_ce.
+memcpy CE CPU(row) <-> GPU(column) bandwidth (GB/s)
+           0
+ 0    171.76
+ [...]
+```
+
+Here is the math (I averaged two direct bandwidth reports as the reports aren't the same for each direction)
+```
+(359+377)/2 / 450 = 0.82
+(175+171)/2*2 / 900 = 0.38
+```
+Essentially, the end-to-end doesn't support the duplex C2C spec, but delivers half the unidirectional speed when communicated in both directions. The wire is duplex, but LPDDR5X memory bandwidth on Grace prevents it from running at full speed in both directions, as the bidirectional test makes both directions share that same memory bandwidth. It's probably not a problem in most current ML applications that normally would send data in one direction H2D / D2H at the same time, but if real duplex is needed beware of this issue.
 
 
 ### NVSwitch
@@ -458,6 +512,13 @@ Practical links:
 [NVIDIA Quantum-2 InfiniBand Platform](https://www.nvidia.com/en-us/networking/quantum2/) supports 400Gbps bandwidth per link, provides RDMA, includes in-network computing with [SHARP](#sharp), supports PCIe-5.
 
 The switches can connect 64 devices at 400Gbps.
+
+
+### NVIDIA Quantum-X800 InfiniBand
+
+[NVIDIA Quantum-X800 InfiniBand Platform](https://www.nvidia.com/en-us/networking/products/infiniband/quantum-x800/), supports 800Gbps bandwidth per link, includes in-network computing with [SHARP](#sharp) v4.
+
+Expected to be available starting with NVIDIA Rubin chips.
 
 
 ### EFA
