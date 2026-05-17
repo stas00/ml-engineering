@@ -247,7 +247,7 @@ Having the flexibility to expand your total storage capacity, and keep the "hot"
 
 This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
-In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#intra-node-networking) network speeds match the promise and your expectations.
+In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#inter-node-networking) network speeds match the promise and your expectations.
 
 ### Ask for the actual performance numbers
 

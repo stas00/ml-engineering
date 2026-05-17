@@ -356,7 +356,7 @@ Intel Gaudi2:
 
 - You will see a wide range of speeds from 200Gbps to 6400Gbps
 
-- Originally an order of magnitude slower than Intra-node, now inter-node speed is starting to approach inter-node (e.g. 800GBps EFA vs 900GBps NVLink-5 on B300 instances)
+- Originally an order of magnitude slower than Intra-node, now inter-node speed is starting to approach intra-node (e.g. 800GBps EFA vs 900GBps NVLink-5 on B300 instances)
 
 - You need to reduce gradients and other tensors (e.g. MoE) faster than compute to avoid idling accelerators
 
