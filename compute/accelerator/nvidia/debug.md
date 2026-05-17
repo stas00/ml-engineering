@@ -463,4 +463,4 @@ Tue Oct  8 09:49:34 2024
 |                                         |                        |             Disabled |
 ```
 
-You can see the `100%` GPU-Util. So here 1 SM is used whereas A100-80GB PCIe has 132 SMs! And it's not even doing any compute as it just runs an infinite loop of doing nothing.
+You can see the `100%` GPU-Util. So here 1 SM is used whereas A100-80GB PCIe has 108 SMs! And it's not even doing any compute as it just runs an infinite loop of doing nothing.
