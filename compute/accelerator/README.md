@@ -355,6 +355,14 @@ While measuring how well an accelerator performs, you need to be aware that whil
 
 This partially has to do with manufacturing processes, how well each accelerator is installed and much more about how equally each accelerator is cooled. For example, when air cooling is used it's very likely that the accelerators closer to the source of cooling will perform better than those further away, especially since now the hot air dissipated from one row gets blown into the next row of accelerators. Things should be better with liquid cooling.
 
+##### Silicon lottery
+
+Even two chips coming off the same wafer are not identical. Tiny variations during manufacturing mean each die ends up with slightly different transistor characteristics. Some leak more current, some need higher voltage to switch reliably at a given frequency, others can run cooler or hotter at the same workload. This is known as the **silicon lottery**: you can buy two GPUs with the same model number and SKU and get measurably different performance and power behavior from them.
+
+The way this is characterized is the per-chip **V-F-T curve** (Voltage-Frequency-Temperature). Every die has its own surface describing the minimum voltage required to run stably at a given frequency and temperature. A "good" die can hit higher frequencies at lower voltage (less heat, less power, more headroom before throttling); a "weaker" die needs more voltage for the same clock, which produces more heat, which then forces the clock down sooner under load. So the curves are not parallel. Two dies that are equal at idle can diverge significantly once they're hot and under sustained compute.
+
+In data-center accelerators the boost-clock and TDP spec is set conservatively so that every binned chip can meet it, but the *actual sustained performance* still falls anywhere on a distribution. Combined with uneven cooling (see above), this explains why on the same 8-GPU node you can see 5%+ MAMF spread between GPUs even when all of them pass the same factory binning.
+
 Therefore, you want to measure the performance of all accelerators on the node and do it at the same time. For example, on NVIDIA nodes, if each benchmark measures a single accelerator, you could do:
 ```
 CUDA_VISIBLE_DEVICES=0 ./some-benchmark
@@ -591,7 +599,7 @@ For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d 
 Most common accelerators that can be either rented on compute clouds or purchased:
 
 NVIDIA:
-- [Vera Rubin NVL72]()https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/ -- the 72 GPUs supernode at NVLink speed with Grace Rubin - 36x blocks of 2x Rubin GPU + Vera CPU)
+- [Vera Rubin NVL72](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) -- the 72 GPUs supernode at NVLink speed with Grace Rubin - 36x blocks of 2x Rubin GPU + Vera CPU
 - [GB300 NVL72](https://www.nvidia.com/en-us/data-center/gb300-nvl72/) - the 72 GPUs supernode at NVLink speed with B300s (Grace Blackwell - 36x blocks of 2x B300 + Grace CPU)
 - [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) - the 72 GPUs supernode at NVLink speed with B200s. (Grace Blackwell - 36x blocks of 2x B200 + Grace CPU)
 - B300 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet (XXX: update when official specs are released)
@@ -792,3 +800,5 @@ And of course the PSU needs to have enough unused Watts to power the card.
 When a GPU gets overheated it will start throttling down and will not deliver full performance and it can even shutdown if it gets too hot.
 
 It's hard to tell the exact best temperature to strive for when a GPU is heavily loaded, but probably anything under +80C is good, but lower is better - perhaps 70-75C is an excellent range to be in. The throttling down is likely to start at around 84-90C. But other than throttling performance a prolonged very high temperature is likely to reduce the lifespan of a GPU.
+
+It's important to understand that on modern GPUs throttling is not just a hard cliff at the thermal limit, the boost clock itself is a continuous function of temperature (and power and current). NVIDIA's GPU Boost (and AMD's equivalent on Instinct) continuously samples die temperature, board power, and per-rail current, and picks the highest stable point on the chip's [V-F-T curve](#silicon-lottery) that fits inside all of those budgets. Cross any one of them and the clock steps down; come back under and it steps back up. In practice this means **the cooler you keep the GPU, the higher the sustained clock you get**, well before you hit the official throttle threshold. A GPU running steady at 60°C will hold a meaningfully higher average clock than the same GPU running at 78°C on the same workload - even though neither is "throttling" in the alarming sense. This is why liquid-cooled nodes typically deliver higher sustained MAMF than air-cooled nodes with identical silicon, and why a node with one poorly-seated heatsink can have one obvious straggler GPU.

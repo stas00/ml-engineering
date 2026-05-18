@@ -142,7 +142,7 @@ HFU measures the actual FLOPS. For example, the technique of [Gradient checkpoin
 
 Now, say, you measured your actual training loop's performance and it was 400 TFLOPS as actual achieved FLOPS. Then your MFU is:
 ```
-HFU = 400/989 = 0.40%
+HFU = 400/989 = 40%
 ```
 
 If you didn't use activation recomputation feature (not repeating `forward`) your HFU and MFU would be the same. If you did use it, your calculation will lead to less FLOS and thus lower FLOPS and thus MFU will be lower than HFU.
