@@ -95,7 +95,7 @@ As you can see TF32 is 8x faster than FP32!
 
 It's disabled by default. To enable it add at the beginning of your program:
 
-```
+```python
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 ```

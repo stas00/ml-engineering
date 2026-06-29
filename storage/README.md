@@ -279,7 +279,7 @@ First install `fio` with `apt install fio` or however your package manager does 
 
 Here is an example of a read benchmark:
 
-```
+```bash
 base_path=/path/to/partition/
 fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --numjobs=16 \
 --direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path  \
@@ -299,7 +299,7 @@ Going back to the benchmark - the parameters will need to change to fit the type
 At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
 
 Here is how to run it:
-```
+```bash
 git clone https://github.com/stas00/ml-engineering/
 cd ml-engineering
 cd storage
@@ -367,7 +367,7 @@ note: To have a baseline to compare to do these timing tests on a recently manuf
 
 Step 1. Install conda onto the shared file system you want to test if it's not there already.
 
-```
+```bash
 export target_partition_path=/mnt/weka  # edit me!!!
 mkdir -p $target_partition_path/miniconda3
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $target_partition_path/miniconda3/miniconda.sh
@@ -383,7 +383,7 @@ notes:
 Step 2. Measure conda install time (write test)
 
 Time the creation of a new conda environment:
-```
+```bash
 time conda create -y -n install-test python=3.9
 ```
 
@@ -394,7 +394,7 @@ sys     0m2.861s
 ```
 
 Time the installation of some heavy pip packages:
-```
+```bash
 conda deactivate
 conda activate install-test
 time pip install torch torchvision torchaudio
@@ -412,13 +412,13 @@ I don't worry about it because usually when the file system is very slow usually
 
 If you do want to make this benchmark precise, you probably could keep the pre-downloaded conda packages and just deleting their untar'ed dirs:
 
-```
+```bash
 find $target_partition_path/miniconda3/pkgs -mindepth 1 -type d -exec rm -rf {} +
 ```
 
 in the case of `pip` it doesn't untar anything, but just caches the wheels it downloaded, so the `time pip install` benchmark can definitely be more precise if you run it the 2nd time (the first time it's downloaded, cached and installed, the second time it's installed from cache. So you could do:
 
-```
+```bash
 conda create -y -n install-test python=3.9
 conda activate install-test
 pip install torch torchvision torchaudio
@@ -431,7 +431,7 @@ As you can see here we time only the 2nd time we install the pip packages.
 
 Step 3. Measure loading time after flushing the memory and file system caches (read test)
 
-```
+```bash
 sudo sync
 echo 3 | sudo tee /proc/sys/vm/drop_caches
 time python -c "import torch"
@@ -443,7 +443,7 @@ If you don't have `sudo` access you can skip the command involving `sudo`, also 
 
 
 Here is how to see the caching effect:
-```
+```bash
 $ time python -c "import torch"
 
 real    0m5.404s
@@ -471,7 +471,7 @@ I think it might be a good idea to do the memory and file system caching in the 
 
 Another time I noticed that `git status` was taking multiple seconds. I use [bash-git-prompt](https://github.com/magicmonty/bash-git-prompt) and it runs `git status` before every return of the prompt when inside a git repo clone, and it was becoming super sluggish and difficult to work. So I benchmarked `git status`:
 
-```
+```bash
 git clone https://github.com/pytorch/pytorch
 cd pytorch
 time git status
@@ -480,7 +480,7 @@ and it was taking 3.7secs on this slow file system and needed to be fixed (it wa
 
 Yet, another time I noticed, `pytest` was taking forever to start, so I measured its collection and it indeed was very slow:
 
-```
+```bash
 time pytest --disable-warnings --collect-only -q
 ```
 
@@ -521,14 +521,14 @@ The very popular HuggingFace Hub makes it super easy to download models and data
 The cached files are usually found at `~/.cache/huggingface` but it's possible to override those with `HF_HOME` environment variable and place them elsewhere if your `/home/` doesn't have space for huge files. (and in the past those were `HUGGINGFACE_HUB_CACHE` and `TRANSFORMERS_CACHE` and some others).
 
 The other solution that requires no mucking with environment variables, which requires you to remember to set them, is to symlink your cache to another partition. You could do it for all of your caches:
-```
+```bash
 mkdir -p ~/.cache
 mv ~/.cache /some/path/
 ln -s /some/path/.cache ~/.cache
 ```
 
 or just for HF hub caches:
-```
+```bash
 mkdir -p ~/.cache/huggingface
 mv ~/.cache/huggingface /some/path/
 ln -s /some/path/cache/huggingface ~/.cache/cache/huggingface
@@ -541,7 +541,7 @@ Now that you know where the caches are, you could, of course, nuke the whole cac
 The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main` in a few quick steps without tedious manual editing.
 
 In terminal A:
-```
+```bash
 $ pip install huggingface_hub["cli"] -U
 $ huggingface-cli delete-cache --disable-tui
 File to edit: /tmp/tmpundr7lky.txt
@@ -552,7 +552,7 @@ Do not answer the prompt and proceed with my instructions.
 (note your tmp file will have a different path, so adjust it below)
 
 In terminal B:
-```
+```bash
 $ cp /tmp/tmpedbz00ox.txt cache.txt
 $ perl -pi -e 's|^#(.*\(detached\).*)|$1|' cache.txt
 $ cat cache.txt >>  /tmp/tmpundr7lky.txt
@@ -576,7 +576,7 @@ Please note that you can also use this tool to choose which models or datasets t
 
 Additionally you will find that HF `datasets` have a `~/.cache/huggingface/datasets/downloads` dir which often will contain a ton of leftovers from datasets downloads and their preprocessing, including various lock files. On one setup I found literally a few millions of files there. So here is how I clean those up:
 
-```
+```bash
 sudo find ~/.cache/huggingface/datasets/downloads -type f -mtime +3 -exec rm {} \+
 sudo find ~/.cache/huggingface/datasets/downloads -type d -empty -delete
 ```
@@ -587,7 +587,7 @@ As usual you may need to adjust the paths if you placed your caches elsewhere.
 
 note: if your team uses `HF_HOME` to share the HF hub models/datasets/etc - the `$HF_HOME/token` will get shared as well, which works fine as long as ungated models are used. But if you want to access gated models you might run into problems there. Therefore you most likely want to not share the access token. You can fix that by adding something like:
 
-```
+```bash
 export HF_TOKEN_PATH=~/.cache/hf_hub_token
 ```
 (then put it into `~/.bashrc` to always work)
@@ -607,7 +607,7 @@ conda and pip will pile up more and more files on your system over time. conda i
 
 So you can safely nuke these dirs:
 
-```
+```bash
 rm -rf ~/.cache/pip
 rm -rf ~/anaconda3/pkgs/
 ```
@@ -621,7 +621,7 @@ If you have more than 2 people working on the same system, you really want to av
 
 For example, let's say you make `pip` and `conda` caches under `/data/cache` like so:
 
-```
+```bash
 mkdir /data/cache/conda
 mkdir /data/cache/pip
 chmod a+rwx /data/cache/conda
@@ -629,7 +629,7 @@ chmod a+rwx /data/cache/pip
 ```
 
 now you just need to symlink from each user's local cache to this shared cache:
-```
+```bash
 mkdir -p ~/.cache
 
 rm -rf ~/.cache/pip
@@ -651,7 +651,7 @@ Once `umask 000` is run, most files will be created with read/write perms so tha
 Of course, if you are using a sort of HPC, where many unrelated groups use the same cluster this won't work and then you would either use groups instead of making files read/write by all, with possibly `setgid` bit preset or using ACL . In any such environments there are always sysadmins so you can ask them how to setup a shared cache for your team and they will know what to do.
 
 Additionally, recently some of these applications added tools to do the cleanup, e.g. for `conda` and `pip`:
-```
+```bash
 conda clean --all -f -y
 pip cache purge
 ```
@@ -661,16 +661,16 @@ pip cache purge
 Of course, sooner or later, your partition will get bigger and bigger, and you will probably want to understand where data is leaking. Typically you will need to find the users who contribute to the most of data consumption and ask them to do some cleanups.
 
 So for example to find which users consume the most disk run:
-```
+```bash
 sudo du -ahd1 /home/* | sort -rh
 ```
 it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyse the data a level deeper:
 
-```
+```bash
 sudo du -ahd1 /home/*/* | sort -rh
 ```
 or for a specific user `foo`:
-```
+```bash
 sudo du -ahd1 /home/foo/* | sort -rh
 ```
 
@@ -683,7 +683,7 @@ Getting users to be aware of them using too much disk space can be a very diffic
 Also beware of inode usage, on some shared partitions on HPCs I have seen more than once cases where a job crashed not because there was no disk space left, but because the job used up the last inodes and the whole thing crashed.
 
 To see inode usage, use `df -i`:
-```
+```bash
 $ /bin/df -hi
 Filesystem     Inodes IUsed IFree IUse% Mounted on
 tmpfs             16M  1.9K   16M    1% /run
@@ -773,7 +773,7 @@ find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mt
 ```
 
 and when you feel it's safe to delete, only then add `rm`
-```
+```bash
 find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30 -exec rm {} +
 ```
 

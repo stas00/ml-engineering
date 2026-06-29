@@ -43,7 +43,7 @@ During 104B training experiments where fp16 mixed precision was used - the follo
 Specifically this [line](https://github.com/bigscience-workshop/Megatron-DeepSpeed/blob/c839a8aa30731f71b3738d56009be9668508e366/megatron/model/transformer.py#L303) shows that the `norm_factor` may be multiplied after the Query * Key matrix multiplication. If the dim of Q and K are very large, the output may blow up and the `norm_factor` won't be able to save it.
 
 Proposal: move the `norm_factor` inward, so Q and K are scaled down before matrix multiply:
-```
+```python
         matmul_result = torch.baddbmm(
             matmul_result,
             1.0/math.sqrt(self.norm_factor) * query_layer.transpose(0, 1),   # [b * np, sq, hn]

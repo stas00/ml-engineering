@@ -34,7 +34,7 @@ footnote: These notes were written with HF Transformers models in mind. If you'r
 
 Now let's go through the actual code and convert ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) into its tiny random counterpart.
 
-```
+```python
 from transformers import MT5Config, MT5ForConditionalGeneration
 
 mname_from = "google/mt5-small"
@@ -125,7 +125,7 @@ You probably don't really need to understand how these work until you actually n
 
 [Anthony Moi](https://github.com/n1t0)'s tokenizer shrinker:
 
-```
+```python
 import json
 from transformers import AutoTokenizer
 from tokenizers import Tokenizer
@@ -159,7 +159,7 @@ tokenizer.save_pretrained(".")
 ```
 
 I later discovered that gpt2 seems to have a special token `"<|endoftext|>"` stashed at the very end of the vocab, so it gets dropped and code breaks. So I hacked it back in with:
-```
+```python
 if "gpt2" in mname:
         new_vocab = { token: i for token, i in vocab.items() if i < vocab_keep_items-1 }
         new_vocab["<|endoftext|>"] = vocab_keep_items-1
@@ -172,7 +172,7 @@ if "gpt2" in mname:
 
 [Lysandre Debut](https://github.com/LysandreJik)' shrinker using `train_new_from_iterator`:
 
-```
+```python
 from transformers import AutoTokenizer
 
 mname = "microsoft/deberta-base" # or any checkpoint that has a fast tokenizer.
@@ -191,7 +191,7 @@ new_tokenizer.save_pretrained("small-tokenizer")
 ```
 but this one requires a training corpus, so I had an idea to cheat and train the new tokenizer on its own original vocab which gave me:
 
-```
+```python
 from transformers import AutoTokenizer
 
 mname = "microsoft/deberta-base"
@@ -221,7 +221,7 @@ But for the needs of a tiny model (testing) the frequency doesn't matter at all.
 
 Some tokenizers can be be just manually truncated at the file level, e.g. let's shrink Llama2's tokenizer to 3k items:
 
-```
+```python
 # Shrink the orig vocab to keep things small (just enough to tokenize any word, so letters+symbols)
 # ElectraTokenizerFast is fully defined by a tokenizer.json, which contains the vocab and the ids,
 # so we just need to truncate it wisely
@@ -253,11 +253,11 @@ Here is the full version of [make_tiny_model.py](https://huggingface.co/stas/tin
 ### SentencePiece vocab shrinking
 
 First clone SentencePiece into a parent dir:
-```
+```bash
 git clone https://github.com/google/sentencepiece
 ```
 Now to the shrinking:
-```
+```python
 # workaround for fast tokenizer protobuf issue, and it's much faster too!
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
@@ -343,7 +343,7 @@ And then the main script uses that structure to build a dataset of any desired l
 
 And here is for example the instructions of deploying these scripts for [stas/general-pmd-synthetic-testing](https://huggingface.co/datasets/stas/general-pmd-synthetic-testing/):
 
-```
+```bash
 # prep dataset repo
 https://huggingface.co/new-dataset => stas/general-pmd-synthetic-testing
 git clone https://huggingface.co/datasets/stas/general-pmd-synthetic-testing
@@ -395,6 +395,6 @@ While in the domain of ML we have the dataset, the model and the tokenizer - eac
 Should the original scripts this chapter is pointing to disappear or the HF hub is down while you're reading this, here is [the local back up of all of them](./tiny-scripts/).
 
 note-to-self: to make the latest backup of files linked to in this chapter run:
-```
+```bash
 perl -lne 'while (/(https.*?.py)\)/g) { $x=$1; $x=~s/blob/raw/; print qq[wget $x] }' make-tiny-models.md
 ```

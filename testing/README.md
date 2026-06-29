@@ -9,7 +9,7 @@ This document covers both `pytest` and `unittest` functionalities and shows how 
 
 ### Run all tests
 
-```console
+```bash
 pytest
 ```
 I use the following alias:
@@ -24,7 +24,7 @@ which tells pytest to:
 - `-rA` generates a short test summary info
 
 it requires you to install:
-```
+```bash
 pip install pytest-instafail
 ```
 

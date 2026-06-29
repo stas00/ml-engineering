@@ -364,7 +364,7 @@ The way this is characterized is the per-chip **V-F-T curve** (Voltage-Frequency
 In data-center accelerators the boost-clock and TDP spec is set conservatively so that every binned chip can meet it, but the *actual sustained performance* still falls anywhere on a distribution. Combined with uneven cooling (see above), this explains why on the same 8-GPU node you can see 5%+ MAMF spread between GPUs even when all of them pass the same factory binning.
 
 Therefore, you want to measure the performance of all accelerators on the node and do it at the same time. For example, on NVIDIA nodes, if each benchmark measures a single accelerator, you could do:
-```
+```bash
 CUDA_VISIBLE_DEVICES=0 ./some-benchmark
 CUDA_VISIBLE_DEVICES=2 ./some-benchmark
 ...

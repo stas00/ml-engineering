@@ -85,13 +85,13 @@ The factor of 4 is used with activation/gradient checkpointing, otherwise it wil
 
 So the `3*2` is often called "model FLOPs" and `4*2` - "hardware FLOPs", correlating to MFU and HFU (model and hardware FLOPS per second divided by the accelerator's theoretical peak FLOPS)
 
-```
+```bash
 perl -le '$ng=64; $ms=52; $gbs=1024; $sp=127; $seqlen=2048; print $ms*4*2*$seqlen*$gbs / ( $sp * $ng * 1e3)'
 ```
 (ng = total gpus, ms = model size in B, gbs = global batch size, sp = throughput in seconds)
 
 Here is the same formula using `bash` env vars and which breaks down GBS into `MBS*DP*GAS` (GAS in this case corresponded to `pp_chunks` which was the number of chunks in the pipeline, but normally GAS just stands for Gradient Accumulation Steps):
-```
+```bash
 echo "($MSIZE*4*2*SEQLEN*$MICRO_BATCH_SIZE*$DP_SIZE*$GAS)/($THROUGHPUT*$NNODES*4*1000)" | bc -l
 ```
 
@@ -104,7 +104,7 @@ footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operatio
 
 Until recently we had to rely on manual FLOP calculations as explained in the previous section - many of those formulas have mistakes in them, and many models behave differently depending on various configuration settings. So it can be tricky to get the FLOP count correctly (and across many different model architectures). But fear not, the awesome PyTorch team developed an automatic way of measuring FLOPs.
 
-```
+```python
 from torch.utils.flop_counter import FlopCounterMode
 
 flop_counter = FlopCounterMode(mods=model, display=False, depth=None)
@@ -382,14 +382,14 @@ When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, 
 The size of allocated memory for cuda kernels varies between different GPUs, and also it can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
 
 With `pytorch==1.10.2`:
-```
+```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
 pt=1.10.2: used=1.78GB, free=77.43GB, total=79.21GB
 ```
 
 With `pytorch==1.13.1`:
-```
+```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
 pt=1.13.1: used=0.90GB, free=78.31GB, total=79.21GB
@@ -400,13 +400,13 @@ The older pytorch "wasted" 1.78GB of A100, the newer only 0.9GB, thus saving a w
 `CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand. But do not use this setting in production since it's likely to use more memory than needed. The whole point of lazy-loading is to load only the kernels that are needed.
 
 With `pytorch==2.1.1`:
-```
+```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
 pt=2.1.1+cu121: used=0.92GB, free=78.23GB, total=79.15GB
 ```
 As compared to the lazy mode:
-```
+```bash
 $ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
 used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
 pt=2.1.1+cu121: used=0.47GB, free=78.68GB, total=79.15GB
@@ -420,7 +420,7 @@ When using `torch.distributed` expect ~1-2GB of GPU memory taken away just to in
 
 Here is [torch-dist-mem-usage.py](distributed/torch-dist-mem-usage.py) that demonstrates the actual memory usage:
 
-```
+```bash
 $ python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d \
 torch-dist-mem-usage.py
 [...]
@@ -653,7 +653,7 @@ Here is [swiglu-maf-bench.py](benchmarks/matrix-shape/swiglu-maf-bench.py) that 
 
 Let's run it on H100 with `h = 4096`:
 
-```
+```bash
 ./swiglu-maf-bench.py
 Wanted the closest to 10922 d_ff value that leads to the highest TFLOPS (d_hidden=4096)
 
@@ -715,7 +715,7 @@ You first get the physical cpu-core counts and then the remaining HT cores, henc
 
 If this is an NVIDIA node, the other way to easily see the CPU affinity is to run:
 
-```
+```bash
 $ nvidia-smi topo -m
         GPU0    GPU1    GPU2    GPU3    GPU4    GPU5    GPU6    GPU7    CPU Affinity    NUMA Affinity
 GPU0     X      NV18    NV18    NV18    NV18    NV18    NV18    NV18    0-51,104-155    0
@@ -747,14 +747,14 @@ For example, let's see how it can be integrated with the `torchrun` launcher.
 
 This launcher currently needs a helper util [numa-set.sh](benchmarks/numa/numa-set.sh) to perform NUMA affinity settings, once you downloaded it and made it executable, you can now get the right NUMA affinity using:
 
-```
+```bash
 torchrun --nproc_per_node=8 --role : --tee 3 --no-python ./numa-set.sh your-program.py
 ```
 
 Note: you'd need `numactl` installed on your system for this util to work.
 
 For example, here is how you can validate that the assignments are correct:
-```
+```bash
 torchrun --nproc_per_node=8 --role : --tee 3 --no-python ./numa-set.sh python -c \
 'import os; cores=os.sched_getaffinity(0); print(f"{len(cores)} visible cpu cores: {cores}")'
 ```
@@ -776,7 +776,7 @@ The first 4 accelerators use the first half of the cpu-cores and the other 4 the
 
 If you remove `./numa-set.sh`, you'd get:
 
-```
+```bash
 torchrun --nproc_per_node=8 --role : --tee 3 --no-python python -c \
 'import os; cores=os.sched_getaffinity(0); print(f"{len(cores)} visible cpu cores: {cores}")'
 ```
@@ -792,7 +792,7 @@ so as each process has access to any cpu-core - a cross talk may occur, which ma
 
 You can, of course, change the NUMA affinity after the program was launched. You saw the use of `os.sched_getaffinity` to get the current settings, and the corresponding `os.sched_setaffinity` is used to change it.
 
-```
+```python
 import os
 os.sched_setaffinity(0, [0, 1])
 ```
@@ -813,7 +813,7 @@ call it before `DataLoader` is initialized to get the workers use the right cpu-
 
 Normally, the local process rank equals the gpu index, but if one uses `CUDA_VISIBLE_DEVICES` - this might not be true any longer - if you use it, you will need to remap the process rank to the actual index:
 
-```
+```python
 gpu_index = int(os.environ.get("LOCAL_RANK", 0))
 if "CUDA_VISIBLE_DEVICES" in os.environ:
     ids = list(map(int, os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")))
@@ -931,12 +931,12 @@ Python periodically performs an automatic garbage collection based on internal h
 Usually one can see this by studying [the MFU plot](#mfu-vs-hfu) where downward spikes can be observed.
 
 If this happens to your training you can disable the automatic garbage collection with:
-```
+```python
 import gc
 gc.disable()
 ```
 at the beginning of your trainer and then manually perform garbage collection at the desired intervals. For example, calling this once in a training iteration:
-```
+```python
 import gc
 gc.collect()
 ```

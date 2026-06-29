@@ -21,7 +21,7 @@ The first thing to do is to open port `6000` for incoming and outgoing connectio
 
 Here are multiple ways that you could use to test whether port 6000 is already open.
 
-```
+```bash
 telnet localhost:6000
 nmap -p 6000 localhost
 nc -zv localhost 6000
@@ -32,7 +32,7 @@ Most of these should be available via `apt install` or whatever your package man
 
 Let's use `nmap` in this example. If I run:
 
-```
+```bash
 $ nmap -p 22 localhost
 [...]
 PORT   STATE SERVICE
@@ -41,7 +41,7 @@ PORT   STATE SERVICE
 We can see the port is open and it tells us which protocol and service is allocated as a bonus.
 
 Now let's run:
-```
+```bash
 $ nmap -p 6000 localhost
 [...]
 
@@ -54,13 +54,13 @@ Now that you understand how to test, you can proceed to test the `10.0.0.1:6000`
 
 First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
 
-```
+```bash
 ssh 10.0.0.1
 nmap -p 6000 10.0.0.2
 ```
 if all is good, then in terminal B ssh to the second node and do the same check in reverse:
 
-```
+```bash
 ssh 10.0.0.2
 nmap -p 6000 10.0.0.1
 ```
@@ -69,7 +69,7 @@ If both ports are open you can now use this port. If either or both are closed y
 
 The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
 
-```
+```bash
 $ sudo ifconfig
 ```
 
@@ -79,7 +79,7 @@ Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Sl
 
 Here are some examples of `ifconfig`'s output:
 
-```
+```bash
 $ sudo ifconfig
 enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
@@ -91,7 +91,7 @@ If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or someth
 
 Let's look at another example:
 
-```
+```bash
 $ sudo ifconfig
 ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
         inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
@@ -106,7 +106,7 @@ For testing we will use this helper debug program [torch-distributed-gpu-test.py
 
 In terminal A:
 
-```
+```bash
 $ ssh 10.0.0.1
 $ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
@@ -114,7 +114,7 @@ $ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --np
 
 In terminal B:
 
-```
+```bash
 $ ssh 10.0.0.2
 $ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
@@ -128,7 +128,7 @@ This approach of running things manually from each node is painful and so there 
 
 `pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
 
-```
+```bash
 PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
 "python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
@@ -143,7 +143,7 @@ If you use SLURM, it's almost certain that whoever set things up already have al
 
 Here is how you'd use this with SLURM.
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=test-nodes        # name
 #SBATCH --nodes=2                    # nodes
@@ -171,13 +171,13 @@ Another popular way is to use [Message Passing Interface (MPI)](https://en.wikip
 
 To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
 
-```
+```bash
 $ cat hostfile
 10.0.0.1:8
 10.0.0.2:8
 ```
 and to run, it's just:
-```
+```bash
 $ mpirun --hostfile  -np 16 -map-by ppr:8:node python my-program.py
 ```
 
@@ -195,7 +195,7 @@ Nuances:
 
 In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
 
-```
+```bash
 NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
 ```
 I saw in the debug messages that InfiniBand interfaces got detected:
@@ -227,7 +227,7 @@ In this section we will use `torchrun` (`torch.distributed.run`) during the demo
 
 When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
 
-```
+```bash
 python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
 torch-distributed-gpu-test.py
 ```
@@ -238,7 +238,7 @@ Note that the colon is important.
 
 If you're in a SLURM environment the above command line becomes:
 
-```
+```bash
 srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
@@ -250,7 +250,7 @@ Of course adjust your environment variables to match, this was just an example.
 
 Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
 
-```
+```bash
 srun --jobid $SLURM_JOBID bash -c "python -m torch.distributed.run \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
@@ -297,7 +297,7 @@ and when it's dozens of frames over 8 nodes it can't be made sense of, but the a
 ```
 and you can `grep` this output for just one `host:rank` prefix, which gives us:
 
-```
+```bash
 $ grep "[host1:0]" log.txt
 [host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
 [host1:0]    if self.dataset_proba.sum() != 1:
@@ -346,13 +346,13 @@ There are a few solutions.
 
 If the failure is instant and can be reproduced on CPU (not all programs work on CPU), simply re-rerun it after hiding your GPUs. This is how you do it:
 
-```
+```bash
 CUDA_VISIBLE_DEVICES="" python my-pytorch-program.py
 ```
 
 The env var `CUDA_VISIBLE_DEVICES` is used to manually limit the visibility of GPUs to the executed program. So for example if you have 8 gpus and you want to run program1.py with first 4 gpus and program2.py with the remaining 2 gpus you can do:
 
-```
+```bash
 CUDA_VISIBLE_DEVICES="0,1,2,3" python my-pytorch-program1.py
 CUDA_VISIBLE_DEVICES="4,5,6,7" python my-pytorch-program2.py
 ```
@@ -366,7 +366,7 @@ But, of course, if you your program requires multiple GPUs this won't work. And 
 
 Rerun your program after setting this environment variable:
 
-```
+```bash
 CUDA_LAUNCH_BLOCKING=1 python my-pytorch-program.py
 ```
 
@@ -396,7 +396,7 @@ If your program crashed, you will often find a file that will look something lik
 
 
 Before we continue make sure you have `gdb` installed:
-```
+```bash
 sudo apt-get install gdb
 ```
 
@@ -404,7 +404,7 @@ Now make sure you know the path to the python executable that was used to run th
 
 So typically I'd go:
 
-```
+```bash
 conda activate my-env
 gdb python core-python-3097667-6
 ```
@@ -474,14 +474,14 @@ You will find an exhaustive coverage of this tool [here](./torch-distributed-han
 Similar to [py-spy](./torch-distributed-hanging-solutions.md#py-spy), `strace` is a super-useful tool which traces any running application at the low-level system calls - e.g. `libC` and alike.
 
 For example, run:
-```
+```bash
 strace python -c "print('strace')"
 ```
 and you will see everything that is done at the system call level as the above program runs.
 
 But usually it's more useful when you have a stuck program that spins all CPU cores at 100% but nothing happens and you want to see what's it doing. In this situation you simply attached to the running program like so:
 
-```
+```bash
 strace --pid PID
 ```
 where you get the PID for example from the output of `top` or `ps`. Typically I just copy-n-paste the PID of the program that consumes the most CPU - `top` usually shows it at the very top of its listing.
@@ -498,7 +498,7 @@ Here we can see that a write call was executed on filedescriptor `1`, which almo
 
 If you're not sure what a filedescriptor is pointing to, normally you can tell from `strace`'s output itself. But you can also do:
 
-```
+```bash
 ls -l /proc/PID/fd
 ```
 where PID is the pid of the currently running program you're trying to investigate.
@@ -550,7 +550,7 @@ It's important to notice that file descriptors are re-used, so we have seen the 
 If your program is for example trying to reach to the Internet, you can also tell these calls from `strace` as the program would be reading from a socket file descriptor.
 
 So let's run an example on a program that downloads files from the HF hub:
-```
+```bash
 strace python -c 'import sys; from transformers import AutoConfig; AutoConfig.from_pretrained(sys.argv[1])' t5-small
 ```
 
@@ -584,14 +584,14 @@ You can see where that again it uses FD 3 but this time it opens a INET6 socket 
 There are many other super useful understandings one can derive from using this tool.
 
 BTW, if you don't want to scroll up-down, you can also save the output to a file:
-```
+```bash
 strace -o strace.txt python -c "print('strace')"
 ```
 
 Now, since you're might want to strace the program from the very beginning, for example to sort out some race condition on a distributed filesystem, you will want to tell it to follow any forked processes. This what the `-f` flag is for:
 
 
-```
+```bash
 strace -o log.txt -f python -m torch.distributed.run --nproc_per_node=4 --nnodes=1 --tee 3 test.py
 ```
 
@@ -608,7 +608,7 @@ The `strace` manpage has a ton of other useful options.
 
 Once pytorch 2.2 is released you will have a new handy debug feature:
 
-```
+```python
 import torch.distributed as dist
 [...]
 
@@ -622,7 +622,7 @@ This is the same as `ForkedPdb` (below) but will automatically break for you on 
 
 Here is what it does underneath:
 
-```
+```python
 import sys
 import pdb
 
@@ -659,7 +659,7 @@ It's important to understand that depending on which device the floating point m
 
 Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
 
-```
+```python
 import torch
 
 def do_math(device):
@@ -699,7 +699,7 @@ This snapshot and the commentary come from this [PyTorch Issue thread](https://g
 
 If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
 
-```
+```python
 class LlamaRotaryEmbedding(nn.Module):
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()

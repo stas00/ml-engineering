@@ -20,14 +20,14 @@ For the network diagnostics work, instead of using a full application which may 
 
 First, run the nccl-based program after setting:
 
-```
+```bash
 export NCCL_DEBUG=INFO
 ```
 which will print a lot of debug info about the NCCL setup and its network traffic.
 
 For example if you're using the aforementioned debug script, for a single node with 8 GPUs, you might do:
 
-```
+```bash
 NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 8 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
@@ -57,7 +57,7 @@ To know which TCP/IP interfaces your node has you run `ifconfig` on one of the n
 
 If your collective comms network is IB, instead of `ifconfig` you'd run `ibstat`. The last example of `NCCL INFO NET` would correspond to the following output:
 
-```
+```bash
 $ ibstat | grep mlx5
 CA 'mlx5_0'
 CA 'mlx5_1'
@@ -71,7 +71,7 @@ CA 'mlx5_7'
 
 Since besides the fast inter-node connectivity NICs, you're also likely to have a slow management Ethernet NIC (or even several of those), that is there to be able to configure the node, use a shared file system, access the Internet, it's almost certain that `ifconfig` will also include additional NICs. Also you are likely to have a docker network interface, `lo` loopback and some others. For example on my desktop I may get the following output:
 
-```
+```bash
 $ ifconfig
 docker0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 172.99.0.1  netmask 255.255.0.0  broadcast 172.99.255.255
@@ -120,7 +120,7 @@ While NCCL tries hard to auto-discover which interfaces it should use, if it fai
 
 - `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using InfiniBand. Here are some examples:
 
-```
+```bash
 export NCCL_SOCKET_IFNAME=eth:        Use all interfaces starting with eth, e.g. eth0, eth1, …
 export NCCL_SOCKET_IFNAME==eth0:      Use only interface eth0
 export NCCL_SOCKET_IFNAME==eth0,eth1: Use only interfaces eth0 and eth1
@@ -131,7 +131,7 @@ The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs
 
 - When using IB RDMA (IB Verbs interfaces), instead of `NCCL_SOCKET_IFNAME` use `NCCL_IB_HCA` env var which selects the interfaces for the collective communications. Examples:
 
-```
+```bash
 export NCCL_IB_HCA=mlx5 :               Use all ports of all cards starting with mlx5
 export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1 : Use ports 1 of cards mlx5_0 and mlx5_1.
 export NCCL_IB_HCA=^=mlx5_1,mlx5_4 :    Do not use cards mlx5_1 and mlx5_4.
@@ -143,11 +143,11 @@ For example, often with IB, there will be additional interfaces like `mlx5_bond_
 NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/I [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
 ```
 There you'd exclude it with:
-```
+```bash
 export NCCL_IB_HCA=^mlx5_bond_0:1
 ```
 or alternatively you could list explicitly the interfaces you want, e.g.:
-```
+```bash
 export NCCL_IB_HCA==mlx5_0,mlx5_1,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_6,mlx5_7
 ```
 
@@ -176,7 +176,7 @@ Sometimes you need to know if the GPUs on your compute node support P2P access (
 
 You can see that on this particular 8x NVIDIA H100 node the P2P is supported:
 
-```
+```bash
 $ nvidia-smi topo -p2p r
         GPU0    GPU1    GPU2    GPU3    GPU4    GPU5    GPU6    GPU7
  GPU0   X       OK      OK      OK      OK      OK      OK      OK
@@ -200,7 +200,7 @@ Legend:
 ```
 
 On the other hand with this particular 2x NVIDIA L4 the P2P is not supported:
-```
+```bash
 $ nvidia-smi topo -p2p r
         GPU0    GPU1
  GPU0   X       CNS
@@ -219,7 +219,7 @@ IOMMU can be disabled in the BIOS.
 
 You can also check P2P support between specific GPUs using torch - here are we checking for GPUs 0 and 1:
 
-```
+```bash
 python -c "import torch; print(torch.cuda.can_device_access_peer(torch.device('cuda:0'), torch.device('cuda:1')))"
 ```
 If there is no P2P support, the above would print `False`.
@@ -229,13 +229,13 @@ If there is no P2P support, the above would print `False`.
 ## How to count NCCL calls
 
 Enable NCCL debug logging for subsystems - collectives:
-```
+```bash
 export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=COLL
 ```
 
 if you're working in a slurm environment with many nodes you probably want to perform this only on rank 0, like so:
-```
+```bash
 if [[ $SLURM_PROCID == "0" ]]; then
   export NCCL_DEBUG=INFO
   export NCCL_DEBUG_SUBSYS=COLL
@@ -243,7 +243,7 @@ fi
 ```
 
 Assuming your logs were all sent to `main_log.txt`, you can then count how many of each collective call were performed with:
-```
+```bash
 grep -a "NCCL INFO Broadcast" main_log.txt     | wc -l
 2590
 grep -a "NCCL INFO AllReduce" main_log.txt     | wc -l
@@ -296,7 +296,7 @@ When using `NCCL_DEBUG` env var, redirect all NCCL debug logging output to a fil
 
 The default is `stdout`. When using many GPUs it can be very useful to save each process' debug info into its own log file, which can be done like so:
 
-```
+```bash
 NCCL_DEBUG_FILE=/path/to/nccl-log.%h.%p.txt
 ```
 
@@ -307,13 +307,13 @@ If you then need to analyse hundreds of these at once, here are some useful shor
 
 - grep for a specific match and also print the file and line number where it was found:
 
-```
+```bash
 grep -n "Init COMPLETE" nccl-log*
 ```
 
 - show `tail -1` of all nccl log files followed by the name of each file
 
-```
+```bash
 find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
 ```
 
@@ -323,7 +323,7 @@ find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
 
 `NCCL_DEBUG_SUBSYS` used in combination with `NCCL_DEBUG` tells the latter which subsystems to show. Normally you don't have to specify this variable, but sometimes the developers helping you may ask to limit the output to only some sub-systems, for example:
 
-```
+```bash
 NCCL_DEBUG_SUBSYS=INIT,GRAPH,ENV,TUNING
 ```
 
@@ -342,7 +342,7 @@ By default NCCL will try to use the fastest type of an interface, which is typic
 
 But say you want to use an Ethernet interface instead then you can override with:
 
-```
+```bash
 NCCL_SOCKET_IFNAME=eth
 ```
 

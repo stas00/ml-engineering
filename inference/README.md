@@ -487,7 +487,7 @@ You can write your own benchmark as explained in [key inference performance metr
 
 At the moment I use mainly the [prefill throughput](#prefill-throughput) and [decode throughput](#decode-throughput) benchmarks. The first one just measures tokens per second from the moment the request was sent and the first generated token received, and the second one is the throughput between the first and the last generated tokens received. Here is the relevant snippet of such measurement using [`openai` client completions API](https://github.com/openai/openai-python):
 
-```
+```python
 [... create client, data, etc. ...]
 prefill_tokens_len = len(prompt)
 start_time = time.time()

@@ -6,7 +6,7 @@ When debugging always set a fixed seed for all the used Random Number Generators
 
 Though with so many different systems it can be tricky to cover them all. Here is an attempt to cover a few:
 
-```
+```python
 import random, torch, numpy as np
 def enforce_reproducibility(use_seed=None):
     seed = use_seed if use_seed is not None else random.randint(1, 1000000)
@@ -25,7 +25,7 @@ def enforce_reproducibility(use_seed=None):
     return seed
 ```
 a few possible others if you use those subsystems/frameworks instead:
-```
+```python
     torch.npu.manual_seed_all(seed)
     torch.xpu.manual_seed_all(seed)
     tf.random.set_seed(seed)
@@ -99,7 +99,7 @@ Let's expend on each step in the recipe:
 4. If you use a devel install with `pip install -e .` it doesn't know anything about the git clone repository it was installed from other than its git SHA. But the issue is that it's likely that you have modified the files locally and now `pip freeze` will miss those changes. So this part will go through all packages that are not installed into the conda environment (we find them by looking inside `site-packages/*.dist-info/direct_url.json`)
 
 To save the `apt` packages add:
-```
+```bash
 apt list --installed > $REPRO_DIR/apt-packages.txt
 ```
 

@@ -10,7 +10,7 @@ As most of us are well familiar with NVIDIA tools, I will try to provide the map
 
 To select a specific gpu (`CUDA_VISIBLE_DEVICES` equivalent):
 
-```
+```bash
 ROCR_VISIBLE_DEVICES=0,1 python my-program.py
 ```
 
@@ -19,7 +19,7 @@ ROCR_VISIBLE_DEVICES=0,1 python my-program.py
 `rocm-smi` (`nvidia-smi` equivalent) shows a condensed state of all the ROCm accelerators.
 
 For example here is an 8xMI300X node:
-```
+```bash
 $ rocm-smi
 ========================================= ROCm System Management Interface =========================================
 =================================================== Concise Info ===================================================
@@ -49,7 +49,7 @@ Device  [Model : Revision]    Temp        Power     Partitions      SCLK    MCLK
 Oddly it shows no real memory usage - only the percentage, which isn't very practical.
 
 A handy alias to watch updates in real time:
-```
+```bash
 alias wr='watch -n 1 rocm-smi'
 ```
 
@@ -60,7 +60,7 @@ alias wr='watch -n 1 rocm-smi'
 This one shows both the CPU and the GPU information
 
 Here is a snippet for cpu0 and gpu0 (note it starts counting the cpus as nodes 0..1, and then GPUs as nodes 2..9):
-```
+```bash
 $ rocminfo
 ROCk module is loaded
 =====================

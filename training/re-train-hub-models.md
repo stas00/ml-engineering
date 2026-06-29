@@ -8,7 +8,7 @@ Here is a simple hack to accomplish that.
 
 We will use `facebook/opt-1.3b` and we will plan to use bf16 training regime as an example here:
 
-```
+```bash
 cat << EOT > prep-bf16.py
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 import torch
@@ -28,7 +28,7 @@ EOT
 
 now run:
 
-```
+```bash
 python prep-bf16.py
 ```
 
@@ -38,7 +38,7 @@ Adjust to script above to use `torch.float16` or `torch.float32` if that's what 
 
 Now you can proceed with finetuning this saved model as normal:
 
-```
+```bash
 python -m torch.distributed.run \
 --nproc_per_node=1 --nnode=1 --node_rank=0 \
 --master_addr=127.0.0.1 --master_port=9901 \

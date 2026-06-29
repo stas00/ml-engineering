@@ -29,13 +29,13 @@ You also need at least one additional node for running various preventative watc
 The next crucial step is to ensure that if the training crashed, there is a new job lined up to take place of the previous one.
 
 Therefore, when a training is started, instead of using:
-```
+```bash
 sbatch train.slurm
 ```
 
 You'd want to replace that with:
 
-```
+```bash
 sbatch --array=1-10%1 train.slurm
 ```
 
@@ -44,22 +44,22 @@ This tells SLURM to book a job array of 10 jobs, and if one of the job completes
 footnote: `%1` in `--array=1-10%1` tells SLURM to launch the job array serially - one job at a time.
 
 If you have already started a training without this provision, it's easy to fix without aborting the current job by using the `--dependency` argument:
-```
+```bash
 sbatch --array=1-10%1 --dependency=CURRENTLY_RUNNING_JOB_ID train.slurm
 ```
 So if your launched job looked like this:
 
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
        87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
 ```
 You will not that the current's `JOBID=87` and now you can use it in:
-```
+```bash
 sbatch --array=1-10%1 --dependency=87 train.slurm
 ```
 and then the new status will appear as:
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
        87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
@@ -73,7 +73,7 @@ But since the main reason for training crashes is failing GPUs, ensuring that fa
 
 In the SLURM lingo, the removed nodes are given a new status called `drained`. Here is an example of a hypothetical SLURM cluster:
 
-```
+```bash
 $ sinfo
 PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST
 prod*       up   infinite       4  drain node-[0-3]
@@ -202,7 +202,7 @@ The most obvious watchdog is one which checks that there is a training SLURM job
 Here is an example [slurm-status.py](slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../../orchestration/slurm/users.md#crontab-emulation), we simply needed to drop  [slurm-status.slurm](slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
 
 The key part of the SLURM job is:
-```
+```bash
 tools/slurm-status.py --job-name $WATCH_SLURM_NAME 2>&1 | tee -a $MAIN_LOG_FILE
 ```
 which tells the script which job name to watch for, and you can also see that it logs into a log file.
@@ -212,7 +212,7 @@ For example, if you launched the script with:
 tools/slurm-status.py --job-name my-training-10b
 ```
 and the current status report shows:
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
   JOBID    PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
     87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-63]
@@ -277,7 +277,7 @@ footnote: The reality of machine learning trainings is that not all problems can
 
 The idea is similar to the kill and save switches discussed earlier, but here instead of polling for a specific file appearance we simply watch how much resident memory is used. For example here is how you'd auto-exit if the OS shows only 5% of the virtual cpu memory remain:
 
-```
+```python
 import psutil
 for batch in iterator:
     total_used_percent = psutil.virtual_memory().percent
@@ -291,7 +291,7 @@ for batch in iterator:
 
 Similar heuristics could be used for setting a threshold for GPU memory usage, except one needs to be aware of cuda tensor caching and python garbage collection scheduling, so to get the actual memory usage you'd need to do first run the garbage collector then empty the cuda cache and only then you will get real memory usage stats and then gracefully exit the training if the GPU is too close to being full.
 
-```
+```python
 import gc
 import torch
 
@@ -339,7 +339,7 @@ So, for example, let's say your HPC allows 100 hour jobs, and then your slurm sc
 ```
 
 ### Approach A. Tell the program at launch time when it should start the exiting process:
-```
+```bash
 srun ... torchrun ... --exit-duration-in-mins 5990
 ```
 100h is 6000 minutes and so here we give the program 10 mins to gracefully exit.
@@ -348,7 +348,7 @@ And when you start the program you create a timer and then before every new iter
 
 case study: you can see how this was set [in the BLOOM training job](https://github.com/bigscience-workshop/bigscience/blob/58d99c67f643d27b5765a73a2ee2d1ce0a4b2c6b/train/tr11-176B-ml/tr11-176B-ml.slurm#L97-L100) and then acted upon [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/blob/e52bdabbde3c6895aceb76c1bced295c2646121f/megatron/training.py#L985-L998):
 
-```
+```python
         # Exiting based on duration
         if args.exit_duration_in_mins:
             train_time = (time.time() - _TRAIN_START_TIME) / 60.0
@@ -368,7 +368,7 @@ case study: you can see how this was set [in the BLOOM training job](https://git
 As you can see since the training is distributed we have to synchronize the exiting event across all ranks
 
 You could also automate the derivation, by retrieving the `EndTime` for the running job:
-```
+```bash
 $ scontrol show -d job $SLURM_JOB_ID | grep Time
    RunTime=00:00:42 TimeLimit=00:11:00 TimeMin=N/A
    SubmitTime=2023-10-26T15:18:01 EligibleTime=2023-10-26T15:18:01
@@ -389,7 +389,7 @@ and then SLURM will send a `SIGUSR1` signal to your program 10min before job's e
 footnote: normally SLURM schedulers send a `SIGCONT`+`SIGTERM` signal about 30-60 seconds before the job's time is up, and just as the time is up it will send a `SIGCONT`+`SIGTERM`+`SIGKILL` signal if the job is still running. `SIGTERM` can be caught and acted upon but 30 seconds is not enough time to gracefully exit a large model training program.
 
 Let's demonstrate how the signal sending and trapping works. In terminal A, run:
-```
+```bash
 python -c "
 import time, os, signal
 
@@ -404,7 +404,7 @@ time.sleep(1000)
 ```
 it will print the pid of the process, e.g., `4034989` and will go to sleep (emulating real work). In terminal B now send `SIGUSR1` signal to the python program in terminal A with:
 
-```
+```bash
 kill -s USR1 4034989
 ```
 
@@ -417,7 +417,7 @@ Signal handler called with signal 10
 
 So here is the same thing with the SLURM setup:
 
-```
+```bash
 $ cat sigusr1.slurm
 #SBATCH --job-name=sigusr1
 #SBATCH --nodes=1
@@ -442,7 +442,7 @@ time.sleep(1000)
 In the SLURM script we told SLURM to send the program a signal 170 seconds before its end and the job itself was set to run for 180 secs (3 mins).
 
 When this job has been scheduled:
-```
+```bash
 sbatch sigusr1.slurm
 ```
 10 seconds (`180-170`) after the job started, it will exit with the log:
@@ -474,14 +474,14 @@ The added `B:` tells SLURM not to send the signal to the `srun` process (launche
 
 And now we have to change the end of the SLURM script from a typical launcher-based code like:
 
-```
+```bash
 CMD="python -u -m torch.distributed.run ... train.py ..." # real command here
 LOG_FILE=/path/to/logs/main_log.txt
 srun --jobid $SLURM_JOBID bash -c "$CMD" 2>&1 | tee -a $LOG_FILE
 
 ```
 to this:
-```
+```bash
 trap 'echo "SIGUSR1 received!"; \
 pid=$(pgrep -f "^python.*(accelerate|deepspeed|torchrun|distributed.run)"); \
 pgrep -P $pid | xargs -r kill -USR1; \
@@ -504,7 +504,7 @@ Your python code that catches the signal handler remains the same as in Approach
 
 Here are the important parts of the SLURM script together:
 
-```
+```bash
 $ cat launch.slurm
 #!/bin/bash
 [...]
@@ -524,7 +524,7 @@ wait
 ```
 
 And your training loop that may have originally looked like this:
-```
+```bash
 $ cat train.py
 
 for batch in dl:
@@ -532,7 +532,7 @@ for batch in dl:
 ```
 
 Now it'll become:
-```
+```bash
 $ cat train.py
 
 import signal
@@ -573,7 +573,7 @@ We haven't discussed so far what happens when Quality of Service (QoS) is used, 
 
 Consider a SLURM setup where you have `--qos=high` which can preempt `--qos=low` jobs and the low priority job has grace time of 10 minutes to shut down:
 
-```
+```bash
 $ sacctmgr show qos format=name,priority,preempt,MaxTRESPerUser,GraceTime,Preempt,Flags
       Name   Priority     MaxTRESPU  GraceTime    Preempt                Flags
 ---------- ---------- ------------- ---------- ---------- --------------------

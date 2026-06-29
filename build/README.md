@@ -7,7 +7,7 @@ This document assumes you're working from the root of the repo.
 ## Installation requirements
 
 1. Install python packages used during book build
-```
+```bash
 pip install -r build/requirements.txt
 ```
 
@@ -16,13 +16,13 @@ pip install -r build/requirements.txt
 
 ## Build html
 
-```
+```bash
 make html
 ```
 
 ## Build pdf
 
-```
+```bash
 make pdf
 ```
 
@@ -30,7 +30,7 @@ It will first build the html target and then will use it to build the pdf versio
 
 ## Build epub
 
-```
+```bash
 make epub
 ```
 
@@ -40,12 +40,12 @@ It will first build the html target and then will use it to build the epub versi
 ## Check links and anchors
 
 To validate that all local links and anchored links are valid run:
-```
+```bash
 make check-links-local
 ```
 
 To additionally also check external links
-```
+```bash
 make check-links-all
 ```
 use the latter sparingly to avoid being banned for hammering servers.
@@ -55,7 +55,7 @@ use the latter sparingly to avoid being banned for hammering servers.
 
 
 e.g. `slurm` => `orchestration/slurm`
-```
+```bash
 src=slurm
 dst=orchestration/slurm
 
@@ -72,6 +72,6 @@ make check-links-local
 
 When included images are too large, make them smaller a bit:
 
-```
+```bash
 mogrify -format png -resize 1024x1024\> *png
 ```

@@ -13,7 +13,7 @@ In this doc we will use an example setup with these 2 cluster names:
 
 To find out the hostname of the nodes and their availability, use:
 
-```
+```bash
 sinfo -p dev
 sinfo -p prod
 ```
@@ -22,13 +22,13 @@ SLURM configuration is at `/opt/slurm/etc/slurm.conf`.
 
 To see the configuration of all partitions:
 
-```
+```bash
 scontrol show partition
 ```
 
 ## Wait time for resource granting
 
-```
+```bash
 squeue -u `whoami` --start
 ```
 will show when any pending jobs are scheduled to start.
@@ -41,7 +41,7 @@ They may start sooner if others cancel their reservations before the end of the 
 
 To schedule a new job when one more of the currently scheduled job ends (regardless of whether it still running or not started yet), use the dependency mechanism, by telling `sbatch` to start the new job once the currently running job succeeds, using:
 
-```
+```bash
 sbatch --dependency=CURRENTLY_RUNNING_JOB_ID tr1-13B-round1.slurm
 ```
 
@@ -51,7 +51,7 @@ Using `--dependency` may lead to shorter wait times that using `--begin`, since 
 ## Make allocations at a scheduled time
 
 To postpone making the allocation for a given time, use:
-```
+```bash
 salloc --begin HH:MM MM/DD/YY
 ```
 
@@ -76,7 +76,7 @@ the time-units can be `seconds` (default), `minutes`, `hours`, `days`, or `weeks
 This is very useful for running repetitive interactive experiments - so one doesn't need to wait for an allocation to progress. so the strategy is to allocate the resources once for an extended period of time and then running interactive `srun` jobs using this allocation.
 
 set `--time` to the desired window (e.g. 6h):
-```
+```bash
 salloc --partition=dev --nodes=1 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time=6:00:00 bash
 salloc: Pending job allocation 1732778
 salloc: job 1732778 queued and waiting for resources
@@ -84,7 +84,7 @@ salloc: job 1732778 has been allocated resources
 salloc: Granted job allocation 1732778
 ```
 now use this reserved node to run a job multiple times, by passing the job id of `salloc`:
-```
+```bash
 srun --jobid $SLURM_JOBID --pty bash
 ```
 if run from inside `bash` started via `salloc`. But it can be started from another shell, but then explicitly set `--jobid`.
@@ -100,7 +100,7 @@ When finished, to release the resources, either exit the shell started in `sallo
 This reserved node will be counted towards hours usage the whole time it's allocated, so release as soon as done with it.
 
 Actually, if this is just one node, then it's even easier to not use `salloc` but to use `srun` in the first place, which will both allocate and give you the shell to use:
-```
+```bash
 srun --pty --partition=dev --nodes=1 --ntasks=1 --cpus-per-task=96 --gres=gpu:8 --time=60 bash
 ```
 
@@ -129,7 +129,7 @@ On some setups like AWS the all-reduce throughput degrades dramatically when `--
 
 To check if your instances has HT enabled, run:
 
-```
+```bash
 $ lscpu | grep Thread
 Thread(s) per core: 2
 ```
@@ -142,19 +142,19 @@ If it's `2` then it is HT-enabled, if it's `1` then it isn't.
 e.g. when wanting to run various jobs on identical node allocation.
 
 In one shell:
-```
+```bash
 salloc --partition=prod --nodes=16 --ntasks=16 --cpus-per-task=96 --gres=gpu:8 --time=3:00:00 bash
 echo $SLURM_JOBID
 ```
 
 In another shell:
-```
+```bash
 export SLURM_JOBID=<JOB ID FROM ABOVE>
 srun --jobid=$SLURM_JOBID ...
 ```
 
 You may need to set `--gres=gpu:0` to run some diagnostics job on the nodes. For example, let's check shared memory of all the hosts:
-```
+```bash
 srun --jobid 631078 --gres=gpu:0 bash -c 'echo $(hostname) $(df -h | grep shm)'
 ```
 
@@ -163,14 +163,14 @@ srun --jobid 631078 --gres=gpu:0 bash -c 'echo $(hostname) $(df -h | grep shm)'
 
 To exclude specific nodes (useful when you know some nodes are broken, but are still in IDLE state):
 
-```
+```bash
 sbatch --exclude nodeA,nodeB
 ```
 or via: `#SBATCH --exclude ...`
 
 To use specific nodes:
 
-```
+```bash
 sbatch --nodelist= nodeA,nodeB
 ```
 can also use the short `-w` instead of `--nodelist`
@@ -192,34 +192,34 @@ TODO: need to experiment with this to help training finish gracefully and not st
 ## Detailed job info
 
 While most useful information is preset in various `SLURM_*` env vars, sometimes some information is missing. In such cases use:
-```
+```bash
 scontrol show -d job $SLURM_JOB_ID
 ```
 and then parse out what's needed.
 
 
 For a job that finished its run use:
-```
+```bash
 sacct -j JOBID
 ```
 
 This command is also useful to discover if you have any `srun` jobs already running on that allocation (including those that were finished or cancelled). For example, you could kill some run-away `srun` step via `scancel <jobid>.<step-id>` and you'd find that `<step-id>` via the above command. The main job will continue running if it's an interactive job even if you cancelled all step jobs.
 
 To see more details:
-```
+```bash
 sacct -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
 sacct -j JOBID --long
 ```
 
 Or to see all jobs with their sub-steps while limiting the listing to a specific partition and only for your own user:
 
-```
+```bash
 sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300
 sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300
 ```
 
 To see how a particular job was launched and all of its `srun` sub-step command lines:
-```
+```bash
 sacct -j JOBID -o submitline -P
 ```
 
@@ -227,17 +227,17 @@ sacct -j JOBID -o submitline -P
 
 
 Show only my jobs:
-```
+```bash
 squeue -u `whoami`
 ```
 
 Show jobs by job id:
-```
+```bash
 squeue -j JOBID
 ```
 
 Show jobs of a specific partition:
-```
+```bash
 squeue --partition=dev
 ```
 
@@ -246,7 +246,7 @@ squeue --partition=dev
 
 Handy aliases
 
-```
+```bash
 alias myjobs='squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"'
 alias groupjobs='squeue -u foo,bar,tar -o "%.16i %u %9P %26j %.8T %.10M %.8l %.6D %.20S %R"'
 alias myjobs-pending="squeue -u `whoami` --start"
@@ -260,7 +260,7 @@ alias idle-nodes="sinfo -p prod -o '%A'"
 
 If there are any zombies left behind across nodes, send one command to kill them all.
 
-```
+```bash
 srun pkill python
 ```
 
@@ -272,7 +272,7 @@ So this is a great tool for analysing past events.
 
 For example, to see which nodes were used to run recent gpu jobs:
 
-```
+```bash
 sacct -u `whoami` --partition=dev -ojobid,start,end,state,exitcode --format nodelist%300
 ```
 
@@ -288,17 +288,17 @@ See `man sacct` for more fields and info fields.
 ### Cancel job
 
 To cancel a job:
-```
+```bash
 scancel [jobid]
 ```
 
 To cancel all of your jobs:
-```
+```bash
 scancel -u <userid>
 ```
 
 To cancel all of your jobs on a specific partition:
-```
+```bash
 scancel -u <userid> -p <partition>
 ```
 
@@ -321,12 +321,12 @@ Hoping it'll be a built-in feature of pytorch https://github.com/pytorch/pytorch
 
 
 ## Show the state of nodes
-```
+```bash
 sinfo -p PARTITION
 ```
 
 Very useful command is:
-```
+```bash
 sinfo -s
 ```
 
@@ -338,7 +338,7 @@ NODES(A/I/O/T) "allocated/idle/other/total".
 ```
 So here 597 out of 612 nodes are allocated. 0 idle and 15 are not available for whatever other reasons.
 
-```
+```bash
 sinfo -p gpu_p1 -o "%A"
 ```
 
@@ -352,7 +352,7 @@ so you can see if any nodes are available on the 4x v100-32g partition (`gpu_p1`
 
 To check a specific partition:
 
-```
+```bash
 sinfo -p gpu_p1 -o "%A"
 ```
 
@@ -417,7 +417,7 @@ To run a sequence of jobs, so that the next slurm job is scheduled as soon as th
 
 Let's start with just 10 such jobs:
 
-```
+```bash
 sbatch --array=1-10%1 array-test.slurm
 ```
 
@@ -430,7 +430,7 @@ Alternatively, as always this param can be part of the script:
 
 Here is toy slurm script, which can be used to see how it works:
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=array-test
 #SBATCH --nodes=1
@@ -451,7 +451,7 @@ date
 Note `$SLURM_ARRAY_JOB_ID` is the same as `$SLURM_JOB_ID`, and `$SLURM_ARRAY_TASK_ID` is the index of the job.
 
 To see the jobs running:
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %26j %.8T %.10M %.6D %.20S %R"
      JOBID PARTITION                       NAME    STATE       TIME  NODES           START_TIME NODELIST(REASON)
 591970_[2-   dev             array-test  PENDING       0:00      1  2021-07-28T20:01:06 (JobArrayTaskLimit)
@@ -459,12 +459,12 @@ $ squeue -u `whoami` -o "%.10i %9P %26j %.8T %.10M %.6D %.20S %R"
 now job 2 is running.
 
 To cancel the whole array, cancel the job id as normal (the number before `_`):
-```
+```bash
 scancel 591970
 ```
 
 To cancel a specific job:
-```
+```bash
 scancel 591970_2
 ```
 
@@ -505,7 +505,7 @@ Here is an example:
 
 Create a job script:
 
-```
+```bash
 $ cat train-64n.slurm
 #!/bin/bash
 #SBATCH --job-name=tr8-104B
@@ -520,7 +520,7 @@ $ cat train-64n.slurm
 source tr8-104B-64.slurm
 ```
 Start it as:
-```
+```bash
 sbatch --array=1-50%1 train-64.slurm
 ```
 
@@ -530,7 +530,7 @@ The nice thing is that this requires no changes to the original script (`tr8-104
 
 Now, what if something is wrong and you need 10min or 10h to fix something. In this case we suspend the train using:
 
-```
+```bash
 scontrol hold <jobid>
 ```
 
@@ -538,7 +538,7 @@ with <jobid> being either a "normal" job, the id of a job array or the id for a 
 
 and then when ready to continue release the job:
 
-```
+```bash
 scontrol release <jobid>
 ```
 
@@ -547,14 +547,14 @@ scontrol release <jobid>
 
 If you run allocated a node like so:
 
-```
+```bash
 salloc --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00 bash
 ```
 and you exited the shell, or your ssh connection got dropped, the allocation will be lost.
 
 If you want to open an allocation that should survive exiting the shell, use `--no-shell` and no `bash` like so:
 
-```
+```bash
 salloc --no-shell --partition=dev --nodes=1 --ntasks-per-node=1 --time=1:00:00
 ```
 and now if you need to join the session see [How to rejoin the allocated node interactively](#how-to-rejoin-the-allocated-node-interactively).
@@ -585,14 +585,14 @@ But if you want to use something where you can disconnect and reconnect and cont
 To have multiple interactive shells into the same job `--overlap` should be used.
 
 For example, in console A, let's allocate a single node:
-```
+```bash
 $ salloc --partition=dev --nodes=1 --ntasks-per-node=1 --cpus-per-task=26 --gres=gpu:1 --time=2:00:00 bash
 salloc: Granted job allocation 1916
 salloc: Nodes my-node-1 are ready for job
 ```
 
 In console B:
-```
+```bash
 $ srun --overlap --pty --jobid 101 bash
 ```
 and the above can be repeated in as many consoles as wanted.
@@ -600,18 +600,18 @@ and the above can be repeated in as many consoles as wanted.
 If it's the first pseudo terminal shell you don't even need `--overlap`, but you need it for the additional shells.
 
 It works the same if you initially allocated the node via `srun --pty`
-```
+```bash
 srun --pty -p dev --gpus 8 --time=2:00:00 bash
 ```
 
 You can, of course, also access the node via `ssh` but if your SLURM has been setup to do all kinds of virtualizations (e.g. give only a few GPUs to each user, or virtualize `/tmp/` or `/scratch` with auto-cleanup on exit), the view from `ssh` won't be the same. For example, if a job allocated 2 GPUs, the ssh shell will show all of the GPUs and not just the 2 - so if you're sharing the node with others this won't work well.
 
 This works for multi-node allocations and by default you will get an interactive shell on the first node of the allocation. If you want to enter a specific node use `-w` to specify it. For example, say you got `node-[1-4]` allocated and you want to enter `node-3`, then specify:
-```
+```bash
 srun --pty -p dev --gpus 8 --time=2:00:00 -w node-3 bash
 ```
 and if it fails with:
-```
+```bash
 srun: error: Unable to create step for job 1930: Invalid generic resource (gres) specification
 ```
 add back the `--gres=gpu:8` setting. You won't need to do it if your original allocation command used this flag already.
@@ -633,7 +633,7 @@ it must not be interpolated before time, since if this is set as `"--machine_ran
 
 It's best to isolate the launcher from the program like so:
 
-```
+```bash
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=3333
 ACCELERATE_CONFIG_FILE=path/to/accelerate.config.yaml # edit me
@@ -663,7 +663,7 @@ Now the launcher will always work and the users will only need to tweak the `PRO
 
 With `torchrun`:
 
-```
+```bash
 export $GPUS_PER_NODE=8
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=3333
@@ -685,7 +685,7 @@ See [Single and Multi-node Launchers with SLURM](launchers/) for complete workin
 
 If the pytorch launcher fails it often means that the number of SLURM nodes and the launcher nodes are mismatching, e.g.:
 
-```
+```bash
 grep -ir nodes= tr123-test.slurm
 #SBATCH --nodes=40
 NNODES=64
@@ -695,7 +695,7 @@ This won't work. They have to match.
 
 You can add a sanity check to your script:
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=test-mismatch
 #SBATCH --nodes=2
@@ -738,24 +738,24 @@ Sometimes a node is broken, which prevents one from training, especially since r
 To find a faulty node, write a small script that reports back the status of the desired check.
 
 For example to test if cuda is available on all nodes:
-```
+```bash
 python -c 'import torch, socket; print(f"{socket.gethostname()}: {torch.cuda.is_available()}")'
 ```
 
 and to only report the nodes that fail:
-```
+```bash
 python -c 'import torch, socket; torch.cuda.is_available() or print(f"Broken node: {socket.gethostname()}") '
 ```
 
 Of course, the issue could be different - e.g. gpu can't allocate memory, so change the test script to do a small allocation on cuda. Here is one way:
 
-```
+```bash
 python -c "import torch; torch.ones(1000,1000).cuda()"
 ```
 
 But since we need to run the test script on all nodes and not just the first node, the slurm script needs to run it via `srun`. So our first diagnostics script can be written as:
 
-```
+```bash
 srun --jobid $SLURM_JOBID bash -c 'python -c "import torch, socket; print(socket.gethostname(), torch.cuda.is_available())"'
 ```
 
@@ -763,7 +763,7 @@ I slightly changed it, due to an issue with quotes.
 
 You can always convert the one liner into a real script and then there is no issue with quotes.
 
-```
+```bash
 $ cat << EOT >> test-nodes.py
 #!/usr/bin/env python
 import torch, socket
@@ -773,7 +773,7 @@ $ chmod a+x ./test-nodes.py
 ```
 
 Now let's create a driver slurm script. Use a few minutes time for this test so that SLURM yields it faster:
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=test-nodes
 #SBATCH --nodes=4
@@ -790,7 +790,7 @@ srun --jobid $SLURM_JOBID ./test-nodes.py
 Once it runs check the logs to see if any reported `False`, those are the nodes you want to exclude.
 
 Now once the faulty node(s) is found, feed it to `sbatch`:
-```
+```bash
 sbatch --exclude=hostname1,hostname2 ...
 ```
 and `sbatch` will exclude the bad nodes from the allocation.
@@ -803,7 +803,7 @@ Here are a few more situations and how to find the bad nodes in those cases:
 
 If you're testing something that requires distributed setup, it's a bit more complex. Here is a slurm script that tests that NCCL works. It sets up NCCL and checks that barrier works:
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=test-nodes-nccl
 #SBATCH --nodes=2
@@ -908,7 +908,7 @@ ncclSystemError: System call (socket, malloc, munmap, etc) failed.
 Here is how to debug this issue:
 
 1. Add:
-```
+```bash
 export NCCL_DEBUG=INFO
 ```
 before the `srun` command and re-run your slurm script.
@@ -934,7 +934,7 @@ Of course, this same process can be used to run some command for all nodes of a 
 
 
 
-```
+```bash
 cd ~/prod/code/tr8b-104B/bigscience/train/tr11-200B-ml/
 
 salloc --partition=prod --nodes=40 --ntasks-per-node=1 --cpus-per-task=96 --gres=gpu:8 --time 20:00:00
@@ -943,11 +943,11 @@ bash 200B-n40-bf16-mono.slurm
 ```
 
 In another shell get the JOBID for the above `salloc`:
-```
+```bash
 squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"
 ```
 adjust jobid per above and the nodes count (XXX: probably can remove `--nodes=40` altogether and rely on `salloc` config):
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'ps aux | grep python | egrep -v "grep|srun" | grep `whoami` | awk "{print \$2}" | xargs -I {} py-spy dump --native --pid {}' || echo "failed"
 ```
 now all `py-spy` traces go into the `trace-$nodename.out` files under `cwd`.
@@ -962,7 +962,7 @@ Don't forget to manually release the allocation when this process is done.
 
 Some multi-node launchers require a `hostfile` - here is how to generate one:
 
-```
+```bash
 # autogenerate the hostfile for deepspeed
 # 1. deals with: SLURM_JOB_NODELIST in either of 2 formats:
 # r10i1n8,r10i2n0
@@ -980,7 +980,7 @@ perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST
 
 You can always do:
 
-```
+```bash
 export SOMEKEY=value
 ```
 from the slurm script to get a desired environment variable passed to the program launched from it.
@@ -1004,7 +1004,7 @@ For this presentation we are going to use `$WORK/cron/` as the base directory. A
 
 We will use `$WORK/cron/scheduler` dir for scheduler jobs, `$WORK/cron/cron.daily` for daily jobs and `$WORK/cron/cron.hourly` for hourly jobs:
 
-```
+```bash
 $ mkdir -p $WORK/cron/scheduler
 $ mkdir -p $WORK/cron/cron.daily
 $ mkdir -p $WORK/cron/cron.hourly
@@ -1018,7 +1018,7 @@ after editing those to fit your specific environment's account and partition inf
 
 Now you can launch the crontab scheduler jobs:
 
-```
+```bash
 $ cd $WORK/cron/scheduler
 $ sbatch cron-hourly.slurm
 $ sbatch cron-daily.slurm
@@ -1032,7 +1032,7 @@ This is it, these jobs will now self-perpetuate and usually you don't need to th
 Now whenever you want some job to run once a day, you simply create a slurm job and put it into the `$WORK/cron/cron.daily` dir.
 
 Here is an example job that runs daily to update the `mlocate` file index:
-```
+```bash
 $ cat $WORK/cron/cron.daily/mlocate-update.slurm
 #!/bin/bash
 #SBATCH --job-name=mlocate-update    # job name
@@ -1070,7 +1070,7 @@ Finally, since every cron launcher job will leave behind a log file (which is us
 
 You could use something like this in a daily job.
 
-```
+```bash
 find $WORK/cron -name "*.out" -mtime +7 -exec rm -f {} +
 ```
 Please note that it's set to only delete files that are older than 7 days, in case you need the latest logs for diagnostics.
@@ -1086,7 +1086,7 @@ The same approach used in [building a scheduler](#1-a-self-perpetuating-schedule
 
 For example:
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=watchdog          # job name
 #SBATCH --ntasks=1                   # number of MP tasks
@@ -1102,7 +1102,7 @@ sbatch --begin=now+${RUN_FREQUENCY_IN_HOURS}hour watchdog.slurm
 ... do the watchdog work here ...
 ```
 and you launch it once with:
-```
+```bash
 sbatch watchdog.slurm
 ```
 This then will immediately schedule itself to be run 1 hour from the launch time and then the normal job work will be done. Regardless of whether the rest of the job will succeed or fail, this job will continue relaunching itself approximately once an hour. This is imprecise due to scheduler job starting overhead and node availability issues. But if there is a least one spare node available and the job itself is quick to finish the requirement to run at an approximate frequency should be sufficient.
@@ -1115,7 +1115,7 @@ As the majority of SLURM environment in addition to the expensive GPU nodes also
 From within the slurm file one can access information about the current job's allocations.
 
 Getting allocated hostnames and useful derivations based on that:
-```
+```bash
 export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 export NUM_NODES=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
@@ -1127,7 +1127,7 @@ export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 
 Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
 
-```
+```bash
 $ scontrol show hostnames node-[42,49-51]
 node-42
 node-49
@@ -1137,7 +1137,7 @@ node-51
 Voila!
 
 case study: this is for example useful if you want get a list of nodes that were drained because the job was too slow to exit, but really there is no real problem with the nodes. So this one-liner will give you the list of such nodes in an expanded format which you can then script to loop over this list to undrain these nodes after perhaps checking that the processes have died by this time:
-```
+```bash
 sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
 ```
 
@@ -1149,13 +1149,13 @@ I'm yet to find why this is so, but so far we have been using a kill switch work
 
 So if we start Meg-DS with `--kill-switch-path $WORK/tmp/training17-kill-switch` and then at any point we need to kill the SLURM job, we simply do:
 
-```
+```bash
 touch $WORK/tmp/training17-kill-switch
 ```
 and the next time the program gets to check for this file it'll detect the event and will exit voluntarily. If you have a job array, well, you will have to wait until each job starts, detects the kill switch and exits.
 
 Of course, don't forget to remove it when you're done stopping the jobs.
-```
+```bash
 rm $WORK/tmp/training17-kill-switch
 ```
 
@@ -1171,12 +1171,12 @@ There are several ways to gracefully handle time- and QoS-based SLURM pre-emptio
 
 To figure out how many gpus are used by an already running job, parse the `JOB_GRES=gpu:` entry in `show job -d` output. For example, if the job was started with:
 
-```
+```bash
 srun --pty --partition=dev --nodes=2 --ntasks-per-node=1 --gres=gpu:8 --time=8:00:00 bash
 ```
 that is we allocated 16 GPUs, we can now get that number back programmatically via:
 
-```
+```bash
 $ TOTAL_JOB_GPUS=$(scontrol show job -d $SLURM_JOBID | perl -ne 'm|JOB_GRES=gpu:(\d+)| && print $1')
 $ echo $TOTAL_JOB_GPUS
 16
@@ -1189,7 +1189,7 @@ Replace `$SLURM_JOBID` with the SLURM job id if it's not already set in the shel
 
 While normally `squeue` will show you the duration of the currently running job, in order to see how long a job run for when it finished, you need to know the job id and then you can query it like so:
 
-```
+```bash
 $ sacct -j 22171 --format=JobID,JobName,State,Elapsed
 JobID           JobName      State    Elapsed
 ------------ ---------- ---------- ----------
@@ -1203,7 +1203,7 @@ so we know the job finished running in under 2min.
 Many SLURM clusters use the FairShare system where the more someone uses the cluster the less of the priority they get to run jobs or if there is a pre-emption in place they are more likely to get pre-empted
 
 To see your FairShare scores run:
-```
+```bash
 sshare
 ```
 
@@ -1222,12 +1222,12 @@ If your FairShare score is more than 0.5 that means you have been using the clus
 As the time passes this score gets decayed so if you were having a very low score and have you have been using the cluster much less then your score will raise over time.
 
 To see the score of a specific user:
-```
+```bash
 sshare -u username
 ```
 
 To see everybody's scores, sorted by FairShare:
-```
+```bash
 sshare --all | sort -nk7 -r
 ```
 

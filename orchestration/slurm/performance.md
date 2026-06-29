@@ -14,7 +14,7 @@ A quote from the `sbatch` manpage:
 
 Which means that if in the past your SLURM script could have been:
 
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
@@ -30,7 +30,7 @@ So if you leave things as is, now the program will receive just 1 cpu-core (unle
 You can easily test if your SLURM setup is affected, using `os.sched_getaffinity(0))`, as it shows which cpu-cores are eligible to be used by the current process. So it should be easy to count those with `len(os.sched_getaffinity(0))`.
 
 Here is how you can test if you're affected:
-```
+```bash
 $ cat test.slurm
 #!/bin/bash
 #SBATCH --job-name=test-cpu-cores-per-task
@@ -56,14 +56,14 @@ or another value smaller than 48 then you're affected.
 
 To fix that you need to change your SLURM script to either:
 
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
 srun --cpus-per-task=48 myprogram
 ```
 or:
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
@@ -72,7 +72,7 @@ srun myprogram
 ```
 
 or automate it with write-once-and-forget:
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 

@@ -214,7 +214,7 @@ Let's look at several examples of nodes and correlate the theory with reality.
 
 If you use multiple GPUs the way cards are inter-connected can have a huge impact on the total training time. If the GPUs are on the same physical node, you can run:
 
-```
+```bash
 nvidia-smi topo -m
 ```
 
@@ -258,7 +258,7 @@ Now, let's look at the topology of the A100 and H100 nodes:
 
 - A100 topology:
 
-```
+```bash
 $ nvidia-smi topo -m
       GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity  NUMA Affinity
 GPU0   X    NV12  NV12  NV12  NV12  NV12  NV12  NV12   0-23         0
@@ -273,7 +273,7 @@ GPU7  NV12  NV12  NV12  NV12  NV12  NV12  NV12   X    24-47         1
 You can see there are 12 NVLinks and 2 NUMA Groups (2 CPUs w/ 24 cores each)
 
 - H100 topology:
-```
+```bash
 $ nvidia-smi topo -m
       GPU0  GPU1  GPU2  GPU3  GPU4  GPU5  GPU6  GPU7  CPU Affinity  NUMA Affinity
 GPU0   X    NV18  NV18  NV18  NV18  NV18  NV18  NV18   0-51         0
@@ -307,7 +307,7 @@ Next, it's important to understand that these speeds are of a standalone C2C tec
 
 On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using [nvbandwidth benchmark](https://github.com/NVIDIA/nvbandwidth).
 
-```
+```bash
 $ ./nvbandwidth
 [...]
 Running host_to_device_memcpy_ce.
@@ -824,7 +824,7 @@ The network throughput in the advertised spec and the actual throughput will nev
 Then the network throughput will depend on the size of payload being sent during each communication. The higher the payload the higher the throughput will be.
 
 Let's demonstrate this using [nccl-tests](https://github.com/NVIDIA/nccl-tests) on a single A100 node
-```
+```bash
 $ ./build/all_reduce_perf -b 32k -e 16G -f 2 -g 8 -n 50
 [...]
            size    time   algbw   busbw
@@ -859,7 +859,7 @@ As you can see for payloads smaller than 8MB the throughput is very low - and it
 
 Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on the same A100 node:
 
-```
+```bash
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
 
 ----------- 1x 4.0GB ----------------
@@ -882,14 +882,14 @@ We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples
 
 First, let's build it:
 
-```
+```bash
 git clone https://github.com/NVIDIA/cuda-samples/
 cd cuda-samples/Samples/5_Domain_Specific/p2pBandwidthLatencyTest
 nvcc -o p2pBandwidthLatencyTest p2pBandwidthLatencyTest.cu -I ../../../Common
 ```
 
 Now let's run it on A100:
-```
+```bash
 ./p2pBandwidthLatencyTest
 [...]
 Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)

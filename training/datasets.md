@@ -4,14 +4,14 @@
 
 HF Accelerate has a very neat container [`main_process_first`](https://huggingface.co/docs/accelerate/v0.4.0/accelerator.html#accelerate.Accelerator.main_process_first) which allows to write code like:
 
-```
+```python
 with accelerator.main_process_first():
     # load and pre-process datasets
     dataset = datasets.load_dataset(...)
     # optionally cache it and have the rest of the processes load the cache
 ```
 instead of the less intuitive and requiring code repetition:
-```
+```python
 if rank == 0:
     dataset = datasets.load_dataset(...)
 dist.barrier()
@@ -32,7 +32,7 @@ You can find them [here](tools/main_process_first.py).
 
 Now, what if you want to write a generic code that automatically works on shared and local filesystems. I added another helper that automatically discovers what type of filesystem we are dealing with and based on that call the right containers. I called it `main_process_by_path_first`, which is used like:
 
-```
+```python
 path = "/path/to/data"
 with main_process_by_path_first(path):
     # load and pre-process datasets
@@ -52,6 +52,6 @@ They are all found in [here](tools/main_process_first.py).
 
 You can see them in action by running:
 
-```
+```bash
 python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhost:6000  --rdzv_backend c10d tools/main_process_first.py
 ```

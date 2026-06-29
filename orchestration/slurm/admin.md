@@ -8,7 +8,7 @@
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 for every new node you haven't logged into yet, you can disable this check with:
-```
+```bash
 echo "Host *" >> ~/.ssh/config
 echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 ```
@@ -21,7 +21,7 @@ You can now run the wanted command on multiple nodes.
 
 For example, let's run `date`:
 
-```
+```bash
 $ PDSH_RCMD_TYPE=ssh pdsh -w node-[21,23-26] date
 node-25: Sat Oct 14 02:10:01 UTC 2023
 node-21: Sat Oct 14 02:10:02 UTC 2023
@@ -34,13 +34,13 @@ Let's do something more useful and complex. Let's kill all GPU-tied processes th
 
 First, this command will give us all process ids that tie up the GPUs:
 
-```
+```bash
 nvidia-smi --query-compute-apps=pid --format=csv,noheader | sort | uniq
 ```
 
 So we can now kill all those processes in one swoop:
 
-```
+```bash
  PDSH_RCMD_TYPE=ssh pdsh -w node-[21,23-26]  "nvidia-smi --query-compute-apps=pid --format=csv,noheader | sort | uniq | xargs -n1 sudo kill -9"
 ```
 
@@ -49,14 +49,14 @@ So we can now kill all those processes in one swoop:
 
 Show the slurm settings:
 
-```
+```bash
 sudo scontrol show config
 ```
 
 The config file is `/etc/slurm/slurm.conf` on the slurm controller node.
 
 Once `slurm.conf` was updated to reload the config run:
-```
+```bash
 sudo scontrol reconfigure
 ```
 from the controller node.
@@ -67,7 +67,7 @@ from the controller node.
 
 If the nodes need to be rebooted safely (e.g. if the image has been updated), adapt the list of the node and run:
 
-```
+```bash
 scontrol reboot ASAP node-[1-64]
 ```
 
@@ -87,12 +87,12 @@ The change is performed by `scontrol update`
 Examples:
 
 To undrain a node that is ready to be used:
-```
+```bash
 scontrol update nodename=node-5 state=idle
 ```
 
 To remove a node from the SLURM's pool:
-```
+```bash
 scontrol update nodename=node-5 state=drain
 ```
 
@@ -105,7 +105,7 @@ So here is how to automate it.
 
 The keys is to get the list of nodes that are drained due to `"Kill task failed"`, which is retrieved with:
 
-```
+```bash
 sinfo -R | grep "Kill task failed"
 ```
 
@@ -121,19 +121,19 @@ Now you can just run this script and any nodes that are basically ready to serve
 ## Modify a job's timelimit
 
 To set a new timelimit on a job, e.g., 2 days:
-```
+```bash
 scontrol update JobID=$SLURM_JOB_ID TimeLimit=2-00:00:00
 ```
 
 To add additional time to the previous setting, e.g. 3 more hours.
-```
+```bash
 scontrol update JobID=$SLURM_JOB_ID TimeLimit=+10:00:00
 ```
 
 ## When something goes wrong with SLURM
 
 Analyze the events log in the SLURM's log file:
-```
+```bash
 sudo cat /var/log/slurm/slurmctld.log
 ```
 

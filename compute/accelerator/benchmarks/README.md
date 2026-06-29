@@ -30,11 +30,11 @@ Follow the special setup instructions before running the benchmark to achieve th
 **MI300x, MI325X, etc.**:
 
 1. Turn numa_balancing off for better performance:
-```
+```bash
 sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 ```
 2. Enable:
-```
+```bash
 export PYTORCH_TUNABLEOP_ENABLED=1
 ```
 This will make the first iteration very slow, while it's searching for the best GEMM algorithm in the BLAS libraries for each `matmul` shape it encounters, but subsequent operations are likely to be significantly faster than the baseline. See [Accelerating models on ROCm using PyTorch TunableOp](https://rocm.blogs.amd.com/artificial-intelligence/pytorch-tunableop/README.html) (requires `torch>=2.3`) [doc](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md).
@@ -54,13 +54,13 @@ Here we do `torch.mm(MxK,KxN) -> MxN`
 
 1. A quick run (under 1min) - should give around 80-90% of the maximum achievable result - good for a quick try out, but not enough to get a high measurement.
 
-```
+```bash
 ./mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 2. A more exhaustive search (15-30min) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
-```
+```bash
 ./mamf-finder.py --m_range 0 16384 1024 --n_range 0 16384 1024 --k_range 0 16384 1024  --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
@@ -68,13 +68,13 @@ Feel free to make the steps smaller from 1024 to 512 or 256 - but it'd 8x or 64x
 
 3. A super long exhaustive search (may take many hours/days) - but you can Ctrl-C it when it run long enough and get the best result so far:
 
-```
+```bash
 ./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 4. If you want to measure a specific shape that is used by your training, use the exact shape, instead of the range, so let's say you wanted to measure 1024x1024x1024 - you'd run:
 
-```
+```bash
 ./mamf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
@@ -85,19 +85,19 @@ But then it appears that different accelerators have different ranges of shapes 
 
 6. fp8 on NVIDIA GPUs example:
 
-```
+```bash
 ./mamf-finder.py --m_range 0 20480 1024 --n_range 0 20480 1024 --k_range 0 20480 1024 --dtype float8_e4m3fn --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 - **A100** + **MI300X**
 
-```
+```bash
 ./mamf-finder.py --m_range 0 5376 256 --n_range 0 5376 256 --k_range 0 5376 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 - **H100**
 
-```
+```bash
 ./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 

@@ -18,7 +18,7 @@ First do `pip install py-spy`.
 
 Now you can attach to each process with:
 
-```
+```bash
 py-spy dump -n -p PID
 ```
 and it will tell you where the process hangs (very often it's a nccl collective function or a `barrier`).
@@ -28,13 +28,13 @@ and it will tell you where the process hangs (very often it's a nccl collective 
 - you may need to add `sudo` before the command - for more details see [this note](https://github.com/benfred/py-spy/blob/master/README.md#when-do-you-need-to-run-as-sudo).
 
 If you have no `sudo` access your sysadmin might be able to perform this for you:
-```
+```bash
 sudo echo 0 > /proc/sys/kernel/yama/ptrace_scope
 ```
 which will allow you running `py-spy` (and `strace`) without needing `sudo`. Beware of the possible [security implications](https://wiki.ubuntu.com/SecurityTeam/Roadmap/KernelHardening#ptrace_Protection) - but typically if your compute node is inaccessible from the Internet it's less likely to be a risk.
 
 If the above fails with "Permission denied" error, either of the following 2 ways should do the trick:
-```
+```bash
 sudo sysctl -w kernel.yama.ptrace_scope=0
 sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
 ```
@@ -64,17 +64,17 @@ If the hanging happens inside a CPP extension, add `--native` `py-spy` and it'll
 Now, how do you do it for multiple processes. Doing it one-by-one is too slow. So let's do it at once.
 
 If the launch command was `python`, what you do is:
-```
+```bash
 pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}
 ```
 
 if `deepspeed`:
-```
+```bash
 pgrep -P $(pgrep -o deepspeed) | xargs -I {} py-spy dump --pid {}
 ```
 
 for `accelerate`:
-```
+```bash
 pgrep -P $(pgrep -o accelerate) | xargs -I {} py-spy dump --pid {}
 ```
 
@@ -83,23 +83,23 @@ you get the idea.
 This particular approach will only analyse the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 gpus and 8 processes, the above will generate 8 stack traces.
 
 Then you can pipe the output into this additional useful filter:
-```
+```bash
 pgrep -P $(pgrep -o deepspeed) | xargs -I {} py-spy dump --pid {} | grep -A5 MainThread
 ```
 so it'll show the first 5 entries of each traceback of the `MainThread`.
 
 If you have zombies from previously run processes and they are defunct and can't be killed you most likely need to switch to `pgrep -n` to grep the newest, rather than the oldest processes (`pgrep -o`).
-```
+```bash
 pgrep -P $(pgrep -n deepspeed) | xargs -I {} py-spy dump --pid {}
 ```
 
 In some situations when an additional launcher wrapper is added that let's say calls a `deepspeed` launcher, I will see that you end up with an additional Python parent process, so then you need to add one more level of `pgrep -P`:
-```
+```bash
 pgrep -P $(pgrep -P $(pgrep -n deepspeed)) | xargs -I {} py-spy dump --pid {}
 ```
 
 If you want all processes and their subprocesses, then you'd just run:
-```
+```bash
 pgrep -f python | xargs -I {} py-spy dump --pid {}
 ```
 (and as before replace `python` with the name of the launcher program if it's not `python`)
@@ -114,12 +114,12 @@ You can of course `ssh` to each node interactively and dump the stack traces.
 If you're using the SLURM environment you can use `srun` to do it on all nodes for you.
 
 Now in another console get the `SLURM_JOBID` (or get it from `salloc` log):
-```
+```bash
 squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"
 ```
 
 Now use the following `srun` command after adjusting jobid with `SLURM_JOBID` from the outcome of the command above this sentence:
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'ps aux | grep python | egrep -v "grep|srun" | grep `whoami` | awk "{print \$2}" | xargs -I {} py-spy dump --native --pid {}' || echo "failed"
 ```
 
@@ -130,13 +130,13 @@ Notes:
 - In some SLURM versions the jobid might not match that of reported in `squeue`, so you have to get the correct `SLURM_JOB_ID` from the logs of the job you're trying to "attach" to - i.e. your `srun` job that allocated the GPUs.
 - Sometimes `bash` doesn't work, but `sh` does. I think it has to do with what dot files get `source`d
 - You might need to also activate a custom python environment, which you can do like so:
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'conda activate myenvname; ps auxc | ... ' || echo "failed"
 ```
 or you can do it inside `~/.bashrc` or whatever shell's rc file you decide to use.
 
 As mentioned before if you want just the main processes you'd use this instead:
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}' || echo "failed"
 ```
 Adjust `python` if need be as explained in the multi-gpu section above.
@@ -145,12 +145,12 @@ The previous longer command will deliver traces for all python processes.
 
 If you're not getting anything, start with the basic debug like:
 
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'date'
 ```
 once you know you're talking to all the nodes, then you can progressively unravel the depth of calls, as in:
 
-```
+```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'date'
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -o python'
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 sh -c 'pgrep -P $(pgrep -o python) '
@@ -163,7 +163,7 @@ and at each stage check that the output makes sense - e.g. the 2nd and 3rd call 
 #### multi-node py-spy via pdsh
 
 `pdsh` seems to be a good easy tool to use to accomplish remote work on multiple nodes. Say, you're running on 2 nodes with hostnames `nodename-5` and `nodename-8`, then you can quickly test that remote execution is working by getting the `date` on all of these hosts with just:
-```
+```bash
 $ PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] "date"
 nodename-5: Wed Oct 25 04:32:43 UTC 2023
 nodename-8: Wed Oct 25 04:32:45 UTC 2023
@@ -174,17 +174,17 @@ footnote: `pdsh` should be available via a normal OS package installer
 Once you tested that `date` works it's time to move to `py-spy`.
 
 To do `py-spy` on all python processes that are sub-processes, it'd be:
-```
+```bash
 PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}'
 ```
 but as you're likely to need to have the `~/.bashrc` run, you will need to clone it into `~/.pdshrc`, reduce that clone to what is needed to be run (e.g. modify `PATH`, `activate conda`) and then `source` it, like:
 
-```
+```bash
 PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
 ```
 
 The reason you need a startup script is because usually `~/.bashrc` starts with:
-```
+```bash
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
@@ -199,7 +199,7 @@ footnote: there is nothing special about `~/.pdshrc` - any other name would do, 
 
 And if your system isn't setup to run `py-spy` w/o `sudo` as explained a few sections up, you'd need something like this:
 
-```
+```bash
 PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'sudo bash -c "source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
 ```
 
@@ -210,7 +210,7 @@ Additionally, to avoid being prompted with:
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 for every new node you haven't logged into yet, you can disable this check with:
-```
+```bash
 echo "Host *" >> ~/.ssh/config
 echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 ```
@@ -227,7 +227,7 @@ The following notes require `pip install deepspeed`.
 In one SLURM environment I also attempted using `pdsh` via `ds_ssh`, but somehow I wasn't able to run `py-spy` remotely - the main issue was that remote `ssh` command wasn't giving the same env as when I was logged in interactively via `ssh`. But if you have `sudo` access on the compute nodes then you could do:
 
 First prepare `hostfile`:
-```
+```bash
 function makehostfile() {
 perl -e '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"};
 $slots=8 if $slots==0; # workaround 8 gpu machines
@@ -264,7 +264,7 @@ So it's using interface `enp67s0` over `192.168.50.21`
 Is your `192.168.50.21` firewalled? or is it somehow a misconfigured network device?
 
 Does it work if you use a loopback device `127.0.0.1`?
-```
+```bash
 NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=lo python -m torch.distributed.run --nproc_per_node 4 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
@@ -279,11 +279,11 @@ You can also try to see if only some GPUs fail
 
 For example, does it work if you use the first 2 or the last 2 gpus:
 
-```
+```bash
 CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 then the 2nd pair:
-```
+```bash
 CUDA_VISIBLE_DEVICES=2,3 python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
@@ -298,7 +298,7 @@ The following code will trace all python calls and log them to the console and i
 
 This then can help to understand where some processes stopped responding, since we will have the log of the last call and all the previous calls before it went unresponsive.
 
-```
+```bash
 $ cat train.py
 [...]
 
@@ -380,7 +380,7 @@ You can find it here: [NicerTrace](./NicerTrace.py)
 
 I added multiple additional flags to the constructor and made the output much more useful. You fill find a full working example in that same file, just run:
 
-```
+```bash
 python trace/NicerTrace.py
 ```
 and you should see:
@@ -413,25 +413,25 @@ When the per-node-rank trace files has been generated the following might be hel
 
 - grep for a specific match and also print the file and line number where it was found:
 
-```
+```bash
 grep -n "backward" trace*
 ```
 
 - show `tail -1` of all trace files followed by the name of each file:
 
-```
+```bash
 find . -name "trace*" -exec sh -c 'echo "$1: $(tail -3 "$1")"' _ {} \;
 ```
 
 - or similar to the above, but print 5 last lines with the leading filename and some vertical white space for an easier reading:
 
-```
+```bash
 find . -name "trace*" -exec sh -c 'echo; echo $1; echo "$(tail -5 "$1")"' _ {} \;
 ```
 
 - count how many times grep matched a given pattern in each ifle and print the matched file (in this example matching the pattern `backward`):
 
-```
+```bash
 find . -name "trace*" -exec sh -c 'echo "$1: $(grep "backward" $1 | wc -l)"' _ {} \;
 ```
 
@@ -444,7 +444,7 @@ In such situations a good old `print` works. You just need to add some debug pri
 
 You of course, want to prefix each print with the rank of the process so that you could tell which is which. For example:
 
-```
+```python
 import torch.distributed as dist
 print(f"{dist.get_rank()}: passed stage 0")
 ```
@@ -453,13 +453,13 @@ What you will quickly discover is that if you have multiple GPUs these prints wi
 
 The helper module `printflock.py` is included [here](../training/tools/printflock.py). To activate it just run this at the top of the module you're debugging:
 
-```
+```python
 from printflock import printflock as print
 ```
 
 and now all your `print` calls in that module will magically be non-iterleaved. You can of course, just use `printflock` directly:
 
-```
+```python
 from printflock import printflock
 import torch.distributed as dist
 printflock(f"{dist.get_rank()}: passed stage 0")
@@ -469,7 +469,7 @@ printflock(f"{dist.get_rank()}: passed stage 0")
 
 If the hanging happens inside non-python code, and `py-spy --native` isn't enough for some reason you can make the hanging program dump a core file, which is done with one of these approaches:
 
-```
+```bash
 gcore <pid>
 kill -ABRT <pid>
 ```
@@ -479,18 +479,18 @@ and then you can introspect the core file as explained [here](pytorch.md#segfaul
 If you don't get the core file dumped you need to configure your system to allow so and also specify where the core files should be saved to.
 
 To ensure the file is dumped in bash run (other shells may use a different command):
-```
+```bash
 ulimit -c unlimited
 ```
 To make this persistent run:
-```
+```bash
 echo '* soft core unlimited' >> /etc/security/limits.conf
 ```
 
 
 On some systems like Ubuntu the core files are hijacked by `apport`, check the contents of `/proc/sys/kernel/core_pattern` to see where they are sent. You can override where they are sent with:
 
-```
+```bash
 sudo sysctl -w kernel.core_pattern=/tmp/core-%e.%p.%h.%t
 ```
 
@@ -515,7 +515,7 @@ Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hangin
 
 Code loops can be tricky to debug in hanging scenarios. If you have code like the following:
 
-```
+```python
 for i, d in enumerate(data):
     some_hanging_call(d)
 ```
@@ -536,7 +536,7 @@ and now when you run `py-spy` the line numbers will be correct. The processes ha
 ### AMD/ROCm hangs or slow with IOMMU enabled
 
 AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/toolbox/issues/1#issuecomment-1076830400) or set it to:
-```
+```bash
 GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
 ```
 in `/etc/default/grub` (the grub config file could be elsewhere depending on the OS).

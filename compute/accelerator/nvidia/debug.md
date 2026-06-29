@@ -22,7 +22,7 @@ NVRM: Xid (PCI:0000:10:1c): 63, pid=1896, Row Remapper: New row marked for remap
 ```
 
 To get those logs one of the following ways should work:
-```
+```bash
 sudo grep Xid /var/log/syslog
 sudo dmesg -T | grep Xid
 ```
@@ -111,7 +111,7 @@ At other times you may get Xid 63 or 64 and the application will crash. Which us
 
 As mentioned earlier to reset a GPU you can either simply reboot the machine, or run:
 
-```
+```bash
 nvidia-smi -r -i gpu_id
 ```
 
@@ -125,7 +125,7 @@ CUDA error: uncorrectable ECC error encountered
 ```
 as in the previous section, checking the output of `nvidia-smi -q` this time for `ECC Errors` entries will tell which GPU is the problematic one. But if you need to do a quick check in order to recycle a node if it has at least one GPU with this issue, you can just do this:
 
-```
+```bash
 $ nvidia-smi -q | grep -i correctable | grep -v 0
             SRAM Uncorrectable            : 1
             SRAM Uncorrectable            : 5
@@ -150,7 +150,7 @@ The first entry is for `Volatile` (errors counted since the last time the GPU dr
 This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48).
 
 To overcome this issue as in the previous section, reset the problematic GPU:
-```
+```bash
 nvidia-smi -r -i gpu_id
 ```
 Rebooting the machine will have the same effect.
@@ -167,7 +167,7 @@ NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia
 
 Here is an example slurm script that will run very in-depth diagnostics (`-r 3`), which will take about 10 minutes to complete on an 8-GPU node:
 
-```
+```bash
 $ cat dcgmi-1n.slurm
 #!/bin/bash
 #SBATCH --job-name=dcgmi-1n
@@ -185,7 +185,7 @@ echo "END TIME: $(date)"
 ```
 
 Now to run it on specific nodes of choice:
-```
+```bash
 sbatch --nodelist=node-115 dcgmi-1n.slurm
 sbatch --nodelist=node-151 dcgmi-1n.slurm
 sbatch --nodelist=node-170 dcgmi-1n.slurm
@@ -193,11 +193,11 @@ sbatch --nodelist=node-170 dcgmi-1n.slurm
 edit the nodelist argument to point to the node name to run.
 
 If the node is drained or downed and you can't launch a slurm job using this node, just `ssh` into the node and run the command directly on the node:
-```
+```bash
 dcgmi diag -r 3
 ```
 If the diagnostics didn't find any issue, but the application still fails to work, re-run the diagnostics with level 4, which will now take more than 1 hour to complete:
-```
+```bash
 dcgmi diag -r 4
 ```
 
@@ -234,7 +234,7 @@ The `dcgmi` tool contains various other levels of diagnostics, some of which com
 When filing an RMA report you will be asked to run `nvidia-bug-report` script, the output of which you will need to submit with the RMA request.
 
 I usually save the log as well for posterity using one of:
-```
+```bash
 dcgmi diag -r 2 | tee -a dcgmi-r2-`hostname`.txt
 dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
@@ -244,7 +244,7 @@ dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 
 GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
 
-```
+```bash
 $ nvidia-smi --query-gpu=gpu_name,gpu_bus_id,vbios_version --format=csv
 name, pci.bus_id, vbios_version
 NVIDIA H100 80GB HBM3, 00000000:04:00.0, 96.00.89.00.01
@@ -253,7 +253,7 @@ NVIDIA H100 80GB HBM3, 00000000:8B:00.0, 96.00.89.00.01
 ```
 
 Hint: to query for dozens of other things, run:
-```
+```bash
 nvidia-smi --help-query-gpu
 ```
 
@@ -261,7 +261,7 @@ nvidia-smi --help-query-gpu
 
 Check the PCIe bandwidth reports from the system's boot messages:
 
-```
+```bash
 $ sudo dmesg | grep -i 'limited by'
 [   10.735323] pci 0000:04:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:01:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
 [...]
@@ -277,7 +277,7 @@ Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs
 ## How to check error counters of NVLink links
 
 If you're concerned your NVLink malfunctions you can check its error counters:
-```
+```bash
 $ nvidia-smi nvlink -e
 GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
          Link 0: Replay Errors: 0
@@ -296,7 +296,7 @@ GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
 ```
 
 Another useful command is:
-```
+```bash
 $ nvidia-smi nvlink --status
 GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
          Link 0: 26.562 GB/s
@@ -312,7 +312,7 @@ Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting count
 
 If you got a new VM, there are odd cases where there is less than expected number of GPUs. Here is how you can quickly test you have got 8 of them:
 
-```
+```bash
 cat << 'EOT' >> test-gpu-count.sh
 #!/bin/bash
 
@@ -324,7 +324,7 @@ EOT
 ```
 and then:
 
-```
+```bash
 bash test-gpu-count.sh
 ```
 
@@ -339,7 +339,7 @@ Chances are that you're getting the same node with the same broken GPUs. Here is
 
 Before discarding the current node, run and log:
 
-```
+```bash
 $ nvidia-smi -q | grep UUID
     GPU UUID                              : GPU-2b416d09-4537-ecc1-54fd-c6c83a764be9
     GPU UUID                              : GPU-0309d0d1-8620-43a3-83d2-95074e75ec9e
@@ -357,7 +357,7 @@ When you then re-created your VM, run this command again - if the UUIDs are the 
 
 To automate this process so that you always have this data as it'd be too late if you already rebooted the VM, add somewhere in your startup process this:
 
-```
+```bash
 nvidia-smi -q | grep UUID > nvidia-uuids.$(hostname).$(date '+%Y-%m-%d-%H:%M').txt
 ```
 
@@ -383,7 +383,7 @@ What you want to measure instead is GPU's utilization of the available capacity,
 Please note that this tool works only high-end data center NVIDIA GPUs, so if you have a consumer level GPU it won't work.
 
 After installing the prerequisites I built the tool:
-```
+```bash
 git clone https://github.com/NVIDIA/dcgm-exporter.git
 cd dcgm-exporter
 make binary
@@ -391,7 +391,7 @@ make binary
 
 And then I was able to get the "real" utilization metrics described in the article with this `dcgm-exporter` config file:
 
-```
+```bash
 $ cat << EOT > dcp-metrics-custom.csv
 DCGM_FI_PROF_SM_OCCUPANCY,       gauge, The ratio of number of warps resident on an SM.
 DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Ratio of cycles the tensor (HMMA) pipe is active.
@@ -401,7 +401,7 @@ EOT
 ```
 
 Then I launched the daemon (root is required):
-```
+```bash
 $ sudo cmd/dcgm-exporter/dcgm-exporter -c 500 -f dcp-metrics-custom.csv
 [...]
 INFO[0000] Starting webserver
@@ -411,7 +411,7 @@ INFO[0000] Listening on                                  address="[::]:9400"
 `-c 500` refreshes every 0.5sec
 
 and now I was able poll it via:
-```
+```bash
 watch -n 0.5 "curl http://localhost:9400/metrics"
 ```
 by running it in one console, and launching a GPU workload in another console. The last column of the output is the utilization of these metrics (where `1.0 == 100%`).
@@ -426,7 +426,7 @@ This is a quick way of doing that, but the intention is to use it with [Promethe
 
 For completion here is an example from the same article showing a 100% gpu util with a CUDA kernel that is doing absolutely nothing compute-wise other than occupying a single Streaming Multiprocessor (SM):
 
-```
+```bash
 $ cat << EOT > 1_sm_kernel.cu
 __global__ void simple_kernel() {
     while (true) {}
@@ -440,15 +440,15 @@ EOT
 ```
 
 Let's compile it:
-```
+```bash
 nvcc 1_sm_kernel.cu -o 1_sm_kernel
 ```
 And now run it in console A:
-```
+```bash
 $ ./1_sm_kernel
 ```
 and in console B:
-```
+```bash
 $ nvidia-smi
 Tue Oct  8 09:49:34 2024
 +-----------------------------------------------------------------------------------------+
