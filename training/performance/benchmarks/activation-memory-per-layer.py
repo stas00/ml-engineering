@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # This script derives the coefficient num_of_hidden_states_copies in `num_of_hidden_states_copies * bs * seqlen * hidden_size`, which 
-rougly corresponds to the amount of hidden_states copies a given model architecture makes during a single layer's forward.
+roughly corresponds to the amount of hidden_states copies a given model architecture makes during a single layer's forward.
 
 import torch
 from transformers import AutoModelForCausalLM

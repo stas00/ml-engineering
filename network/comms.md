@@ -53,7 +53,7 @@ PyTorch API example:
 ![all-gather](images/collective-all-gather-2.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (Deepspeed and FSDP) to gather the sharded model weights before `forward` and `backward` calls.
+For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to gather the sharded model weights before `forward` and `backward` calls.
 
 PyTorch API example:
 
@@ -113,7 +113,7 @@ PyTorch API example:
 ![reduce-scatter](images/collective-reduce-scatter.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (Deepspeed and FSDP) to efficiently reduce gradients across all participating ranks. This is 2x more efficient than [all-reduce](#all-reduce).
+For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to efficiently reduce gradients across all participating ranks. This is 2x more efficient than [all-reduce](#all-reduce).
 
 PyTorch API example:
 
@@ -130,7 +130,7 @@ PyTorch API example:
 ![all-to-all](images/collective-all-to-all.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [Deepspeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation, and in MoE [Expert Parallelism](../training/model-parallelism#expert-parallelism).
+For example, this collective is used in [DeepSpeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation, and in MoE [Expert Parallelism](../training/model-parallelism#expert-parallelism).
 
 
 PyTorch API example:

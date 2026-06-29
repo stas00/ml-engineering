@@ -34,7 +34,7 @@ This was the almost perfect training indeed. Lots of hard work was put into achi
 
 ### The grokking moment
 
-Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ Deepspeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
+Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ DeepSpeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
 
 ![](images/llama-7b-grokking-no-zoom.png)
 

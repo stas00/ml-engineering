@@ -1,4 +1,4 @@
-# Single and Multi-node Launchers with SLURM
+# Single and Multi-Node Launchers with SLURM
 
 The following are complete SLURM scripts that demonstrate how to integrate various launchers with software that uses `torch.distributed` (but should be easily adaptable to other distributed environments).
 

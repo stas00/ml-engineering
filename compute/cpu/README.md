@@ -31,7 +31,7 @@ See also [Asynchronous DataLoader](../../training/performance#asynchronous-datal
 
 ### CPU offload
 
-Some frameworks, like [Deepspeed](https://www.deepspeed.ai/tutorials/zero-offload/) can offload some compute work to CPU without creating a bottleneck. In which case you'd want additional cpu-cores.
+Some frameworks, like [DeepSpeed](https://www.deepspeed.ai/tutorials/zero-offload/) can offload some compute work to CPU without creating a bottleneck. In which case you'd want additional cpu-cores.
 
 
 

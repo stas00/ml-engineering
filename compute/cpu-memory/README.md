@@ -1,4 +1,4 @@
-# CPU memory
+# CPU Memory
 
 This is a tiny chapter, since usually there are very few nuances one needs to know about CPU memory - which is a good thing!
 
@@ -8,7 +8,7 @@ Most of the ML workload compute happens on GPUs, but typically there should be a
 
 - Loading the model weights, unless they are loaded directly onto the GPUs - this is usually a transitory memory usage that goes back to zero once the model has been moved to GPUs.
 - Saving the model weights. In some situations each GPU writes its own checkpoint directly to the disk, in other cases the model is recomposed on the CPU before it's written to disk - this too is a transitory memory usage.
-- Possible parameter and optimizer state offloading when using frameworks like  [Deepspeed](https://www.deepspeed.ai/tutorials/zero-offload/). In which case quite a lot of CPU memory might be needed.
+- Possible parameter and optimizer state offloading when using frameworks like [DeepSpeed](https://www.deepspeed.ai/tutorials/zero-offload/). In which case quite a lot of CPU memory might be needed.
 - Activations calculated in the `forward` pass, and which need to be available for the `backward` path can also be offloaded to CPU, rather than discarded and then recomputed during the backward pass to save the unnecessary overhead
 - `DataLoader` is usually one of the main users of CPU memory and at times it may consume very large amounts of memory. Typically there are at least 2x 8 DL workers running on each node, so you need enough memory to support at least 16 processes each holding some data. For example, in the case of streaming data from the cloud, if the data shards are large, these processes could easily eat up hundreds of GBs of CPU memory.
 - The software itself and its dependent libraries uses a bit of CPU memory, but this amount is usually negligible.

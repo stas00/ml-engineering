@@ -1,4 +1,4 @@
-# Tensor precision / Data types
+# Tensor Precision / Data Types
 
 These are the common datatypes that are used as of this writing in ML (usually referred to as `dtype`):
 
@@ -78,7 +78,7 @@ To appreciate the speed ups between the different formats have a look at this ta
 
 Each next dtype is about 2x faster than the previous one (except fp32 which is much slower than the rest).
 
-In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes) which provides many 4 and 8-bit quantization solutions. The Deepspeed team also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
+In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes) which provides many 4 and 8-bit quantization solutions. The DeepSpeed team also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
 
 ## TF32
 

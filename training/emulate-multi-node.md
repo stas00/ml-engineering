@@ -1,4 +1,4 @@
-# Emulate a multi-node setup using just a single node
+# Emulate a Multi-Node Setup Using Just a Single Node
 
 The goal is to emulate a 2-node environment using a single node with 2 GPUs (for testing purposes). This, of course, can be further expanded to [larger set ups](#larger-set-ups).
 

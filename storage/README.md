@@ -20,7 +20,7 @@ For batched inference, you'd have additionally:
 1. Reading prompts
 2. Writing generated outputs
 
-If this is done asynchroniously to generation then this IO overhead can be completely hidden, since typically generation will be much slower than loading the text it generates from and writing the generated text back to the disk.
+If this is done asynchronously to generation then this IO overhead can be completely hidden, since typically generation will be much slower than loading the text it generates from and writing the generated text back to the disk.
 
 If you do KV-cache offloading to disk, this would be another important IO use-case for inference. You will need to be able to seek fast to get to the desired KV-cache index and less crucial writing it out if the latter is done asynchronously. 
 
@@ -59,7 +59,7 @@ NASA's cluster has [a long long list of gotchas around using Lustre](https://www
 Some very useful pros of GPFS:
 - If you have a lot of small files, you can easily run out of inodes (`df -i` to check). GPFS 5.x never runs out of inodes, it dynamically creates more as needed
 - GPFS doesn't have the issue Lustre has where you can run out of disk space at 80% if one of the sub-disks got full and wasn't re-balanced in time - you can reliably use all 100% of the allocated storage.
-- GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metatada is handled by each node in the storage cluster.
+- GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metadata is handled by each node in the storage cluster.
 - GPFS comes with a native NSD client which is superior to the generic NFS client, but either can be used with it.
 - One can build a multi-tier system. So for example, Tier 1 is usually made from NVME drives and Tier 2 usually uses some cloud storage system. So when the Tier 1 capacity gets low, files that haven't been accessed in some time, get auto-moved to the cloud storage. So for example your Tier 1 could be 100TB, and Tier 2 could be 1PB. This approach saves a lot of money, since 1PB of cloud storage is significantly cheaper than 1PB of NVME drives.
 - Data protection can use various RAID approaches. Typically striping is used to save costs.
@@ -512,7 +512,7 @@ Then various benchmarks that you can run yourself:
 
 ## Why pay for more storage when you can easily clean it up instead
 
-Talking to a few storage providers I understood that many companies don't bother cleaning up and just keep on buying more and more storage. If you're not that company and want to keep things tidy in the following sections I will share how to easily prune various caches that many of us in the Python/Pytorch ecosphere use (and a lot of those will apply to other ecospheres).
+Talking to a few storage providers I understood that many companies don't bother cleaning up and just keep on buying more and more storage. If you're not that company and want to keep things tidy in the following sections I will share how to easily prune various caches that many of us in the Python/PyTorch ecosphere use (and a lot of those will apply to other ecospheres).
 
 ### HuggingFace Hub caches
 
@@ -784,4 +784,4 @@ find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mt
 `du` is a powerful Unix tool, but it can be slow and usually requires additional postprocessing to sort the outcome to make the latter useful, for example I often use this formula `du -ahd1 | sort -rh` for getting disk usage of a single level sorted by size.
 
 - [dust](https://github.com/bootandy/dust) - written in Rust, it runs faster than `du` and has a built in sorting. I find the no flags output to be confusing to read as it mixes many levels together and sub-sorts them, but it might be OK to others. `dust -F` and `dust -D` appear to be very useful and formatted well.
-- [baobab](https://github.com/GNOME/baobab) - analizes partitions quite quickly and provides a UI to navigate the results based on sub-folder size with easy copying of the paths useful when needing to delete a lot of old large dataset and checkpoint folders. I think this tool is only useful on a desktop since it requires GNOME env.
+- [baobab](https://github.com/GNOME/baobab) - analyzes partitions quite quickly and provides a UI to navigate the results based on sub-folder size with easy copying of the paths useful when needing to delete a lot of old large dataset and checkpoint folders. I think this tool is only useful on a desktop since it requires GNOME env.

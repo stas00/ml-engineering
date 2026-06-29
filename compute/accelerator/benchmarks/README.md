@@ -40,7 +40,7 @@ export PYTORCH_TUNABLEOP_ENABLED=1
 This will make the first iteration very slow, while it's searching for the best GEMM algorithm in the BLAS libraries for each `matmul` shape it encounters, but subsequent operations are likely to be significantly faster than the baseline. See [Accelerating models on ROCm using PyTorch TunableOp](https://rocm.blogs.amd.com/artificial-intelligence/pytorch-tunableop/README.html) (requires `torch>=2.3`) [doc](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md).
 
 **Intel dGPUs (A770, A750, B580, etc.)**
-- Follow Intel Extension for Pytorch [installation steps](https://pytorch-extension.intel.com/installation?platform=gpu)
+- Follow Intel Extension for PyTorch [installation steps](https://pytorch-extension.intel.com/installation?platform=gpu)
 
 ### Examples of usage
 
@@ -117,7 +117,7 @@ The measurements that I have gathered so far can be found at [Maximum Achievable
 
 There are a few excellent detailed write ups on how to perform CUDA benchmarks:
 
-1. [How to Accurately Time CUDA Kernels in Pytorch](https://www.speechmatics.com/company/articles-and-news/timing-operations-in-pytorch)
+1. [How to Accurately Time CUDA Kernels in PyTorch](https://www.speechmatics.com/company/articles-and-news/timing-operations-in-pytorch)
 2. [How to Benchmark Code on CUDA Devices?](https://salykova.github.io/sgemm-gpu#2-how-to-benchmark-code-on-cuda-devices) - this one is different from (1) in that it suggests to set both GPU and Memory clocks, whereas (1) only locks the GPU clock.
 
 You can see these instructions applied in [mamf-finder.py](./mamf-finder.py) (other than clock locking)

@@ -1,4 +1,4 @@
-# Inter-node and Intra-Node Networking Hardware
+# Inter-Node and Intra-Node Networking Hardware
 
 **Subsections**:
 
@@ -84,7 +84,7 @@ footnote: not all providers will match the industry's standard networking speeds
 
 ### Out-Of-Band networking
 
-Out-Of-Band (OOB) networking is used for bootstraping backend networking, monitoring node's health, remote re-imaging of the nodes, etc. It typically uses a single slow 1Gbps ethernet connection.
+Out-Of-Band (OOB) networking is used for bootstrapping backend networking, monitoring node's health, remote re-imaging of the nodes, etc. It typically uses a single slow 1Gbps ethernet connection.
 
 
 ## RDMA networking
@@ -185,7 +185,7 @@ If one compares the latest generations of different intra-node networking techno
 
 ### NVLink
 
-- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by Nvidia. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
+- [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by NVIDIA. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
 I found the NVLink wiki page to be quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of this writing some of the numbers on that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
 
@@ -352,7 +352,7 @@ Essentially, the end-to-end doesn't support the duplex C2C spec, but delivers ha
 
 The benefit of connecting more than 8 GPUs at the speed of NVLink is that it allows all-to-all GPU communications at a much faster speed than any intra-node hardware can provide. And with ever increasing compute speeds the network is the likely bottleneck leading to underutilized super-expensive GPUs.
 
-For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (Deepspeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
+For example, in the universe of Tensor Parallelism (Megatron), one doesn't use TP degree of more than 8, because TP is only efficient at NVLink speed. ZeRO-DP (DeepSpeed/FSDP) would also run much faster if the whole cluster uses NVLink speed and involves no slow inter-node connections.
 
 NVSwitch is used for intra-node connectivity.
 
@@ -424,7 +424,7 @@ Number of Trainium2 chips per node and intra-node network speeds:
 - Trainium2: 16 chips interconnected at 128GBps peer-to-peer undirectional (32 PCIe lanes) and each Trainium2 connects to 3 other chips
 - Trainium2 Ultra: 64 chips - the 16 chip groups are the same as non-Ultra, plus these 4 groups are interconnected at 64GBps with each other.
 
-Like TPU it is used in a 3D Torus structure. Here different axis connect at different speeds, so the total all-to-all bandwith per chip is 640GBps unidirectional (`128GBps * 4 intra-node neighbours + 64GBps * 2 inter-node neighbours`)
+Like TPU it is used in a 3D Torus structure. Here different axis connect at different speeds, so the total all-to-all bandwidth per chip is 640GBps unidirectional (`128GBps * 4 intra-node neighbours + 64GBps * 2 inter-node neighbours`)
 
 When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirectional, so only 512GBps/chip unidirectional - and it comes from `128GBps * 4 intra-node neighbours` (and only if all 4 chips are engaged).
 
@@ -562,11 +562,11 @@ This technology didn't catch on and has been phasing out while getting replaced 
 
 [Omni-Path Architecture](https://en.wikipedia.org/wiki/Omni-Path) (OPA). Originally by Intel, the technology got sold to Cornelis Networks. It's also known as Omni-Path Express (OPX).
 
-case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-Deepspeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
+case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
 As of this writing I see that the product comes with either 100 or 200Gbps bandwidth. So it's unlikely you will see anybody offering this solution for ML workloads, unless they manage to install many NICs perhaps?
 
-[CN-100](Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA) 100Gbps NICs have been around for many years now.
+[Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now.
 
 [CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs will be launched by Cornelis Networks in Q2-2025. One upcoming MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
 

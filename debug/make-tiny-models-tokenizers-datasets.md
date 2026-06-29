@@ -1,4 +1,4 @@
-# Faster debug and development with tiny models, tokenizers and datasets
+# Faster Debug and Development with Tiny Models, Tokenizers and Datasets
 
 If you're debugging problems and develop with full sized models and tokenizers you're likely not working in a very efficient way. Not only it's much more difficult to solve problem, the amount of waiting to get the program to restart and to get to the desirable point can be huge - and cumulatively this can be a huge drain on one's motivation and productivity, not talking about the resolution taking much longer, if at all.
 
@@ -117,7 +117,7 @@ So next we will look into various techniques to shrinking the tokenizer, as it d
 
 This task varies between a relatively simple procedure and a much more complex workout depending on the underlying tokenizer.
 
-The following recipes have come from a few awesome tokenizer experts at Hugging Face, which I then adapted to my needs.
+The following recipes have come from a few awesome tokenizer experts at HuggingFace, which I then adapted to my needs.
 
 You probably don't really need to understand how these work until you actually need them, therefore if you're reading this for the first time you can safely jump over these to [Making a tiny model with a tiny tokenizer](#making-a-tiny-model-with-a-tiny-tokenizer).
 

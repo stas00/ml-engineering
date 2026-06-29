@@ -35,7 +35,7 @@ The introduction sections of this paper is probably one of the best explanations
 
 ### DDP
 
-Most users with just 2 GPUs already enjoy the increased training speed up thanks to `DataParallel` (DP) and `DistributedDataParallel` (DDP) that are almost trivial to use. This is a built-in feature of Pytorch.
+Most users with just 2 GPUs already enjoy the increased training speed up thanks to `DataParallel` (DP) and `DistributedDataParallel` (DDP) that are almost trivial to use. This is a built-in feature of PyTorch.
 
 For details see [DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
 
@@ -108,7 +108,7 @@ To me this sounds like an efficient group backpacking weight distribution strate
 
 Now each night they all share what they have with others and get from others what they don't have, and in the morning they pack up their allocated type of gear and continue on their way. This is Sharded DDP / Zero DP.
 
-Compare this strategy to the simple one where each person has to carry their own tent, stove and axe, which would be far more inefficient. This is DataParallel (DP and DDP) in Pytorch.
+Compare this strategy to the simple one where each person has to carry their own tent, stove and axe, which would be far more inefficient. This is DataParallel (DP and DDP) in PyTorch.
 
 While reading the literature on this topic you may encounter the following synonyms: Sharded, Partitioned.
 
@@ -119,7 +119,7 @@ Implementations of ZeRO-DP stages 1+2+3:
 - [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/) and later it was upstreamed into the PyTorch core)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
-Deepspeed ZeRO Integration:
+DeepSpeed ZeRO Integration:
 - [HF Trainer integration](https://huggingface.co/docs/transformers/main_classes/deepspeed)
 - [Accelerate](https://huggingface.co/docs/accelerate/usage_guides/deepspeed)
 - [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel/deepspeed.html)
@@ -133,7 +133,7 @@ FSDP Integration:
 
 Important papers:
 
-Deepspeed and ZeRO in general:
+DeepSpeed and ZeRO in general:
 - [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054)
 - [ZeRO-Offload: Democratizing Billion-Scale Model Training](https://arxiv.org/abs/2101.06840)
 - [ZeRO-Infinity: Breaking the GPU Memory Wall for Extreme Scale Deep Learning](https://arxiv.org/abs/2104.07857)
@@ -156,7 +156,7 @@ If you use, say, 1024 accelerators, you'll have tiny shards per accelerator and 
 
 So you either need to deploy [Tensor Parallelism](#tensor-parallelism) which is non-trivial to implement, or often it's much simpler to deploy [Sequence Parallelism](#sequence-parallelism). I'm yet to try it in action, but so far what I gathered is for:
 
-- Deepspeed ZeRO use [Deepspeed-Ulysses](#deepspeed-ulysses-sp)
+- DeepSpeed ZeRO use [DeepSpeed-Ulysses](#deepspeed-ulysses-sp)
 - [Arctic Long Sequence Training](#arctic-long-sequence-training)
 - FSDP use [Paged Ring Attention](https://github.com/lucidrains/ring-attention-pytorch) ([paper](https://arxiv.org/abs/2402.08268))
 
@@ -229,7 +229,7 @@ Both parts of the diagram show a parallelism that is of degree 4. That is 4 GPUs
 
 PP introduces a new hyper-parameter to tune and it's `chunks` which defines how many chunks of data are sent in a sequence through the same pipe stage. For example, in the bottom diagram you can see that `chunks=4`. GPU0 performs the same forward path on chunk 0, 1, 2 and 3 (F0,0, F0,1, F0,2, F0,3) and then it waits for other GPUs to do their work and only when their work is starting to be complete, GPU0 starts to work again doing the backward path for chunks 3, 2, 1 and 0 (B0,3, B0,2, B0,1, B0,0).
 
-Note that conceptually this is the same concept as gradient accumulation steps (GAS). Pytorch uses `chunks`, whereas DeepSpeed refers to the same hyper-parameter as GAS.
+Note that conceptually this is the same concept as gradient accumulation steps (GAS). PyTorch uses `chunks`, whereas DeepSpeed refers to the same hyper-parameter as GAS.
 
 Because of the chunks, PP introduces the concept of micro-batches (MBS). DP splits the global data batch size into mini-batches, so if you have a DP degree of 4, a global batch size of 1024 gets split up into 4 mini-batches of 256 each (1024/4). And if the number of `chunks` (or GAS) is 32 we end up with a micro-batch size of 8 (256/32). Each Pipeline stage works with a single micro-batch at a time.
 
@@ -288,13 +288,13 @@ Problems with traditional Pipeline API solutions:
 I'm yet to try to experiment with Varuna and SageMaker but their papers report that they have overcome the list of problems mentioned above and that they require much smaller changes to the user's model.
 
 Implementations:
-- [Pytorch](https://docs.pytorch.org/docs/stable/distributed.pipelining.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
+- [PyTorch](https://docs.pytorch.org/docs/stable/distributed.pipelining.html) (initial support in pytorch-1.8, and progressively getting improved in 1.9 and more so in 1.10). Some [examples](https://github.com/pytorch/pytorch/blob/release/1.13/benchmarks/distributed/pipeline/pipe.py)
 - [FairScale](https://fairscale.readthedocs.io/en/latest/tutorials/pipe.html)
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/pipeline/)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation - no API.
 - [Varuna](https://github.com/microsoft/varuna)
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
-- [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the Hugging Face Transformers.
+- [OSLO](https://github.com/eleutherAI/Oslo) - this is implemented based on the HuggingFace Transformers.
 - [PiPPy: Pipeline Parallelism for PyTorch](https://github.com/pytorch/pippy) - automatic PP via `torch.fx`. This package is moved into PyTorch as a subpackage: [`torch.distributed.pipelining`](https://github.com/pytorch/pytorch/tree/main/torch/distributed/pipelining).
 - [nanotron](https://github.com/huggingface/nanotron)
 - [torchtitan](https://github.com/pytorch/torchtitan)
@@ -418,7 +418,7 @@ ZeRO stage 3 is not a good choice either for the same reason - more inter-node c
 And since we have ZeRO, the other benefit is ZeRO-Offload. Since this is stage 1 optimizer states can be offloaded to CPU.
 
 Implementations:
-- [Megatron-DeepSpeed](https://github.com/microsoft/Megatron-DeepSpeed) and [Megatron-Deepspeed from BigScience](https://github.com/bigscience-workshop/Megatron-DeepSpeed), which is the fork of the former repo.
+- [Megatron-DeepSpeed](https://github.com/microsoft/Megatron-DeepSpeed) and [Megatron-DeepSpeed from BigScience](https://github.com/bigscience-workshop/Megatron-DeepSpeed), which is the fork of the former repo.
 - [OSLO](https://github.com/eleutherAI/Oslo)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
@@ -437,7 +437,7 @@ Self-Attention, which is the key component of Transformers, suffers from quadrat
 
 As this type of parallelism is orthogonal to the other parallelization types described in this document, it can be combined with any of them, leading to 4D, ZeRO-DP+SP and other combinations.
 
-### Deepspeed-Ulysses SP
+### DeepSpeed-Ulysses SP
 
 Paper: [DeepSpeed Ulysses: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models](https://arxiv.org/abs/2309.14509)
 
@@ -475,7 +475,7 @@ DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs propo
 
 ### Arctic Long Sequence Training
 
-Arctic Long Sequence Training ports [Deepspeed-Ulysses](#deepspeed-ulysses-sp) to Hugging Face Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
+Arctic Long Sequence Training ports [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) to HuggingFace Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
 
 - paper: https://www.arxiv.org/abs/2506.13996
 - implementation and integration: [ArtcticTraining](https://github.com/snowflakedb/ArcticTraining/blob/main/projects/sequence-parallelism/) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
@@ -504,7 +504,7 @@ Paper: [Ring Attention with Blockwise Transformers for Near-Infinite Context](ht
 
 SP Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
-- [Deepspeed](https://github.com/deepspeedai/DeepSpeed)
+- [DeepSpeed](https://github.com/deepspeedai/DeepSpeed)
 - [Colossal-AI](https://colossalai.org/)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
@@ -593,7 +593,7 @@ It's possible that you will find different implementations that may use differen
 
 ## Inter-node speed requirements to use ZeRO
 
-The ZeRO scalability protocol, be it Deepspeed ZeRO or PyTorch FSDP, requires a lot more inter-node traffic than TP+PP+DP solutions, and sometimes it can't take advantage of the faster intra-node connectivity, and therefore if your inter-node network is slow your expensive GPUs might be massively bottlenecked by the comms.
+The ZeRO scalability protocol, be it DeepSpeed ZeRO or PyTorch FSDP, requires a lot more inter-node traffic than TP+PP+DP solutions, and sometimes it can't take advantage of the faster intra-node connectivity, and therefore if your inter-node network is slow your expensive GPUs might be massively bottlenecked by the comms.
 
 The ZeRO protocol partially overlaps comms with compute, so ideally you want to get close to `comms_time <= compute_time`. The overlap is not perfect, so there will be always some network bottleneck, but we want to make sure that `comms_time` is not much larger than `compute_time`.
 
@@ -612,7 +612,7 @@ The compute time formula is a rough estimate which works for any Transformer-blo
 
 As an experiment let's use the data points from [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b/) training.
 
-When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ Deepspeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
+When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ DeepSpeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
 
 Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
@@ -667,7 +667,7 @@ If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
 
 which would be insignificant comparatively to the compute time, especially if some of it is successfully overlapped with the commute.
 
-Also the Deepspeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
+Also the DeepSpeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
 1. With 100 Gbps IB, we only have <20 TFLOPs per GPU (bad)
 2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU (ok)
@@ -681,7 +681,7 @@ footnote: the 2-3x range is because the official specs claim 3x TFLOPS increase 
 
 They also noticed that when training at scale, the communication overhead is more pronounced with small micro-batch size per GPU. And we may not be able to increase micro-batch size since global-batch size is often fixed to achieve good model convergence rate. This is solved by the recently introduced [ZeRO++](#zero-with-multiple-replicas).
 
-Finally, when doing the math above you need to know the actual bandwidth you get on your setup - which changes with payload size - the larger the payload the better the bandwidth. To get this information you need to look at your `reduce_bucket_size` and `prefetch_bucket_size` settings in the Deepspeed configuration file for reduction and prefetch correspondingly. The default is 0.5B params, which is 1GB in half-precision (0.5B x 2 bytes), or 2GB (0.5B x 4 bytes) if you use fp32 precision. So in order to measure the actual throughput you need to run an `all_reduce` benchmark with that payload and see what bandwidth gets reported. Then you can feed it to the calculations above.
+Finally, when doing the math above you need to know the actual bandwidth you get on your setup - which changes with payload size - the larger the payload the better the bandwidth. To get this information you need to look at your `reduce_bucket_size` and `prefetch_bucket_size` settings in the DeepSpeed configuration file for reduction and prefetch correspondingly. The default is 0.5B params, which is 1GB in half-precision (0.5B x 2 bytes), or 2GB (0.5B x 4 bytes) if you use fp32 precision. So in order to measure the actual throughput you need to run an `all_reduce` benchmark with that payload and see what bandwidth gets reported. Then you can feed it to the calculations above.
 
 
 
