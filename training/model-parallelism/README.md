@@ -56,7 +56,7 @@ a2 | b2 | c2
 ```
 Layer La has weights a0, a1 and a2.
 
-If we have 3 GPUs, the Sharded DDP (= Zero-DP) splits the model onto 3 GPUs like so:
+If we have 3 GPUs, the Sharded DDP (= ZeRO-DP) splits the model onto 3 GPUs like so:
 
 ```
 GPU0:
@@ -106,7 +106,7 @@ To me this sounds like an efficient group backpacking weight distribution strate
 2. person B carries the stove
 3. person C carries the axe
 
-Now each night they all share what they have with others and get from others what they don't have, and in the morning they pack up their allocated type of gear and continue on their way. This is Sharded DDP / Zero DP.
+Now each night they all share what they have with others and get from others what they don't have, and in the morning they pack up their allocated type of gear and continue on their way. This is Sharded DDP / ZeRO DP.
 
 Compare this strategy to the simple one where each person has to carry their own tent, stove and axe, which would be far more inefficient. This is DataParallel (DP and DDP) in PyTorch.
 
@@ -612,7 +612,7 @@ The compute time formula is a rough estimate which works for any Transformer-blo
 
 As an experiment let's use the data points from [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b/) training.
 
-When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPs w/ DeepSpeed ZeRO-3 on A100s as compared to 150+TFLOPs one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
+When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPS w/ DeepSpeed ZeRO-3 on A100s as compared to 150+TFLOPS one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
 
 Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
@@ -669,9 +669,9 @@ which would be insignificant comparatively to the compute time, especially if so
 
 Also the DeepSpeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
-1. With 100 Gbps IB, we only have <20 TFLOPs per GPU (bad)
-2. With 200-400 Gbps IB, we achieve reasonable TFLOPs around 30-40 per GPU (ok)
-3. For 800 Gbps IB, we reach 40+ TFLOPs per GPU (excellent)
+1. With 100 Gbps IB, we only have <20 TFLOPS per GPU (bad)
+2. With 200-400 Gbps IB, we achieve reasonable TFLOPS around 30-40 per GPU (ok)
+3. For 800 Gbps IB, we reach 40+ TFLOPS per GPU (excellent)
 
 To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-gb/data-center/tesla-v100/).
 

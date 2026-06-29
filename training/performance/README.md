@@ -197,7 +197,7 @@ Here is an overview of what features can help to either improve speed or save me
 | Batch size               | Yes    | Yes    |
 | Optimizer choice         | Yes    | Yes    |
 | DataLoader               | Yes    | No     |
-| DeepSpeed Zero           | No     | Yes    |
+| DeepSpeed ZeRO           | No     | Yes    |
 | Flash Attention          | Yes    | Yes    |
 
 \* Gradient checkpointing slows things down for the given batch size, but since it frees up a lot of memory, enabling a much larger BS, it actually improves the overall speed.

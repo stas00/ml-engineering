@@ -45,7 +45,7 @@ So we can now kill all those processes in one swoop:
 ```
 
 
-## Slurm settings
+## SLURM settings
 
 Show the slurm settings:
 

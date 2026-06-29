@@ -1,3 +1,3 @@
-## Moved
+# Model Parallelism
 
-**Moved to [here](../training/model-parallelism/).**
+**Moved to [Model Parallelism](../training/model-parallelism/).**

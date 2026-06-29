@@ -118,7 +118,7 @@ If it's a cloud environment, typically your cloud provider should give you instr
 
 While NCCL tries hard to auto-discover which interfaces it should use, if it fails to do so correctly you can then help it by telling it which interfaces to use or not to use:
 
-- `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using Infiniband. Here are some examples:
+- `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using InfiniBand. Here are some examples:
 
 ```
 export NCCL_SOCKET_IFNAME=eth:        Use all interfaces starting with eth, e.g. eth0, eth1, …

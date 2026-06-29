@@ -75,7 +75,7 @@ $ sudo ifconfig
 
 One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
 
-Then there is the inter-node interface which can be Infiniband, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking)). There could be one or dozens of those interfaces.
+Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking)). There could be one or dozens of those interfaces.
 
 Here are some examples of `ifconfig`'s output:
 
@@ -191,14 +191,14 @@ Nuances:
 
 
 
-### Solving the Infiniband connection between multiple nodes
+### Solving the InfiniBand connection between multiple nodes
 
 In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
 
 ```
 NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
 ```
-I saw in the debug messages that Infiniband interfaces got detected:
+I saw in the debug messages that InfiniBand interfaces got detected:
 ```
 node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
 ```

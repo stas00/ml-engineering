@@ -18,7 +18,7 @@ sinfo -p dev
 sinfo -p prod
 ```
 
-Slurm configuration is at `/opt/slurm/etc/slurm.conf`.
+SLURM configuration is at `/opt/slurm/etc/slurm.conf`.
 
 To see the configuration of all partitions:
 
@@ -266,7 +266,7 @@ srun pkill python
 
 ## Detailed Access to SLURM Accounting
 
-`sacct` displays accounting data for all jobs and job steps in the Slurm job accounting log or Slurm database.
+`sacct` displays accounting data for all jobs and job steps in the SLURM job accounting log or SLURM database.
 
 So this is a great tool for analysing past events.
 

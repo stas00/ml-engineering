@@ -129,7 +129,7 @@ Notes:
 
 So you can see that int8 is 2x faster than bf16 which in turn is 2x faster than tf32.
 
-Moreover, the TFLOPs depend on the matrices size as can be seen from this table:
+Moreover, the TFLOPS depend on the matrices size as can be seen from this table:
 
 ![nvidia-a100-matmul-tflops](images/nvidia-a100-matmul-tflops.png)
 
@@ -269,7 +269,7 @@ General notes:
 
 * if you find numbers that are double of the above - it usually means with sparsity (which at the moment almost nobody can benefit from as our matrices are dense).
 
-* when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPs that you care for most of the time are w/o sparsity (i.e. the table above).
+* when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPS that you care for most of the time are w/o sparsity (i.e. the table above).
 
 * also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency [Hardware FLOPS Utilization](../../training/performance#mfu-vs-hfu) (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 

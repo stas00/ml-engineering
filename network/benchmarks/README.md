@@ -206,7 +206,7 @@ Values accepted:
 
 ### `NCCL_IB_QPS_PER_CONNECTION`
 
-This is relevant if you're on a multi-layer Infiniband or RoCEv2 network.
+This is relevant if you're on a multi-layer InfiniBand or RoCEv2 network.
 
 `NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy. In other words, when your jobs are crossing spine or super-spine switches.
 
@@ -242,9 +242,9 @@ torch.distributed.init_process_group(..., pg_options=nccl_options)
 In order to find the best performance to experiment with different values against a specific benchmark of choice, that emulates the intended workload, you could set both config options to the same value and then bisect on a range of 1 to 64 or similar.
 
 
-## Infiniband
+## InfiniBand
 
-### Infiniband adaptive routing
+### InfiniBand adaptive routing
 
 Make sure your cloud provider enables IB adaptive routing which could greatly improve the performance.
 
