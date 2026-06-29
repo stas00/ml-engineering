@@ -110,7 +110,7 @@ Guides:
 
 - [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
-- [make tiny models/datasets/tokenizers](debug/make-tiny-models-tokenizers-datasets.md)
+- [make tiny models/datasets/tokenizers](debug/pytorch.md#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets)
 - [LLM/VLM chronicles collection](resources#publicly-available-training-llmvlm-logbooks)
 
 

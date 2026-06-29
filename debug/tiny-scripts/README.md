@@ -1,6 +1,6 @@
 # A Backup of Scripts
 
-This is a backup of scripts discussed in [Faster debug and development with tiny models, tokenizers and datasets](../make-tiny-models-tokenizers-datasets.md).
+This is a backup of scripts discussed in [Faster debug and development with tiny models, tokenizers and datasets](../pytorch.md#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets).
 
 * [c4-en-10k.py](./c4-en-10k.py)
 * [cm4-synthetic-testing.py](./cm4-synthetic-testing.py)

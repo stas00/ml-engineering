@@ -2,6 +2,8 @@
 *.html
 chapters-html.txt
 
+Stas Bekman - Machine Learning Engineering.pdf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
