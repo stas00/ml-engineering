@@ -2691,17 +2691,11 @@ When a segfault event happens Python can't do anything, as the proverbial carpet
 
 In these situation one must go and analyse the libC-level calls that lead to the segfault, which is luckily saved in the core file.
 
+The general mechanics - enabling core dumps (`ulimit -c unlimited` and `kernel.core_pattern`), loading a core file into `gdb`, and the `bt` / `bt full` / `thread apply all bt` commands - are covered in [Segmentation fault, core files and gdb](https://github.com/stas00/the-art-of-debugging/blob/master/compiled-programs/README.md#segmentation-fault-core-files-and-gdb). Here we focus on the PyTorch-specific nuances.
+
 If your program crashed, you will often find a file that will look something like: `core-python-3097667-6`
 
-
-Before we continue make sure you have `gdb` installed:
-```bash
-sudo apt-get install gdb
-```
-
-Now make sure you know the path to the python executable that was used to run the program that crashed. If you have multiple python environment you have to activate the right environment first. If you don't `gdb` may fail to unpack the core file.
-
-So typically I'd go:
+A PyTorch-specific gotcha: you must load the core file with the exact python executable that ran the crashed program. If you have multiple python environments you have to activate the right one first, or `gdb` may fail to unpack the core file. So typically I'd go:
 
 ```bash
 conda activate my-env
@@ -2747,16 +2741,9 @@ Trust me there are times when even if you're inexperienced the backtrace can giv
 
 But fear not - most of the time you won't need to understand the traceback. Ideally you'd just attach the core file to your filed Issue. But it can easily be 5GB large. So the developers that will be trying to help you will ask you to generate a `gdb` backtrace and now you know how to do that.
 
+Since most modern programs run multiple threads and `bt` only shows the main thread, use `thread apply all bt` at the `(gdb)` prompt to get a backtrace for every thread (see the link above for details).
+
 I didn't promise it'll be easy, I just showed you where to start.
-
-Now another useful details is that many programs these days run multiple threads. And `bt` only shows the main thread of the process. But, often, it can be helpful to see where other threads in the process were when segfault has happened. For that you simply type 2 commands at the `(gdb)` prompt:
-
-```
-(gdb) thread apply all bt
-(gdb) bt
-```
-
-and this time around you typically will get a massive report, one backtrace per thread.
 
 
 ### strace
@@ -2951,6 +2938,26 @@ Thread 835995 (active): "MainThread"
 The very first line is where the program is stuck.
 
 If the hanging happens inside a CPP extension, add `--native` `py-spy` and it'll show the non-python code if any.
+
+If the process has multiple threads it'll show a stack trace of each thread. For example:
+
+```
+Thread 0x7F6D3C29D740 (idle): "MainThread"
+    wait (threading.py:312)
+    result (concurrent/futures/_base.py:435)
+    main (slurmeventd.py:208)
+    <module> (slurmeventd.py:217)
+Thread 0x7F6CF5FFB700 (idle): "Thread-CallbackRequestDispatcher"
+    wait (threading.py:312)
+    get (queue.py:171)
+    _get_many (pubsub_v1/subscriber/_protocol/helper_threads.py:56)
+    __call__ (pubsub_v1/subscriber/_protocol/helper_threads.py:103)
+    run (threading.py:892)
+    _bootstrap_inner (threading.py:954)
+    _bootstrap (threading.py:912)
+```
+
+`MainThread` is the main process.
 
 ##### multi-process py-spy
 
