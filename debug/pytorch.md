@@ -1504,6 +1504,8 @@ This allows you to quickly peek inside the tensor object. Except there might be 
 
 ### Detecting problematic tensor values
 
+See also [Numerical instabilities](../training/instabilities#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
+
 #### Inf
 
 Infinity in the context of Machine Learning typically happens where as a result of a computation one or more elements of the tensor overflow.
@@ -1841,6 +1843,8 @@ debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_af
 ```
 
 ### Floating point math discrepancies on different devices
+
+See also [Reproducibility](../training/reproducibility#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
 
 It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
 
@@ -2248,6 +2252,8 @@ It has a lot of functionality for working with image tensors as well.
 
 ## Debugging multi-node training
 
+For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+
 ### Getting nodes to talk to each other
 
 Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
@@ -2622,6 +2628,8 @@ so you can code it yourself as well.
 And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
 
 ## Diagnosing crashes, hangs and tracing execution
+
+If you suspect a crash is caused by faulty hardware rather than your code, see also [Troubleshooting NVIDIA GPUs](../compute/accelerator/nvidia/debug.md#errors-and-diagnostics).
 
 ### Dealing with Async CUDA bugs
 

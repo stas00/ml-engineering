@@ -11,6 +11,8 @@
 
 ## Errors and diagnostics
 
+See also [Diagnosing crashes, hangs and tracing execution](../../../debug/pytorch.md#diagnosing-crashes-hangs-and-tracing-execution) for diagnosing crashes from the software side.
+
 ### Xid Errors
 
 No hardware is perfect, sometimes due to the manufacturing problems or due to tear and wear (especially because of exposure to high heat), GPUs are likely to encounter various hardware issues. A lot of these issues get corrected automatically without needing to really understand what's going on. If the application continues running usually there is nothing to worry about. If the application crashes due to a hardware issue it's important to understand why this is so and how to act on it.

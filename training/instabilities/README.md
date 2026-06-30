@@ -32,6 +32,8 @@ Thus for `NHIDDEN=14336` the math was `sqrt(1/(14336*3)) = 0.00482` and that's w
 
 ## Numerical instabilities
 
+See also [Detecting problematic tensor values](../../debug/pytorch.md#detecting-problematic-tensor-values) and [Underflow and Overflow Detection](../../debug/pytorch.md#underflow-and-overflow-detection) in the debugging chapter for tooling to locate `inf`/`nan` values.
+
 Certain mathematical operations could be unstable when dealing with low precision numbers.
 
 For example, please see this very interesting [PyTorch guide on numerical stability](https://pytorch.org/docs/stable/notes/numerical_accuracy.html).

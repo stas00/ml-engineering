@@ -2,6 +2,8 @@
 
 ## Achieve determinism in randomness based software
 
+See also [Floating point math discrepancies on different devices](../../debug/pytorch.md#floating-point-math-discrepancies-on-different-devices) in the debugging chapter.
+
 When debugging always set a fixed seed for all the used Random Number Generators (RNG) so that you get the same data / code path on each re-run.
 
 Though with so many different systems it can be tricky to cover them all. Here is an attempt to cover a few:
