@@ -9,7 +9,9 @@
 - SBE: Single Bit ECC Error
 - SDC: Silent Data Corruption
 
-## Xid Errors
+## Errors and diagnostics
+
+### Xid Errors
 
 No hardware is perfect, sometimes due to the manufacturing problems or due to tear and wear (especially because of exposure to high heat), GPUs are likely to encounter various hardware issues. A lot of these issues get corrected automatically without needing to really understand what's going on. If the application continues running usually there is nothing to worry about. If the application crashes due to a hardware issue it's important to understand why this is so and how to act on it.
 
@@ -117,7 +119,7 @@ nvidia-smi -r -i gpu_id
 
 where `gpu_id` is the sequential number of the gpu you want to reset, e.g. `0` for the first GPU. Without `-i` all GPUs will be reset.
 
-### uncorrectable ECC error encountered
+#### uncorrectable ECC error encountered
 
 If you get an error:
 ```
@@ -159,7 +161,7 @@ Now when it comes to Aggregate SRAM Uncorrectable errors, if you have more than 
 
 
 
-## Running diagnostics
+### Running diagnostics
 
 If you suspect one or mode NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
 
@@ -240,7 +242,9 @@ dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
 
-## How to get the VBIOS info
+## Health and inventory checks
+
+### How to get the VBIOS info
 
 GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
 
@@ -257,7 +261,7 @@ Hint: to query for dozens of other things, run:
 nvidia-smi --help-query-gpu
 ```
 
-## How to check if your GPU's PCIe generation is supported
+### How to check if your GPU's PCIe generation is supported
 
 Check the PCIe bandwidth reports from the system's boot messages:
 
@@ -274,7 +278,7 @@ Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs
 
 
 
-## How to check error counters of NVLink links
+### How to check error counters of NVLink links
 
 If you're concerned your NVLink malfunctions you can check its error counters:
 ```bash
@@ -308,7 +312,7 @@ this one tells you the current speed of each link
 Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting counters, etc.).
 
 
-## How to detect if a node is missing GPUs
+### How to detect if a node is missing GPUs
 
 If you got a new VM, there are odd cases where there is less than expected number of GPUs. Here is how you can quickly test you have got 8 of them:
 
@@ -329,7 +333,7 @@ bash test-gpu-count.sh
 ```
 
 
-## How to detect if you get the same broken node again and again
+### How to detect if you get the same broken node again and again
 
 This is mostly relevant to cloud users who rent GPU nodes.
 
@@ -372,7 +376,9 @@ This method is extra-crucial for when GPUs don't fail right away but after some 
 Cloud providers usually have a mechanism of reporting bad nodes. Therefore other than discarding a bad node, it'd help yourself and other users to report bad nodes. Since most of the time users just discard the bad nodes, the next user is going to get them. I have seen users getting a very high percentage of bad nodes in some situations.
 
 
-## How to get the real GPU utilization metrics
+## Metrics
+
+### How to get the real GPU utilization metrics
 
 As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a very high gpu util, while most of the GPU isn't doing anything.
 

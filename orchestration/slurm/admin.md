@@ -63,7 +63,9 @@ from the controller node.
 
 
 
-## Auto-reboot
+## Node management
+
+### Auto-reboot
 
 If the nodes need to be rebooted safely (e.g. if the image has been updated), adapt the list of the node and run:
 
@@ -80,7 +82,7 @@ RebootProgram = "/sbin/reboot"
 set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM daemon if you have just added this entry to the config file).
 
 
-## Changing the state of the node
+### Changing the state of the node
 
 The change is performed by `scontrol update`
 
@@ -97,7 +99,7 @@ scontrol update nodename=node-5 state=drain
 ```
 
 
-## Undrain nodes killed due to slow process exit
+### Undrain nodes killed due to slow process exit
 
 Sometimes processes are slow to exit when a job has been cancelled. If the SLURM was configured not to wait forever it'll automatically drain such nodes. But there is no reason for those nodes to not be available to the users.
 
@@ -118,7 +120,9 @@ Here is the script that does all that work for you: [undrain-good-nodes.sh](./un
 Now you can just run this script and any nodes that are basically ready to serve but are currently drained will be switched to `idle` state and become available for the users to be used.
 
 
-## Modify a job's timelimit
+## Job management
+
+### Modify a job's timelimit
 
 To set a new timelimit on a job, e.g., 2 days:
 ```bash

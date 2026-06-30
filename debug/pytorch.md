@@ -977,7 +977,7 @@ Additional resources:
 
 ### Strategic memory allocation tracing
 
-While external memory profilers can be very useful, often having control over when you take a sample of GPU and CPU memory usage is needed. `see-mem-usage` debug util has been developed by the [Deepspeed project](https://github.com/deepspeedai/deepspeed) and I made some small tweaks to it:
+While external memory profilers can be very useful, often having control over when you take a sample of GPU and CPU memory usage is needed. `see-mem-usage` debug util has been developed by the [DeepSpeed project](https://github.com/deepspeedai/deepspeed) and I made some small tweaks to it:
 
 [see-mem-usage.py](code/see-mem-usage.py)
 
