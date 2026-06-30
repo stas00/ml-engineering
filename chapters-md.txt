@@ -49,9 +49,6 @@ inference/README.md
 debug/README.md
 debug/pytorch.md
 debug/tools.md
-debug/torch-distributed-hanging-solutions.md
-debug/underflow_overflow.md
-debug/make-tiny-models-tokenizers-datasets.md
 debug/tiny-scripts/README.md
 
 testing/README.md
