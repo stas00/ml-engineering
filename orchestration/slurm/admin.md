@@ -65,23 +65,6 @@ from the controller node.
 
 ## Node management
 
-### Auto-reboot
-
-If the nodes need to be rebooted safely (e.g. if the image has been updated), adapt the list of the node and run:
-
-```bash
-scontrol reboot ASAP node-[1-64]
-```
-
-For each of the non-idle nodes this command will wait till the current job ends, then reboot the node and bring it back up to `idle`.
-
-Note that you need to have:
-```
-RebootProgram = "/sbin/reboot"
-```
-set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM daemon if you have just added this entry to the config file).
-
-
 ### Changing the state of the node
 
 The change is performed by `scontrol update`
@@ -118,6 +101,23 @@ Earlier you learned how to [run a command on multiple nodes](#run-a-command-on-m
 Here is the script that does all that work for you: [undrain-good-nodes.sh](./undrain-good-nodes.sh)
 
 Now you can just run this script and any nodes that are basically ready to serve but are currently drained will be switched to `idle` state and become available for the users to be used.
+
+
+### Auto-reboot
+
+If the nodes need to be rebooted safely (e.g. if the image has been updated), adapt the list of the node and run:
+
+```bash
+scontrol reboot ASAP node-[1-64]
+```
+
+For each of the non-idle nodes this command will wait till the current job ends, then reboot the node and bring it back up to `idle`.
+
+Note that you need to have:
+```
+RebootProgram = "/sbin/reboot"
+```
+set in `/etc/slurm/slurm.conf` on the controller node for this to work (and reconfigure the SLURM daemon if you have just added this entry to the config file).
 
 
 ## Job management
