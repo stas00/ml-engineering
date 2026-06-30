@@ -36,9 +36,15 @@ def convert_markdown_to_html(markdown_path, args):
     html_file.write_text(html_content)
 
 def make_cover_page_file(cover_md_file, date):
+    # this is somewhat special
+    # 1. princexml generates this cover,
+    # 2. we move it in Makefile to the last page w/ pdftk
+    # 3. and replace the moved page with an actual book cover from cover image .pdf
+    # that way preserving the bookmarks
     with open(cover_md_file, "w") as f:
         f.write(f"""
-![](images/Machine-Learning-Engineering-book-cover.png)
+        PDF Conversion was done with https://www.princexml.com
+<div class="page_break"></div>
 
 ## Machine Learning Engineering Open Book
 

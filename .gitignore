@@ -1,8 +1,10 @@
 # HTML build
 *.html
 chapters-html.txt
+pdf-bookmarks.txt
 
 Stas Bekman - Machine Learning Engineering.pdf
+Stas Bekman - Machine Learning Engineering.epub
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

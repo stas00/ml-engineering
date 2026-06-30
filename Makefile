@@ -21,7 +21,11 @@ html-local: prep-html-files ## make html version w/ scripts remaining local
 	python build/mdbook/md-to-html.py --local
 
 pdf: html ## make pdf version (from html files)
-	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o "Stas Bekman - Machine Learning Engineering.pdf" $$(cat chapters-html.txt | tr "\n" " ")
+	prince --no-author-style -s build/prince_style.css --pdf-title="Stas Bekman - Machine Learning Engineering ($$(date))" -o out1.pdf $$(cat chapters-html.txt | tr "\n" " ")
+	pdftk out1.pdf dump_data output pdf-bookmarks.txt
+	pdftk out1.pdf cat 2-end 1 output out2.pdf
+	pdftk images/Machine-Learning-Engineering-book-cover.pdf out2.pdf output out3.pdf
+	pdftk out3.pdf update_info pdf-bookmarks.txt output "Stas Bekman - Machine Learning Engineering.pdf"
 
 epub: html ## make epub version (from html files)
 	python build/mdbook/preprocess-html-for-epub.py && \

@@ -72,9 +72,6 @@ I will try to rebuild these once in a few weeks or so, but if you want the lates
 
 Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
-## The Art of Debugging
-
-Make sure to also read  [The Art of Debugging Open book](https://github.com/stas00/the-art-of-debugging) which has a lot of related recipes and methodologies.
 
 ## Lectures/Talks
 
@@ -83,6 +80,7 @@ Make sure to also read  [The Art of Debugging Open book](https://github.com/stas
 ## Discussions
 
 If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
+
 
 ## Key comparison tables
 
@@ -128,6 +126,9 @@ I'd also like to thank the numerous [contributors](contributors.md) who have bee
 
 If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](https://github.com/stas00/ml-engineering/issues) or contribute a PR.
 
+## The Art of Debugging Open Book
+
+Make sure to also read  [The Art of Debugging Open book](https://github.com/stas00/the-art-of-debugging) which has a lot of related recipes and methodologies.
 
 ## License
 
