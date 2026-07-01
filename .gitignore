@@ -2,9 +2,12 @@
 *.html
 chapters-html.txt
 pdf-bookmarks.txt
+book-front.md
 
 Stas Bekman - Machine Learning Engineering.pdf
 Stas Bekman - Machine Learning Engineering.epub
+
+trash
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

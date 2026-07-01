@@ -73,6 +73,11 @@ I will try to rebuild these once in a few weeks or so, but if you want the lates
 Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
 
+## SKILL.md for AI agents
+
+I maintain a [SKILL.md](./SKILL.md) file that you can use to teach your AI agent to train and operate large-scale ML models better.
+
+
 ## Lectures/Talks
 
 - [Building resilient ML Engineering skills](https://www.youtube.com/watch?v=IBJUt9JPKHk) given on 2026-01-10 for the [GPU Mode community](https://github.com/gpu-mode). Only had time to discuss performance reality of accelerators, network and storage and how each of them can be crucial to the ensemble's performance. Thanks to [Mark Saroufim](https://github.com/msaroufim) for organizing and providing an awesome support during the talk.
