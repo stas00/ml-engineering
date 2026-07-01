@@ -77,7 +77,7 @@ Thanks to HuggingFace for giving me permission to host my book's ebook formats a
 
 I maintain a [SKILL.md](./SKILL.md) file that you can use to teach your AI agent to train and operate large-scale ML models better.
 
-See also the companion skills: [The Art of Debugging](https://github.com/stas00/the-art-of-debugging/blob/master/SKILL.md) and [Stas' Python Cookbook](https://github.com/stas00/python-cookbook/blob/main/SKILL.md).
+See also the companion skills: [The Art of Debugging](https://github.com/stas00/the-art-of-debugging/blob/master/SKILL.md) and [Stas' Python Cookbook](https://github.com/stas00/python-cookbook/blob/master/SKILL.md).
 
 
 ## Lectures/Talks
@@ -157,8 +157,8 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 
 ## My repositories map
 
-✔ **Free Books:**
- [ML Engineering Online Book](https://github.com/stas00/ml-engineering) |
+✔ **Books:**
+ [Machine Learning Engineering](https://github.com/stas00/ml-engineering) |
  [The Art of Debugging](https://github.com/stas00/the-art-of-debugging) |
  [Stas' Python Cookbook](https://github.com/stas00/python-cookbook)
 
