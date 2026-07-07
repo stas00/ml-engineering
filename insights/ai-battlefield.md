@@ -141,7 +141,7 @@ There aren't that many HPCs out there and so the amount of available resources i
 
 Pros:
 - Managed for you - all you need is your software to do the training and a bit of [SLURM](../orchestration/slurm) know-how to launch jobs
-- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC](http://www.idris.fr/eng/jean-zay/)!)
+- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC](http://www.idris.fr/en/)!)
 
 Cons:
 - needing to time share compute with other teams == short job times with possible long wait times in between - could be difficult to finish training quickly

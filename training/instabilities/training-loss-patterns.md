@@ -162,7 +162,7 @@ The cause of the problem is data repetition, and since it clearly memorised some
 
 The problem comes from [pytorch-lightning](https://github.com/lightning-ai/lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables).
 
-footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
+footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/pytorch-lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
 
 Make sure to check your training framework documentation whether it handles the DataSampler resuming correctly. Make sure you didn't discover this problem after the training has finished and you ended up training 6x times the same 50B of tokens from the planned 300B tokens seen only once each.
 

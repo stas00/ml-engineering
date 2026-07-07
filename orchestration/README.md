@@ -29,6 +29,6 @@ Here are various other less popular than SLURM and K8s, but still very mighty or
 - [dstack](https://github.com/dstackai/dstack) is a lightweight, open-source alternative to Kubernetes & SLURM, simplifying AI container orchestration with multi-cloud & on-prem support. It natively supports NVIDIA, AMD, & TPU.
 - [SkyPilot](https://github.com/skypilot-org/skypilot) is a framework for running AI and batch workloads on any infra, offering unified execution, high cost savings, and high GPU availability.
 - [OpenHPC](https://github.com/openhpc/ohpc) provides a variety of common, pre-built ingredients required to deploy and manage an HPC Linux cluster including provisioning tools, resource management, I/O clients, runtimes, development tools, containers, and a variety of scientific libraries.
-- [run.ai](https://www.run.ai/) - got acquired by NVIDIA and is planned to be open sourced soon.
+- [run.ai](https://www.nvidia.com/en-us/software/run-ai/) - got acquired by NVIDIA and is planned to be open sourced soon.
 - [Docker Swarm](https://docs.docker.com/engine/swarm/) is a container orchestration tool.
 - [IBM Platform Load Sharing Facility (LSF)](https://www.ibm.com/products/hpc-workload-management) Suites is a workload management platform and job scheduler for distributed high performance computing (HPC).

@@ -506,7 +506,7 @@ Here are some examples of NVIDIA devices with the fastest IB:
 According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox). Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
 
 Practical links:
-- [InfiniBand Utilities](https://docs.nvidia.com/networking/display/ofedv512580/infiniband+fabric+utilities) (the link could be outdated as it's versioned) - these are useful when debugging an IB setup.
+- [InfiniBand Utilities](https://networking-docs.nvidia.com/mlnxofedswum/24.10-5.1.6.1lts/infiniband-fabric-utilities) (the link could be outdated as it's versioned) - these are useful when debugging an IB setup.
 
 ### NVIDIA Quantum-2 InfiniBand
 
@@ -878,7 +878,7 @@ Figuring out the payload can be tricky since it'd depend on the implementation o
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
 uni-directional 300GBs so we get about 78% of the theoretical speed with 17GB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
-We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/Samples/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark.
+We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/cpp/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark.
 
 First, let's build it:
 

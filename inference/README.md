@@ -475,7 +475,7 @@ Various approaches are used for that - most involve some sort of pre-sharding an
 
 For example:
 
-- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer).  ([recipe](https://docs.vllm.ai/en/latest/serving/tensorizer.html) and, of course, if you use TP>1 you want to [pre-shard the weights once](https://docs.vllm.ai/en/latest/getting_started/examples/save_sharded_state.html).
+- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer).  ([recipe](https://docs.vllm.ai/en/stable/examples/features/tensorize_vllm_model/) and, of course, if you use TP>1 you want to [pre-shard the weights once](https://docs.vllm.ai/en/stable/examples/features/sharded_state/).
  - TensorRT-LLM requires the user to build a model engine for each specific use-case and loads the pre-made shards at run time (unless you're using the simplified API which will build the model engine on the fly on every server start).
 
 
