@@ -133,9 +133,10 @@ I'd also like to thank the numerous [contributors](contributors.md) who have bee
 
 If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](https://github.com/stas00/ml-engineering/issues) or contribute a PR.
 
-## The Art of Debugging Open Book
+## Related Open Books
 
-Make sure to also read  [The Art of Debugging Open book](https://github.com/stas00/the-art-of-debugging) which has a lot of related recipes and methodologies.
+- [The Art of Debugging Open Book](https://github.com/stas00/the-art-of-debugging) — methodologies and recipes for debugging Unix, Python and PyTorch programs.
+- [Stas' Python Cookbook](https://github.com/stas00/python-cookbook) — everyday Python and standard-library recipes.
 
 ## License
 
