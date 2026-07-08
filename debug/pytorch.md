@@ -800,7 +800,7 @@ footnote: the original env var name was `PYTORCH_CUDA_ALLOC_CONF`, but it got re
 
 ### Discovering how many GBs is allocatable before OOM for CPU and GPU
 
-Here are 2 simple one-liners that can tell you how much memory you can allocate on cpu and gpu. We will be using an H200 node with ~2TB of CPU RAM and GPUs of 144GB of HBM memory.
+Here are 2 simple one-liners that can tell you how much memory you can allocate on cpu and gpu. We will be using an H200 node with ~2TiB of CPU RAM and GPUs of 144GiB of HBM memory.
 
 On CPU:
 
@@ -814,9 +814,9 @@ $ python -c 'import torch; [(torch.ones((1024*2**18)), print(c)) for c in range(
 1997
 Killed
 ```
-This one liner tried to allocate 2TB of memory, 1 GiB at a time, reporting each successful incremental allocation. We can see the program incurred cpu-oom after successfully allocating around 1997GiB.
+This one liner tried to allocate 2TiB of memory, 1 GiB at a time, reporting each successful incremental allocation. We can see the program incurred cpu-oom after successfully allocating around 1997GiB.
 
-If your admin set `cgroups` to cpu oom individual programs when a collective amount of cpu memory used by a given user reaches a specific size, this is how you can discover what that value is. For example, on a shared 8-GPU node with 2TB of CPU RAM, and you asked for just 1x GPU - you will likely get 1/8th of node's total resources - thus any of your processes may get killed via cpu-oom at 250GB (`2000/8`), even though `top` shows you all of 2TB available.
+If your admin set `cgroups` to cpu oom individual programs when a collective amount of cpu memory used by a given user reaches a specific size, this is how you can discover what that value is. For example, on a shared 8-GPU node with 2TiB of CPU RAM, and you asked for just 1x GPU - you will likely get 1/8th of node's total resources - thus any of your processes may get killed via cpu-oom at 250GiB (`2000/8`), even though `top` shows you all of 2TiB available.
 
 Now let's do the same test on GPU (after moving tensors to `cuda` device):
 
@@ -914,7 +914,7 @@ Killed
 ```
 Since there is only 496GiB of LPDDR5 and some 20GiB are used by system processes we can now clearly see that CPU wasn't allowed to reach into GPU memory (I wasn't using GPU while running this test - its memory was fully available.) If you remember originally since one-liner reported process cpu-oomed at 750GiB.
 
-In the case of DGX Spark where it's only 120GB of LPDDR5 memory, shared between CPU and GPU and 0 HBM memory, ideally the developer should be able to assign how much of the memory should go to GPU and to CPU - e.g. 80 and 40 correspondingly - that way the developer can reliably plan their workload and avoid programs crashing. I communicated this need to the NVIDIA team, let's see if they will come back with a solution to us.
+In the case of DGX Spark where it's only 120GiB of LPDDR5 memory, shared between CPU and GPU and 0 HBM memory, ideally the developer should be able to assign how much of the memory should go to GPU and to CPU - e.g. 80 and 40 correspondingly - that way the developer can reliably plan their workload and avoid programs crashing. I communicated this need to the NVIDIA team, let's see if they will come back with a solution to us.
 
 ### PyTorch memory profiler
 
@@ -1010,17 +1010,17 @@ Let's look at the output. The above program is at the bottom of the `see-mem-usa
 ```bash
 $ python see-mem-usage.py
 [0] mp: before alloc
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.59 GB | CPU Virtual Memory:  used = 82.71 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
 [0] mp: before alloc2
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.59 GB | CPU Virtual Memory:  used = 82.71 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
 [0] mp: after alloc
-[0] mp: MA 3.73 GB | Max_MA 7.45 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 82.82 GB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 82.82 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
 ```
 
 Legend:
@@ -1036,10 +1036,10 @@ Now that we know what each column stands for let's analyze the output of the pro
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.59 GB | CPU Virtual Memory:  used = 82.86 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.86 GiB, percent = 4.1%
 ```
 
-If you look at the `NV` column you can see the gpu was already using 0.59GB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros.
+If you look at the `NV` column you can see the gpu was already using 0.59GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros.
 
 Then we execute:
 ```
@@ -1051,13 +1051,13 @@ and the corresponding log around it is:
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.59 GB | CPU Virtual Memory:  used = 82.76 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.76 GiB, percent = 4.1%
 [0] mp: after alloc
-[0] mp: MA 3.73 GB | Max_MA 7.45 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 82.87 GB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.87 GiB, percent = 4.1%
 [0] mp: after copy to cpu
 ```
 
-So we can that `MA` is half of `Max_MA` - because we had 2 tensors of the same size allocated and one of them freed. So the CUDA peak memory of 7.45GB is 2x larger than the the current CUDA memory usage. This is a very important moment. Often the software OOMs exactly during peak memory usage. For example, if some intermediary tensor isn't freed up fast enough it could cause OOM - and also see the earlier note about python garbage collection, there are rare situations where a well placed `gc.collect` call can save the day and prevent OOM.
+So we can see that `MA` is half of `Max_MA` - because we had 2 tensors of the same size allocated and one of them freed. So the CUDA peak memory of 7.45GiB is 2x larger than the the current CUDA memory usage. This is a very important moment. Often the software OOMs exactly during peak memory usage. For example, if some intermediary tensor isn't freed up fast enough it could cause OOM - and also see the earlier note about python garbage collection, there are rare situations where a well placed `gc.collect` call can save the day and prevent OOM.
 
 The `CA` and `MaxCA` columns report cached memory, I often find those not very useful for memory debug purposes, I sometimes even add:
 
@@ -1067,9 +1067,9 @@ torch.cuda.empty_cache()
 
 to prevent caching getting in the way of accounting, but this one is definitely going to slow things down. The snippet is in `see_memory_usage`, but commented out.
 
-But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the last row of the report snippet above you can see that while `torch.cuda` reports only 3.73GB of the actual memory usage, `NV` is 8.65GB, because some of the memory got cached, but it doesn't check out.
+But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the last row of the report snippet above you can see that while `torch.cuda` reports only 3.73GiB of the actual memory usage, `NV` is 8.65GiB, because some of the memory got cached, but it doesn't check out.
 
-`8.65-7.45=1.2` GB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.59GB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GBs are unaccounted for.
+`8.65-7.45=1.2` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.59GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
 
 What happened here is most likely PyTorch `torch.zero` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
 
@@ -1080,9 +1080,9 @@ Next, we copy one tensor to cpu memory:
 which gives us:
 ```
 [0] mp: after alloc
-[0] mp: MA 3.73 GB | Max_MA 7.45 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 82.82 GB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 ```
 we see the `torch.cuda` and NV counters remain the same but CPU memory counters have gone up.
 
@@ -1090,15 +1090,15 @@ Do note that the CPU memory report here isn't as informative as gpu memory repor
 
 When I want to debug just GPU memory I often remove the cpu memory reports altogether.
 
-One other thing to observe here is that `MA 3.73 GB | Max_MA 3.73 GB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
+One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
 
 Next we delete our second tensor on CUDA:
 
 ```
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 ```
 
 and we see that `MA` has gone to 0, which is what we would expect, CUDA no longer has any active tensors. Note that the peak memory isn't zero, since there was exactly the size of that tensor allocation since the last time that counter was reset in `see_mem_usage` call.
@@ -1107,11 +1107,11 @@ Finally we free the tensor on cpu:
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.59 GB | CPU Virtual Memory:  used = 82.71 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GB | Max_MA 3.73 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 86.55 GB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 7.45 GB | Max_CA 7.45 GB | NV 8.65 GB | CPU Virtual Memory:  used = 82.82 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
 ```
 
 we can see that CPU memory report went back to numbers which are very close to the very first report, so we can see more or less all memory has been released on cpu.
@@ -1127,12 +1127,12 @@ see_memory_usage("after empty cache", force=True)
 we would see:
 ```
 [0] mp: after empty cache
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 7.45 GB | NV 1.19 GB | CPU Virtual Memory:  used = 82.8 GB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 7.45 GiB | NV 1.19 GiB | CPU Virtual Memory:  used = 82.8 GiB, percent = 4.1%
 ```
 
 Note how the `CA` columns is now 0, `Max_CA` column is still non-zero because it was still reporting peak, if we call `see_memory_usage` yet another time, it'd go to 0 as well.
 
-But the interesting other number here is `NV 1.19 GB` which tells us that there was 1.2GB of memory allocated outside of the purview of `torch.cuda`. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
+But the interesting other number here is `NV 1.19 GiB` which tells us that there was 1.2GiB of memory allocated outside of the purview of `torch.cuda`. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
 
 You can't imagine how often I use this debug utility in my day-to-day work.  Every so often I sprinkle these calls around the strategic places I suspect and start mapping out block by block and then narrowing down to the suspect areas. Foe example, one useful use case is to run this report before `forward`, `backward` and `step` and observe if each training iteration leaks a bit of memory and where:
 
@@ -1216,7 +1216,7 @@ What we want this time is this line:
 ```
         Maximum resident set size (kbytes): 640688
 ```
-This gives us the peak memory used by the program, which is the highest amount of CPU memory the program used at any given point of its run. So if you measured your program needing let's say 200GB of CPU RAM and then you try to run it elsewhere where you only have 132GB of CPU memory, it'll not work (most likely it will get killed with [cpu-oom](#debugging-cpu-memory-oom) if cgroups are configured).
+This gives us the peak memory used by the program, which is the highest amount of CPU memory the program used at any given point of its run. So if you measured your program needing let's say 200GiB of CPU RAM and then you try to run it elsewhere where you only have 132GiB of CPU memory, it'll not work (most likely it will get killed with [cpu-oom](#debugging-cpu-memory-oom) if cgroups are configured).
 
 Note: when it comes to running out of CPU memory regardless of which memory usage reporting tool you use - typically what you want to track is the Resident Set Size metric, which is also known as RSS (e.g., it's one of the column names in the output of `top`). There are many other metrics, but those are usually not useful for this particular need.
 
@@ -1253,7 +1253,7 @@ $ /usr/bin/time -f '%M' python -c "import torch; t=torch.zeros(2**14,2**15)"
 
 The first run is to measure the peak memory that was used to run `import torch`, which amounts to ~625MiB (`640704 / 2**10`).
 
-Then the second run gives us the same plus memory that was needed to allocate a tensor of `2**14` by `2**14` in fp32 (default `torch` `dtype`) - so the expected additional memory usage is `2**14*2**14*4 = 1073741824` (fp32 `dtype` needs 4 bytes per element) or 1024MiB (`1073741824/2**20`). So let's compare the difference: `(1549504 - 640704) / 2**10` => 887.5GiB, so the reported memory came quite short of what we may have expected.
+Then the second run gives us the same plus memory that was needed to allocate a tensor of `2**14` by `2**14` in fp32 (default `torch` `dtype`) - so the expected additional memory usage is `2**14*2**14*4 = 1073741824` (fp32 `dtype` needs 4 bytes per element) or 1024MiB (`1073741824/2**20`). So let's compare the difference: `(1549504 - 640704) / 2**10` => 887.5MiB, so the reported memory came quite short of what we may have expected.
 
 The third run is expected to have used a double of the additional memory used by the 2nd run, since we now allocated a 2x larger tensor of shape `2**14` by `2**15` - following the same math, that tensor would need 2048MiB of additional CPU memory. And the difference is `(2588624 - 640704) / 2**10` => 1902MiB so we are again short by about the same amount as the second run vs the first one.
 
