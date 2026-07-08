@@ -145,7 +145,7 @@ For example, GCP states that only [89%](https://cloud.google.com/filestore/docs/
 
 I also talked to [Sycomp](https://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
 
-Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disk usage - it may show usage not including the backups. So if your backups consume 50% of the partition.
+Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disk usage - it may show usage not including the backups.
 
 Whatever storage solution you pick, ask the provider how much of the storage can be reliably used, so that there will be no surprises later.
 
@@ -240,7 +240,7 @@ In the following sections we will discuss various approaches to figuring out whe
 The three main storage IO metrics one typically cares for are:
 
 1. [Throughput](https://en.wikipedia.org/wiki/Network_throughput) or Bandwidth (bytes per second - can be MBps, GBps, etc.)
-2. [IOPS](https://en.wikipedia.org/wiki/IOPS) (Input/output operations per second that a system can perform
+2. [IOPS](https://en.wikipedia.org/wiki/IOPS) (Input/output operations per second that a system can perform)
 3. [Latency](https://en.wikipedia.org/wiki/Latency_(engineering)) (msecs or usecs)
 
 - *IOPS* measures how many input and/or output operations a given storage device or a cluster can perform per second. Typically read and write IOPS won't be the same. And for many systems it'll also depend on whether the operation is sequential or random. So a storage system will have 4 different IOPS rates:
@@ -363,7 +363,7 @@ In one of the environments we have noticed that our developers' productivity was
 
 So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
 
-note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but with beware that many shared file systems won't be able to match that.
+note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but with beware that many shared file systems won't be able to match it.
 
 Step 1. Install conda onto the shared file system you want to test if it's not there already.
 
@@ -465,7 +465,7 @@ user    0m1.712s
 sys     0m0.734s
 ```
 
-You can see that the first time it wasn't cached and took ~3x longer, then when I run it the second time. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
+You can see that the first time it wasn't cached and took ~3x longer, then when I ran it the second time it was much faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
 
@@ -505,8 +505,6 @@ Here are some published IO benchmarks:
 
 - [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/benchmarks/storage/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
 
-Then various benchmarks that you can run yourself:
-
 
 
 
@@ -520,7 +518,7 @@ The very popular HuggingFace Hub makes it super easy to download models and data
 
 The cached files are usually found at `~/.cache/huggingface` but it's possible to override those with `HF_HOME` environment variable and place them elsewhere if your `/home/` doesn't have space for huge files. (and in the past those were `HUGGINGFACE_HUB_CACHE` and `TRANSFORMERS_CACHE` and some others).
 
-The other solution that requires no mucking with environment variables, which requires you to remember to set them, is to symlink your cache to another partition. You could do it for all of your caches:
+The other solution that requires no environment variables, is to symlink your cache to another partition. You could do it for all of your caches:
 ```bash
 mkdir -p ~/.cache
 mv ~/.cache /some/path/
@@ -570,7 +568,7 @@ Done.
 
 If you messed up with the prompt answering you still have `cache.txt` file which you can feed again to the new tmp file it'll create when you run `huggingface-cli delete-cache --disable-tui` again.
 
-attached as a snapshot as well as it's easier to read on twitter, but use the message to copy-n-paste from.
+You can also copy-n-paste these steps directly from [this section](#huggingface-hub-caches).
 
 Please note that you can also use this tool to choose which models or datasets to delete completely. You just need to open `cache.txt` in your editor and remove the `#` in front of lines that contain `main` in it for models/datasets you want to be deleted for you. and then repeat the process explained above minus the `perl` one liner which you'd replace with manual editing.
 
@@ -592,7 +590,7 @@ export HF_TOKEN_PATH=~/.cache/hf_hub_token
 ```
 (then put it into `~/.bashrc` to always work)
 
-and now how each user run once:
+Now have each user run once:
 ```
 huggingface-cli login
 ```
@@ -764,7 +762,7 @@ hint: the second line tells `find` to skip folders matching the `/mypath/(exlude
 
 ### How to automatically delete old checkpoints
 
-Continuing the item from above, if you want to automatically delete old checkpoints instead (e.g. those older than 30 days).
+Continuing from above, here is how to automatically delete old checkpoints (e.g. those older than 30 days).
 
 First try to ensure the candidates are indeed good to delete:
 
