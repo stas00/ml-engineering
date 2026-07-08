@@ -637,7 +637,7 @@ Which gives us:
 
 If we check against our IDEFICS-80B logs, which had each iteration at about 49 seconds.
 
-So the good news is that the math checks out as comms + compute are in the ballpark of the measured time, except
+So the good news is that the math checks out as comms + compute are in the ballpark of the measured time.
 
 We can do another sanity check by feeding the compute formulae 90 TFLOPS that we logged, in which case:
 

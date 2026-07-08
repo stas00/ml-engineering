@@ -140,7 +140,7 @@ HFU measures the actual FLOPS. For example, the technique of [Gradient checkpoin
 
 `Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989 TFLOPS.
 
-Now, say, you measured your actual training loop's performance and it was 400 TFLOPS as actual achieved FLOPS. Then your MFU is:
+Now, say, you measured your actual training loop's performance and it was 400 TFLOPS as actual achieved FLOPS. Then your HFU is:
 ```
 HFU = 400/989 = 40%
 ```
