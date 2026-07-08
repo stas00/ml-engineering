@@ -247,7 +247,7 @@ The report includes this legend:
   NV#  = Connection traversing a bonded set of # NVLinks
 ```
 
-So the first report `NV2` tells us the GPUs are interconnected with 2 NVLinks, and the second report `PHB` we have a typical consumer-level PCIe+Bridge setup.
+So the first report `NV2` tells us the GPUs are interconnected with 2 NVLinks, and the second report `PHB` shows we have a typical consumer-level PCIe+Bridge setup.
 
 Check what type of connectivity you have on your setup. Some of these will make the communication between cards faster (e.g. NVLink), others slower (e.g. PHB).
 
@@ -293,7 +293,7 @@ Of course, other A100 and H100s node reports may vary, e.g. the number of cpu co
 
 This is a high-bandwidth connection between Grace CPU and GPUs on GH200 and GB200+ modules, Vera CPU and Rubin GPUs.
 
-As of this writing there is no public spec of the speed, but found 450GBps unidirect mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirect bandwidth for NVLink-5 - so half the speed of the latter.
+As of this writing there is no public spec of the speed, but I found 450GBps unidirectional mentioned [here](https://semianalysis.com/2024/07/17/gb200-hardware-architecture-and-component/#the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirectional bandwidth for NVLink-5 - so half the speed of the latter.
 
 request: I'm looking for an official spec if you find one please let me know.
 
@@ -609,7 +609,7 @@ This is probably one of the most important multi-segment section that you really
 
 First, let's get a bit of a feeling what all those Gbps/GBps practically mean.
 
-If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send 320GB (`80*4`) of data, or 2560Gb (`320*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds. Why does it matter?
+If your model is 80B parameter large, and you need to transmit every parameter or a gradient on the network even once in float32 (fp32) format, which requires 4 bytes per parameter, so you need to send 320GB (`80*4`) of data, or 2560Gb (`320*8`). If your network's bandwidth is 200Gbps it will take 12.8 seconds (`2560/200`) to transmit. And if you had 1600Gbps network then it'd take only 1.6 seconds.
 
 ### 1-GPU training
 
@@ -631,9 +631,9 @@ The previous situation was fantastic due to the close to perfect MFU, but you re
 
 footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
 
-footnote: In the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's one would expect to spend the same $$ and to finish 8 times faster. But because of data synchronization requirements, this is not the case.
+footnote: In the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's what one would expect - the same $$ spent, but finishing 8x faster. But because of data synchronization requirements, this is not the case.
 
-If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) collective - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
+If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
 
 Here is the all-reduce collective visualized:
 
@@ -678,9 +678,7 @@ Even with this really fast comms the network still creates a bottleneck and lead
 
 so once the last layer (-1) computed its gradients it all-reduces them while the 2nd to last layer performs its `backward`, and so on, until the first layer finished with gradients and it finally sends its gradients out.
 
-So now you understand how overlapping works. We can now update our bigger picture diagram to be:
-
-Now our timing diagram becomes very similar to the diagram we had for a single GPU:
+So now you understand how overlapping works. Now our timing diagram becomes very similar to the diagram we had for a single GPU:
 
 ```
 [DL][  compute  ][DL][  compute  ][DL][  compute  ]
@@ -783,10 +781,10 @@ Let's bring both use cases together:
 
 | nodes | comms | compute | comms is a bottleneck |
 |-------|-------|---------|-----------------------|
-|     1 | 0.027 |    0.42 | no                    |
+|     1 | 0.053 |    0.42 | no                    |
 |     4 |  0.64 |    0.42 | yes                   |
 
-on this 200Gbps inter-node setup the comms are 23x slower than the same performed on an intra-node NVLink connections.
+on this 200Gbps inter-node setup the comms are 12x slower than the same performed on an intra-node NVLink connections.
 
 In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
 
@@ -800,7 +798,7 @@ Now do the same math with 20B and 200B parameter model and you will see that you
 
 ### Large model training
 
-Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single GPU so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients. and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
+Of course, when we train large models we don't use DDP, because we simply can't fit the whole model on a single GPU so various other techniques are used. The details are discussed in a dedicated chapter on [Model Parallelism](../training/model-parallelism), but the only important thing to understand immediately is that all scalability techniques incur a much larger comms overhead, because they all need to communicate a lot more than just gradients and therefore the amount of traffic on the network can easily grow 3x and more as compared to the DDP protocol overhead we have been exploring so far.
 
 It can be difficult to do even approximate math as we did in this chapter, because the actual compute time depends on the efficiency of the chosen framework, how well it was tuned, how fast the DataLoader can feed the batches and many other things, therefore there is no standard MFU that one can use in the math and you will discover your MFU when you configure and run the first few steps of the large model training. and then you will read the [Performance chapters](../training/performance) and improve your MFU even more.
 

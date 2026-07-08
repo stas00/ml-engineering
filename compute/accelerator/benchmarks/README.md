@@ -33,7 +33,7 @@ Follow the special setup instructions before running the benchmark to achieve th
 ```bash
 sudo sh -c 'echo 0 > /proc/sys/kernel/numa_balancing'
 ```
-2. Enable:
+2. Enable PyTorch TunableOp:
 ```bash
 export PYTORCH_TUNABLEOP_ENABLED=1
 ```
@@ -82,13 +82,6 @@ Feel free to make the steps smaller from 1024 to 512 or 256 - but it'd 8x or 64x
 
 But then it appears that different accelerators have different ranges of shapes that lead to best TFLOPS, thus it's difficult to suggest a range that will work well for all of them - instead here are some suggestions based on experiments and suggestions from contributors:
 
-
-6. fp8 on NVIDIA GPUs example:
-
-```bash
-./mamf-finder.py --m_range 0 20480 1024 --n_range 0 20480 1024 --k_range 0 20480 1024 --dtype float8_e4m3fn --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
-```
-
 - **A100** + **MI300X**
 
 ```bash
@@ -99,6 +92,12 @@ But then it appears that different accelerators have different ranges of shapes 
 
 ```bash
 ./mamf-finder.py --m_range 0 20480 256 --n_range 0 20480 256 --k_range 0 20480 256 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+```
+
+1. fp8 on NVIDIA GPUs example:
+
+```bash
+./mamf-finder.py --m_range 0 20480 1024 --n_range 0 20480 1024 --k_range 0 20480 1024 --dtype float8_e4m3fn --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 To understand better which shapes give the highest matmul FLOPS for a particular accelerator, see [Vector and matrix size divisibility](../../../training/performance/README.md#vector-and-matrix-size-divisibility).
