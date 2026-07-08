@@ -80,13 +80,13 @@ As most of us rent the compute, and we never see what it looks like, here is how
 
 ## The most important thing to understand
 
-I will make the following statement multiple times in this book - and that it's not enough to buy/rent the most expensive accelerators and expect a high return on investment (ROI).
+I will make the following statement multiple times in this book: it's not enough to buy/rent the most expensive accelerators and expect a high return on investment (ROI).
 
 The two metrics for a high ROI for ML training are:
 1. the speed at which the training will finish, because if the training takes 2-3x longer than planned, your model could become irrelevant before it was released - time is everything in the current super-competitive ML market.
 2. the total $$ spent to train the model, because if the training takes 2-3x longer than planned, you will end up spending 2-3x times more.
 
-Unless the rest of the purchased/rented hardware isn't chosen carefully to match the required workload chances are very high that the accelerators will idle a lot and both time and $$ will be lost. The most critical component is [network](../../network), then [storage](../../storage/), and the least critical ones are [CPU](../cpu) and [CPU memory](../cpu-memory) (at least for a typical training workload where any CPU limitations are compensated with multiple `DataLoader` workers).
+If the rest of the purchased/rented hardware isn't chosen carefully to match the required workload, chances are very high that the accelerators will idle a lot and both time and $$ will be lost. The most critical component is [network](../../network), then [storage](../../storage/), and the least critical ones are [CPU](../cpu) and [CPU memory](../cpu-memory) (at least for a typical training workload where any CPU limitations are compensated with multiple `DataLoader` workers).
 
 If the compute is rented one usually doesn't have the freedom to choose - the hardware is either set in stone or some components might be replaceable but with not too many choices. Thus there are times when the chosen cloud provider doesn't provide a sufficiently well matched hardware, in which case it's best to seek out a different provider.
 
@@ -108,7 +108,7 @@ Let's use the NVIDIA A100 spec as a reference point in the following sections.
 
 ### TFLOPS
 
-As mentioned earlier most of the work that ML training and inference do is matrix multiplication. If you remember your algebra matrix multiplication is made of many multiplications followed by summation. Each of these computations can be counted and define how many of these operations can be performed by the chip in a single seconds.
+Most of the work that ML training and inference do is matrix multiplication. If you remember your algebra matrix multiplication is made of many multiplications followed by summation. Each of these computations can be counted and define how many of these operations can be performed by the chip in a single seconds.
 
 This is one of the key characteristics that the accelerators are judged by. The term TFLOPS defines how many trillions of FloatingPointOperations the chip can perform in a second. The more the better. There is a different definition for different data types. For example, here are a few entries from the theoretical peak TFLOPS from [A100 spec](https://www.nvidia.com/en-us/data-center/a100/):
 
@@ -249,7 +249,7 @@ Row-specific notes:
 
 3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GiB per chip, as compared to 80GiB H100) and the memory is a bit faster.
 
-4. H200 is the same as H100 but has 141GiB vs 80GiB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
+4. H200 is the same as H100 but has 141GiB vs 80GiB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the memory-bandwidth and memory-capacity bottlenecks of H100.
 
 5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
 
@@ -483,7 +483,7 @@ Notes:
 
 1. AMD provides L3 AMD Infinity Cache which it also calls Last Level Cache (LLC) in the specs
 
-2. Gaudi has a different architecture than a GPU. In Gaudi’s case, the MME and TPC have private buffer that perform some of the functions of an L1 cache, called Suspension Buffers. The main function that these buffers provide is data reuse from the buffer (instead of reading the same data multiple times from L2/L3/HBM). Both Gaudi2 and Gaudi3 have the same these buffers for the TPC and MME.
+2. Gaudi has a different architecture than a GPU. In Gaudi’s case, the MME and TPC have private buffer that perform some of the functions of an L1 cache, called Suspension Buffers. The main function that these buffers provide is data reuse from the buffer (instead of reading the same data multiple times from L2/L3/HBM). Both Gaudi2 and Gaudi3 have the same Suspension Buffers for the TPC and MME.
 
 3. Gaudi2 doesn’t have a cache. It has scratchpad SRAM instead of a cache, meaning that software determines what goes in or out of the SRAM at any moment. There are dedicated DMA engines that software needs to program to perform all the data movement between SRAM and HBM.
 
@@ -640,7 +640,7 @@ SambaNova:
 - [DataScale SN30](https://sambanova.ai/products/datascale/)
 
 
-### On-premises accelerator clusters
+### Cerebras on-premises clusters
 
 [Cerebras](https://www.cerebras.net/) cluster and systems based on WaferScale Engine (WSE).
 
@@ -729,10 +729,10 @@ for example, AMD MI250 has:
 
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
-- 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per GPU), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
+- 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per Gaudi chip), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
 - 96GiB HBM2E memory on board w/2.45 TBps bandwidth per chip, for a total of 768GiB per node
 
-A server/node is built from 8 GPUs, which can then be expanded with racks of those servers.
+A server/node is built from 8 Gaudi accelerators, which can then be expanded with racks of those servers.
 
 There are no official TFLOPS information published (and from talking to an Intel representative they have no intention to publish any.) They publish the [following benchmarks](https://www.intel.com/content/www/us/en/developer/platform/gaudi/model-performance.html) but I'm not sure how these can be used to compare this compute to other providers.
 
@@ -744,7 +744,7 @@ Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
 ## API
 
-Which software is needed to deploy the high end GPUs?
+Which software is needed to deploy the high end accelerators?
 
 
 ### NVIDIA
@@ -753,7 +753,7 @@ NVIDIA GPUs run on [CUDA](https://developer.nvidia.com/cuda-toolkit)
 
 ### AMD
 
-AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - note that PyTorch you can use CUDA-based software on ROCm-based GPUs! So it should be trivial to switch to the recent AMD MI250, MI300X, and other emerging ones.
+AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - note that with PyTorch you can use CUDA-based software on ROCm-based GPUs! So it should be trivial to switch to the recent AMD MI250, MI300X, and other emerging ones.
 
 ### Intel Gaudi
 
