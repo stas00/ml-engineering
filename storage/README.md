@@ -14,7 +14,7 @@ If you have infinite funds, of course, get a single super-fast read, super-fast 
 
 For inference, it's mostly about startup time to be able to start serving inference asap:
 1. Reading the checkpoint fast
-2. Loading the codebase fast 
+2. Loading the codebase fast
 
 For batched inference, you'd have additionally:
 1. Reading prompts
@@ -22,7 +22,7 @@ For batched inference, you'd have additionally:
 
 If this is done asynchronously to generation then this IO overhead can be completely hidden, since typically generation will be much slower than loading the text it generates from and writing the generated text back to the disk.
 
-If you do KV-cache offloading to disk, this would be another important IO use-case for inference. You will need to be able to seek fast to get to the desired KV-cache index and less crucial writing it out if the latter is done asynchronously. 
+If you do KV-cache offloading to disk, this would be another important IO use-case for inference. You will need to be able to seek fast to get to the desired KV-cache index and less crucial writing it out if the latter is done asynchronously.
 
 
 ## Glossary
@@ -89,18 +89,18 @@ The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_Syst
 
 ## File Block size
 
-If the file system you use uses a block size of 16mb, but the average size of your files is 16k, you will be using 1,000 times more disk space than the actual use. For example, you will see 100TB of disk space used when the actual disk space will be just 100MB.
+If the file system you use uses a block size of 16MiB, but the average size of your files is 16KiB, you will be using 1,024 times more disk space than the actual use. For example, you will see 100GiB of disk space used when the actual disk space will be just 100MiB.
 
-footnote: On Linux the native file systems typically use a block size of 4k.
+footnote: On Linux the native file systems typically use a block size of 4KiB.
 
 So often you might have 2 very different needs and require 2 different partitions optimized for different needs.
 
-1. thousands to millions of tiny files - 4-8k block size
-2. few large files - 2-16mb block size
+1. thousands to millions of tiny files - 4-8KiB block size
+2. few large files - 2-16MiB block size
 
-case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MB block sizes, so this was not a suitable partition for 4KB-large files.
+case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MiB block sizes, so this was not a suitable partition for 4KiB-large files.
 
-The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2mb, with a sub-block of 8k, and then the tiny files get packed together as sub-blocks, thus not wasting too much disk space.
+The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2MiB, with a sub-block of 8KiB, and then the tiny files get packed together as sub-blocks, thus not wasting too much disk space.
 
 ## Distributed storage servers proximity to clients
 
@@ -215,7 +215,7 @@ In asynchronous IO the client may submit multiple IO requests one after another 
 
 ### Misreported file size
 
-I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read. 
+I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
 
 If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
 

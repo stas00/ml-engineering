@@ -499,8 +499,8 @@ InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_ac
 
 Here are some examples of NVIDIA devices with the fastest IB:
 
-- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 200Gbps, for a total of 1.6 Tbps to connect with other DGX servers.
-- For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 25.6 TBps of full duplex bandwidth for use within the pod or for scaling out the multiple SuperPODs - that is an equivalent of 0.8 TBps per node (6.4Tbps!).
+- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 400Gbps, for a total of 3.2 Tbps (0.4 TBps) unidirectional to connect with other DGX servers.
+- For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 12.8 TBps of unidirectional bandwidth (25.6 TBps counting both directions) for use within the pod or for scaling out to multiple SuperPODs - that is an equivalent of 0.4 TBps (3.2 Tbps) unidirectional per node, matching the per-node figure above.
 - NVIDIA GB200-based solutions will come with 400Gbps or 800Gbps NDR via Quantum-2 InfiniBand 800G switches (2x400G NDR interfaces)
 
 According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox). Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
@@ -540,10 +540,6 @@ According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaud
 ### Gaudi3 (inter-node)
 
 According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html), these nodes provide `3*8=24` NICs of 200GbE RoCE v2 RDMA for a total of 4.8Tbps of inter-node connectivity with other Gaudi3 nodes.
-
-
-
-According to [Gaudi2 spec](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf), these nodes provide `3*8=24` NICs of 100GbE RoCE v2 RDMA for a total of 2.4Tbps of inter-node connectivity with other Gaudi2 nodes.
 
 
 ### HPE Slingshot interconnect

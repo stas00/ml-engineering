@@ -382,7 +382,7 @@ So if you decide to calculate your achievable [MFU](../../training/performance#m
 
 ### Accelerator memory size and speed
 
-The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, A100-SXM comes with HBM2 at 1.6TBps, and H100-SXM comes with HBM3 at 3.35TBps (see the full table per accelerator below).
+The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, the 80GB A100-SXM comes with HBM2e at 2.0TBps, and the 80GB H100-SXM comes with HBM3 at 3.35TBps (see the full table per accelerator below).
 
 Here are the specs:
 
@@ -392,15 +392,17 @@ Here are the specs:
 | HBM2  | 2.4 |  8 | 128 |  8 |  1 |  8 |  307 |
 | HBM2e | 3.6 |  8 | 128 | 12 |  2 | 24 |  461 |
 | HBM3  | 6.4 | 16 |  64 | 12 |  2 | 24 |  819 |
-| HBM3e | 9.8 | 16 |  64 | 16 |  3 | 48 | 1229 |
-| HBM4  | 6.4 | 32 |  64 | 16 |  4 | 64 | 1638 |
+| HBM3e | 9.6 | 16 |  64 | 16 |  3 | 48 | 1229 |
+| HBM4  | 8.0 | 32 |  64 | 16 |  4 | 64 | 2048 |
 
 Notes:
 
 - While I was researching this table I found a wide variation of the above numbers. I think it's because either there were different implementations or the specs changed several times and different publications caught different specs. The table above comes from [wikipedia](https://en.wikipedia.org/wiki/High_Bandwidth_Memory).
 - Since HBM is a stack of multiple DRAM chips, the *Stack Height* specifies how many chips are per device.
 
-Beware that sometimes memory specs may not be very clear about what GB means. Sometimes it's GiB (`2**30`), but written as GB. At other times it's actually GB (`10**9`). For example, you will see references to NVIDIA B200 having 192GB, where they actually mean GB and not GiB, because 192GB is 180GiB. Whereas bandwidth (GBps, TBps) almost always means decimals (1GBps:`10**9`Bytes per sec). To convert GiB to GB: `x*2**30/10**9`. To convert from GB to GiB `x*10**9/2**30`. Most often the memory size will be in GiB (but `i` omitted), for bandwidth it'll be GB.
+Beware that sometimes memory specs may not be very clear about what GB means. Sometimes it's GiB (`2**30`), but written as GB. At other times it's actually GB (`10**9`). For example, the "80GB" quoted for an H100 or A100 is really 80GiB. Whereas bandwidth (GBps, TBps) almost always means decimals (1GBps:`10**9`Bytes per sec). To convert GiB to GB: `x * 2**30 / 10**9`. To convert from GB to GiB `x * 10**9 / 2**30`. Most often the memory size will be in GiB (but `i` omitted), for bandwidth it'll be GB.
+
+To make things even more confusing, the advertised capacity isn't always what you actually get to use. For example, NVIDIA B200 physically has 192GiB of HBM3e - 8 stacks of 24GiB each (these are GiB and not decimal GB: DRAM die density is inherently binary, so a stack of 8x 24Gbit dies is `8*24*2**30/8 = 24GiB`, and 8 stacks give 192GiB - vendors just print it as "192GB"). But in the HGX/DGX systems only about 180GiB is usable - the rest is reserved (e.g. for ECC; note that `192*15/16 = 180` exactly, i.e. 1/16 is held back). So here the 192 vs 180 difference is not a GB-vs-GiB discrepancy at all, but a physical-vs-usable one - and this is why the table below lists the 180GiB usable figure rather than the 192GiB physical one.
 
 Typically, the more on-device memory an accelerator has, the better its performance. At any given time usually most of the model weights aren't being used as they wait for their turn to be processed and thus large memory allows more of the model to be on the accelerator memory and immediately available for access and update. When there is not enough memory, sometimes the model has to be split across multiple accelerators, or offloaded to CPU and/or disk.
 
@@ -424,17 +426,19 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA GH200 SXM (1)  |                96 | HBM3  |                         4.00 |
 | Intel Gaudi2          |                96 | HBM2e |                         2.46 |
 | AWS Trainium2 / Ultra |                96 | HBM3  |                         2.90 |
-| Google TPU v5p        |                95 | HBM2e |                         4.80 |
+| Google TPU v5p        |                95 | HBM2e |                         2.76 |
 | NVIDIA H100 SXM       |                80 | HBM3  |                         3.35 |
 | NVIDIA A100 SXM       |                80 | HBM2e |                         2.00 |
 | NVIDIA H100 PCIe      |                80 | HBM3  |                         2.00 |
 | NVIDIA A100 PCIe      |                80 | HBM2e |                         1.94 |
 | NVIDIA L40S           |                48 | GDDR6 |                         0.86 |
 | Google TPU v4         |                32 | HBM2  |                         1.20 |
-| Google TPU v5e        |                16 | HBM2  |                         1.60 |
+| Google TPU v5e        |                16 | HBM2  |                         0.82 |
 
 
 Notes:
+
+* The listed sizes are the vendor-advertised capacities. Per the GB-vs-GiB / physical-vs-usable discussion above, for HBM these are effectively GiB (binary) even though vendors usually print them as "GB", and several NVIDIA parts advertise the *usable* size rather than the physical one (e.g. B200's 180 out of 192 physical GiB) - which is why you see non-round numbers like 141, 180 and 185.
 
 * I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
 
