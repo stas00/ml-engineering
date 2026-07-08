@@ -247,9 +247,9 @@ Row-specific notes:
 
 2. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute).
 
-3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GB per chip, as compared to 80GB H100) and the memory is a bit faster.
+3. I didn't include `NVIDIA H100 dual NVL` as it's, well, 2x GPUs - so it won't be fair - it's the same FLOPS as H100 but 2x everything, plus at has a bit more memory (94GiB per chip, as compared to 80GiB H100) and the memory is a bit faster.
 
-4. H200 is the same as H100 but has 141GB vs 80GB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
+4. H200 is the same as H100 but has 141GiB vs 80GiB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the compute efficiency issues of H100.
 
 5. Oddly NVIDIA A100 PCIe and SXM revisions [spec](https://www.nvidia.com/en-us/data-center/a100/) are reported to have the same TFLOPS, which is odd considering the SXM version uses 30% more power and uses a 5% faster HBM.
 
@@ -297,7 +297,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :--------------------------------- |
 | Intel Gaudi 2    |  418.7 |    432 |      96.9% |  14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
 | NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126                    |                                    |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126                    | 900W 141GB HBM3e version           |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126                    | 900W 141GiB HBM3e version           |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124                    |                                    |
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
 | NVIDIA B300 SXM  | 1769.0 |   2250 |      78.6% |  12288x18432x1024 | 2.9.1+cu130                    | same as B200, newer torch/cuda     |
@@ -315,7 +315,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch version                  | Notes                    |
 | :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :----------------------- |
 | Intel Gaudi 2    |  826.5 |    865 |      95.5% |   6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1       |
-| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GB HBM3e version |
+| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GiB HBM3e version |
 | Intel Gaudi 3    | 1289.5 |   1677 |      76.9% |   16640x1536x3072 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1       |
 | NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128                    |                          |
 | NVIDIA B300 SXM  | 3353.3 |   4500 |      74.5% |    3072x6144x7168 | 2.9.1+cu130                    |                          |
@@ -382,7 +382,7 @@ So if you decide to calculate your achievable [MFU](../../training/performance#m
 
 ### Accelerator memory size and speed
 
-The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, the 80GB A100-SXM comes with HBM2e at 2.0TBps, and the 80GB H100-SXM comes with HBM3 at 3.35TBps (see the full table per accelerator below).
+The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_Bandwidth_Memory) (HBM) which is a 3D version of SDRAM memory. For example, the 80GiB A100-SXM comes with HBM2e at 2.0TBps, and the 80GiB H100-SXM comes with HBM3 at 3.35TBps (see the full table per accelerator below).
 
 Here are the specs:
 
@@ -440,7 +440,7 @@ Notes:
 
 * The listed sizes are the vendor-advertised capacities. Per the GB-vs-GiB / physical-vs-usable discussion above, for HBM these are effectively GiB (binary) even though vendors usually print them as "GB", and several NVIDIA parts advertise the *usable* size rather than the physical one (e.g. B200's 180 out of 192 physical GiB) - which is why you see non-round numbers like 141, 180 and 185.
 
-* I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
+* I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GiB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough, the compute ends up idling waiting for the data to be moved to and from the memory.
 
@@ -610,7 +610,7 @@ NVIDIA:
 - B200 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet (XXX: update when official specs are released)
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, has been available on all Tier-1 compute clouds since Q4-2023.
-- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GB HBM3 or 144GB HBM3e + (2) Grace CPU w/ 624GB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
+- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GiB HBM3 or 144GiB HBM3e + (2) Grace CPU w/ 624GiB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
 - [L40S](https://www.nvidia.com/en-us/data-center/l40s/) - a powerful card that is supposed to be more than 2x cheaper than H100, and it's more powerful than A100.
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability, but already getting outdated. But given the much lower cost than H100 this is still a great GPU.
 
@@ -634,7 +634,7 @@ Amazon:
 
 
 Graphcore:
-- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://web.archive.org/web/20250521173833/https://thytu.com/posts/ipus-101/).
+- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GiB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://web.archive.org/web/20250521173833/https://thytu.com/posts/ipus-101/).
 
 SambaNova:
 - [DataScale SN30](https://sambanova.ai/products/datascale/)
@@ -730,7 +730,7 @@ for example, AMD MI250 has:
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
 - 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per GPU), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
-- 96GB HBM2E memory on board w/2.45 TBps bandwidth per chip, for a total of 768GB per node
+- 96GiB HBM2E memory on board w/2.45 TBps bandwidth per chip, for a total of 768GiB per node
 
 A server/node is built from 8 GPUs, which can then be expanded with racks of those servers.
 

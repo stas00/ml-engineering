@@ -333,7 +333,7 @@ Notice 8GiB vs 224GiB - that's a huge difference - therefore, clearly everybody 
 
 Part 3. Finally we have the loss calculation which typically requires manifesting the logits in fp32 and here the `vocab_size` dimension is typically the biggest dimension, hence: `fp32_size * bs * seqlen * vocab_size`
 
-In our example that would be: `4 * 1 * 32768 * 128256 /  2**30 = 15.7GiB` (~16GB)
+In our example that would be: `4 * 1 * 32768 * 128256 /  2**30 = 15.7GiB` (~16GiB)
 
 As you can see logits will use more memory than all the checkpointing activations for this model.
 
@@ -343,7 +343,7 @@ Part 4. Total required activation memory is the sum of memory needed to compute 
 
 In our example:
 
-- w/ gradient checkpointing: `7 + 8 + 16 = 31GB`
+- w/ gradient checkpointing: `7 + 8 + 16 = 31GiB`
 - w/o gradient checkpointing: `224 + 16 = 240GiB`
 
 **Temporary Memory**
@@ -377,46 +377,46 @@ In addition to the memory usage described in the previous section, there are oth
 
 #### Preloaded CUDA kernels memory usage
 
-When PyTorch uses CUDA for the first time, it may use up 0.5-2GB of GPU memory, reducing the GPU's total available memory. This memory won't be accounted for by torch memory profiler.
+When PyTorch uses CUDA for the first time, it may use up 0.5-2GiB of GPU memory, reducing the GPU's total available memory. This memory won't be accounted for by torch memory profiler.
 
 The size of allocated memory for cuda kernels varies between different GPUs, and also it can be different between pytorch versions. Let's allocate a 4-byte tensor on cuda and check how much GPU memory is used up upfront.
 
 With `pytorch==1.10.2`:
 ```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
-used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=1.10.2: used=1.78GB, free=77.43GB, total=79.21GB
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GiB, {free=:0.2f}GiB, {total=:0.2f}GiB')"
+pt=1.10.2: used=1.78GiB, free=77.43GiB, total=79.21GiB
 ```
 
 With `pytorch==1.13.1`:
 ```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
-used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=1.13.1: used=0.90GB, free=78.31GB, total=79.21GB
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GiB, {free=:0.2f}GiB, {total=:0.2f}GiB')"
+pt=1.13.1: used=0.90GiB, free=78.31GiB, total=79.21GiB
 ```
 
-The older pytorch "wasted" 1.78GB of A100, the newer only 0.9GB, thus saving a whooping 0.9GB, which can be the saving grace for the OOM situations.
+The older pytorch "wasted" 1.78GiB of A100, the newer only 0.9GiB, thus saving a whooping 0.9GiB, which can be the saving grace for the OOM situations.
 
 `CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand. But do not use this setting in production since it's likely to use more memory than needed. The whole point of lazy-loading is to load only the kernels that are needed.
 
 With `pytorch==2.1.1`:
 ```bash
 $ CUDA_MODULE_LOADING=EAGER python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
-used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=2.1.1+cu121: used=0.92GB, free=78.23GB, total=79.15GB
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GiB, {free=:0.2f}GiB, {total=:0.2f}GiB')"
+pt=2.1.1+cu121: used=0.92GiB, free=78.23GiB, total=79.15GiB
 ```
 As compared to the lazy mode:
 ```bash
 $ python -c "import torch; x=torch.ones(1).cuda(); free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info()); \
-used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GB, {free=:0.2f}GB, {total=:0.2f}GB')"
-pt=2.1.1+cu121: used=0.47GB, free=78.68GB, total=79.15GB
+used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GiB, {free=:0.2f}GiB, {total=:0.2f}GiB')"
+pt=2.1.1+cu121: used=0.47GiB, free=78.68GiB, total=79.15GiB
 ```
-There is a 450MB difference, but here we only loaded kernels to do `torch.ones` - the actual memory allocated at run time with other code using torch API will be somewhere between 0.47 and 0.92GB.
+There is a 450MiB difference, but here we only loaded kernels to do `torch.ones` - the actual memory allocated at run time with other code using torch API will be somewhere between 0.47 and 0.92GiB.
 
 
 #### `torch.distributed` memory usage
 
-When using `torch.distributed` expect ~1-2GB of GPU memory taken away just to initialize things - the more GPUs the higher the memory used. Different backends are likely to use a different amount of memory. And this memory won't be accounted for by torch memory profiler.
+When using `torch.distributed` expect ~1-2GiB of GPU memory taken away just to initialize things - the more GPUs the higher the memory used. Different backends are likely to use a different amount of memory. And this memory won't be accounted for by torch memory profiler.
 
 Here is [torch-dist-mem-usage.py](distributed/torch-dist-mem-usage.py) that demonstrates the actual memory usage:
 
@@ -425,23 +425,23 @@ $ python -u -m torch.distributed.run --nproc_per_node=2 --rdzv_endpoint localhos
 torch-dist-mem-usage.py
 [...]
 [0] mp: before barrier
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 0.55 GB | CPU Virtual Memory:  used = 68.79 GB, percent = 3.4%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.55 GiB | CPU Virtual Memory:  used = 68.79 GiB, percent = 3.4%
 [0] mp: after barrier
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 2.00 GB | CPU Virtual Memory:  used = 69.33 GB, percent = 3.5%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 2.00 GiB | CPU Virtual Memory:  used = 69.33 GiB, percent = 3.5%
 [0] mp: after 2nd barrier
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 2.00 GB | CPU Virtual Memory:  used = 69.33 GB, percent = 3.5%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 2.00 GiB | CPU Virtual Memory:  used = 69.33 GiB, percent = 3.5%
 [0] mp: after dist destroy
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 1.28 GB | CPU Virtual Memory:  used = 69.25 GB, percent = 3.5%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 1.28 GiB | CPU Virtual Memory:  used = 69.25 GiB, percent = 3.5%
 [0] mp: after dist destroy
-[0] mp: MA 0.00 GB | Max_MA 0.00 GB | CA 0.00 GB | Max_CA 0.00 GB | NV 1.28 GB | CPU Virtual Memory:  used = 69.25 GB, percent = 3.5%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 1.28 GiB | CPU Virtual Memory:  used = 69.25 GiB, percent = 3.5%
 ```
 
-So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) took 0.55GB (first line `NV 0.55 GB`), but when `dist.barrier` was run an additional 1.5GB were consumed. If you run `init_process_group` with `device_id` arg then the additional memory allocation will move to that call instead and less will be used by `dist.barrier`.
+So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) took 0.55GiB (first line `NV 0.55 GiB`), but when `dist.barrier` was run an additional 1.5GiB were consumed. If you run `init_process_group` with `device_id` arg then the additional memory allocation will move to that call instead and less will be used by `dist.barrier`.
 
 
 #### Memory fragmentation
 
-As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
+As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GiB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
 Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
 I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
@@ -702,7 +702,7 @@ Here is a typical A100 8x GPUs server NUMA nodes diagram:
 
 ![a100 server numa nodes](images/a100-server-hwloc.png)
 
-As you can see it has 2 CPUs, each defining a NUMA block, and each such block contains a group of 4 GPUs. The GPUs are the grey blocks that say `CoProc` with 108 compute units (SMs) and 79GB of memory.
+As you can see it has 2 CPUs, each defining a NUMA block, and each such block contains a group of 4 GPUs. The GPUs are the grey blocks that say `CoProc` with 108 compute units (SMs) and 79GiB of memory.
 
 footnote: the diagram was generated by `lstopo a100.png` from [hwloc](https://github.com/open-mpi/hwloc).
 
@@ -879,7 +879,7 @@ Also note that because any data transforms are applied asynchronously and ahead 
 
 Beware that sometimes you may encounter problems using `num_workers > 0` - the pytorch Issues has a few related Issues that haven't been resolved in several years, where a worker would hang. In particular when having 2 `Dataloader`s. In fact we had this problem during BLOOM-176B training, where the training `Dataloader` worked fine with 2 workers, but once eval `Dataloader` was added it'd randomly hang - so we after failing to figure it out we resorted to a workaround of `num_workers=0` just for the eval and switch to doing it very rarely. Eventually, we stopped doing eval altogether and started doing lm-harness style async eval done to the saved intermediary checkpoints instead, which also sped up the training process.
 
-case study: during IDEFICS-80B training we were using a streaming `Dataloader` which worked really bad and it was consuming huge amounts of memory per worker, and it'd spike often, and we had about 1TB of CPU memory and we couldn't spawn enough workers - so the `Dataloader` was a bottleneck. We didn't have time to find a better solution at that time so we finished training with it.
+case study: during IDEFICS-80B training we were using a streaming `Dataloader` which worked really bad and it was consuming huge amounts of memory per worker, and it'd spike often, and we had about 1TiB of CPU memory and we couldn't spawn enough workers - so the `Dataloader` was a bottleneck. We didn't have time to find a better solution at that time so we finished training with it.
 
 
 
