@@ -195,7 +195,7 @@ Most other filesystems I had an experience with typically reach 100% capacity wi
 
 ### Know your storage IO requirements
 
-At one of the clouds we used a non-parallel distributed filesystem and the developer experience was absolutely terrible. While dealing with large files was acceptable, the small files experience was extremely slow - it'd take 30 minutes to install a basic Conda environment and 2 minutes to run `python -c "import torch"`. This is because Python has tens of thousands of 4-16kb files and if the file system isn't optimized to handle those and the meta-data servers are weak, it'd be a very frustrating experience.
+At one of the clouds we used a non-parallel distributed filesystem and the developer experience was absolutely terrible. While dealing with large files was acceptable, the small files experience was extremely slow - it'd take 30 minutes to install a basic Conda environment and 2 minutes to run `python -c "import torch"`. This is because Python has tens of thousands of 4-16KB files and if the file system isn't optimized to handle those and the meta-data servers are weak, it'd be a very frustrating experience.
 
 In general a typical Python shop needs a filesystem that can deal with:
 - tens of thousands of tiny files
@@ -257,14 +257,14 @@ The easiest ask is to request an `all-reduce` benchmark plot over 4-8-16-32-64 n
 
 Please refer to [Real network throughput](../network#real-network-throughput) for more details.
 
-Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GB (16GB would get the best bandwidth on the latest fastest inter-node networks), if the performance drops below 80% of the theoretical GBps, then I know we have a problem.
+Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), if the performance drops below 80% of the theoretical GBps, then I know we have a problem.
 
 
 ### Does the network steal from the accelerator memory?
 
-One surprise I experienced on one of the clouds is that when I started using the GPUs I discovered that 5GB of each was already used by the networking software - we managed to reduce it to a lower value, but still we were sold GPUs with less than their memory size and nobody told us about that before we signed the contract.
+One surprise I experienced on one of the clouds is that when I started using the GPUs I discovered that 5GiB of each was already used by the networking software - we managed to reduce it to a lower value, but still we were sold GPUs with less than their memory size and nobody told us about that before we signed the contract.
 
-As accelerators become much bigger this will probably become unimportant, but when you get 75GB of usable memory instead of 80GB on H100 - that's a huge amount of memory lost per GPU.
+As accelerators become much bigger this will probably become unimportant, but when you get 75GiB of usable memory instead of 80GiB on H100 - that's a huge amount of memory lost per GPU.
 
 ### InfiniBand or Ethernet?
 

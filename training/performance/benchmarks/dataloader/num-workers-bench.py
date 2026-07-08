@@ -16,7 +16,7 @@ import time
 class MyDataset(torch.utils.data.Dataset):
 
     def __init__(self):
-        self.tensor = torch.ones(1*2**18) # 1 mb tensor
+        self.tensor = torch.ones(1*2**18) # 1 MiB tensor
 
     def __len__(self):
         return 1000

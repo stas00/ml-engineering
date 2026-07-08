@@ -269,7 +269,7 @@ When it comes to GPU memory, there is the possible issue of memory fragmentation
 RuntimeError: CUDA out of memory. Tried to allocate 304.00 MiB (GPU 0; 8.00 GiB total capacity;
 142.76 MiB already allocated; 6.32 GiB free; 158.00 MiB reserved in total by PyTorch)
 ```
-In this example if there are 6.32GB free, how comes that 304MB couldn't be allocated.
+In this example if there are 6.32GiB free, how comes that 304MiB couldn't be allocated.
 
 One of the approaches my team developed during IDEFICS-80B training where there was some tiny CPU memory leak that would often take multiple days to lead to running out of CPU memory was to install a watchdog inside the training loop that would check the memory usage and if a threshold was reached it'd voluntarily exit the training loop. The next training job would then resume with all the CPU memory reclaimed.
 
@@ -299,7 +299,7 @@ for batch in iterator:
     gc.collect()
     torch.cuda.empty_cache()
 
-    # get mem usage in GBs and exit if less than 2GB of free GPU memory remain
+    # get mem usage in GiBs and exit if less than 2GiB of free GPU memory remain
     free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info());
     if free < 2:
         print(f"Exiting early since the GPU memory is almost full: ({free}GB remain)")

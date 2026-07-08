@@ -35,5 +35,5 @@ rm -r /tmp/test-clm; CUDA_VISIBLE_DEVICES=0,1 NCCL_P2P_DISABLE=1 python -m torch
 {'train_runtime': 131.4367, 'train_samples_per_second': 1.522, 'epoch': 0.69}
 ```
 
-Hardware: 2x TITAN RTX 24GB each + NVLink with 2 NVLinks (`NV2` in `nvidia-smi topo -m`)
+Hardware: 2x TITAN RTX 24GiB each + NVLink with 2 NVLinks (`NV2` in `nvidia-smi topo -m`)
 Software: `pytorch-1.8-to-be` + `cuda-11.0` / `transformers==4.3.0.dev0`

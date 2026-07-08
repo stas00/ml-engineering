@@ -286,7 +286,7 @@ fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --
 --name=read-test --blocksize=4k --iodepth=64 --readwrite=read
 ```
 
-Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4k (typical for most OSes) with the file size of 16k (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good benchmark to show how fast you can import Python modules on 16 concurrent processes.
+Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4KiB (typical for most OSes) with the file size of 16KiB (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good benchmark to show how fast you can import Python modules on 16 concurrent processes.
 
 case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
 

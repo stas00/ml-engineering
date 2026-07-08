@@ -10,26 +10,26 @@ It generates output like this:
 ```
 | payload |    busbw   |    algbw   |
 | ------: | ---------: | ---------: |
-|    32KB |   0.92GBps |   0.48GBps |
-|    64KB |   1.61GBps |   0.83GBps |
-|   128KB |   3.05GBps |   1.58GBps |
-|   256KB |   5.18GBps |   2.67GBps |
-|   512KB |   9.17GBps |   4.73GBps |
-|     1MB |  17.13GBps |   8.84GBps |
-|     2MB |  23.79GBps |  12.28GBps |
-|     4MB |  40.30GBps |  20.80GBps |
-|     8MB |  68.62GBps |  35.42GBps |
-|    16MB |  93.93GBps |  48.48GBps |
-|    32MB |  98.34GBps |  50.76GBps |
-|    64MB |  84.90GBps |  43.82GBps |
-|   128MB |  88.23GBps |  45.54GBps |
-|   256MB |  91.01GBps |  46.97GBps |
-|   512MB |  92.95GBps |  47.98GBps |
-|     1GB |  94.15GBps |  48.59GBps |
-|     2GB |  92.66GBps |  47.83GBps |
-|     4GB |  92.09GBps |  47.53GBps |
-|     8GB |  91.80GBps |  47.38GBps |
-|    16GB |  91.69GBps |  47.32GBps |
+|   32KiB |   0.92GBps |   0.48GBps |
+|   64KiB |   1.61GBps |   0.83GBps |
+|  128KiB |   3.05GBps |   1.58GBps |
+|  256KiB |   5.18GBps |   2.67GBps |
+|  512KiB |   9.17GBps |   4.73GBps |
+|    1MiB |  17.13GBps |   8.84GBps |
+|    2MiB |  23.79GBps |  12.28GBps |
+|    4MiB |  40.30GBps |  20.80GBps |
+|    8MiB |  68.62GBps |  35.42GBps |
+|   16MiB |  93.93GBps |  48.48GBps |
+|   32MiB |  98.34GBps |  50.76GBps |
+|   64MiB |  84.90GBps |  43.82GBps |
+|  128MiB |  88.23GBps |  45.54GBps |
+|  256MiB |  91.01GBps |  46.97GBps |
+|  512MiB |  92.95GBps |  47.98GBps |
+|    1GiB |  94.15GBps |  48.59GBps |
+|    2GiB |  92.66GBps |  47.83GBps |
+|    4GiB |  92.09GBps |  47.53GBps |
+|    8GiB |  91.80GBps |  47.38GBps |
+|   16GiB |  91.69GBps |  47.32GBps |
 ```
 
 And it also creates a plot:

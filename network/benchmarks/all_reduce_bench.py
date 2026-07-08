@@ -21,7 +21,7 @@ Important notes:
 - similar to NVIDIA/nccl-tests this benchmark measures a unidirectional bandwidth - so compare the
   outcome against the advertised unidirectional peak throughput and not bi-directional (duplex)
 
-- currently this benchmark scans a payload range of 32KB to 16GB.
+- currently this benchmark scans a payload range of 32KiB to 16GiB.
 
 - this benchmark automatically generates a plot of the results if you have `matplotlib` installed.
 
@@ -239,7 +239,7 @@ def run(local_rank):
 
         #lower_limit = 32
         #upper_limit = 32
-        # 2**15 to 2**34 => 32KB to 16GB
+        # 2**15 to 2**34 => 32KiB to 16GiB
         sizes = [2**x for x in range(lower_limit, upper_limit+1)]
     else:
         sizes = [int(args.payload_size_in_gib * 2**30)]
@@ -293,7 +293,7 @@ def run(local_rank):
     algbw = {}
     busbw = {}
     for size in sizes:
-        # clear prev-iteration memory for cards w/ ~24GB
+        # clear prev-iteration memory for cards w/ ~24GiB
         tensor = None
         gc.collect()
 

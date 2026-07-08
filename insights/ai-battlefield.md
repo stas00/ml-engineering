@@ -429,7 +429,7 @@ Here is the breakdown:
 
 - 1.25 is 25% for activations (very very approximate)
 
-For example: Let's take an 80B param model and 80GB GPUs and calculate how many of them we will need for:
+For example: Let's take an 80B param model and 80GiB GPUs and calculate how many of them we will need for:
 
 - Training: at least 23 GPUs `80*18*1.25/80`
 - Inference: at least 3 GPUs `80*2*1.25/80`

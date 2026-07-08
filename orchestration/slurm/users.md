@@ -870,7 +870,7 @@ The script uses `printflock` to solve the interleaved print outputs issue.
 ### GPU Memory Check
 
 
-This tests if each GPU on the allocated nodes can successfully allocate 77Gb (e.g. to test 80GB A100s) (have to subtract a few GBs for cuda kernels).
+This tests if each GPU on the allocated nodes can successfully allocate 77GiB (e.g. to test 80GB A100s) (have to subtract a few GiBs for cuda kernels).
 
 
 ```python

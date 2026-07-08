@@ -84,7 +84,7 @@ worker-1: tensor([1., 1., 1.,  ..., 1., 1., 1.], device='cuda:0')
 worker-0: tensor([1., 1., 1.,  ..., 1., 1., 1.], device='cuda:0')
 ```
 
-If the ssh set up works you can run `nvidia-smi` in parallel and observe that both GPUs allocated ~4GB of memory from `torch.ones` call.
+If the ssh set up works you can run `nvidia-smi` in parallel and observe that both GPUs allocated ~4GiB of memory from `torch.ones` call.
 
 Note that the script hacks in `CUDA_VISIBLE_DEVICES` to tell the 2nd process to use gpu1, but it'll be seen as `local_rank==0` in both cases.
 

@@ -293,7 +293,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     # this will be used to write to the accelerator between each benchmark iteration to emulate cache reset.
     # On AMD this will really be an l3/LLC cache - later need to figure out how to get the maximum cache
-    # size automatically, according to this table 256MB is the highest value so far across all
+    # size automatically, according to this table 256MiB is the highest value so far across all
     # recent accelerators:
     # https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#caches
     l2_cache_size_in_mbs = 256

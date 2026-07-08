@@ -295,7 +295,7 @@ very_small_model.half() # convert to fp16
 #very_small_model.bfloat16() # convert to bf16
 very_small_model.save_pretrained(mname_very_small)
 ```
-this takes us to 64M file.
+this takes us to 64MB file.
 
 So you could stop here and your program will start much much faster already.
 
