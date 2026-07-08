@@ -21,7 +21,7 @@ Which means that if in the past your SLURM script could have been:
 srun myprogram
 ```
 
-and the program launched by `srun` would have received 48 cpu-cores because `srun` used to inherit the `--cpus-per-task=48` settings from `sbatch` or `salloc` settings, according to the quoted documentation since SLURM 22.05 this behavior is no longer true.
+and the program launched by `srun` would have received 48 cpu-cores because `srun` used to inherit the `--cpus-per-task=48` settings from `sbatch` or `salloc` settings, according to the quoted documentation this behavior changed somewhere in the SLURM 22.05 series and is definitely no longer true as of the 23.x series.
 
 footnote: I tested with SLURM@22.05.09 and the old behavior was still true, but this is definitely the case with 23.x series. So the change might have happened in the later 22.05 series.
 

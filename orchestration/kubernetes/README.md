@@ -29,3 +29,4 @@ To check the actual setting from within the running node, do:
 ```bash
 $ cat /sys/fs/cgroup/memory.oom.group
 ```
+A value of `0` means the fix is in effect and only the offending process will be killed on a CPU OOM event; a value of `1` is the problematic default that kills the whole job's process group.

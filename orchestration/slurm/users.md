@@ -69,7 +69,7 @@ Sometimes the relative begin time is useful. And other formats can be used. Exam
 --begin=2010-01-20T12:34:00
 ```
 
-the time-units can be `seconds` (default), `minutes`, `hours`, `days`, or `weeks`:
+the time-units can be `seconds` (default), `minutes`, `hours`, `days`, or `weeks`.
 
 ## Preallocated node without time 60min limit
 
@@ -93,7 +93,7 @@ if this `srun` job timed out or manually exited, you can re-start it again in th
 
 `srun` can, of course, call the real training command directly and not just `bash`.
 
-Important: when allocating a single node, the allocated shell is not on the node (it never is). You have to find out the hostname of the node (reports when giving the allocation or via `squeue` and `ssh` to it.
+Important: when allocating a single node, the allocated shell is not on the node (it never is). You have to find out the hostname of the node (reported when the allocation is granted, or via `squeue`) and then `ssh` to it.
 
 When finished, to release the resources, either exit the shell started in `salloc` or `scancel JOBID`.
 
@@ -338,6 +338,8 @@ NODES(A/I/O/T) "allocated/idle/other/total".
 ```
 So here 597 out of 612 nodes are allocated. 0 idle and 15 are not available for whatever other reasons.
 
+To check a specific partition:
+
 ```bash
 sinfo -p gpu_p1 -o "%A"
 ```
@@ -349,14 +351,6 @@ NODES(A/I)
 ```
 
 so you can see if any nodes are available on the 4x v100-32g partition (`gpu_p1`)
-
-To check a specific partition:
-
-```bash
-sinfo -p gpu_p1 -o "%A"
-```
-
-See the table at the top of this document for which partition is which.
 
 
 ### sinfo states
@@ -412,8 +406,7 @@ or just `-R` if you want it short:
 
 ## Job arrays
 
-
-To run a sequence of jobs, so that the next slurm job is scheduled as soon as the currently running one is over in 20h we use a job array.
+To run a sequence of jobs, so that the next slurm job is scheduled as soon as the currently running one finishes, we use a job array.
 
 Let's start with just 10 such jobs:
 
@@ -494,8 +487,8 @@ The idea is this:
 
 1. `sbatch` a long job array, e.g., `-array=1-50%1`
 2. inside the slurm script don't have any code other than `source another-script.slurm` - so now you can modify the target script or symlink to another script before the next job starts
-3. if you need to stop the job array train - don't cancel it, but suspend it without losing your place in a queue
-4. when ready to continue - unsuspend the job array - only the time while it was suspended is not counted towards its age, but all the previous age is retained.
+3. if you need to stop the job array train - don't cancel it, but put it on hold without losing your place in a queue
+4. when ready to continue - release the job array - only the time while it was on hold is not counted towards its age, but all the previous age is retained.
 
 The number of nodes, time and hardware and partition of a running job cannot be modified, but you can change pending jobs in the job array by `scontrol update jobid=<desired_job_id> numnodes=<new number> partition=<new partition>`.
 
@@ -528,7 +521,7 @@ Now you can easily edit `tr8-104B-64.slurm` before the next job run and either l
 
 The nice thing is that this requires no changes to the original script (`tr8-104B-64.slurm` in this example), and the latter can still be started on its own.
 
-Now, what if something is wrong and you need 10min or 10h to fix something. In this case we suspend the train using:
+Now, what if something is wrong and you need 10min or 10h to fix something. In this case we put the train on hold using:
 
 ```bash
 scontrol hold <jobid>
@@ -593,7 +586,7 @@ salloc: Nodes my-node-1 are ready for job
 
 In console B:
 ```bash
-$ srun --overlap --pty --jobid 101 bash
+$ srun --overlap --pty --jobid 1916 bash
 ```
 and the above can be repeated in as many consoles as wanted.
 
@@ -997,7 +990,7 @@ The launched program will see all the environment variables visible in the shell
 
 One of the most important Unix tools is the crontab, which is essential for being able to schedule various jobs. It however usually is absent from SLURM environment. Therefore one must emulate it. Here is how.
 
-For this presentation we are going to use `$WORK/cron/` as the base directory. And that you have an exported environment variable `WORK` pointing to some location on your filesystem - if you use Bash you can set it up in your `~/.bash_profile` or if a different shell is used use whatever startup equivalent file is.
+For this presentation we are going to use `$WORK/cron/` as the base directory, assuming you have an exported environment variable `WORK` pointing to some location on your filesystem - if you use Bash you can set it up in your `~/.bash_profile` or if a different shell is used use whatever startup equivalent file is.
 
 
 ### 1. A self-perpetuating scheduler job
