@@ -156,7 +156,7 @@ Memory usage-wise, unless there is a memory leak, after the first layer finished
 
 You can apply a similar hack to other components that also have stacks of identical code-wise blocks. For example, you could reduce the number of attention heads and then the attention mechanism will run much faster (but of course producing garbage, which is fine most of the time when we focus on functional debugging) or skipping most attention blocks completely.
 
-When I was debugging 15M sequence length training using [ALST](https://arxiv.org/abs/2506.13996) - I would only run self-attention in the first layer and then skip it in the rest of the layers - this reduced my testing time from hours to minutes, since very long sequence length using full self-attention has an O(2) quadratic nature with regards to sequence length it attends to.
+When I was debugging 15M sequence length training using [ALST](https://arxiv.org/abs/2506.13996) - I would only run self-attention in the last layer and then skip it in the previous layers - this reduced my testing time from hours to minutes, since very long sequence length using full self-attention has an O(2) quadratic nature with regards to sequence length it attends to.
 
 Let's say we run only attention in the last layer:
 
@@ -912,7 +912,7 @@ $ python -c 'import torch; [(torch.ones((1024*2**18)), print(c)) for c in range(
 475
 Killed
 ```
-Since there is only 496GiB of LPDDR5 and some 20GiB are used by system processes we can now clearly see that CPU wasn't allowed to reach into GPU memory (I wasn't using GPU while running this test - its memory was fully available.) If you remember originally since one-liner reported process cpu-oomed at 750GiB.
+Since there is only 496GiB of LPDDR5 and some 20GiB are used by system processes we can now clearly see that CPU wasn't allowed to reach into GPU memory (I wasn't using GPU while running this test - its memory was fully available.) If you remember, originally the one-liner reported the process being CPU-OOMed at ~750GiB.
 
 In the case of DGX Spark where it's only 120GiB of LPDDR5 memory, shared between CPU and GPU and 0 HBM memory, ideally the developer should be able to assign how much of the memory should go to GPU and to CPU - e.g. 80 and 40 correspondingly - that way the developer can reliably plan their workload and avoid programs crashing. I communicated this need to the NVIDIA team, let's see if they will come back with a solution to us.
 
@@ -1092,7 +1092,7 @@ When I want to debug just GPU memory I often remove the cpu memory reports altog
 
 One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
 
-Next we delete our second tensor on CUDA:
+Next we delete the remaining tensor on CUDA (`t1`):
 
 ```
 [0] mp: after copy to cpu
@@ -1106,8 +1106,6 @@ and we see that `MA` has gone to 0, which is what we would expect, CUDA no longe
 Finally we free the tensor on cpu:
 
 ```
-[0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
 [0] mp: after freeing on gpu
 [0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
 [0] mp: after freeing on cpu
@@ -1320,7 +1318,7 @@ As of this writing most Unix systems have moved to cgroups v2, but it's possible
 
 request: I'm yet to figure out how to make it work on a k8s pod, probably has something to do with the container not being configured properly to allow custom cgroups groups. If you know what needs to be done please share the solution.
 
-#####
+
 
 ## Debugging Tensors
 
@@ -1353,7 +1351,7 @@ tensor([[0.5171, 0.5535, 0.4281,  ..., 0.3363, 0.4250, 0.4631],
         [0.3372, 0.4856, 0.9879,  ..., 0.8719, 0.7916, 0.1137]])
 ```
 
-Sometimes the default 4 decimal places isn't enough, so we can ask for 6 with `precision=6`:
+I often find that when the tensor values are wildly different, forcing the scientific format helps with comparing 2 tensors:
 
 ```bash
 $ python -c "import torch; t = torch.rand(100,100); torch.set_printoptions(sci_mode=True); print(t)"
@@ -1366,7 +1364,7 @@ tensor([[5.7340e-01, 6.1205e-02, 5.5568e-01,  ..., 9.7872e-01, 6.3079e-01, 1.495
         [2.9861e-01, 8.4406e-01, 6.4992e-01,  ..., 2.2556e-01, 7.4448e-01, 1.7672e-01]])
 ```
 
-I often find that when the tensor values are wildly different, forcing the scientific format helps with comparing 2 tensors:
+Sometimes the default 4 decimal places isn't enough, so we can ask for 6 with `precision=6`:
 
 ```bash
 $ python -c "import torch; t = torch.rand(100,100); torch.set_printoptions(precision=6); print(t)"
@@ -1647,7 +1645,7 @@ large activations is going to lead to a numerical overflow condition.
 At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
 
 Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting
-for. If we look just at this frame:
+for. For example, consider this frame:
 
 ```
                   encoder.block.2.layer.1.layer_norm T5LayerNorm
@@ -1656,8 +1654,8 @@ for. If we look just at this frame:
 1.79e-06 4.65e+00 output
 ```
 
-Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm for the first layer, of the second
-block of the encoder. And the specific calls of the `forward` is `T5LayerNorm`.
+Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the
+encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
 
 Let's look at the last few frames of that report:
 
@@ -1688,7 +1686,7 @@ abs min  abs max  metadata
 
 The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the
 only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see
-that it happened during the first layer, of the 2nd block, during the very first batch. Finally, the absolute largest
+that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest
 input elements was `6.27e+04` and same for the output was `inf`.
 
 You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was
@@ -1832,7 +1830,7 @@ abs min  abs max  metadata
 ```
 
 Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may
-not what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if
+not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if
 a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where
 numbers started to diverge.
 
@@ -2077,7 +2075,7 @@ I edited the output to break the one liner into multiples to fit the width here.
 
 We don't yet have a way for Python to tell us the name of the variable that was passed to the function, hence we need to pass the variable name as a string. In Python 3.14 there is a way to overcome this:
 
-(XXX: what is the way? https://peps.python.org/pep-0750/)
+(XXX: expand on https://peps.python.org/pep-0750/)
 
 Sometimes having too much data dumped can make the debugging process slower, so it's up to you how many/which attributes you want to dump while debugging.
 

@@ -53,7 +53,7 @@ Integer formats used in quantization:
 
 Originally ML was using fp32, but it was very slow.
 
-Next [mixed-precision was invented using a combination of fp16 and fp32](https://developer.nvidia.com/blog/video-mixed-precision-techniques-tensor-cores-deep-learning/) was invented which tremendously sped up the training speed.
+Next [mixed-precision](https://developer.nvidia.com/blog/video-mixed-precision-techniques-tensor-cores-deep-learning/) was invented using a combination of fp16 and fp32, which tremendously sped up the training speed.
 
 ![fp32/fp16 mixed precision](images/mixed-precision-fp16.png)
 

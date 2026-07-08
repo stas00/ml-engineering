@@ -60,7 +60,7 @@ Retrieval Augmented Generation (RAG) is one of the main techniques for grounding
 
 Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
 
-Grounding can be thought of providing a context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
+Grounding can be thought of as providing context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
 
 In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
 
@@ -96,7 +96,7 @@ This is the naive straightforward batching where the first N queries are batched
 
 Continuous Batching or In-flight batching is a process where the generation engine removes completed results as soon as they are done and replacing them with new queries, without waiting for the whole batch to complete. So that a sequence in position 0 in the batch could be generating its 10th token, while a sequence in position 1 in the batch could be just starting its first token generation, and position 3 is producing its last token.
 
-This improves the response time, since there is no need for a sequence that already finished not to be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
+This improves the response time, since a sequence that already finished can be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
 
 
 
@@ -170,7 +170,7 @@ For more on decoding methods, see this [HuggingFace blog](https://huggingface.co
 
 ### Guided Text Generation
 
-Also known as Structured Text Generation and Assisted generation.
+Also known as Structured Text Generation.
 
 If the model can return its generated output in a specific format, rather than unrestricted format, you don't want the model to hallucinate invalid formats. For example, if you want a model to return a JSON dict, it should do just that.
 
@@ -218,7 +218,7 @@ It's possible to use the schema to speed up inference as well. For example, cons
 }
 ```
 
-Since the schema has specific keys `name` and `age`, as soon as the model has predicted: `{"n` or `{"a` it doesn't need to perform an auto-regressive generation to come up with ``{"name": ` and `{"age": ` because both of these must lead to a specific unambiguous single outcome - so here it can perform a prefill instead of decoding and save a few slow steps at it knows 100% the next few tokens will be `ame": ` or `ge":` correspondingly. Clearly, this approach would be most beneficial when the schema has a lot of pre-determined keys and short generated values.
+Since the schema has specific keys `name` and `age`, as soon as the model has predicted: `{"n` or `{"a` it doesn't need to perform an auto-regressive generation to come up with ``{"name": ` and `{"age": ` because both of these must lead to a specific unambiguous single outcome - so here it can perform a prefill instead of decoding and save a few slow steps as it knows 100% the next few tokens will be `ame": ` or `ge":` correspondingly. Clearly, this approach would be most beneficial when the schema has a lot of pre-determined keys and short generated values.
 
 
 
@@ -230,7 +230,7 @@ Since the schema has specific keys `name` and `age`, as soon as the model has pr
 
 Also known as Speculative inference or Assisted generation.
 
-Because it's very slow to generate tokens one a time, sometimes it is possible to cheat and speed things up by using a much smaller and faster draft model. So for example, your normal inference uses Llama-70B which would be quite slow, but we could use Llama-7b as a draft model and then we could verify if the prediction is correct but doing it at once for all tokens.
+Because it's very slow to generate tokens one a time, sometimes it is possible to cheat and speed things up by using a much smaller and faster draft model. So for example, your normal inference uses Llama-70B which would be quite slow, but we could use Llama-7b as a draft model and then we could verify the prediction is correct by doing it at once for all tokens.
 
 Example: let's take a prompt `I'm turnin', turnin', turnin', turnin', turnin' around and all that I can see is just` and now:
 
@@ -267,7 +267,7 @@ The draft model ideally should be trained on the same data (or least data from a
 
 Speculative decoding gives the highest return on [input-grounded tasks](#input-grounded-tasks), such as translation, summarization, document QA, multi-turn chat because in those tasks the range of possible outputs is much smaller and the draft model is much more likely to match the big model.
 
-For the same reason it works best in when used in [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
+For the same reason it works best when used with [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
 
 Here is a good indepth dive into this subject: [Assisted Generation: a new direction toward low-latency text generation](https://huggingface.co/blog/assisted-generation).
 
@@ -375,7 +375,7 @@ This is a non-trivial metric since depending on the prompt size the time will va
 
 Time Per Output Token (TPOT) is a per user metric. It measures how long does it take for a new token to be generated for a given user.
 
-A relatively low Time Per Output Token (TPOT) is desired, but it doesn't have to be too high. This time ideally should be close to the reading speed of the human who sent the request. So for example if you serve first graders the TPOT can be quite low, but the more educated the person is the faster TPOT should be to achieve a smooth reading experience.
+A relatively low Time Per Output Token (TPOT) is desired, but it doesn't have to be too low. This time ideally should be close to the reading speed of the human who sent the request. So for example if you serve first graders the TPOT can be relatively high, but the more educated the person is the lower the TPOT should be to achieve a smooth reading experience.
 
 According to wiki there are [3 types of reading](https://en.wikipedia.org/wiki/Speed_reading#Types_of_reading) and the reading speed is measured in words per minute (WPM).
 
@@ -581,7 +581,7 @@ A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
 
 A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
 
-The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from this diagram:
+The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from the MHA/GQA/MQA/MLA diagram further below.
 
 In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
 
@@ -664,9 +664,11 @@ Most inference framework obviously support NVIDIA CUDA. Some support AMD ROCm an
 
 But there are accelerator-specific frameworks:
 
-### Intel Gaudi, MAX, etc.
+- [Intel Gaudi](https://github.com/intel/intel-extension-for-transformers)
+- MAX
+- ...
 
--  https://github.com/intel/intel-extension-for-transformers
+XXX: this needs completion
 
 
 

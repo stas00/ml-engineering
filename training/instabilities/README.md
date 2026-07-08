@@ -64,6 +64,8 @@ n * (A dot B) === (sqrt(n) * A) dot (sqrt(n) * B)
 
 Now A and B dimensions can be significantly larger.
 
+The same post-multiply scaling problem also exists one level down, in the CUDA matmul APIs themselves.
+
 For CUDA kernel writers [CuBlas](https://docs.nvidia.com/cuda/cublas/index.html)'s `GemmStridedBatchedEx` at the time of this writing has a similar issue. It is defined as:
 
 ```

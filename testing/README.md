@@ -186,7 +186,7 @@ pytest --cache-clear tests
 
 ### Running tests in parallel
 
-As mentioned earlier `make test` runs tests in parallel via `pytest-xdist` plugin (`-n X` argument, e.g. `-n 2` to run 2 parallel jobs).
+If your project defines a `make test` target, it typically runs tests in parallel via the `pytest-xdist` plugin (`-n X` argument, e.g. `-n 2` to run 2 parallel jobs).
 
 `pytest-xdist`'s `--dist=` option allows one to control how the tests are grouped. `--dist=loadfile` puts the tests located in one file onto the same process.
 

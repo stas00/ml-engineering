@@ -247,8 +247,7 @@ The choice of the schedule is critical to the efficient performance, with the mo
 - interleaved 1F1B [Pipedream: Fast and efficient pipeline parallel dnn training](https://arxiv.org/abs/1806.03377)
 - looped, depth-first [Efficient large-scale language model training on gpu clusters using Megatron-LM](https://arxiv.org/abs/2104.04473)
 - breadth-first [Breadth-First Pipeline Parallelism](https://arxiv.org/abs/2211.05953)
-- Llama 3 training used a combination of depth and breadth first for best performance and also allowed them to progressively modify the global batch size as the training progressed, which is typically very difficult to accomplish with PP. See [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783) section 3.3.2
- Parallelism for Model Scaling.
+- Llama 3 training used a combination of depth and breadth first for best performance and also allowed them to progressively modify the global batch size as the training progressed, which is typically very difficult to accomplish with PP. See [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783) section 3.3.2 Parallelism for Model Scaling.
 
 Here is for example an interleaved pipeline:
 
@@ -467,7 +466,8 @@ Example: Let's consider seqlen=8K, num_heads=128 and a single node of num_gpus=8
 2. each GPU gets assigned 16 sub-heads (`128/8`)
 3. a. on gpu0 before `forward` the original sequence is gathered back into 8K tokens
    b. the attention computation is done on the first 16 sub-heads
-the same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
+
+The same logic is performed on the remaining 7 GPUs, each computing 8k attention over its 16 sub-heads
 
 You can read the specifics of the very efficient comms [here](https://github.com/deepspeedai/DeepSpeed/tree/master/blogs/deepspeed-ulysses#significant-communication-volume-reduction).
 
@@ -624,7 +624,7 @@ Values used for IDEFICS-80B training:
 - `global_batch_size` = `3584`
 - `seqlen` = `1024`
 - `inter-node-throughput_in_GBps` = 42.5 (340Gbps) (AWS EFA v1)
--`tflops_wo_comms` is the tflops w/o the communication overhead. Not theoretical peak as that is unachievable, but perhaps 75% in the case of A100@BF16 - so `312*0.75=234` TFLOPS
+-`tflops_wo_comms` is the tflops w/o the communication overhead. Not theoretical peak as that is unachievable, but perhaps ~80% in the case of A100@BF16 - so `312*0.8=~250` TFLOPS (rounded up).
 
 We derived 340Gbps inter-node network throughput using [all_reduce_bench.py](../../network/benchmarks/all_reduce_bench.py) which by default uses a payload of 4GiB. In the case of IDEFICS-80B we had 80 layers, so approximately each layer was 1B params large. Which means that each layer was sending 2GB of data for bf16 tensors and 4GB of data with fp32 tensors, which matches the network benchmark. If you were to have a much smaller layer size, I'd recommend adapting the benchmark to that size. For example, if your layer size was only 100M param large, then your payload would be 0.2GB for bf16 tensors. As this is an order of magnitude smaller, the network is likely to give you a lower bandwidth, and you should use that in your calculations.
 
@@ -635,7 +635,7 @@ Which gives us:
 - comms = `3 * 2 * 80 / 42.5` = 11 sec
 - compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 250)` = 18 sec
 
-If we check against our IDEFICS-80B logs, which had each iteration at about 49 seconds.
+If we check against our IDEFICS-80B logs, we see that each iteration took about 49 seconds.
 
 So the good news is that the math checks out as comms + compute are in the ballpark of the measured time.
 
@@ -665,7 +665,7 @@ If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
 
 - comms = `3 * 2 * 80 / 212` = 2 sec
 
-which would be insignificant comparatively to the compute time, especially if some of it is successfully overlapped with the commute.
+which would be insignificant comparatively to the compute time, especially if some of it is successfully overlapped with the compute.
 
 Also the DeepSpeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
@@ -702,7 +702,7 @@ Here is a very rough outline at which parallelism strategy to use when. The firs
 
 * Largest Layer not fitting into a single GPU:
 
-1. ZeRO - Enable [Memory Centric Tiling](https://deepspeed.readthedocs.io/en/latest/zero3.html#memory-centric-tiling) (MCT). It allows you to run arbitrarily large layers by automatically splitting them and executing them sequentially. MCT reduces the number of parameters that are live on a GPU, but it does not affect the activation memory. As this need is very rare as of this writing a manual override of `torch.nn.Linear` needs to be done by the user.
+    1. ZeRO - Enable [Memory Centric Tiling](https://deepspeed.readthedocs.io/en/latest/zero3.html#memory-centric-tiling) (MCT). It allows you to run arbitrarily large layers by automatically splitting them and executing them sequentially. MCT reduces the number of parameters that are live on a GPU, but it does not affect the activation memory. As this need is very rare as of this writing a manual override of `torch.nn.Linear` needs to be done by the user.
 
 **⇨ Single Node / Multi-GPU**
 

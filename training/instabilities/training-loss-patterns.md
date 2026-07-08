@@ -152,7 +152,7 @@ I rolled back to just before the weird behavior occurred and restarted. The loss
 
 I have never seen this type of divergence before. I was scratching my head for a while and then decided to look at the bigger picture.
 
-As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plotting correctly if a rollback was performed, that is it ignores all new data after the rollback until the steps of the old data have been overcome. This forces us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you needs to see the whole plot you have to stitch them and which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
+As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plotting correctly if a rollback was performed, that is it ignores all new data after the rollback until the steps of the old data have been overcome. This forces us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you need to see the whole plot you have to stitch them together, which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
 
 ![](images/ptl-repeat-data-p3.png)
 

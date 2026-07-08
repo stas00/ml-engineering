@@ -134,7 +134,7 @@ MFU = Estimated_Achieved_FLOPS / Theoretical_FLOPS
 HFU = Actual_Achieved_FLOPS / Theoretical_FLOPS
 ```
 
-HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and thus less accurate.
+HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and is thus less accurate.
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
@@ -145,7 +145,7 @@ Now, say, you measured your actual training loop's performance and it was 400 TF
 HFU = 400/989 = 40%
 ```
 
-If you didn't use activation recomputation feature (not repeating `forward`) your HFU and MFU would be the same. If you did use it, your calculation will lead to less FLOS and thus lower FLOPS and thus MFU will be lower than HFU.
+If you didn't use activation recomputation feature (not repeating `forward`) your HFU and MFU would be the same. If you did use it, MFU will be lower than HFU, because MFU counts only the theoretical `forward`/`backward` FLOPs while HFU also counts the extra recomputation FLOPs.
 
 For example [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) published the following stats for A100-80GB:
 
@@ -538,11 +538,9 @@ Enabling gradient checkpointing allows one to trade training throughput for acce
 
 This, of course, can vary from model to model, but typically one pays with about 20-25% decrease in throughput, but since a huge amount of gpu memory is liberated, one can now increase the batch size per gpu and thus overall improve the effective throughput of the system. In some cases this allows you to double or quadruple the batch size if you were already able to do a small batch size w/o OOM. (Recent papers report as high as 30-40% additional overhead.)
 
-Activation checkpointing and gradient checkpointing are 2 terms for the same methodology.
-
 For example, in HF Transformers models you do `model.gradient_checkpointing_enable()` to activate it in your custom Trainer or if you use the HF Trainer then you'd activate it with `--gradient_checkpointing 1`.
 
-XXX: expand on new tech from the paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) which found a way to avoid most activation recomputations and thus save both memory and compute.
+Also  check out this the paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) which describes a way to avoid most activation recomputations and thus save both memory and compute.
 
 ### Memory-efficient optimizers
 
@@ -727,7 +725,7 @@ GPU5    NV18    NV18    NV18    NV18    NV18     X      NV18    NV18    52-103,1
 GPU6    NV18    NV18    NV18    NV18    NV18    NV18     X      NV18    52-103,156-207  1
 GPU7    NV18    NV18    NV18    NV18    NV18    NV18    NV18     X      52-103,156-207  1
 ```
-On this H100 cluster you can see the `CPU Affinity` column which tells you which cores reside together with the first and the second group of GPUs, and the `NUMA Affinity` column.
+On this 8-gpu node you can see the `CPU Affinity` column which tells you which cores reside together with the first and the second group of GPUs, and the `NUMA Affinity` column.
 
 Now that it's clear that the various compute components are placed in 2 or more groups, to achieve the best performance we need to ensure that the components communicate within the group they belong to, and avoid any cross-talk. For example, if gpu0 belong to NUMA node 0, then the process that drives this GPU should only use cpu-cores from NUMA node 0.
 
@@ -802,7 +800,7 @@ So now we just need to figure out how to programmatically get the right cpu sets
 
 #### pynvml
 
-If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use for it to tell us the correct affinity given a GPU index.
+If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use for it to tell us the correct CPU affinity given a GPU index.
 
 In [numa-set-pynvml.py](benchmarks/numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
 ```

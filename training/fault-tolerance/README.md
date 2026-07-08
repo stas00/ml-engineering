@@ -136,7 +136,7 @@ Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with 
 
 Of course, on a large scale training you're likely to have a hundred active nodes and a small handful of back up node.
 
-This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing this will hundreds of iterations lost.
+This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing you may lose hundreds of iterations.
 
 I'm not aware of any open source implementations of this advanced fault tolerance method, but we know some of the big companies use this approach internally.
 
@@ -459,7 +459,7 @@ Now that you understand how this machinery works, instead of immediate `exit(0)`
 
 ### Approach B.2. Choosing which process to send the signal to
 
-Now what if your main program isn't the one launched with `srun` - if you were to use an intermediate launcher like `torchrun` or `accelerate` the above recipe won't work, because most likely `SIGUSR1` won't be propagated from the launcher to its children. In this case we need a slightly more complicated slurm script than
+Now what if your main program isn't the one launched with `srun` - if you were to use an intermediate launcher like `torchrun` or `accelerate` the above recipe won't work, because most likely `SIGUSR1` won't be propagated from the launcher to its children. In this case we need a slightly more complicated slurm script than the one shown earlier.
 
 We have to replace:
 ```

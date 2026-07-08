@@ -25,8 +25,9 @@ def enforce_reproducibility(use_seed=None):
         torch.backends.cudnn.benchmark     = False
 
     return seed
-```
-a few possible others if you use those subsystems/frameworks instead:
+
+
+Here are a few other RNGs you may want to seed if you use those subsystems/frameworks instead:
 ```python
     torch.npu.manual_seed_all(seed)
     torch.xpu.manual_seed_all(seed)
@@ -98,7 +99,7 @@ Let's expend on each step in the recipe:
 
    If you use `uv` instead of `pip`, switch to `uv pip freeze` as it'd be much faster.
 
-4. If you use a devel install with `pip install -e .` it doesn't know anything about the git clone repository it was installed from other than its git SHA. But the issue is that it's likely that you have modified the files locally and now `pip freeze` will miss those changes. So this part will go through all packages that are not installed into the conda environment (we find them by looking inside `site-packages/*.dist-info/direct_url.json`)
+4. If you use a devel install with `pip install -e .` it doesn't know anything about the git clone repository it was installed from other than its git SHA. But the issue is that it's likely that you have modified the files locally and now `pip freeze` will miss those changes. So this part will go through all packages that are not installed into the conda environment (we find them by looking inside `site-packages/*.dist-info/direct_url.json`) and, for each one that has uncommitted changes, save its `git diff` to `$REPRO_DIR/<package>.diff`.
 
 To save the `apt` packages add:
 ```bash
