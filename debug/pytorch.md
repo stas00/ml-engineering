@@ -146,7 +146,7 @@ for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]
 
 When you load a pre-trained model while shortening its layers stack, you're going to see a flurry of warnings telling you that some weights have been ignored.
 
-Also I'm reminding that you will end up with a model which will allow you to perform functional checks and tune ups - memory usage and performance, etc. It will not produce garbage and if you measure the loss it'll be very high (though it shouldn't be `NaN`).
+Also I'm reminding that you will end up with a model which will allow you to perform functional checks and tune ups - memory usage and performance, etc. It will produce garbage and if you measure the loss it'll be very high (though it shouldn't be `NaN`).
 
 You can now measure performance with say 2 and 4 layers and tell how much overhead each layer takes from the difference and extrapolate this to what the full model will need.
 
@@ -504,7 +504,7 @@ Similar to models and tokenizers it helps to have a handy tiny version of a data
 
 footnote: the impact of using a tiny dataset won't be as massive as using a tiny model, if you're using already pre-indexed Arrow file datasets, since those are already extremely fast. But say you want the iterator to finish an epoch in 10 steps. Instead of editing your code to truncate the dataset, you could just use a tiny dataset instead.
 
-This process of making a tiny dataset is somewhat more difficult to explain because it'd depend on the builder of the original model, which can be quite different from each other, but perhaps you can correlate my recipes to your datasets.
+This process of making a tiny dataset is somewhat more difficult to explain because it'd depend on the builder of the original dataset, which can be quite different from each other, but perhaps you can correlate my recipes to your datasets.
 
 But the concept is still very simple:
 
@@ -1310,7 +1310,7 @@ Let's compare with `/usr/bin/time`:
 $ /usr/bin/time -f '%M' sh -c 'python -c "import torch" & wait'
 389748
 ```
-It's almost identical `389416` vs `389748` - as mentioned elsewhere Linux CPU memory reporting is a very fluid thing and you're very likely to get slightly different reporting running the same command.
+It's almost identical `389416` vs `389748` - Linux CPU memory reporting is a very fluid thing and you're very likely to get slightly different reporting running the same command.
 
 Note: Always recalibrate your tools before making comparisons. You will see different numbers in different sections of the book for the same commands since it's likely they were run at different times with different versions on different systems.
 
@@ -3394,7 +3394,7 @@ To make this change permanent edit `/etc/sysctl.conf` and add `kernel.core_patte
 footnote: see `man core` for all the different templates available
 
 If on Ubuntu by default it sends core files to `apport`, which may save the core to `/var/lib/apport/coredump` or
-`/var/crash`. But you can change it explained above.
+`/var/crash`. But you can change this as explained above.
 
 A quick way to test if your setup can generate a core file is:
 ```

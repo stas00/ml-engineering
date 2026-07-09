@@ -71,7 +71,7 @@ I must also say that it's almost never the problem of the engineers, very often 
 
 As a continuation of a previous section, a [Service Level Agreement](https://en.wikipedia.org/wiki/Service-level_agreement) (SLA) is an agreement between a service providers and a customer that define various guarantees and expectations with regards to service quality and availability, and various responsibilities.
 
-The other term is Service Level Objective (SLO) where SLA is quantified. For example, an SLO may define a Monthly Uptime Percentage to 99.5%, if the uptime is less than 99.5% the provider credits the customer to a certain percentage of the $$ spent. For example, 10% if the uptime is 99-99.5%, 25% for 95-99%, etc. Here a [GCP SLA](https://cloud.google.com/ai-platform/training-and-prediction/sla?hl=en).
+The other term is Service Level Objective (SLO) where SLA is quantified. For example, an SLO may define a Monthly Uptime Percentage to 99.5%, if the uptime is less than 99.5% the provider credits the customer to a certain percentage of the $$ spent. For example, 10% if the uptime is 99-99.5%, 25% for 95-99%, etc. Here is an example [GCP SLA](https://cloud.google.com/ai-platform/training-and-prediction/sla?hl=en).
 
 The main category one should care for when renting ML clusters is failing accelerators and/whole nodes. If you paid for 64 nodes but were able to use only 60 you should be reimbursed/credited for those nodes you couldn't use. Your SLA should define the duration of downtime after which the provider starts paying you back and how much.
 
@@ -152,7 +152,7 @@ Ideally this process needs to be automated. So you need to ask if there an API t
 
 How many accelerators do you have in the provider-side back up pool available to you? They will usually commit to a certain number of fast replacement per month.
 
-That's said if time is of an essence to your workflows, as most of the time you won't be able to get instant replacements you should always pay for about 10% more nodes than you need. The extra nodes can be used for development and if you have failing nodes during training you can instantly use your own extra nodes.
+That said, if time is of the essence to your workflows, you should always pay for about 10% more nodes than you need, since most of the time you won't be able to get instant replacements. The extra nodes can be used for development and if you have failing nodes during training you can instantly use your own extra nodes.
 
 
 ### Ensure all your nodes are on the same network spine
