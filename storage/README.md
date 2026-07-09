@@ -491,11 +491,10 @@ So now you have a plethora of examples to choose from and I trust you will find 
 
 ### other tools
 
--
-- [HPC IO Benchmark Repository](https://github.com/hpc/ior) (`mdtest` has been merged into `ior` in 2017)
-- [DLIO](https://github.com/argonne-lcf/dlio_benchmark)
+For a more rigorous, reproducible benchmark of a shared/parallel file system than the ad-hoc timings above, two tools are worth knowing:
 
-XXX: expand on how these are used when I get a chance to try those
+- [IOR](https://github.com/hpc/ior) - the standard HPC parallel-IO benchmark. It launches many processes via MPI that read/write concurrently, so it measures the *aggregate* sequential and random bandwidth a distributed file system can sustain under realistic parallel load, across multiple backends (POSIX, MPI-IO, HDF5, ...). The same repo also ships [mdtest](https://github.com/hpc/ior) (merged into `ior` in 2017), which instead benchmarks *metadata* performance - how many file/directory create/stat/remove operations per second the file system can handle. Metadata is frequently the real bottleneck for workloads with lots of small files, such as many small checkpoints or dataset shards.
+- [DLIO](https://github.com/argonne-lcf/dlio_benchmark) - a Deep-Learning I/O benchmark that emulates the data-loading pattern of ML training without needing any accelerator: it replaces the forward/backward compute with a `sleep` of equivalent duration and drives real data loaders (PyTorch `DataLoader`, `tf.data`) over synthetic datasets described via a YAML workload config. A run has three phases - generate synthetic data, run the benchmark, then post-process into a report. This makes it the closest proxy to "how will my storage behave during actual training", as opposed to the generic bandwidth/IOPS numbers IOR reports.
 
 
 
