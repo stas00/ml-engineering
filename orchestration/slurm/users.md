@@ -939,11 +939,13 @@ In another shell get the JOBID for the above `salloc`:
 ```bash
 squeue -u `whoami` -o "%.16i %9P %26j %.8T %.10M %.8l %.6D %.20S %R"
 ```
-adjust jobid per above and the nodes count (XXX: probably can remove `--nodes=40` altogether and rely on `salloc` config):
+adjust jobid per above and the nodes count:
 ```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'ps aux | grep python | egrep -v "grep|srun" | grep `whoami` | awk "{print \$2}" | xargs -I {} py-spy dump --native --pid {}' || echo "failed"
 ```
-now all `py-spy` traces go into the `trace-$nodename.out` files under `cwd`.
+though most likely `--nodes=40` is redundant since `salloc` already knows the number of nodes.
+
+Now all `py-spy` traces go into the `trace-$nodename.out` files under `cwd`.
 
 The key is to use `--gres=gpu:0` or otherwise the 2nd `srun` will block waiting for the first one to release the gpus.
 

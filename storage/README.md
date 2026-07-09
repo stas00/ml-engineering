@@ -363,7 +363,7 @@ In one of the environments we have noticed that our developers' productivity was
 
 So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
 
-note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but with beware that many shared file systems won't be able to match it.
+note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but beware that many shared file systems won't be able to match it.
 
 Step 1. Install conda onto the shared file system you want to test if it's not there already.
 

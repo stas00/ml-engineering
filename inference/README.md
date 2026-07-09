@@ -660,15 +660,20 @@ If your favourite inference framework isn't listed please make a PR and add it.
 
 ### Accelerator-specific frameworks
 
-Most inference framework obviously support NVIDIA CUDA. Some support AMD ROCm and Intel Gaudi.
+Most inference frameworks obviously support NVIDIA CUDA. Many also support AMD ROCm and Intel Gaudi - increasingly via vendor plugins to the mainstream frameworks (e.g. vLLM's hardware-plugin architecture) rather than as separate stacks.
 
-But there are accelerator-specific frameworks:
+The main accelerator-specific software stacks are:
 
-- [Intel Gaudi](https://github.com/intel/intel-extension-for-transformers)
-- MAX
-- ...
+- **Intel Gaudi (HPU)**: the [vllm-gaudi](https://github.com/vllm-project/vllm-gaudi) plugin (the older [HabanaAI/vllm-fork](https://github.com/HabanaAI/vllm-fork) is being retired), plus [Optimum for Intel Gaudi](https://github.com/huggingface/optimum-habana) for the HF `transformers`/`diffusers` ecosystem.
+- **AWS Trainium/Inferentia**: the [AWS Neuron SDK](https://github.com/aws-neuron/aws-neuron-sdk), which serves through standard vLLM APIs and [Optimum Neuron](https://github.com/huggingface/optimum-neuron).
+- **Google TPU**: [tpu-inference](https://github.com/vllm-project/tpu-inference) - the vLLM TPU plugin unifying JAX and PyTorch, and the successor to the now-archived [JetStream](https://github.com/google/JetStream); [MaxText](https://github.com/AI-Hypercomputer/maxtext) is the JAX-native alternative.
+- **Modular MAX**: [MAX](https://github.com/modular/modular) - a portable serving stack that also runs on CPUs and NVIDIA/AMD GPUs.
+- **Apple Silicon**: [MLX](https://github.com/ml-explore/mlx) / [mlx-lm](https://github.com/ml-explore/mlx-lm), plus llama.cpp's Metal backend.
+- **Tenstorrent**: [tt-metal](https://github.com/tenstorrent/tt-metal) and its vLLM integration.
 
-XXX: this needs completion
+Because accelerator support increasingly ships as a plugin to a mainstream framework, always check whether your framework of choice already supports your accelerator before reaching for a vendor-specific stack.
+
+Finally, some vendors expose inference only as a hosted service on their own hardware, rather than as an installable framework - e.g. [Cerebras Inference](https://www.cerebras.ai/inference), Groq (now part of NVIDIA) and [SambaNova](https://sambanova.ai/).
 
 
 

@@ -136,7 +136,7 @@ you can change to:
 ```python
 KEEP_N_LAYERS = 2
 for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
-    # XXX: shortcut for much faster completion
+    # note: shortcut for much faster completion
     if idx+1 > KEEP_N_LAYERS: continue
     hidden_states = decoder_layer(...)
 ```
@@ -2065,17 +2065,64 @@ data_ptr=483278528     # a unique data pointer in the memory
 I annotated each attribute in the output if you're not familiar with some of those attributes.
 
 If you do a lot of comparisons, a one liner format would be easier to work with - we just set `formatted=False` or remove it altogether as it's the default value:
-```
+```python
 print(get_tensor_metadata(x, "x"))
+```
+which prints:
+```
 x:, device=cpu, dtype=torch.float16, shape=torch.Size([2]), numel=2,
 requires_grad=False, grad=None, stride=(1,),
 is_contiguous=True, data_ptr=483278528
 ```
-I edited the output to break the one liner into multiples to fit the width here.
+note: I edited the output to break the long liner into multiple lines to fit the width here.
 
-We don't yet have a way for Python to tell us the name of the variable that was passed to the function, hence we need to pass the variable name as a string. In Python 3.14 there is a way to overcome this:
+Until recently Python couldn't tell us the name of the variable that was passed to a function, hence we need to pass the variable name as a string. Since Python 3.14 there is a way to overcome this, using [template strings (t-strings)](https://peps.python.org/pep-0750/). Unlike an f-string, which immediately evaluates to a `str` and throws away where its values came from, a t-string (written `t"..."`) evaluates to a `string.templatelib.Template` object that preserves both the *value* of each interpolation and the original *source text* of the expression that produced it. That source text is exactly the variable name we were missing:
 
-(XXX: expand on https://peps.python.org/pep-0750/)
+```python
+def dbg(template):
+    for item in template.interpolations:
+        print(f"{item.expression} = {item.value!r}")
+
+x = 5
+data = [1, 2, 3]
+
+dbg(t"{x}")
+dbg(t"{data}")
+dbg(t"{x + 1}")
+```
+which prints:
+```
+x = 5
+data = [1, 2, 3]
+x + 1 = 6
+```
+
+Each `Interpolation` carries `.expression` (the source text, e.g. `"x"`) and `.value` (the evaluated object), so a debug helper can report a variable's name automatically, without you having to pass it as a separate string, but you have to wrap it in `t{}`, so it's not automatic and you have to change all the callers.
+
+Applying this to our helper, here is a variant of `get_tensor_metadata` that drops the `tensor_name` argument and recovers the name straight from the t-string:
+
+```python
+def get_tensor_metadata_py314(template, formatted=False):
+    """ like get_tensor_metadata, but recovers the tensor name from a t-string
+
+        e.g. instead of `get_tensor_metadata(x, "x")` you now call `get_tensor_metadata_py314(t"{x}")`
+    """
+    interpolation = template.interpolations[0]
+    return get_tensor_metadata(interpolation.value, interpolation.expression, formatted=formatted)
+```
+
+Note that you do have to wrap the tensor in a t-string at the call site - passing it plainly as `get_tensor_metadata_py314(x)` would not work, because a normal argument arrives as just a value, with no record of the `x` expression that produced it. What the t-string buys you is not having to repeat the name as a separate string - `t"{x}"` carries both the value and the name `"x"`, which looks more like a hack but it does work.
+```python
+x = torch.ones(2, dtype=torch.float16)
+print(get_tensor_metadata_py314(t"{x}", formatted=True))
+```
+which prints:
+```
+x:
+device=cpu
+dtype=torch.float16
+[...] # output truncated for brevity
+```
 
 Sometimes having too much data dumped can make the debugging process slower, so it's up to you how many/which attributes you want to dump while debugging.
 

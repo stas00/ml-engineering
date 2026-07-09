@@ -800,7 +800,7 @@ So now we just need to figure out how to programmatically get the right cpu sets
 
 #### pynvml
 
-If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use for it to tell us the correct CPU affinity given a GPU index.
+If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use it to tell us the correct CPU affinity given a GPU index.
 
 In [numa-set-pynvml.py](benchmarks/numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
 ```
