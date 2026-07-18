@@ -20,19 +20,18 @@ This is meant to be read as a course: read the headlines to identify areas of in
 
 You can take it as a self-guided course, or teach it to others yourself!
 
-## Table of Contents
+## Chapters
 
-- [Lessons Learned from Training LLMs (a course)](#lessons-learned-from-training-llms-a-course)
-  - [Table of Contents](#table-of-contents)
-  - [Storage and File Systems](#storage-and-file-systems)
-  - [Network and Interconnects](#network-and-interconnects)
-  - [Training Performance and Throughput](#training-performance-and-throughput)
-  - [DataLoaders](#dataloaders)
-  - [Fault Tolerance and Reliability](#fault-tolerance-and-reliability)
-  - [Training Stability](#training-stability)
-  - [Compute, Accelerators and Memory](#compute-accelerators-and-memory)
-  - [Cloud Providers and Procurement](#cloud-providers-and-procurement)
-  - [Debugging Methodology](#debugging-methodology)
+<!-- no toc -->
+1. [Storage and File Systems](#storage-and-file-systems)
+2. [Network and Interconnects](#network-and-interconnects)
+3. [Training Performance and Throughput](#training-performance-and-throughput)
+4. [DataLoaders](#dataloaders)
+5. [Fault Tolerance and Reliability](#fault-tolerance-and-reliability)
+6. [Training Stability](#training-stability)
+7. [Compute, Accelerators and Memory](#compute-accelerators-and-memory)
+8. [Cloud Providers and Procurement](#cloud-providers-and-procurement)
+9. [Debugging Methodology](#debugging-methodology)
 
 ## Storage and File Systems
 
