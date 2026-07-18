@@ -57,4 +57,6 @@ resources/README.md
 
 contributors.md
 
+courses/lesson-learned/README.md
+
 build/README.md
