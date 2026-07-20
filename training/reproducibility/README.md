@@ -2,17 +2,31 @@
 
 ## Achieve determinism in randomness based software
 
-See also [Floating point math discrepancies on different devices](../../debug/pytorch.md#floating-point-math-discrepancies-on-different-devices) in the debugging chapter.
-
 When debugging always set a fixed seed for all the used Random Number Generators (RNG) so that you get the same data / code path on each re-run.
 
-Though with so many different systems it can be tricky to cover them all. Here is an attempt to cover a few:
+On GPU, seeding alone isn't enough for bitwise-reproducible results: cuDNN and cuBLAS are free to pick different (but individually valid) algorithms from run to run for the same op, so a truly deterministic re-run also requires forcing them to always pick the same, deterministic ones - that's what the `cudnn.benchmark`, `use_deterministic_algorithms()` and `CUBLAS_WORKSPACE_CONFIG` settings below take care of.
+
+There are many different systems involved, so it's tricky to cover them all - here is an attempt to cover the most common deterministic knobs:
 
 ```python
-import random, torch, numpy as np
+import os, random, torch, numpy as np
 def enforce_reproducibility(use_seed=None):
     seed = use_seed if use_seed is not None else random.randint(1, 1000000)
     print(f"Using seed: {seed}")
+
+    if use_seed: # slower speed! https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
+        # CUBLAS_WORKSPACE_CONFIG must be set before any CUDA context gets created, i.e. before
+        # the torch.cuda.* calls below - if CUDA is initialized earlier elsewhere it's too late,
+        # and silently so, hence the explicit assert instead of letting it fail quietly
+        if "CUBLAS_WORKSPACE_CONFIG" not in os.environ and torch.cuda.is_initialized():
+            raise RuntimeError(
+                "CUDA was already initialized before enforce_reproducibility() got to set "
+                "CUBLAS_WORKSPACE_CONFIG - move this call earlier, or export "
+                "CUBLAS_WORKSPACE_CONFIG=:4096:8 before the process starts"
+            )
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
 
     random.seed(seed)    # python RNG
     np.random.seed(seed) # numpy RNG
@@ -20,31 +34,63 @@ def enforce_reproducibility(use_seed=None):
     # pytorch RNGs
     torch.manual_seed(seed)          # cpu + cuda
     torch.cuda.manual_seed_all(seed) # multi-gpu - can be called without gpus
-    if use_seed: # slower speed! https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark     = False
 
     return seed
+```
 
+Notes:
 
-Here are a few other RNGs you may want to seed if you use those subsystems/frameworks instead:
+- Comment out whichever RNG seeding call you don't need - e.g. if you don't use `numpy` directly. However, some module you depend on might use it internally without your knowledge, so it's usually best to leave them all in and be safe.
+
+- `CUBLAS_WORKSPACE_CONFIG` plugs a gap `use_deterministic_algorithms(True)` doesn't close on its own: cuBLAS - the library behind `torch.mm`/`mv`/`bmm` and other `matmul`-based ops - can be non-deterministic on CUDA >= 10.2, because it dynamically picks internal workspace memory for routines running in parallel CUDA streams on the same handle, so results can differ from run to run even with the same seed. Without this env var set, `use_deterministic_algorithms(True)` will raise a `RuntimeError` the moment it hits a `matmul` op - that's your signal it needs to be set. It **must be set before the CUDA context is created**, i.e. before the first CUDA call; if set after CUDA has already been initialized elsewhere in the process, it's silently ignored, which is why it's set at the very top of `enforce_reproducibility()` above, ahead of the `torch.cuda.*` calls.
+
+  Since a silently-ignored env var is easy to miss, [`torch.cuda.is_initialized()`](https://docs.pytorch.org/docs/stable/generated/torch.cuda.is_initialized.html) is used above to `raise` instead, if `CUBLAS_WORKSPACE_CONFIG` isn't set yet and CUDA has already been lazily initialized by some earlier call (e.g. a `.cuda()` tensor, `torch.cuda.set_device()`, or another library touching CUDA first) by the time `enforce_reproducibility()` runs. Note that this only catches initialization that went through PyTorch's own lazy-init path - if some non-PyTorch library created a raw CUDA context first, `is_initialized()` won't know about it. Therefore, try to run `enforce_reproducibility()` as early as possible in your program.
+
+  NVIDIA's cuBLAS docs sanction exactly two values for deterministic behavior, and both involve a memory-vs-performance tradeoff - a smaller workspace leaves cuBLAS with fewer algorithm choices, which can limit performance, while a larger workspace gives it more room to pick a faster algorithm at the cost of extra GPU memory:
+  - `:16:8` - deterministic, minimal extra memory, but the smaller workspace may limit performance
+  - `:4096:8` - deterministic, costs ~24MiB of extra GPU memory, but leaves more performance headroom (the more commonly used of the two, and what's used above)
+
+  There's no third, cost-free option - determinism is structurally at odds with letting cuBLAS freely pick whichever algorithm/workspace layout is fastest across concurrent streams, so pinning it down always gives up some of that freedom. `:4096:8` tends to have the smaller performance penalty of the two (more workspace room means fewer algorithms get ruled out), but "smaller" isn't "zero" - the actual hit is workload- and `matmul`-shape-dependent, and can range from negligible to significant (some reports show throughput cut roughly in half on specific workloads).
+
+  The general format is `:[SIZE]:[COUNT]`, and you'll see it chained into multiple `SIZE:COUNT` pairs (e.g. the default, unset behavior is equivalent to `CUBLAS_WORKSPACE_CONFIG=:4096:2:16:8`). That chained form comes from cuBLAS's own internal workspace-pool config, where each pair originally described a distinct bucket size/count so the pool could efficiently serve both large and small workspace requests. PyTorch, however, just sums every `SIZE * COUNT` pair it finds into a single total byte count and hands that one fixed-size buffer to cuBLAS - so `:4096:2:16:8` simply means `2*4096 + 8*16` KiB in total, and chaining more pairs only changes *how many KiB you add up*, not the determinism behavior. In practice you don't need to chain anything yourself: pick one of NVIDIA's two blessed single-pair values above, or set `:0:0` to force cuBLAS to not use any workspace at all (not recommended - this is the most restrictive and slowest option).
+
+- `torch.use_deterministic_algorithms(True)` makes cuDNN convolutions deterministic and it additionally covers hundreds of other ops throughout PyTorch (`index_add_`, `scatter_`, interpolation, etc.). Instead of silently doing its best, it raises a `RuntimeError` the moment it hits an op with no deterministic implementation, so nondeterminism can't sneak in unnoticed.
+
+- `torch.backends.cudnn.benchmark = False` is a separate, complementary knob that stops cuDNN from timing several convolution algorithms on the first call with each new input shape and caching whichever was fastest. That benchmarking step is itself a source of run-to-run variation - which algorithm "wins" the timing race can depend on incidental system noise - independently of whether the algorithm it settles on is deterministic.
+
+> **PyTorch version note**: `torch.use_deterministic_algorithms()` requires **PyTorch >= 1.8**. On PyTorch < 1.8, fall back to the narrower `torch.backends.cudnn.deterministic = True`, which only makes cuDNN convolutions deterministic and leaves everything else (`matmul`s, `index_add_`, `scatter_`, etc.) untouched - `CUBLAS_WORKSPACE_CONFIG` is independent of the PyTorch version and still applies:
+> ```python
+> if use_seed:
+>     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+>     torch.backends.cudnn.benchmark     = False
+>     torch.backends.cudnn.deterministic = True # PyTorch < 1.8 fallback - cuDNN convolutions only
+> ```
+
+Resources:
+- [NVIDIA cuBLAS docs - Reproducibility](https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility) - the canonical explanation of cuBLAS non-determinism and the accepted `CUBLAS_WORKSPACE_CONFIG` values
+- [`torch.use_deterministic_algorithms`](https://docs.pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html) - the full list of affected ops and how `warn_only` works
+- [PyTorch CUDA environment variables reference](https://docs.pytorch.org/docs/stable/cuda_environment_variables.html) - the exact `:[SIZE]:[COUNT]` format spec for `CUBLAS_WORKSPACE_CONFIG`
+- [PyTorch Reproducibility notes](https://pytorch.org/docs/stable/notes/randomness.html) - ties this together with seeding, `cudnn.deterministic` and `cudnn.benchmark` for the full picture
+
+If your code also touches other accelerator backends or frameworks besides CPU/CUDA - e.g. NPU, XPU, or TensorFlow - seed their RNGs too:
 ```python
     torch.npu.manual_seed_all(seed)
     torch.xpu.manual_seed_all(seed)
     tf.random.set_seed(seed)
 ```
 
-When you rerun the same code again and again to solve some problem set a specific seed at the beginning of your code with:
+When you rerun the same code again and again to solve some problem, set a specific seed at the beginning of your code with:
 ```
 enforce_reproducibility(42)
 ```
-But as it mentions above this is for debug only since it activates various torch flags that help with determinism but can slow things down so you don't want this in production.
+
+As mentioned above, **this is for debug only**: it activates various `torch` flags that help with determinism, but can slow things down, so you don't want this in production.
 
 However, you can call this instead to use in production:
 ```
 enforce_reproducibility()
 ```
-i.e. w/o the explicit seed. And then it'll pick a random seed and log it! So if something happens in production you can now reproduce the same RNGs the issue was observed in. And no performance penalty this time, as the `torch.backends.cudnn` flags are only set if you provided the seed explicitly. Say it logged:
+i.e. w/o the explicit seed. And then it'll pick a random seed and log it! So if something happens in production, you can now reproduce the same RNG state the issue occurred under. And no performance penalty this time, as the determinism settings (`cudnn.benchmark` / `use_deterministic_algorithms` / `CUBLAS_WORKSPACE_CONFIG`) are only set if you provided the seed explicitly. Say it logged:
 ```
 Using seed: 1234
 ```
@@ -54,12 +100,9 @@ enforce_reproducibility(1234)
 ```
 and you will get the same RNGs setup.
 
-As mentioned in the first paragraphs there could be many other RNGs involved in a system, for example, if you want the data to be fed in the same order for a `DataLoader` you need [to have its seed set as well](https://pytorch.org/docs/stable/notes/randomness.html#dataloader).
+As mentioned earlier, there could be many other RNGs involved in a system - for example, if you want the data to be fed in the same order for a `DataLoader`, you need [to have its seed set as well](https://pytorch.org/docs/stable/notes/randomness.html#dataloader).
 
-Additional resources:
-- [Reproducibility in pytorch](https://pytorch.org/docs/stable/notes/randomness.html)
-
-
+See also [Floating point math discrepancies on different devices](../../debug/pytorch.md#floating-point-math-discrepancies-on-different-devices) in the debugging chapter.
 
 ## Reproduce the software and system environment
 
