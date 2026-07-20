@@ -14,7 +14,7 @@ def enforce_reproducibility(use_seed=None):
     seed = use_seed if use_seed is not None else random.randint(1, 1000000)
     print(f"Using seed: {seed}")
 
-    if use_seed: # slower speed! https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
+    if use_seed is not None: # slower speed! https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
         # CUBLAS_WORKSPACE_CONFIG must be set before any CUDA context gets created, i.e. before
         # the torch.cuda.* calls below - if CUDA is initialized earlier elsewhere it's too late,
         # and silently so, hence the explicit assert instead of letting it fail quietly
