@@ -1,4 +1,4 @@
-# When Is It Worth Upgrading GPUs? — H200 → B200 Worked Example
+# When Is It Worth Upgrading GPUs?
 
 A practical guide to deciding whether a GPU generation upgrade is worth its cost, using a real DeepSpeed training benchmark (meta-llama/Llama-3.1-8B, FlashAttention-3 on H200 vs FlashAttention-4 on B200) as the concrete worked example. The framework generalizes to any "should I upgrade from GPU X to GPU Y" decision building upon numbers from Hopper H200 → Blackwell B200.
 
@@ -89,7 +89,7 @@ Same config on both GPUs (ZeRO-3 + activation checkpointing + CPU-offload + Lige
 
 ![performance, speedup, and attention share vs sequence length](results_plot.png)
 
-**Why speedup scales with seqlen (the attention-vs-dense split, in action):** causal attention costs `6·s²·d·h·L` per step (O(s²)); the dense path costs `6·N·tok` (O(s)). Longer sequences push attention's share of the step up, and attention is exactly where FA4/Blackwell's advantage concentrates — while the dense path (bandwidth-bound at this size + young sm_100 cuBLAS) that scales only ~1.7× shrinks to a rounding error. The identity `speedup ≈ 2.28 × MFU_ratio` holds throughout — the residual gap to 2.28× is FA4-beta overhead not yet reaching the full hardware ratio even on pure attention.
+**Why speedup scales with seqlen (the attention-vs-dense split, in action):** causal attention costs `6·s²·d·h·L` per step (O(s²)); the dense path costs `6·N·tok` (O(s)). Longer sequences push attention's share of the step up, and attention is exactly where FA4/Blackwell's advantage concentrates — while the dense path (bandwidth-bound at this size + "young" sm_100 cuBLAS) that scales only ~1.7× shrinks to a rounding error. The identity `speedup ≈ 2.28 × MFU_ratio` holds throughout — the residual gap to 2.28× is FA4-beta overhead not yet reaching the full hardware ratio even on pure attention.
 
 **FLOP-counting convention:** the TFLOPS/MFU figures are *model* FLOPs ([MFU](../../training/performance/README.md#mfu-vs-hfu)) with attention counted **causally** (`6·s²·…`, the lower triangle FlashAttention actually computes — the non-causal `12·s²` would double-count attention and inflate MFU at long context). Activation-checkpoint recompute is *excluded* — counting it would be HFU (~1.3× higher). Both conventions cancel in the B200/H200 speedup ratio, so only the absolute MFU/TFLOPS depend on this choice, not the headline speedups.
 
@@ -120,7 +120,7 @@ Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed o
 
 2. compare on an identical software stack
 
-   When I was writing this guide I originally didn't pay attention and compared H200 on torch 2.10.0/**cu129** against B200 on torch 2.13.0/**cu130** and I got very different results, massively benefitting B200. I then rerun the benchmark on H200 alone and saw that cuda-13.0 is significantly faster than cuda-12.9. At 8k, same GPU/model/config,  varying only the torch and cuda versions:
+   When I was writing this guide I originally didn't pay attention and compared H200 on torch 2.10.0/**cu129** against B200 on torch 2.13.0/**cu130** and I got very different results, massively benefitting B200. I then rerun the benchmark on H200 alone and saw that CUDA 13.0 is significantly faster than CUDA 12.9. At 8k, same GPU/model/config, varying only the torch and CUDA versions:
 
    | H200 @ 8k            | TFLOPS/GPU |     MFU |
    | -------------------- | ---------: | ------: |
@@ -131,11 +131,11 @@ Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed o
 
 ### Is B200 worth ~2× the H200 cost?
 
-For simplicity let's assume the cost difference is 2x, which is usually the case when a new GPU family just starts to come out. Since as of this writing Blackwell has been out for about 1 year, the actual cost difference is already less than 2x.
+For simplicity let's assume the cost difference is 2×, which is usually the case when a new GPU family just starts to come out. As of this writing Blackwell has been out for about a year, so the actual cost difference is already less than 2×.
 
 In your actual calculations use your quoted price, not the information found online.
 
-So let's do the math with the 2x price difference assumption:
+So let's do the math with the 2× price difference assumption:
 
 - **Long unpacked context (128k–256k):** ~2.0× throughput for ~2× cost → break-even on \$/token, then a net win from (1) **half the wall-clock time** and (2) **more memory** unlocking context (≥256k) H200 can't hold at all — and that's exactly where B200's speedup peaks, so the two compound.
 - **Short / packed-short (dense-bound):** ~1.7× for 2× cost → **loses** on \$/token today. At this batch size the dense path is bandwidth-bound, not compute-bound (see ["where the dense-path deficit comes from" below](#where-the-dense-path-deficit-comes-from-why-not-the-full-228)), so don't expect cuBLAS sm_100 maturity alone to close the gap to 2.28× — it converges toward the **~1.67× HBM-bandwidth ceiling** instead. Reaching closer to 2.28× here would need a bigger batch/larger GEMMs to make the dense path compute-bound again.
@@ -193,11 +193,11 @@ New silicon almost always ships ahead of the software stack that can fully explo
 
 While you might be able to rely on someone else doing the analysis work for you (this guide), typically workloads differ and it's best to benchmark your exact workloads.
 
-Therefore, I recommend to first rent at least one node of the target gpus you consider using and running benchmarks there.
+Therefore, I recommend first renting at least one node of the target GPUs you're considering and running benchmarks there.
 
-If your workload involves multiple nodes, try to first reduce the workload to just one node and do the performance comparisons there. e.g. shrink the number of layers in the model to make it much smaller — ML model architectures are typically a stack of identical repeating layers, so [cutting a 48-layer model down to 1-2 layers](../../debug/pytorch.md#reducing-the-number-of-layers-for-large-models) consumes little gpu memory and should fit into a single node easily, while keeping the per-layer compute/memory behavior representative.
+If your workload involves multiple nodes, try to first reduce the workload to just one node and do the performance comparisons there. e.g. shrink the number of layers in the model to make it much smaller — ML model architectures are typically a stack of identical repeating layers, so [cutting a 48-layer model down to 1-2 layers](../../debug/pytorch.md#reducing-the-number-of-layers-for-large-models) consumes little GPU memory and should fit into a single node easily, while keeping the per-layer compute/memory behavior representative.
 
-If the workload involves multiple nodes, then you definitely need to eventually benchmark the full minimal replica configuration, but you can postpone that until after checking that the single node comparisons give favorable results towards choosing to upgrade the gpus. If they do not then you saved yourself time and money not needing to rent additional nodes.
+If the workload involves multiple nodes, then you definitely need to eventually benchmark the full minimal replica configuration, but you can postpone that until after checking that the single-node comparisons give favorable results towards choosing to upgrade the GPUs. If they do not, then you saved yourself time and money not needing to rent additional nodes.
 
 ## Applying this framework to your own upgrade decision
 
@@ -209,7 +209,7 @@ Swap in your own model, GPUs, and prices, then work through the two-part decisio
 4. Get your actual \$/GPU-hour on old vs new, and compute \$/token or \$/step at each point on the sweep, not just at the top of the sweep.
 5. Check for gotchas that invalidate the comparison: beta kernels, packed vs unpacked data, thermal throttling, silicon-lottery variance across GPUs on the same node (see [Not all accelerators are created equal](../../compute/accelerator/README.md#not-all-accelerators-are-created-equal)).
 
-If you use [FSDP](../../training/model-parallelism/README.md) for scaling - it should be somewhat equal in performance to Deepspeed ZeRO, you might have to tweak the config a bit to match your exact setup, but, of course, ideally benchmark your exact software.
+If you use [FSDP](../../training/model-parallelism/README.md) for scaling — it should be somewhat equal in performance to Deepspeed ZeRO — you might have to tweak the config a bit to match your exact setup, but, of course, ideally benchmark your exact software.
 
 ## Same-generation upgrades
 
@@ -285,7 +285,7 @@ Run on both boxes. It measures the wall-clock step time (profiler off), then pro
 MEM_DEBUG=1 SEQ_LEN=32768 deepspeed --num_gpus=8 benchmark.py
 ```
 
-`MEM_DEBUG=1` adds staged allocated/reserved probes around fwd/bwd/step and dumps a `torch.cuda.memory._record_memory_history` snapshot on rank 0 — this is useful for [diagnosing gpu memory usage](../../training/performance/README.md#memory-profiler-tools).
+`MEM_DEBUG=1` adds staged allocated/reserved probes around fwd/bwd/step and dumps a `torch.cuda.memory._record_memory_history` snapshot on rank 0 — this is useful for [diagnosing GPU memory usage](../../training/performance/README.md#memory-profiler-tools).
 
 ### Step 6 — regenerate the plot
 
