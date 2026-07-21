@@ -127,7 +127,7 @@ Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed o
    | **cu129**             | 113.8        | –      | –      | 140.4     |
    | **cu130**             | 117.8        | 120.5  | 140.1  | **140.2** |
 
-   The torch 2.11.0 → 2.12.0 jump alone is **+16% on the H200** (120.5 → 140.1 TFLOPS at cu130) — meanwhile CUDA 12.9 vs 13.0 contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). A chunk of the old "advantage" was a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
+   Full-range torch 2.10.0 → 2.13.0 on the H200 is **+19% at fixed cu130** (117.8 → 140.2 TFLOPS), and almost all of that gain lands in one place — the torch 2.11.0 → 2.12.0 jump alone is **+16%** (120.5 → 140.1). CUDA, meanwhile, contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). So the original 2.10.0/cu129 → 2.13.0/cu130 comparison that kicked off this investigation (113.8 → 140.4, **+23.4%**) was almost entirely a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
 
 ### Is B200 worth ~2× the H200 cost?
 
