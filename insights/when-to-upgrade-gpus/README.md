@@ -120,14 +120,14 @@ Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed o
 
 2. compare on an identical software stack
 
-   When I was writing this guide I originally didn't pay attention and compared H200 on torch 2.10.0/**cu129** against B200 on torch 2.13.0/**cu130** and I got very different results, massively benefitting B200. I then rerun the benchmark on H200 alone and saw that CUDA 13.0 is significantly faster than CUDA 12.9. At 8k, same GPU/model/config, varying only the torch and CUDA versions:
+   When I was writing this guide I originally didn't pay attention and compared H200 on torch **2.10.0/cu129** against B200 on torch **2.13.0/cu130** and got very different results, massively benefitting B200. Suspecting the CUDA version, I reran the sweep on H200 alone across torch 2.10.0–2.13.0 on both cu129 and cu130 — and CUDA turned out to barely matter. The real driver is **PyTorch itself**: 2.12.0 and higher is significantly faster than 2.11.0 and earlier, independent of CUDA version. At 8k, same GPU/model/config, sweeping torch and CUDA independently:
 
-   | H200 @ 8k            | TFLOPS/GPU |     MFU |
-   | -------------------- | ---------: | ------: |
-   | torch 2.10.0 / cu129 |        122 |     12% |
-   | torch 2.13.0 / cu130 |        141 | **14%** |
+   | H200 @ 8k, TFLOPS/GPU | torch 2.10.0 | 2.11.0 | 2.12.0 | 2.13.0    |
+   | --------------------- | ------------ | ------ | ------ | --------- |
+   | **cu129**             | 113.8        | –      | –      | 140.4     |
+   | **cu130**             | 117.8        | 120.5  | 140.1  | **140.2** |
 
-   That's **+16% on the H200 from the CUDA/torch stack alone**. A chunk of the old "advantage" was a stack artifact, not hardware. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be on the newer stack.**
+   The torch 2.11.0 → 2.12.0 jump alone is **+16% on the H200** (120.5 → 140.1 TFLOPS at cu130) — meanwhile CUDA 12.9 vs 13.0 contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). A chunk of the old "advantage" was a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
 
 ### Is B200 worth ~2× the H200 cost?
 
