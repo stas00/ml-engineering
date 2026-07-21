@@ -18,6 +18,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 1. **[How to Choose a Cloud Provider](./insights/how-to-choose-cloud-provider.md)** - these questions will empower you to have a successful compute cloud experience.
 
+1. **[When Is It Worth Upgrading GPUs?](./insights/when-to-upgrade-gpus/README.md)** - a practical framework for deciding whether a GPU generation upgrade is worth its cost, worked through on a real H200 → B200 benchmark.
+
 **Part 2. Hardware**
 
 1. **[Compute](compute)** - accelerators, CPUs, CPU memory.

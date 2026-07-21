@@ -2,6 +2,7 @@ README.md
 
 insights/ai-battlefield.md
 insights/how-to-choose-cloud-provider.md
+insights/when-to-upgrade-gpus/README.md
 
 compute/README.md
 compute/accelerator/README.md
