@@ -451,43 +451,72 @@ High performance cache is used for storing frequently used instructions and data
 
 The cache size is often important for when running benchmarks - as one needs to reset the cache between each experiment.
 
-It's somewhat difficult to show a comparison of caches on different accelerators because they use different approaches.
+Cache specifications are difficult to normalize across vendors because they describe different resources and reporting scopes. For example, NVIDIA reports a combined and configurable L1/texture/shared-memory capacity per SM, AMD reports L1 per CU and L2 per XCD, and Intel Gaudi includes software-managed SRAM and configurable cache modes that don't map directly to a conventional GPU cache hierarchy.
 
-Columns:
+Therefore the following tables preserve the scope used in the vendor documentation and don't derive per-accelerator totals by multiplying private local caches. Accelerators without a directly documented comparable value are omitted rather than filled with an estimate.
 
-- The **L3** column is for optional additional caches: Some accelerators have only L1/L2 caches, yet others have additional caches - e.g. MI300X has 256MiB of AMD Infinity cache which they also call Last Level Cache (LLC), and Gaudi3 can have its L2 cache used as L3 cache.
+The first table compares the capacity of broadly shared on-chip caches. It is sorted by **Shared capacity** descending, then by **Approx. announced** descending. For a grouped row, the date is that of the newest product named in the row. This helps answer which accelerator publishes more broadly shared cache capacity, but it isn't a cache-performance ranking: cache type, bandwidth, latency, sharing domain, and workload hit rate still differ. Vendor unit labels are preserved, so the ordering of `MB` and `MiB` values is approximate.
 
-- Units can be different things in different accelerators, e.g. in AMD those would be Accelerator Complex Dies (XCD) or compute dies, for NVIDIA this is usually the SMs, for Intel these are DCOREs (Deep Learning Core).
+| Shared capacity | Accelerator / architecture       | Cache type                     | Scope / qualification | Approx. announced | Refs. |
+| :-------------- | :------------------------------- | :----------------------------- | :-------------------- | :---------------- | :---- |
+| 256MiB          | AMD MI350X / MI355X              | Infinity Cache (LLC)           | per accelerator       | 2025-06           | S3/A2 |
+| 256MiB          | AMD MI300X / MI325X              | Infinity Cache (LLC)           | per accelerator       | 2024-10           | S2/A3 |
+| 192MB           | AMD MI455X                       | global L2                      | per accelerator       | 2026-06           | S1/A1 |
+| 126MB           | NVIDIA Blackwell (GB200 example) | L2                             | per GPU               | 2024-03           | S8/A5 |
+| 96MiB           | Intel Gaudi3                     | configurable L3 or 4 L2 slices | per accelerator       | 2024-04           | S5/A4 |
+| 50MiB           | NVIDIA Hopper (H100 example)     | L2                             | per accelerator       | 2022-03           | S7/A7 |
+| 40MiB           | NVIDIA Ampere (A100 example)     | L2                             | per accelerator       | 2020-05           | S6/A8 |
 
-Sorting by L2 Total, as it seems to be the cache that is in all accelerators listed here.
+The second table preserves vendor-native local resources. It is sorted by **Vendor** ascending, then by **Approx. announced** descending.
 
-| Accelerator          | L1/Unit | L2/Unit | Units | L1 Total | L2 Total | L3 Total | Notes |
-| :------------------- | ------: | ------: | ----: | -------: | -------: | -------: | :---- |
-| Intel Gaudi3         |         | 24MiB   |     4 |          | 96MiB    |          | 2,4   |
-| NVIDIA GH100 SXM     | 256KiB  |         |   132 | 33.00MiB | 60MiB    |          |       |
-| NVIDIA GH200 SXM     | 256KiB  |         |   132 | 33.00MiB | 60MiB    |          |       |
-| NVIDIA H200 SXM      | 192KiB  |         |   132 | 24.75MiB | 50MiB    |          |       |
-| NVIDIA H100 SXM      | 192KiB  |         |   132 | 24.75MiB | 50MiB    |          |       |
-| Intel Gaudi2         |         |         |       |          | 48MiB    |          | 2,3   |
-| NVIDIA A100 SXM      | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
-| NVIDIA A100 PCIe     | 128KiB  |         |   108 | 20.25MiB | 40MiB    |          |       |
-| AMD MI355X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
-| AMD MI325X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
-| AMD MI300X           |  32KiB  |  4MiB   |     8 |  0.25MiB | 32MiB    | 256MiB   | 1     |
-|                      |         |         |       |          |          |          |       |
-| NVIDIA B200 SXM      | ???     |         |       |          |          |          |       |
-| NVIDIA B300 SXM      | ???     |         |       |          |          |          |       |
-|                      |         |         |       |          |          |          |       |
+| Vendor | Accelerator / architecture | Approx. announced | Vendor-reported local resource                  | Scope               | Refs. |
+| :----- | :------------------------- | :---------------- | :---------------------------------------------- | :------------------ | :---- |
+| AMD    | MI455X                     | 2026-06           | not disclosed in the cited public specification |                     | S1/A1 |
+| AMD    | MI350X / MI355X            | 2025-06           | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | S3/A2 |
+| AMD    | MI300X / MI325X            | 2024-10           | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | S2/A3 |
+| Intel  | Gaudi3                     | 2024-04           | 24MiB configurable cache                        | per DCORE; 4 DCOREs | S5/A4 |
+| Intel  | Gaudi2                     | 2022-05           | 48MiB software-managed SRAM                     | per accelerator     | S4/A6 |
+| NVIDIA | Blackwell (GB200 example)  | 2024-03           | 256KB combined L1/texture/shared memory         | per SM              | S8/A5 |
+| NVIDIA | Hopper (H100 example)      | 2022-03           | 256KiB combined L1/texture/shared memory        | per SM              | S7/A7 |
+| NVIDIA | Ampere (A100 example)      | 2020-05           | 192KiB combined L1/texture/shared memory        | per SM              | S6/A8 |
+
+Sources:
+
+- **S1:** [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+- **S2-S3:** [AMD Instinct MI300 Series / MI350 Series workload optimization](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html)
+- **S4:** [Intel Gaudi architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
+- **S5:** [Intel Gaudi 3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+- **S6:** [NVIDIA Ampere Tuning Guide](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html)
+- **S7:** [NVIDIA Hopper Tuning Guide](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html)
+- **S8:** [NVIDIA Blackwell Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)
+
+Approximate announcement-order references:
+
+- **A1:** [AMD Instinct MI455X](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+- **A2:** [AMD Instinct MI350 Series](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
+- **A3:** [AMD Instinct MI325X](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
+- **A4:** [Intel Gaudi 3](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
+- **A5:** [NVIDIA Blackwell](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
+- **A6:** [Intel Gaudi2](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html)
+- **A7:** [NVIDIA Hopper](https://nvidianews.nvidia.com/news/nvidia-announces-dgx-h100-systems-worlds-most-advanced-enterprise-ai-infrastructure)
+- **A8:** [NVIDIA Ampere](https://nvidianews.nvidia.com/news/nvidias-new-ampere-data-center-gpu-in-full-production)
+
+When comparing these specifications:
+
+- First compare the scope. A per-SM or per-CU cache is private to a local compute unit, whereas an L2, L3, LLC, or Infinity Cache may be shared by a much larger part of the accelerator.
+- Check the semantics. A hardware-managed cache, configurable shared memory, and software-managed SRAM may have similar capacities while requiring very different programming and access patterns.
+- Don't treat the sum of private caches as one large shared cache. Such a total describes physical capacity, but not how much cache any one operation can access.
+- Capacity is only one factor. Cache bandwidth, latency, associativity, sharing domain, and the workload's hit rate can matter more, so use workload-representative benchmarks for performance comparisons.
 
 Notes:
 
 1. AMD provides L3 AMD Infinity Cache which it also calls Last Level Cache (LLC) in the specs
 
-2. Gaudi has a different architecture than a GPU. In Gaudi’s case, the MME and TPC have private buffer that perform some of the functions of an L1 cache, called Suspension Buffers. The main function that these buffers provide is data reuse from the buffer (instead of reading the same data multiple times from L2/L3/HBM). Both Gaudi2 and Gaudi3 have the same Suspension Buffers for the TPC and MME.
+2. Gaudi has a different architecture than a GPU. In Gaudi's case, the MME and TPC have private buffers that perform some of the functions of an L1 cache, called Suspension Buffers. The main function that these buffers provide is data reuse from the buffer instead of reading the same data multiple times from L2/L3/HBM. Both Gaudi2 and Gaudi3 have the same Suspension Buffers for the TPC and MME.
 
-3. Gaudi2 doesn’t have a cache. It has scratchpad SRAM instead of a cache, meaning that software determines what goes in or out of the SRAM at any moment. There are dedicated DMA engines that software needs to program to perform all the data movement between SRAM and HBM.
+3. Gaudi2 doesn't have a conventional GPU cache hierarchy. It has scratchpad SRAM, meaning that software determines what goes in or out of the SRAM. There are dedicated DMA engines that software needs to program to perform the data movement between SRAM and HBM.
 
-4. The 96MiB cache can be configured by software to be either a single L3 cache or 4 slices of 24MiB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
+4. Gaudi3's 96MiB cache can be configured by software to be either a single L3 cache or 4 slices of 24MiB L2 cache (this is at tensor-level granularity). L2 configuration is 2x faster than L3.
 
 
 
