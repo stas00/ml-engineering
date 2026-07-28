@@ -515,7 +515,14 @@ Talking to a few storage providers I understood that many companies don't bother
 
 The very popular HuggingFace Hub makes it super easy to download models and datasets and cache them locally. What you might not be aware of is that whenever a new revision of the model or a dataset is released, the old revisions remain on your disk - so over time you are likely to have a lot of dead weight.
 
-The cached files are usually found at `~/.cache/huggingface` but it's possible to override those with `HF_HOME` environment variable and place them elsewhere if your `/home/` doesn't have space for huge files. (and in the past those were `HUGGINGFACE_HUB_CACHE` and `TRANSFORMERS_CACHE` and some others).
+The cached files are usually found at `~/.cache/huggingface`, but the least error-prone way to place them elsewhere is to set the [`HF_HOME` environment variable](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables) before importing Hugging Face libraries:
+
+```bash
+export HF_HOME=/some/path/huggingface
+mkdir -p "$HF_HOME"
+```
+
+The deprecated `HUGGINGFACE_HUB_CACHE` and library-specific variables such as `TRANSFORMERS_CACHE` may still be encountered in older setups.
 
 The other solution that requires no environment variables, is to symlink your cache to another partition. You could do it for all of your caches:
 ```bash
@@ -524,14 +531,34 @@ mv ~/.cache /some/path/
 ln -s /some/path/.cache ~/.cache
 ```
 
-or just for HF hub caches:
+Or move only the default Hugging Face cache and leave a symlink in its place. This script stops instead of merging with a pre-existing target or replacing an existing symlink:
 ```bash
-mkdir -p ~/.cache/huggingface
-mv ~/.cache/huggingface /some/path/
-ln -s /some/path/cache/huggingface ~/.cache/cache/huggingface
+#!/usr/bin/env bash
+set -euo pipefail
+
+source_dir="$HOME/.cache/huggingface"
+target_dir="/some/path/huggingface"
+
+mkdir -p "$(dirname "$source_dir")" "$(dirname "$target_dir")"
+
+if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+    printf 'Target already exists: %s\n' "$target_dir" >&2
+    exit 1
+fi
+
+if [ -L "$source_dir" ]; then
+    printf 'Source is already a symlink: %s\n' "$source_dir" >&2
+    exit 1
+elif [ -e "$source_dir" ]; then
+    mv "$source_dir" "$target_dir"
+else
+    mkdir -p "$target_dir"
+fi
+
+ln -s "$target_dir" "$source_dir"
 ```
 
-The `mkdir` calls are there in case you have haven't used the caches yet, so they weren't there and they ensure the above code won't fail.
+The absent-source branch creates an empty target before linking it. If the target already contains a cache that should be reused, inspect it first and create the symlink manually rather than asking the script to merge directories.
 
 Now that you know where the caches are, you could, of course, nuke the whole cache every so often, but if these are huge models and datasets, and especially if there was some preprocessing done for the latter - you really won't want to repeat those time consuming tasks again and again. So I will teach you how to use special tools provided by HuggingFace to do the cleanup.
 

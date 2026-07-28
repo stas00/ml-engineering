@@ -437,35 +437,72 @@ As inter-node hardware used to be about of an order of magnitude slower than int
 
 When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, GCP GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
-Here is inter-node unidirectional theoretical peak bandwidth cross-comparison for current technologies sorted by total bandwidth of common node setups:
+As of 2026-07-28, here is an inter-node unidirectional theoretical peak bandwidth cross-comparison for current platform configurations. An interface here is a fabric-facing NIC or adapter port, not a SerDes lane or a switch port. Total bandwidth is `interfaces * rate / 8`.
 
-| Interconnect         | NICs x Gbps | Total GBps | Notes     |
-| :------------------- | ----------: | ---------: | :------   |
-| AWS EFA v4           |      16x400 |        800 | B300      |
-| InfiniBand XDR800    |       8x800 |        800 | DGX B300  |
-| Intel Gaudi3         |      24x200 |        600 |           |
-| AWS EFA v3           |      16x200 |        400 | Tranium 2 |
-| NVIDIA Quantum-2 IB  |       8x400 |        400 | H100      |
-| AWS EFA v2           |      32x100 |        400 | H100      |
-| Intel Gaudi2         |      24x100 |        300 |           |
-| InfiniBand XDR200    |       8x200 |        200 |           |
-| GCP GPUDirect-TCPXO  |       8x200 |        200 |           |
-| GCP GPUDirect-TCPX   |       4x200 |        100 |           |
-| HPE Slingshot        |       4x200 |        100 |           |
-| Omni-Path CN100      |       8x100 |        100 |           |
-| AWS EFA v1           |       4x100 |         50 |           |
-| InfiniBand NDR400    |       4x100 |         50 |           |
-|                      |             |            |           |
-| in the future:       |             |            |           |
-|                      |             |            |           |
-| Omni-Path CN5000     |       8x400 |        400 | Q2-2025   |
-| InfiniBand GDR3200   |       8x400 |        400 | 2025      |
-| Omni-Path CN6000     |       8x800 |        800 | 2026      |
+Sorted by Total unidirectional bandwidth descending, then Rate/interface descending, then Platform/example node ascending:
+
+| Platform/<br>           | Interfaces<br> | Rate/<br>     | Total<br>    | Notes                                 | Ref. |
+| example<br>             | per<br>        | interface<br> | Uni-dir.<br> |                                       |      |
+| node                    | node           | (Gbps)        | (GB/s)       |                                       |      |
+| :---------------------- | -------------: | ------------: | -----------: | :------------------------------------ | :--- |
+| NVIDIA DGX B300 XDR     |              8 |           800 |          800 | Eight single-port ConnectX-8 adapters | 1    |
+| AWS EFA v4 (P6-B300)    |             16 |           400 |          800 | Sixteen fabric-facing EFA interfaces  | 2    |
+| Intel Gaudi3            |             24 |           200 |          600 | Integrated RoCEv2 interfaces          | 3    |
+| NVIDIA DGX H100 NDR     |              8 |           400 |          400 | Eight single-port ConnectX-7 adapters | 4    |
+| AWS EFA v3 (P5en/Trn2)  |             16 |           200 |          400 | Common 3.2Tbps configuration          | 2    |
+| AWS EFA v2 (P5/P5e)     |             32 |           100 |          400 | Common 3.2Tbps configuration          | 2    |
+| Intel Gaudi2            |             24 |           100 |          300 | Integrated RoCEv2 interfaces          | 5    |
+| GCP A3 Mega TCPXO       |              8 |           200 |          200 | Eight accelerator-fabric interfaces   | 6    |
+| GCP A3 High TCPX        |              4 |           200 |          100 | Four accelerator-fabric interfaces    | 6    |
+| HPE Slingshot example   |              4 |           200 |          100 | Illustrative four-interface node      | 7    |
+| Omni-Path CN100 example |              8 |           100 |          100 | Illustrative eight-adapter node       | 8    |
+| AWS EFA v1 (P4d)        |              4 |           100 |           50 | Four fabric-facing EFA interfaces     | 2    |
+
+Sources:
+
+1. [NVIDIA DGX B300 specifications](https://www.nvidia.com/en-us/data-center/dgx-b300/)
+2. [AWS EC2 accelerated-computing network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html)
+3. [Intel Gaudi3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+4. [NVIDIA DGX H100/H200 user guide](https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html)
+5. [Intel Gaudi2 data sheet](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf)
+6. [Google Cloud GPUDirect-TCPX/TCPXO](https://cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx)
+7. [HPE Slingshot 11 QuickSpecs](https://www.hpe.com/us/en/collaterals/collateral.a50002546enw.html)
+8. [Cornelis CN-100HFA specifications](https://www.cornelisnetworks.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa)
 
 Notes:
 
 * these are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
 * Note how the once order-of-magnitude difference between inter- and [intra-node bandwidth](#intra-node-networking) is starting to disappear - I have recently rescaled the speeds here from Gbps to GBps.
+
+The following table preserves two earlier InfiniBand rows that expressed lane arithmetic rather than a documented node interface count. It is sorted by **Total unidirectional bandwidth** descending.
+
+| Original<br>        | Original<br> |    Total<br> | Corrected scope / qualification                                | Ref. |
+| label               | expression   | Uni-dir.<br> |                                                                |      |
+|                     |              |       (GB/s) |                                                                |      |
+| :------------------ | :----------- | -----------: | :------------------------------------------------------------- | :--- |
+| InfiniBand XDR200   | 8x200Gbps    |          200 | Eight 200Gbps XDR-rate lanes; not a documented eight-port node | 1    |
+| InfiniBand NDR400   | 4x100Gbps    |           50 | One full-width four-lane NDR port, not four NICs               | 2    |
+
+Sources:
+
+1. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
+2. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
+
+The earlier future entries are restored below with their original arithmetic and targets preserved. It is sorted by **Original total** descending, then by **Product / generation** ascending. Status is as of 2026-07-28; an illustrative expression is not evidence that a shipping node contains that many adapters.
+
+| Product /<br>        | Original<br> | Original<br> | Original<br> | Status as of<br>                                                                                      | Ref. |
+| generation           | expression   |    total<br> | target       | 2026-07-28                                                                                            |      |
+|                      |              |       (GB/s) |              |                                                                                                       |      |
+| :------------------- | :----------- | -----------: | :----------- | :---------------------------------------------------------------------------------------------------- | :--- |
+| Omni-Path CN6000     | 8x800Gbps    |          800 | 2026         | 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative          | 1    |
+| InfiniBand GDR3200   | 8x400Gbps    |          400 | 2025         | Historical eight-lane roadmap arithmetic; GDR is not a standardized shipping platform                 | 2    |
+| Omni-Path CN5000     | 8x400Gbps    |          400 | Q2-2025      | 400Gbps family launched in June 2025; eight-adapter node remains illustrative                         | 3    |
+
+Sources:
+
+1. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series)
+2. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+3. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network)
 
 You will find the details analysis of each technology in the following sections.
 
@@ -475,20 +512,50 @@ You will find the details analysis of each technology in the following sections.
 
 InfiniBand is a complete network protocol that implements RDMA (bypasses TCP/IP).
 
-Here are the most recent signaling rates which you are likely to see in the current hardware offerings:
+As of 2026-07-28, XDR is the latest standardized InfiniBand generation. InfiniBand generation names describe a lane rate; a full-width port combines four lanes. They do not specify how many adapters or ports a node has.
 
-Signaling rate of uni-directional links in Gbps:
-| Links | EDR | HDR |  NDR |  XDR |  GDR |  LDR |
-| ----: | --: | --: |  --: |  --: |  --: |  --: |
-|     1 |  25 |  50 |  100 |  200 |  400 |  800 |
-|     4 | 100 | 200 |  400 |  800 | 1600 | 3200 |
-|     8 | 200 | 400 |  800 | 1600 | 3200 | 4800 |
-|    12 | 300 | 600 | 1200 | 2400 | 4800 | 9600 |
+Sorted by 4x port rate descending:
 
-Notes:
-* the GDR is planned in 2025 and LDRs some years later
+| Generation    | Rate/<br> | Lanes/<br> | 4x port<br> | Ref. |
+|               | lane<br>  | port       | rate<br>    |      |
+|               | (Gbps)    |            | (Gbps)      |      |
+| :------------ | --------: | ---------: | ----------: | :--- |
+| LDR (roadmap) |       800 |          4 |        3200 | 3    |
+| GDR (roadmap) |       400 |          4 |        1600 | 3    |
+| XDR           |       200 |          4 |         800 | 1    |
+| NDR           |       100 |          4 |         400 | 2    |
+| HDR           |        50 |          4 |         200 | 3    |
+| EDR           |        25 |          4 |         100 | 3    |
 
-Latency in usecs:
+Sources:
+
+1. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
+2. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
+3. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+
+Only 4x ports are shown in the product-oriented table because four lanes are the full-width port configuration used by the modern high-end products compared here. The 1x value is already the Rate/lane column. The earlier 8x and 12x arithmetic is preserved separately below so lane totals aren't compared with port or node totals as if they were the same scope.
+
+GDR and LDR are roadmap targets rather than standardized generations; the table does not imply an availability date.
+
+The June 2021 IBTA roadmap targeted GDR for 2025 and LDR some years later. This historical schedule is retained for context; it was a roadmap target, not confirmation of standardization or product availability.
+
+The following table restores the earlier theoretical width arithmetic. It is sorted by **Links** ascending. These values are lane-rate multiplication, not a statement that a corresponding product or node configuration is available.
+
+| Links | EDR | HDR |  NDR |  XDR |  GDR |  LDR | Ref. |
+| ----: | --: | --: | ---: | ---: | ---: | ---: | :--- |
+|     1 |  25 |  50 |  100 |  200 |  400 |  800 | 1    |
+|     4 | 100 | 200 |  400 |  800 | 1600 | 3200 | 1    |
+|     8 | 200 | 400 |  800 | 1600 | 3200 | 6400 | 1, 2 |
+|    12 | 300 | 600 | 1200 | 2400 | 4800 | 9600 | 1, 2 |
+
+Sources:
+
+1. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+2. [InfiniBand Trade Association historical 8X and 12X roadmap](https://www.infinibandta.org/infiniband-trade-association-ibta-announces-updated-infiniband-roadmap-projecting-data-speeds-of-104gb-s-per-4x-port-in-2011/)
+
+The earlier LDR 8x value was 4800Gbps; the corrected lane-rate arithmetic is `8 * 800 = 6400Gbps`.
+
+Latency in usecs, with columns ordered by generation from oldest to newest:
 | EDR | HDR | NDR | XDR | GDR | LDR |
 | --: | --: | --: | --: | --: | --: |
 | 0.5 | 0.6 | ??  | ??  | ??  | ??  |
@@ -501,7 +568,8 @@ Here are some examples of NVIDIA devices with the fastest IB:
 
 - One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 400Gbps, for a total of 3.2 Tbps (0.4 TBps) unidirectional to connect with other DGX servers.
 - For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 12.8 TBps of unidirectional bandwidth (25.6 TBps counting both directions) for use within the pod or for scaling out to multiple SuperPODs - that is an equivalent of 0.4 TBps (3.2 Tbps) unidirectional per node, matching the per-node figure above.
-- NVIDIA GB200-based solutions will come with 400Gbps or 800Gbps NDR via Quantum-2 InfiniBand 800G switches (2x400G NDR interfaces)
+- NVIDIA DGX GB200 NVL72 compute trays provide four single-port ConnectX-7 interfaces at up to 400Gbps each, corresponding to one 400Gbps connection per GPU ([networking documentation](https://docs.nvidia.com/dgx/dgxgb200-user-guide/networking.html)). Quantum-2 carries NDR at 400Gbps per port; an 800G OSFP cable can split into two 400Gbps ports, so it isn't a single 800Gbps NDR endpoint.
+- NVIDIA DGX B300 systems provide eight ConnectX-8 interfaces at up to 800Gbps each. In the documented SuperPOD design, the compute fabric uses Quantum-X800 XDR, while the storage fabric uses Quantum-2 NDR.
 
 According to wikipedia while [InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers - at the moment it's just Intel (purchased QLogic) and NVIDIA (purchased Mellanox). Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
 
@@ -510,16 +578,16 @@ Practical links:
 
 ### NVIDIA Quantum-2 InfiniBand
 
-[NVIDIA Quantum-2 InfiniBand Platform](https://www.nvidia.com/en-us/networking/quantum2/) supports 400Gbps bandwidth per link, provides RDMA, includes in-network computing with [SHARP](#sharp), supports PCIe-5.
+[NVIDIA Quantum-2 InfiniBand Platform](https://www.nvidia.com/en-us/networking/quantum2/) is an NDR platform that supports 400Gbps per port, provides RDMA, includes in-network computing with [SHARP](#sharp), and supports PCIe-5.
 
-The switches can connect 64 devices at 400Gbps.
+The switches provide 64 ports at 400Gbps or 128 ports at 200Gbps.
 
 
 ### NVIDIA Quantum-X800 InfiniBand
 
-[NVIDIA Quantum-X800 InfiniBand Platform](https://www.nvidia.com/en-us/networking/products/infiniband/quantum-x800/), supports 800Gbps bandwidth per link, includes in-network computing with [SHARP](#sharp) v4.
+[NVIDIA Quantum-X800 InfiniBand Platform](https://www.nvidia.com/en-us/networking/products/infiniband/quantum-x800/) is an XDR platform that supports 800Gbps per port and includes in-network computing with [SHARP](#sharp) v4.
 
-Expected to be available starting with NVIDIA Rubin chips.
+As of 2026-07-28, Quantum-X800 is used by Blackwell Ultra systems such as DGX B300 and GB300 NVL72; it is not specific to Rubin.
 
 
 ### EFA

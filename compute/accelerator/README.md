@@ -457,49 +457,79 @@ Therefore the following tables preserve the scope used in the vendor documentati
 
 The first table compares the capacity of broadly shared on-chip caches. It is sorted by **Shared capacity** descending, then by **Approx. announced** descending. For a grouped row, the date is that of the newest product named in the row. This helps answer which accelerator publishes more broadly shared cache capacity, but it isn't a cache-performance ranking: cache type, bandwidth, latency, sharing domain, and workload hit rate still differ. Vendor unit labels are preserved, so the ordering of `MB` and `MiB` values is approximate.
 
-| Shared capacity | Accelerator / architecture       | Cache type                     | Scope / qualification | Approx. announced | Refs. |
-| :-------------- | :------------------------------- | :----------------------------- | :-------------------- | :---------------- | :---- |
-| 256MiB          | AMD MI350X / MI355X              | Infinity Cache (LLC)           | per accelerator       | 2025-06           | S3/A2 |
-| 256MiB          | AMD MI300X / MI325X              | Infinity Cache (LLC)           | per accelerator       | 2024-10           | S2/A3 |
-| 192MB           | AMD MI455X                       | global L2                      | per accelerator       | 2026-06           | S1/A1 |
-| 126MB           | NVIDIA Blackwell (GB200 example) | L2                             | per GPU               | 2024-03           | S8/A5 |
-| 96MiB           | Intel Gaudi3                     | configurable L3 or 4 L2 slices | per accelerator       | 2024-04           | S5/A4 |
-| 50MiB           | NVIDIA Hopper (H100 example)     | L2                             | per accelerator       | 2022-03           | S7/A7 |
-| 40MiB           | NVIDIA Ampere (A100 example)     | L2                             | per accelerator       | 2020-05           | S6/A8 |
-
-The second table preserves vendor-native local resources. It is sorted by **Vendor** ascending, then by **Approx. announced** descending.
-
-| Vendor | Accelerator / architecture | Approx. announced | Vendor-reported local resource                  | Scope               | Refs. |
-| :----- | :------------------------- | :---------------- | :---------------------------------------------- | :------------------ | :---- |
-| AMD    | MI455X                     | 2026-06           | not disclosed in the cited public specification |                     | S1/A1 |
-| AMD    | MI350X / MI355X            | 2025-06           | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | S3/A2 |
-| AMD    | MI300X / MI325X            | 2024-10           | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | S2/A3 |
-| Intel  | Gaudi3                     | 2024-04           | 24MiB configurable cache                        | per DCORE; 4 DCOREs | S5/A4 |
-| Intel  | Gaudi2                     | 2022-05           | 48MiB software-managed SRAM                     | per accelerator     | S4/A6 |
-| NVIDIA | Blackwell (GB200 example)  | 2024-03           | 256KB combined L1/texture/shared memory         | per SM              | S8/A5 |
-| NVIDIA | Hopper (H100 example)      | 2022-03           | 256KiB combined L1/texture/shared memory        | per SM              | S7/A7 |
-| NVIDIA | Ampere (A100 example)      | 2020-05           | 192KiB combined L1/texture/shared memory        | per SM              | S6/A8 |
+| Shared capacity | Accelerator / architecture       | Cache type                     | Scope / qualification | Approx.<br> | Ref. |
+|                 |                                  |                                |                       | announced   |      |
+| :-------------- | :------------------------------- | :----------------------------- | :-------------------- | :---------- | :--- |
+| 256MiB          | AMD MI350X / MI355X              | Infinity Cache (LLC)           | per accelerator       | 2025-06     | 1    |
+| 256MiB          | AMD MI300X / MI325X              | Infinity Cache (LLC)           | per accelerator       | 2024-10     | 2    |
+| 192MB           | AMD MI455X                       | global L2                      | per accelerator       | 2026-06     | 3    |
+| 126MB           | NVIDIA Blackwell (GB200 example) | L2                             | per GPU               | 2024-03     | 4    |
+| 96MiB           | Intel Gaudi3                     | configurable L3 or 4 L2 slices | per accelerator       | 2024-04     | 5    |
+| 50MiB           | NVIDIA Hopper (H100 example)     | L2                             | per accelerator       | 2022-03     | 6    |
+| 40MiB           | NVIDIA Ampere (A100 example)     | L2                             | per accelerator       | 2020-05     | 7    |
 
 Sources:
 
-- **S1:** [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
-- **S2-S3:** [AMD Instinct MI300 Series / MI350 Series workload optimization](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html)
-- **S4:** [Intel Gaudi architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
-- **S5:** [Intel Gaudi 3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
-- **S6:** [NVIDIA Ampere Tuning Guide](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html)
-- **S7:** [NVIDIA Hopper Tuning Guide](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html)
-- **S8:** [NVIDIA Blackwell Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)
+1. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
+2. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
+3. [AMD Instinct MI455X specifications and announcement](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+4. NVIDIA Blackwell [cache specification](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
+5. Intel Gaudi3 [cache specification](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) and [announcement](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
+6. NVIDIA Hopper [cache specification](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-announces-dgx-h100-systems-worlds-most-advanced-enterprise-ai-infrastructure)
+7. NVIDIA Ampere [cache specification](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidias-new-ampere-data-center-gpu-in-full-production)
 
-Approximate announcement-order references:
+The second table preserves vendor-native local resources. It is sorted by **Vendor** ascending, then by **Approx. announced** descending.
 
-- **A1:** [AMD Instinct MI455X](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
-- **A2:** [AMD Instinct MI350 Series](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
-- **A3:** [AMD Instinct MI325X](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
-- **A4:** [Intel Gaudi 3](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
-- **A5:** [NVIDIA Blackwell](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
-- **A6:** [Intel Gaudi2](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html)
-- **A7:** [NVIDIA Hopper](https://nvidianews.nvidia.com/news/nvidia-announces-dgx-h100-systems-worlds-most-advanced-enterprise-ai-infrastructure)
-- **A8:** [NVIDIA Ampere](https://nvidianews.nvidia.com/news/nvidias-new-ampere-data-center-gpu-in-full-production)
+| Vendor | Accelerator / architecture | Approx.<br> | Vendor-reported local resource                  | Scope               | Ref. |
+|        |                            | announced   |                                                 |                     |      |
+| :----- | :------------------------- | :---------- | :---------------------------------------------- | :------------------ | :--- |
+| AMD    | MI455X                     | 2026-06     | not disclosed in the cited public specification |                     | 1    |
+| AMD    | MI350X / MI355X            | 2025-06     | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 2    |
+| AMD    | MI300X / MI325X            | 2024-10     | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 3    |
+| Intel  | Gaudi3                     | 2024-04     | 24MiB configurable cache                        | per DCORE; 4 DCOREs | 4    |
+| Intel  | Gaudi2                     | 2022-05     | 48MiB software-managed SRAM                     | per accelerator     | 5    |
+| NVIDIA | Blackwell (GB200 example)  | 2024-03     | 256KB combined L1/texture/shared memory         | per SM              | 6    |
+| NVIDIA | Hopper (H100 example)      | 2022-03     | 256KiB combined L1/texture/shared memory        | per SM              | 7    |
+| NVIDIA | Ampere (A100 example)      | 2020-05     | 192KiB combined L1/texture/shared memory        | per SM              | 8    |
+
+Sources:
+
+1. [AMD Instinct MI455X specifications and announcement](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+2. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
+3. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
+4. Intel Gaudi3 [cache specification](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) and [announcement](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
+5. Intel Gaudi2 [architecture specification](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) and [announcement](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html)
+6. NVIDIA Blackwell [cache specification](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
+7. NVIDIA Hopper [cache specification](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-announces-dgx-h100-systems-worlds-most-advanced-enterprise-ai-infrastructure)
+8. NVIDIA Ampere [cache specification](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidias-new-ampere-data-center-gpu-in-full-production)
+
+The third table restores the per-product detail from the earlier comparison while separating vendor-native scope from derived distributed capacity. It is sorted by **Vendor** ascending, then by **Accelerator / product** ascending. `Distributed capacity` is arithmetic across private units and does not imply that one operation can access it as a single shared cache.
+
+| Vendor | Accelerator / product             | Vendor-native detail                                 | Distributed capacity       | Shared cache / LLC        | Qualification of the earlier entry                                        | Ref. |
+| :----- | :-------------------------------- | :--------------------------------------------------- | :------------------------- | :------------------------ | :------------------------------------------------------------------------ | :--- |
+| AMD    | MI300X                            | 32KiB L1/CU; 4MiB L2/XCD; 8 XCDs                     | 32MiB L2; L1 not derived   | 256MiB Infinity Cache     | Earlier 0.25MiB L1 total multiplied a per-CU value by the eight-XCD count | 1    |
+| AMD    | MI325X                            | 32KiB L1/CU; 4MiB L2/XCD; 8 XCDs                     | 32MiB L2; L1 not derived   | 256MiB Infinity Cache     | Earlier 0.25MiB L1 total multiplied a per-CU value by the eight-XCD count | 1    |
+| AMD    | MI355X                            | 32KiB L1/CU; 4MiB L2/XCD; 8 XCDs                     | 32MiB L2; L1 not derived   | 256MiB Infinity Cache     | Earlier 0.25MiB L1 total multiplied a per-CU value by the eight-XCD count | 1    |
+| Intel  | Gaudi2                            | 48MiB software-managed SRAM per accelerator          | not applicable             | no conventional GPU LLC   | Earlier 48MiB L2 label is retained here with its software-managed meaning | 2    |
+| Intel  | Gaudi3                            | 24MiB configurable cache/DCORE; 4 DCOREs             | 96MiB                      | configurable L3 or 4 L2s  | Earlier 24MiB x 4 = 96MiB arithmetic is retained with its cache mode      | 3    |
+| NVIDIA | A100 PCIe                         | 192KiB combined L1/texture/shared memory/SM; 108 SMs | 20.25MiB                   | 40MiB L2                  | Earlier row said 128KiB/SM, but its 20.25MiB total used 192KiB/SM         | 4    |
+| NVIDIA | A100 SXM                          | 192KiB combined L1/texture/shared memory/SM; 108 SMs | 20.25MiB                   | 40MiB L2                  | Earlier row said 128KiB/SM, but its 20.25MiB total used 192KiB/SM         | 4    |
+| NVIDIA | B200 SXM                          | not disclosed in the cited product-specific form     | not derived                | not disclosed             | Earlier `???` placeholder is retained as `not disclosed`                  | 5    |
+| NVIDIA | B300 SXM                          | not disclosed in the cited product-specific form     | not derived                | not disclosed             | Earlier `???` placeholder is retained as `not disclosed`                  | 5    |
+| NVIDIA | GH100 full implementation         | 256KiB combined L1/texture/shared memory/SM; 144 SMs | 36MiB                      | up to 60MB L2             | Earlier `GH100 SXM` mixed 132 enabled SMs with the full-die 60MB L2       | 6, 7 |
+| NVIDIA | GH200 SXM (original label)        | uses its installed Hopper GPU cache hierarchy        | not derived                | use the GPU configuration | Earlier 256KiB x 132 = 33MiB and 60MiB L2 mixed product/full-die scopes   | 6, 7 |
+| NVIDIA | H100 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
+| NVIDIA | H200 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
+
+Sources:
+
+1. [AMD Instinct MI300 Series / MI350 Series workload optimization](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html)
+2. [Intel Gaudi architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
+3. [Intel Gaudi3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+4. [NVIDIA Ampere Tuning Guide](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html)
+5. [NVIDIA Blackwell Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)
+6. [NVIDIA Hopper Tuning Guide](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html)
+7. [NVIDIA Hopper architecture white paper](https://resources.nvidia.com/en-us-tensor-core)
 
 When comparing these specifications:
 
