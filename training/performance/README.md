@@ -357,10 +357,12 @@ Then your software could have special memory needs. For example, when generating
 
 For **inference**, the math is very similar to training, minus optimizer states and gradients. And for model weights there is just a single multiplier of the number of parameters:
 
-- 6 bytes in mixed precision (4+2)
 - 4 bytes in fp32
-- 2 bytes in half precision
-- 1 byte in quantized int8 precision
+- 2 bytes in fp16/bf16
+- 1 byte in fp8/int8
+- 0.5 bytes in fp4/int4
+
+See [Model Weights in the inference chapter](../../inference/README.md#model-weights) for lower-precision and quantized formats, including fp8, fp6, fp4, integer quantization, and MX formats.
 
 Another excellent resource that takes you through the memory needs and other requirements is
 [Transformer Math 101](https://blog.eleuther.ai/transformer-math/).

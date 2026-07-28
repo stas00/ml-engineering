@@ -553,9 +553,20 @@ The inference memory usage is quite different from [training](../training/perfor
 - 4 bytes * number of parameters for fp32
 - 2 bytes * number of parameters for fp16/bf16
 - 1 byte  * number of parameters for fp8/int8
-- 0.5 bytes * number of parameters for int4
+- 0.75 bytes * number of parameters for fp6 or 6-bit quantization
+- 0.625 bytes * number of parameters for 5-bit quantization
+- 0.5 bytes * number of parameters for fp4/int4
+- 0.375 bytes * number of parameters for 3-bit quantization
+- 0.25 bytes * number of parameters for 2-bit quantization
+- 0.125 bytes * number of parameters for 1-bit quantization
 
-footnote: even more compact formats are being worked on as you read this, e.g. [microscaling format (MX)](https://fpga.org/category/microscaling-mx-formats/) also known as block floating point, where the exponent bits are shared between multiple elements of the tensor (MXFP6, MXFP4, etc.)
+These are densely packed payload sizes. Actual weight storage can be higher because quantized formats may store scales, zero points, codebooks, padding/alignment, and selected tensors in a wider format.
+
+The [OCP microscaling (MX) formats](https://github.com/openxla/xla/discussions/18085) use one 8-bit E8M0 scale per block of 32 values. Including the shared scale, their packed payload sizes are:
+
+- 1.03125 bytes * number of parameters for MXFP8/MXINT8
+- 0.78125 bytes * number of parameters for MXFP6
+- 0.53125 bytes * number of parameters for MXFP4
 
 Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
 
