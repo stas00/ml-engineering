@@ -32,13 +32,15 @@ When doing inference there are 2 stages:
 
 #### Prefill
 
-Prefill: as all tokens of the prompt are known - process the full prompt length at once (similar to training) and cache the intermediate states (KV cache). This stage contributes very little latency as even a 1k prompt can be processed really fast, given enough memory.
+During prefill, the model processes the prompt tokens in parallel, similar to training, and builds the KV cache used during generation. Prefill is usually compute-bound. Its latency contributes directly to TTFT and generally increases with input length; long prompts or insufficient compute can make prefill a major part of request latency.
 
 #### Decode
 
-Decode: new tokens generation happens, one new token at a time (regressive approach) based on all the previous tokens (the prompt and any new tokens generated so far). Thus this stage contributes the most to the generation's latency as unlike prefill, decoding can't be parallelized.
+During ordinary autoregressive decoding, the model generates one output token at a time based on the prompt and previously generated tokens. This sequential dependency prevents parallelizing output-token steps within one sequence, and decode is often memory-bandwidth-bound.
 
+Which stage matters most depends on the workload and metric. TTFT is sensitive to prompt length, prefill efficiency, scheduling, and queueing; TPOT/ITL primarily characterizes decode; end-to-end latency depends on input length, output length, batching, load, and hardware.
 
+See [NVIDIA's inference optimization overview](https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/) and [LLM benchmarking metric definitions](https://developer.nvidia.com/blog/llm-benchmarking-fundamental-concepts/).
 
 
 
@@ -337,7 +339,7 @@ This includes the time to:
 
 The time to receive the request and send the response is mostly the same with a small variation due to the differences in the length of the prompt and the generated response. These length variations should have a negligible impact to the total time.
 
-The prefill stage processes all the prompt's tokens in parallel so here as well the variations in the length of the prompt shouldn't make too much of a difference, albeit longer prompts will consume more accelerator memory and impact the total throughput.
+The prefill stage processes prompt tokens in parallel, but longer prompts require more computation and KV-cache memory and therefore generally increase TTFT and reduce throughput. The effect depends on the model, batching, hardware, and server load.
 
 The decoding stage is the one most impacted by the length of the generated response since each new token is generated as a separate step. Here the longer the response the longer the decoding stage will be.
 
