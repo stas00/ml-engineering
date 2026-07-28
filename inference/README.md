@@ -141,9 +141,9 @@ The most common sampling methods are:
 
 #### Temperature
 
-Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on its value:
+Temperature is an independent logits transformation that can be combined with [Top-K or Top-p](#sampling) sampling, both of them, or neither. It has the following impact depending on its value:
 
-- `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
+- `t==0.0`: literal softmax temperature division by zero is undefined. Some APIs use zero as shorthand for greedy decoding while others reject it, so use the API's explicit greedy mode when available.
 - `0.0<t<1.0`: the probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
 - `t>1.0`: the probabilities are pushed closer together, creating a lot more randomness - creative use cases.
@@ -160,11 +160,11 @@ To really understand the impact, the temperature factor typically gets applied t
 scaled_logits = logits / temperature
 probs = softmax(scaled_logits)
 ```
-The softmax operation turns logit differences into probability ratios - when we divide by t<1.0, we make these differences larger, causing more extreme probability ratios and a more peaked distribution. When we divide by t>1.0, we make these differences smaller, causing more similar probability ratios and a more uniform distribution. At t=0, this effectively makes the highest logit infinitely larger than the others (though division by zero is avoided in practice).
+The softmax operation turns logit differences into probability ratios - when we divide by t<1.0, we make these differences larger, causing more extreme probability ratios and a more peaked distribution. When we divide by t>1.0, we make these differences smaller, causing more similar probability ratios and a more uniform distribution. As t approaches 0 from above, the highest logit dominates the distribution, but literal division by zero is avoided in practice.
 
-Temperature will have no impact on Greedy decoding, Beam search and Top-K sampling strategies, as it impacts the distance between logit probabilities and all of these strategies use the top probabilities based on their order and temperature doesn't change the order of probabilities. Whereas Top-p sampling allows more or less contenders to enter the sub-set the random sampling will be pulled from based on their total probability - so the closer the probabilities are (high temp) the more randomness is possible.
+For any positive temperature, scaling doesn't change the logit rank order, so a pure greedy argmax chooses the same token. It still changes sampling probabilities. With Top-K, the same K candidates remain eligible but their relative sampling probabilities change. With Top-p, temperature can change both which tokens enter the nucleus and their relative probabilities. Beam-search behavior depends on the implementation and its sequence scoring, so it shouldn't be assumed to be invariant. See the Transformers [`TemperatureLogitsWarper` documentation](https://huggingface.co/docs/transformers/main/en/internal/generation_utils#transformers.TemperatureLogitsWarper).
 
-Other than `t==0.0` and `t==0` there are no hard prescribed values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
+There are no universal temperature values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
 
 For more on decoding methods, see this [HuggingFace blog](https://huggingface.co/blog/how-to-generate).
 
