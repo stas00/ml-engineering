@@ -74,6 +74,7 @@ As most of us rent the compute, and we never see what it looks like, here is how
 - TBP: Total Board Power
 - TDP: Thermal Design Power or Thermal Design Parameter
 - TGP: Total Graphics Power
+- TPC: Tensor Processing Core
 - TPU: Tensor Processing Unit
 
 [Additional glossary @ Modal](https://modal.com/gpu-glossary)
@@ -554,37 +555,49 @@ Notes:
 
 Also known as [clock rate](https://en.wikipedia.org/wiki/Clock_rate) this spec tells us at which frequency the card runs. As hardware becomes faster newer generations will typically increase the clock speed.
 
-When you read specs you're likely to see one or two specifications:
+Accelerator specifications may publish a base clock, a boost or peak clock, or no compute clock at all:
 
-- Base clock is the minimal clock at idling accelerator
-- Boost clock (or Peak Engine clock) is the guaranteed clock at heavy load - but it might be surpassed.
+- A base clock is a vendor-defined nominal operating point, not the minimum idle clock.
+- A boost, peak, or maximum clock is a vendor-defined upper operating target. It is not guaranteed under every workload because the actual frequency depends on the accelerator SKU, power limit, temperature, and workload.
 
-Often just the boost clock is specified.
+Clock frequency is useful for [calculating theoretical TFLOPS](#how-to-calculate-theoretical-tflops) within an architecture, but raw MHz alone does not rank performance across different architectures.
 
-These numbers are useful if you need to [calculate theoretical TFLOPS](#how-to-calculate-theoretical-tflops).
+The same accelerator family may also have different clock rates across SKUs and system configurations, so always check the clock of your specific accelerator.
 
-I've observed that the same accelerator may have different clock rates published in different specs, probably because not "final" versions are created equal. So always double check your specific accelerator for its actual specs.
+The table is sorted by compute clock, highest first. Products whose vendors do not disclose a compute clock follow alphabetically. `not disclosed` means that the linked product specification did not publish a compute clock when checked on 2026-07-28.
 
-Clock speed is in Mhz.
+| Accelerator          | Compute Clock (MHz) | Notes                                          | Ref.      |
+| :------------------- | ------------------: | :--------------------------------------------- | :-------- |
+| AMD MI455X           |                2400 | Peak Engine Clock                              | 2         |
+| AMD MI355X           |                2400 | Peak Engine Clock                              | 1         |
+| AMD MI300X           |                2100 | Peak Engine Clock                              | 3         |
+| AMD MI325X           |                2100 | Peak Engine Clock                              | 4         |
+| NVIDIA GB200 SXM     |                2062 | device-reported maximum SM clock               | 5         |
+| NVIDIA B200 SXM      |                1965 | device-reported maximum SM clock               | 5         |
+| NVIDIA H200 SXM      |                1830 | derived                                        | 12        |
+| NVIDIA H100 SXM      |                1830 | derived                                        | 12        |
+| Intel Gaudi2         |                1650 | device-reported MME clock; TPC=1800            | 6, 10, 11 |
+| Intel Gaudi3         |                1600 | device-reported MME clock; TPC=1600            | 6, 10, 11 |
+| NVIDIA A100 SXM      |                1410 | GPU Boost Clock                                | 7         |
+| NVIDIA A100 PCIe     |                1410 | GPU Boost Clock                                | 7         |
+| NVIDIA B300 SXM      |       not disclosed |                                                | 8         |
+| NVIDIA GB300 SXM     |       not disclosed |                                                | 8         |
+| NVIDIA Rubin GPU     |       not disclosed |                                                | 9         |
 
-| Accelerator          | Boost Clock | Notes              |
-| :------------------- | ----------: | :----------------- |
-| AMD MI355X           |        2400 |                    |
-| AMD MI300X           |        2100 |                    |
-| AMD MI325X           |        2100 |                    |
-| NVIDIA GB200 SXM     |        2062 |                    |
-| NVIDIA B200 SXM      |        1965 |                    |
-| NVIDIA H200 SXM      |        1830 |                    |
-| NVIDIA H100 SXM      |        1830 |                    |
-| Intel Gaudi2         |        1650 | MME=1650, TPC=1800 |
-| Intel Gaudi3         |        1600 | MME=1600, TPC=1600 |
-| NVIDIA A100 SXM      |        1410 |                    |
-| NVIDIA A100 PCIe     |        1410 |                    |
-|                      |             |                    |
-| NVIDIA B300 SXM      |           ? |                    |
-|                      |             |                    |
+Sources:
 
-Since now there are custom SKUs for the same type of GPU, always check your actual clock, since it could be different from the "general" spec.
+1. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html)
+2. [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+3. [AMD Instinct MI300X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
+4. [AMD Instinct MI325X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html)
+5. [NVIDIA System Management Interface documentation](https://docs.nvidia.com/deploy/nvidia-smi/)
+6. [Intel Gaudi `hl-smi` documentation](https://docs.habana.ai/en/latest/Management_and_Monitoring/Embedded_System_Tools_Guide/System_Management_Interface_Tool.html)
+7. [NVIDIA A100 architecture white paper](https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf)
+8. [NVIDIA GB300 NVL72 specifications](https://www.nvidia.com/en-us/data-center/gb300-nvl72/)
+9. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/)
+10. [Intel Gaudi architecture documentation](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
+11. Intel Gaudi exposes separate clocks for its Matrix Multiplication Engine (MME) and Tensor Processing Core (TPC).
+12. The NVIDIA H200 and H100 1830 MHz clocks are derived from 989 TFLOPS; see the [calculation](#how-to-calculate-theoretical-tflops).
 
 
 Here is how to get the actual clock speed (in particular when your accelerator is under load):
