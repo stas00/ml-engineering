@@ -71,7 +71,7 @@ As most of us rent the compute, and we never see what it looks like, here is how
 - MME: Matrix Multiplication Engine
 - QPU: Quantum Processing Unit
 - RDU: Reconfigurable Dataflow Unit
-- TBP: Total Board Power
+- TBP: Typical Board Power or Total Board Power, depending on vendor
 - TDP: Thermal Design Power or Thermal Design Parameter
 - TGP: Total Graphics Power
 - TPC: Tensor Processing Core
@@ -610,51 +610,74 @@ Here is how to get the actual clock speed (in particular when your accelerator i
 
 ### Power consumption
 
-There are three different definitions, whose only difference is which parts of the accelerator card is included in the measurement:
+Accelerator vendors publish power specifications under several names: Thermal Design Power or Thermal Design Parameter (TDP), Total Graphics Power (TGP), and Typical Board Power or Total Board Power (TBP).
 
-1. **Thermal Design Power (TDP)** is the maximum power that a subsystem is allowed to draw and also the maximum amount of heat an accelerator can generate. This measurement is just for the accelerator chip.
-2. **Total Graphics Power (TGP)** is the same as TDP, but additionally includes the PCB's power, yet without cooling and LEDS (if any).
-3. **Total Board Power (TBP)** is the same as TGP, but additionally includes cooling and LEDS (if any).
+These terms are related because each describes a power or thermal envelope used to provision electricity and cooling. The underlying physical scopes can be nested: chip or package, accelerator board or module, then complete system. A broader scope includes more components, but the acronym alone does not reliably identify that scope. TDP, TGP, and TBP therefore cannot be universally ordered or converted.
 
-As typically high-end accelerators require external cooling and have no LEDS, TGP and TBP usually imply the same.
+Where vendor documentation defines the scope and qualifier, the relationship is useful:
 
-The actual power consumption in Watts will vary, depending on whether the accelerator is idle or used to compute something.
+- [NVIDIA defines TGP](https://docs.nvidia.com/mission-control/docs/systems-administration-guide/2.3.0/wpps/concepts.html#tgp-total-graphics-power) as the total electrical power for the GPU core, onboard memory, and supporting board circuitry. Its [DGX B200 power controls](https://docs.nvidia.com/dgx/dgxb200-user-guide/power-capping.html) separately expose a 1000W maximum TGP, a 700W default set point, the configured set point, and current measured power.
+- [AMD lists MI250X](https://www.amd.com/en/products/accelerators/instinct/specifications.html) with 500W TDP and 560W peak TBP, so for this OAM module the published peak TBP is 60W above its TDP.
+- NVIDIA's [GB300 rack-planning example](https://docs.nvidia.com/mission-control/docs/systems-administration-guide/2.3.0/prs/faq.html) adds four 1.4kW GPUs and a 1kW CPU into a 6.6kW managed node budget, adds 0.9kW of static node power, then multiplies the resulting 7.5kW node budget by 18 nodes to obtain a 135kW rack budget.
 
-If you're a cloud compute user you normally don't care for these values because you're not paying for power consumption directly, as it's already included in your package. For those who host their own hardware these values are important because they tells you how much power and cooling you'd need to keep the hardware running without getting throttled or melting down.
+These examples are product-specific relationships, not conversion rules. Before comparing values, check whether the specification describes electrical input or thermal design, which components it includes, and whether the value is typical, default, maximum, peak, or configurable. Actual draw varies with workload and the configured power limit.
 
-These numbers are also important for knowing how much closer one can get to the theoretical TFLOPS published, the higher the TDP the more efficient the compute will be. For example, while AMD MI325X has the same theoretical compute specs as its MI300X predecessor, the former is more efficient at effective compute because its TDP is 250W higher. In other words, given 2 accelerators with the same or very similar [theoretical compute specs](#tflops-comparison-table) - the one with the higher TDP will be better at sustainable compute.
+If you're a cloud compute user you normally don't care about these values because power consumption is already included in your package. For those who host their own hardware, these values help determine how much power and cooling to provision without power-limit or thermal throttling.
 
-Some specs report TDP, others TGP/TBP so the table has different columns depending on which measurement has been published. All measurements are in Watts:
+Beyond sizing power and cooling infrastructure, these specifications can also help explain sustained performance. With adequate cooling, more power headroom may reduce power-limit throttling and allow an accelerator to sustain higher performance, but a higher power specification alone does not prove faster compute or better efficiency. Efficiency requires comparable work-per-energy measurements such as FLOP/J or tokens/J. For example, AMD publishes the same peak arithmetic throughput for MI325X and MI300X, but MI325X pairs a 1000W rather than 750W peak TBP with 33% more HBM capacity and 13% more memory bandwidth; its nominal peak arithmetic per watt is therefore 25% lower, while measured efficiency may differ on memory-bound workloads.
 
-| Accelerator           | TGP/TBP |   TDP | Notes |
-| :-------------------  | ------: | ----: | :---- |
-| AMD MI450X            | 2500    |       |       |
-| NVIDIA Rubin SXM      |         |  2300 |       |
-| NVIDIA GB300 SXM      |         |  1400 |       |
-| AMD MI355X            | 1400    |       |       |
-| NVIDIA B300 SXM       |         |  1300 |       |
-| NVIDIA GB200 SXM      |         |  1200 |       |
-| NVIDIA B200 SXM       |         |  1000 |       |
-| AMD MI325X            | 1000    |       |       |
-| Intel Gaudi3          |         |   900 |       |
-| AMD MI300X            | 750     |       |       |
-| NVIDIA H200 SXM       |         |   700 |       |
-| NVIDIA H100 SXM       |         |   700 |       |
-| Intel Gaudi2          |         |   600 |       |
-| NVIDIA H200 NVL       |         |   600 |       |
-| AMD MI250X            |         |   560 |       |
-| AWS Trainium2 / Ultra |         |   500 |       |
-| NVIDIA H100 NVL       |         |   400 |       |
-| NVIDIA A100 SXM       |         |   400 | 1     |
-| NVIDIA A100 PCIe      |         |   300 |       |
-|                       |         |       |       |
+The table is sorted by **Power spec (W)**, highest first, followed by `N/A` entries. Values are per accelerator rather than per node or rack. `N/A` means that the cited specification did not publish a product power value when checked on 2026-07-29.
 
+| Accelerator           | Power<br> | Vendor term                 | Notes                    |
+|                       | spec (W)  |                             |                          |
+| :-------------------- | --------: | :-------------------------- | :----------------------- |
+| NVIDIA GB300 SXM      |      1400 | per-GPU maximum power       | 1                        |
+| AMD MI355X            |      1400 | Typical Board Power         | 2                        |
+| NVIDIA GB200 SXM      |      1200 | per-GPU maximum power       | 1                        |
+| AMD MI325X            |      1000 | Typical Board Power         | 3; peak                  |
+| AMD MI350X            |      1000 | Typical Board Power         | 4                        |
+| NVIDIA B200 SXM       |      1000 | maximum TGP                 | 5                        |
+| NVIDIA B300 SXM       |      1000 | maximum TGP                 | 6                        |
+| Intel Gaudi3          |       900 | TDP                         | 7                        |
+| AMD MI300X            |       750 | Typical Board Power         | 8; peak                  |
+| NVIDIA H100 SXM       |       700 | maximum TDP                 | 9                        |
+| NVIDIA H200 SXM       |       700 | maximum TDP                 | 10                       |
+| AMD MI350P            |       600 | maximum Typical Board Power | 11; configurable to 450W |
+| Intel Gaudi2          |       600 | TDP                         | 12                       |
+| NVIDIA H200 NVL       |       600 | maximum TDP                 | 10                       |
+| NVIDIA RTX PRO 6000   |       600 | maximum power consumption   | 13; configurable         |
+| AMD MI250X            |       560 | Typical Board Power         | 14; peak; 500W TDP       |
+| NVIDIA H100 NVL       |       400 | maximum TDP                 | 9; configurable 350-400W |
+| NVIDIA A100 SXM       |       400 | maximum TDP                 | 15; CTS up to 500W       |
+| NVIDIA L40S           |       350 | maximum power consumption   | 16                       |
+| NVIDIA A100 PCIe      |       300 | maximum TDP                 | 15                       |
+| AMD MI455X            |       N/A |                             | 17                       |
+| AWS Trainium2 / Ultra |       N/A |                             | 18                       |
+| Google TPUs           |       N/A |                             | 20                       |
+| NVIDIA Rubin GPU      |       N/A |                             | 19                       |
 
-1. HGX A100-80GB custom thermal solution (CTS) SKU can support TDPs up to 500W
+Notes:
 
-Additional notes:
-
-1. Google doesn't publish power consumption specs for recent TPUs, the older ones can be found [here](https://en.wikipedia.org/wiki/Tensor_Processing_Unit#Products)
+1. [NVIDIA Mission Control power-management FAQs](https://docs.nvidia.com/mission-control/docs/systems-administration-guide/2.3.0/prs/faq.html)
+2. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html)
+3. [AMD Instinct MI325X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html)
+4. [AMD Instinct MI350X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350x.html)
+5. [NVIDIA DGX B200 power capping](https://docs.nvidia.com/dgx/dgxb200-user-guide/power-capping.html)
+6. [NVIDIA DGX B300 power capping](https://docs.nvidia.com/dgx/dgxb300-user-guide/power-capping.html)
+7. [Intel Gaudi 3 AI accelerator white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
+8. [AMD Instinct MI300X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
+9. [NVIDIA H100 specifications](https://www.nvidia.com/en-us/data-center/h100/)
+10. [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/)
+11. [AMD Instinct MI350P specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350p.html)
+12. [Intel Gaudi 2 AI accelerator white paper](https://www.intel.com/content/www/us/en/content-details/839363/intel-gaudi-2-ai-accelerator-white-paper.html)
+13. [NVIDIA RTX PRO 6000 Blackwell Server Edition specifications](https://www.nvidia.com/en-us/data-center/rtx-pro-6000-blackwell-server-edition/)
+14. [AMD Instinct accelerator specifications](https://www.amd.com/en/products/accelerators/instinct/specifications.html)
+15. [NVIDIA A100 specifications](https://www.nvidia.com/en-us/data-center/a100/)
+16. [NVIDIA L40S specifications](https://www.nvidia.com/en-us/data-center/l40s/)
+17. [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
+18. [AWS Trainium2 architecture documentation](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html)
+19. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/)
+20. Google doesn't publish power consumption specs for recent TPUs, the older ones can be found [here](https://en.wikipedia.org/wiki/Tensor_Processing_Unit#Products)
 
 
 
