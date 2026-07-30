@@ -607,12 +607,12 @@ ZeRO-1 which only shards the optimiser states, like DDP, will too need to transm
 
 Here is how to calculate time in seconds for communication and compute:
 
-- `comms_time = n_transmissions * n_bytes * model_size_in_B / inter-node-throughput_in_GBps`
+- `comms_time = comms_multiplier * n_bytes * model_size_in_B / inter-node-throughput_in_GBps`
 - `compute_time = n_passes * n_bytes * model_size_in_B * seqlen * global_batch_size / (total_gpus * 1e3 * tflops_wo_comms)`
 
 The compute time formula is a rough estimate which works for any Transformer-block based model. It ignores any small computations and includes only the massive `matmul`s.
 
-The comms time formula is also a first-order estimate. `n_transmissions` is the sum of the [busbw correction factors](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth) of the collectives performed in a single step - `2(n-1)/n` for `all_reduce` and `(n-1)/n` each for `all_gather` and `reduce_scatter`, where `n` is the number of ranks - which is where DDP's 2 and ZeRO-3's 3 come from. It drops the `(n-1)/n` part, which is a good approximation for a large number of ranks (0.998 at the 512 ranks used below), but too optimistic for a small one (0.875 at 8 ranks). And the throughput you plug in has to be the measured `busbw` rather than `algbw`, since `algbw` shrinks as ranks are added - though even `busbw` can vary somewhat between collectives at the same payload, because NCCL may pick a different algorithm or protocol for each.
+The comms time formula is also a first-order estimate. `comms_multiplier` is the sum of the [busbw correction factors](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth) of the collectives performed in a single step - `2(n-1)/n` for `all_reduce` and `(n-1)/n` each for `all_gather` and `reduce_scatter`, where `n` is the number of ranks - which is where DDP's 2 and ZeRO-3's 3 come from. It drops the `(n-1)/n` part, which is a good approximation for a large number of ranks (0.998 at the 512 ranks used below), but too optimistic for a small one (0.875 at 8 ranks). And the throughput you plug in has to be the measured `busbw` rather than `algbw`, since `algbw` shrinks as ranks are added - though even `busbw` can vary somewhat between collectives at the same payload, because NCCL may pick a different algorithm or protocol for each.
 
 As an experiment let's use the data points from [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b/) training.
 
@@ -621,8 +621,8 @@ When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPS w/ D
 Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
 - `n_bytes` = `2` in case of bf16 which is 2 bytes
-- `n_transmissions` = `3` in the case of ZeRO-3/FSDP (1x reduce_scatter + 2x all_gather (fwd + bwd)) and 2 in case of ZeRO-1 (1x reduce_scatter + 1x all_gather),
-- additionally, in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `n_transmissions*n_bytes=3*2+2=4*2` for the additional 2 bytes but since half the model was frozen only about half of gradients were sent, so we still have the multiplier of 3.
+- `comms_multiplier` = `3` in the case of ZeRO-3/FSDP (1x reduce_scatter + 2x all_gather (fwd + bwd)) and 2 in case of ZeRO-1 (1x reduce_scatter + 1x all_gather),
+- additionally, in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `comms_multiplier*n_bytes=3*2+2=4*2` for the additional 2 bytes but since half the model was frozen only about half of gradients were sent, so we still have the multiplier of 3.
 - `n_passes` = `4` with activation recomputation, or `3` w/o it. The model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once wrt inputs and once wrt weights). And with activation recomputation one more `forward` is done.
 - `total_gpus` = `512`
 - `global_batch_size` = `3584`
