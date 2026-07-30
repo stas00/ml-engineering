@@ -616,7 +616,7 @@ The comms time formula is also a first-order estimate. `comms_multiplier` is the
 
 As an experiment let's use the data points from [IDEFICS-80B](https://huggingface.co/HuggingFaceM4/idefics-80b/) training.
 
-When we trained IDEFICS-80B with a 340GBs EFA we were getting only 90TFLOPS w/ DeepSpeed ZeRO-3 on A100s as compared to 150+TFLOPS one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
+When we trained IDEFICS-80B with a 340Gbps EFA we were getting only 90TFLOPS w/ DeepSpeed ZeRO-3 on A100s as compared to 150+TFLOPS one was getting with Megatron's TP+PP+DP. and moreover a big chunk of the model was frozen as were building a new models based on one language and one vision model. So our multiplier was less than 3. On the other hand we were using activation recomputation to save memory, so this is an additional transmission of all model weights and to top it all off since nccl wasn't supporting proper half-precision reduction we used fp32 for gradient reductions, so really our multiplier wasn't 3 but more like 4.5.
 
 Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
