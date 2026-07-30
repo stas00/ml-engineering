@@ -20,12 +20,22 @@ These notes assume you already know what compute you want for your specific work
 - TCO: Total Cost of Ownership
 
 
+## The most important questions to ask
+
+In my limited experience there are 3 questions you absolutely need to know the answer to:
+
+1. **Your GPUs will fail - guaranteed.** The critical question is how quickly they will be replaced and what's the procedure - if you need to get a hold of a human for each replacement this will be painful and slow, the best CSPs give you an API for you to do it yourself. Also beware of Humpty Dumpty GPUs, that will get returned to you w/o actually being replaced because when the technician checks them they appear to work just fine - but they will fail again when you try to use them - here is how to [detect if you get the same broken GPUs back](../compute/accelerator/nvidia/debug.md#how-to-detect-if-you-get-the-same-broken-node-again-and-again).
+
+2. **You will run into multiple problems, mainly with the hardware.** You need to know how quickly you can reach an engineer that can address the issue. Normally your reports will go to a PM, who will triage and try to get you to the right person, but very often this can take hours/days and sometimes requires escalation, especially if the PM isn't the most experienced person in the world.
+
+3. **You need to know if you can break the contract - how quickly and at what cost.** Things may get really bad for your team, but if you can't walk away, that would guarantee burnout for one or more persons on your team and a potential negative impact on your ability to make progress and lead your team to success.
+
 
 ## Contracts
 
 If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in total cost of ownership (TCO) savings (and time)!
 
-### Free Trials
+### Free trials
 
 Most cloud service providers (CSPs) have trial programs where you can "kick the tires" for a few days/weeks on a few nodes for free.
 
@@ -233,7 +243,7 @@ Here are some critical questions you need to ask long before the migration start
 - What happens to the files being edited and created while the filesystem is on the move - do you send everybody home while the migration is happening and freeze the filesystem?
 
 
-### Backup and Archive
+### Backup and archive
 
 Many CSPs only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD.
 

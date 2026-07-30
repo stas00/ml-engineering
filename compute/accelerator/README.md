@@ -850,7 +850,7 @@ NVIDIA GPUs run on [CUDA](https://developer.nvidia.com/cuda-toolkit)
 
 ### AMD
 
-AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - note that with PyTorch you can use CUDA-based software on ROCm-based GPUs! So it should be trivial to switch to the recent AMD MI250, MI300X, and other emerging ones.
+AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - note that PyTorch intentionally reuses the same `torch.cuda` Python API on ROCm, so many programs that only use PyTorch APIs can run unchanged on supported AMD GPUs such as MI250 and MI300X! Software that includes custom CUDA or PTX code, NVIDIA-specific libraries, or unsupported operations may still need porting or replacement and validation.
 
 ### Intel Gaudi
 
