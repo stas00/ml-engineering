@@ -1,6 +1,6 @@
 # usage: make help
 
-.PHONY: help spell prep-html-files html html-local pdf epub upload check-links-local check-links-all clean
+.PHONY: help spell prep-html-files html html-local pdf epub upload fix-tables check-links-local check-links-all clean
 .DEFAULT_GOAL := help
 
 help: ## this help
@@ -43,6 +43,9 @@ upload: pdf epub ## upload pdf to the hub
 	cp "Stas Bekman - Machine Learning Engineering.pdf" ml-engineering-book/
 	cp "Stas Bekman - Machine Learning Engineering.epub" ml-engineering-book/
 	cd ml-engineering-book/ && git commit -m "new version" "Stas Bekman - Machine Learning Engineering.pdf" "Stas Bekman - Machine Learning Engineering.epub" && git push
+
+fix-tables: ## fix markdown tables so they render (join multi-line headers, add missing blank lines, realign pipes)
+	python build/fix-tables.py
 
 check-links-local: html-local ## check local links
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") | tee linkchecker-local.txt

@@ -236,14 +236,14 @@ Every number in this guide comes from the scripts in this folder. Nothing here i
 
 ### Files at a glance
 
-| file | purpose | produces |
-|---|---|---|
-| `install.sh` | one-time setup: pins matched torch/CUDA/deps, installs FA3 (Hopper) or FA4 (Blackwell), stages the model to local disk | the identical-stack environment (the "compare on an identical software stack" caveat) |
-| `benchmark.py` | training loop (fwd+bwd+step), real weights, prints per-step JSON (`tflops`, `peak_mem_gib`); config block at top, env-overridable (`SEQ_LEN`, `STEPS`, `WARMUP_STEPS`, `ZERO_STAGE`, `OFFLOAD_OPTIMIZER`, `GRAD_CHECKPOINT`, `USE_LIGER`, `MEM_DEBUG`) | one row of the speedup + memory tables |
-| `run_sweep.sh` | drives `benchmark.py` across a list of sequence lengths, logs to `results_<gpu>_<ts>.log` | the **speedup-vs-seqlen** and **max-seqlen/memory** tables |
-| `bench_flash_attn.py` | isolated FA3/FA4 attention-kernel micro-benchmark (fwd + fwd/bwd TFLOPS across seqlens) | the **isolated attention** numbers in "where the dense-path deficit comes from" |
-| `bench_decompose.py` | one profiled training step, splits measured wall time into attention (FlashAttention kernels) vs everything-else buckets on a single clock (env-overridable: `SEQ_LEN`, `ZERO_STAGE`, `GRAD_CHECKPOINT`, `OFFLOAD_OPTIMIZER`, `USE_LIGER`) | the **step-decomposition** table in "where the dense-path deficit comes from" |
-| `plot_results.py` | matplotlib figure from the sweep numbers (data hardcoded at the top of the script) | `results_plot.png` |
+| file                  | purpose                                                                                                                                                                                                                                                | produces                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `install.sh`          | one-time setup: pins matched torch/CUDA/deps, installs FA3 (Hopper) or FA4 (Blackwell), stages the model to local disk                                                                                                                                 | the identical-stack environment (the "compare on an identical software stack" caveat) |
+| `benchmark.py`        | training loop (fwd+bwd+step), real weights, prints per-step JSON (`tflops`, `peak_mem_gib`); config block at top, env-overridable (`SEQ_LEN`, `STEPS`, `WARMUP_STEPS`, `ZERO_STAGE`, `OFFLOAD_OPTIMIZER`, `GRAD_CHECKPOINT`, `USE_LIGER`, `MEM_DEBUG`) | one row of the speedup + memory tables                                                |
+| `run_sweep.sh`        | drives `benchmark.py` across a list of sequence lengths, logs to `results_<gpu>_<ts>.log`                                                                                                                                                              | the **speedup-vs-seqlen** and **max-seqlen/memory** tables                            |
+| `bench_flash_attn.py` | isolated FA3/FA4 attention-kernel micro-benchmark (fwd + fwd/bwd TFLOPS across seqlens)                                                                                                                                                                | the **isolated attention** numbers in "where the dense-path deficit comes from"       |
+| `bench_decompose.py`  | one profiled training step, splits measured wall time into attention (FlashAttention kernels) vs everything-else buckets on a single clock (env-overridable: `SEQ_LEN`, `ZERO_STAGE`, `GRAD_CHECKPOINT`, `OFFLOAD_OPTIMIZER`, `USE_LIGER`)             | the **step-decomposition** table in "where the dense-path deficit comes from"         |
+| `plot_results.py`     | matplotlib figure from the sweep numbers (data hardcoded at the top of the script)                                                                                                                                                                     | `results_plot.png`                                                                    |
 
 ### Step 1 — set up an identical stack on each GPU (once per node)
 

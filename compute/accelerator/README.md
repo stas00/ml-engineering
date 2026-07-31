@@ -388,13 +388,13 @@ The accelerators use [High Bandwidth Memory](https://en.wikipedia.org/wiki/High_
 Here are the specs:
 
 | Type  | Max data<br> rate speed per<br> pin (Gbps) | Stack<br> Height | Bits per<br> Channel | Number<br> of dies<br> per stack | Die capacity<br> per stack<br> (GiBs) | Max capacity<br> per stack<br> (GiBs) | Max data<br> rate per<br> stack (GBps) |
-| :---- | --: | -: | --: | -: | -: | -: | ---: |
-| HBM1  | 1.0 |  8 | 128 |  4 |  1 |  4 |  128 |
-| HBM2  | 2.4 |  8 | 128 |  8 |  1 |  8 |  307 |
-| HBM2e | 3.6 |  8 | 128 | 12 |  2 | 24 |  461 |
-| HBM3  | 6.4 | 16 |  64 | 12 |  2 | 24 |  819 |
-| HBM3e | 9.6 | 16 |  64 | 16 |  3 | 48 | 1229 |
-| HBM4  | 8.0 | 32 |  64 | 16 |  4 | 64 | 2048 |
+| :---- | -----------------------------------------: | ---------------: | -------------------: | -------------------------------: | ------------------------------------: | ------------------------------------: | -------------------------------------: |
+| HBM1  |                                        1.0 |                8 |                  128 |                                4 |                                     1 |                                     4 |                                    128 |
+| HBM2  |                                        2.4 |                8 |                  128 |                                8 |                                     1 |                                     8 |                                    307 |
+| HBM2e |                                        3.6 |                8 |                  128 |                               12 |                                     2 |                                    24 |                                    461 |
+| HBM3  |                                        6.4 |               16 |                   64 |                               12 |                                     2 |                                    24 |                                    819 |
+| HBM3e |                                        9.6 |               16 |                   64 |                               16 |                                     3 |                                    48 |                                   1229 |
+| HBM4  |                                        8.0 |               32 |                   64 |                               16 |                                     4 |                                    64 |                                   2048 |
 
 Notes:
 
