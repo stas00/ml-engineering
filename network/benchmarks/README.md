@@ -130,8 +130,8 @@ Of course, an efficient framework will overlap communications and compute, so th
 To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed ZeRO Stage 3 with V100s
 
 1. 100Gbps is not enough
-2. 200-400 Gbps is ok
-3. 800-1000 Gbps is ideal
+2. 200-400Gbps is ok
+3. 800-1000Gbps is ideal
 
 [full details](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491)
 

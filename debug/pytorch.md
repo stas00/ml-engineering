@@ -486,7 +486,7 @@ tokenizer_fast_tiny.save_pretrained(".")
 So now you can shrink the vocab size to as small as the tokenizer allows, that is you need to have at least enough tokens to cover the target alphabet and special characters, and usually 3-5k tokens is more than enough.  Sometimes you could make it even small, after all the original ASCII charset has only 128 characters.
 
 If we continue the MT5 code from earlier in this chapter and add the tokenizer shrinking code from the previous section, we end up with this script [mt5-make-tiny-model.py](https://huggingface.co/stas/mt5-tiny-random/blob/main/mt5-make-tiny-model.py)
-and when we run it - our end model file is truly tiny - 3.34 MB in size! As you can see the script also has code to validate that the model can actually work with the modified tokenizer. The results will be garbage, but the intention is to test that the new model and the tokenizer are functional.
+and when we run it - our end model file is truly tiny - 3.34MB in size! As you can see the script also has code to validate that the model can actually work with the modified tokenizer. The results will be garbage, but the intention is to test that the new model and the tokenizer are functional.
 
 Here is another example  [fsmt-make-super-tiny-model.py](https://huggingface.co/stas/tiny-wmt19-en-ru/blob/main/fsmt-make-super-tiny-model.py) - here you can see I'm creating a totally new tiny vocab from scratch.
 
@@ -814,7 +814,7 @@ $ python -c 'import torch; [(torch.ones((1024*2**18)), print(c)) for c in range(
 1997
 Killed
 ```
-This one liner tried to allocate 2TiB of memory, 1 GiB at a time, reporting each successful incremental allocation. We can see the program incurred cpu-oom after successfully allocating around 1997GiB.
+This one liner tried to allocate 2TiB of memory, 1GiB at a time, reporting each successful incremental allocation. We can see the program incurred cpu-oom after successfully allocating around 1997GiB.
 
 If your admin set `cgroups` to cpu oom individual programs when a collective amount of cpu memory used by a given user reaches a specific size, this is how you can discover what that value is. For example, on a shared 8-GPU node with 2TiB of CPU RAM, and you asked for just 1x GPU - you will likely get 1/8th of node's total resources - thus any of your processes may get killed via cpu-oom at 250GiB (`2000/8`), even though `top` shows you all of 2TiB available.
 
@@ -1255,7 +1255,7 @@ Then the second run gives us the same plus memory that was needed to allocate a 
 
 The third run is expected to have used a double of the additional memory used by the 2nd run, since we now allocated a 2x larger tensor of shape `2**14` by `2**15` - following the same math, that tensor would need 2048MiB of additional CPU memory. And the difference is `(2588624 - 640704) / 2**10` => 1902MiB so we are again short by about the same amount as the second run vs the first one.
 
-However, if we compare the difference in the reported memory used between the second and the third run: `(2588624- 1549504) / 2**10` => 1014 MiB it now does check out very closely, since the expected memory difference was 1024MiB.
+However, if we compare the difference in the reported memory used between the second and the third run: `(2588624- 1549504) / 2**10` => 1014MiB it now does check out very closely, since the expected memory difference was 1024MiB.
 
 So what's going on here? What is being measured is the peak memory usage, so when we fire off `import torch` it allocates some memory, but also releases some, so when we add additional commands, their memory allocation will use some of the memory freed when `import torch` finished its run. So now you understand that comparing peak memory usage can be tricky if some memory get released, after being allocated.
 

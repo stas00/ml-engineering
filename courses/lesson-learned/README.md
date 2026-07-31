@@ -107,22 +107,22 @@ You can take it as a self-guided course, or teach it to others yourself!
 
 - 3.1. **Spec sheets provide unachievable numbers - always benchmark matmul on your own hardware.**
   - Theoretical peak TFLOPS assume perfectly-shaped matrices, no memory movement overhead, and boost clocks that hold indefinitely - none of which happens in real training.
-  - **Example:** an NVIDIA B200 SXM may only reach ~1745.0 TFLOPS (BF16) out of a 2250 TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
+  - **Example:** an NVIDIA B200 SXM may only reach ~1745.0TFLOPS (BF16) out of a 2250TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
   - This is why "Maximum Achievable Matmul FLOPS" (MAMF) exists as a metric distinct from the theoretical spec: it's obtained by brute-force searching matmul shapes on your actual hardware/software with `mamf-finder.py`, giving you the realistic ceiling to optimize against.
   - Once your measured training TFLOPS get close to your own MAMF number (not the theoretical peak), it's time to stop optimizing and start training.
 
   📖 [Maximum Achievable Matmul FLOPS comparison table](../../compute/accelerator/README.md#maximum-achievable-matmul-flops-comparison-table)
 
 - 3.2. **Throughput optimization is a journey with diminishing returns, not a fixed destination you arrive at instantly.**
-  - During BLOOM-176B's tuning phase, the team started below 100 TFLOPS and, over a few weeks, worked up to 150 TFLOPS by launch - no single silver bullet, just accumulated smaller wins.
-  - **Know when to stop:** once there was no more meaningful headroom relative to what similar setups achieved at the time (~155 TFLOPS ceiling for 80GB A100s in 2022), the team deliberately stopped optimizing and began training.
+  - During BLOOM-176B's tuning phase, the team started below 100TFLOPS and, over a few weeks, worked up to 150TFLOPS by launch - no single silver bullet, just accumulated smaller wins.
+  - **Know when to stop:** once there was no more meaningful headroom relative to what similar setups achieved at the time (~155TFLOPS ceiling for 80GB A100s in 2022), the team deliberately stopped optimizing and began training.
   - Budget explicit calendar time for this tuning phase before the real launch - treating it as an afterthought means either wasting compute at low efficiency for months, or endlessly delaying the launch trying to "perfect" the setup.
 
   📖 [TFLOPS as a performance metric](../../training/performance/README.md#tflops-as-a-performance-metric)
 
 - 3.3. **Global batch size ramp-up matters far more than intuition suggests, especially with Pipeline Parallelism.**
-  - For BLOOM-176B, starting too small was disastrous: GBS=16 measured only 8 TFLOPS, because with Pipeline Parallelism a small GBS creates a large proportional "pipeline bubble" of idle GPU time.
-  - The team instead started at GBS=192 (73 TFLOPS) and ramped up by 16 every ~9.77M samples, eventually reaching GBS=2048 at 150 TFLOPS.
+  - For BLOOM-176B, starting too small was disastrous: GBS=16 measured only 8TFLOPS, because with Pipeline Parallelism a small GBS creates a large proportional "pipeline bubble" of idle GPU time.
+  - The team instead started at GBS=192 (73TFLOPS) and ramped up by 16 every ~9.77M samples, eventually reaching GBS=2048 at 150TFLOPS.
   - **Why ramp at all:** early training is essentially random and doesn't benefit yet from large, highly-refined batches, so there's no point paying the pipeline-bubble cost of a small batch during that phase either.
   - If you use Pipeline Parallelism, benchmark your actual achieved TFLOPS at a few candidate starting GBS values before committing to a ramp schedule.
 

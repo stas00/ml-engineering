@@ -18,7 +18,7 @@ If you intend to train with a very large GBS, with say 1024, or 2048 samples and
 
 It's also important to not start with GBS that is too small, since otherwise the progress won't be efficient. When there is too little data the compute (TFLOPS) is inefficient and will slow everything down. This is especially so when Pipeline Parallelism (PP) is used, since the most important thing about PP tuneup is a small GPU idleness bubble, and the smaller the GBS the larger the bubble is.
 
-For example, for BLOOM-176B, where we did use PP, after doing throughput benchmarking we found that starting with GBS=16 was incredibly slow (8 TFLOPS), so we eventually started with GBS=192 (73 TFLOPS) and then we ramped up to GBS=2048 (150 TFLOPS) - we increased GBS by 16 every 9_765_625 samples.
+For example, for BLOOM-176B, where we did use PP, after doing throughput benchmarking we found that starting with GBS=16 was incredibly slow (8TFLOPS), so we eventually started with GBS=192 (73TFLOPS) and then we ramped up to GBS=2048 (150TFLOPS) - we increased GBS by 16 every 9_765_625 samples.
 
 
 

@@ -643,7 +643,7 @@ If we check against our IDEFICS-80B logs, we see that each iteration took about 
 
 So the good news is that the math checks out as comms + compute are in the ballpark of the measured time.
 
-We can do another sanity check by feeding the compute formulae 90 TFLOPS that we logged, in which case:
+We can do another sanity check by feeding the compute formulae 90TFLOPS that we logged, in which case:
 
 - compute = `4 * 2 * 80 * 1024 * 3584 / (512 * 1e3 * 90)` = 51 sec
 
@@ -673,11 +673,11 @@ which would be insignificant comparatively to the compute time, especially if so
 
 Also the DeepSpeed team empirically [benchmarked a 176B model](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491) on 384 V100 GPUs (24 DGX-2 nodes) and found that:
 
-1. With 100 Gbps IB, we only have <20 TFLOPS per GPU (bad)
-2. With 200-400 Gbps IB, we achieve reasonable TFLOPS around 30-40 per GPU (ok)
-3. For 800 Gbps IB, we reach 40+ TFLOPS per GPU (excellent)
+1. With 100Gbps IB, we only have <20TFLOPS per GPU (bad)
+2. With 200-400Gbps IB, we achieve reasonable TFLOPS around 30-40 per GPU (ok)
+3. For 800Gbps IB, we reach 40+TFLOPS per GPU (excellent)
 
-To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125 TFLOPS](https://www.nvidia.com/en-gb/data-center/tesla-v100/).
+To remind the peak TFLOPS for NVIDIA V100 at fp16 is [125TFLOPS](https://www.nvidia.com/en-gb/data-center/tesla-v100/).
 
 But be careful here - this benchmark is for V100s! Which is about 2-3x slower than A100, and 4-8x slower than H100 for half-precision. So the comms have to be at least 4-8x faster for H100 nodes to match the above table at half precision. We need more benchmarks with more recent hardware.
 

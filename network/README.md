@@ -158,8 +158,8 @@ When peer-to-peer bandwidth is much lower than all-to-all it means that if you d
 
 To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was run on a 8x GPU AMD MI300X node with a 4GiB payload and the `busbw` measurements were:
 
-- 2 GPUs:  47.671 GBps
-- 8 GPUs:  312.912 GBps
+- 2 GPUs:  47.671GBps
+- 8 GPUs:  312.912GBps
 
 i.e. 2 GPUs performed 6.5x slower than 8.
 
@@ -172,12 +172,12 @@ You will find the details analysis of each technology in the following sections.
 
 [PCIe](https://en.wikipedia.org/wiki/PCI_Express) is a high-speed serial computer expansion bus standard that can be found even on the cheapest computer desktop.
 
-| Interconnect | Lane/Direction | Lanes | Unidirection | Duplex   |
-| :----------  | -------------: |  ---: | ----------:  | ------:  |
-| PCIe 4       |  ~2.0 GBps     |    16 |  31 GBps     |  62 GBps |
-| PCIe 5       |  ~4.0 GBps     |    16 |  63 GBps     | 126 GBps |
-| PCIe 6       |  ~7.5 GBps     |    16 | 121 GBps     | 242 GBps |
-| PCIe 7       | ~15.0 GBps     |    16 | 242 GBps     | 484 GBps |
+| Interconnect | Lane/<br>Direction<br>(GBps) | Lanes | Uni-dir.<br>(GBps) | Duplex<br>(GBps) |
+| :----------- | ---------------------------: | ----: | -----------------: | ---------------: |
+| PCIe 4       |                         ~2.0 |    16 |                 31 |               62 |
+| PCIe 5       |                         ~4.0 |    16 |                 63 |              126 |
+| PCIe 6       |                         ~7.5 |    16 |                121 |              242 |
+| PCIe 7       |                        ~15.0 |    16 |                242 |              484 |
 
 If one compares the latest generations of different intra-node networking technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
@@ -191,14 +191,14 @@ I found the NVLink wiki page to be quite difficult to follow, so I will try to h
 
 Effective payload rate of intra-node GPU-to-GPU communication hardware:
 
-| Interconnect | Lane/Direction | Lanes | Links | Unidirection | Duplex     | GPU               |
-| :----------- | -------------: | ----: | ----: | -----------: | ---------: | :---------------- |
-| NVLink 1     | 2.50 GBps      |     8 |     4 | 80 GBps      | 160 GBps   | P100              |
-| NVLink 2     | 3.125 GBps     |     8 |     6 | 150 GBps     | 300 GBps   | V100              |
-| NVLink 3     | 6.25 GBps      |     4 |    12 | 300 GBps     | 600 GBps   | A100              |
-| NVLink 4     | 12.50 GBps     |     2 |    18 | 450 GBps     | 900 GBps   | H100, H200, GH200 |
-| NVLink 5     | 25.00 GBps     |     2 |    18 | 900 GBps     | 1800 GBps  | B200, B\*, GB\*   |
-| NVLink 6     | 25.00 GBps     |     2 |    36 | 1800 GBps    | 3600 GBps  | Rubin             |
+| Interconnect | Lane/<br>Direction<br>(GBps) | Lanes | Links | Uni-dir.<br>(GBps) | Duplex<br>(GBps) | GPU               |
+| :----------- | ---------------------------: | ----: | ----: | -----------------: | ---------------: | :---------------- |
+| NVLink 1     |                         2.50 |     8 |     4 |                 80 |              160 | P100              |
+| NVLink 2     |                        3.125 |     8 |     6 |                150 |              300 | V100              |
+| NVLink 3     |                         6.25 |     4 |    12 |                300 |              600 | A100              |
+| NVLink 4     |                        12.50 |     2 |    18 |                450 |              900 | H100, H200, GH200 |
+| NVLink 5     |                        25.00 |     2 |    18 |                900 |             1800 | B200, B\*, GB\*   |
+| NVLink 6     |                        25.00 |     2 |    36 |               1800 |             3600 | Rubin             |
 
 There is a good overview of evolution of NVLink (1 to 4) [here](https://www.naddod.com/blog/unveiling-the-evolution-of-nvlink).
 
@@ -297,11 +297,11 @@ As of this writing there is no public spec of the speed, but I found 450GBps uni
 
 request: I'm looking for an official spec if you find one please let me know.
 
-| Architecture    | Unidirection   | NVLink (gen) |
-| :-------------  | -------------: | -----------: |
-| Grace/Hopper    |  450GBps       |  900GBps (4) |
-| Grace/Blackwell |  450GBps       |  900GBps (5) |
-| Vera/Rubin      |  900GBps       | 1800GBps (6) |
+| Architecture    | Uni-dir.<br>(GBps) | NVLink<br>(GBps) | NVLink<br>gen |
+| :-------------- | -----------------: | ---------------: | ------------: |
+| Grace/Hopper    |                450 |              900 |             4 |
+| Grace/Blackwell |                450 |              900 |             5 |
+| Vera/Rubin      |                900 |             1800 |             6 |
 
 Next, it's important to understand that these speeds are of a standalone C2C technology and it can be much lower when integrated into the system, when bottlenecked by other components.
 
@@ -376,14 +376,13 @@ This is AMD's answer to [NVLink](#nvlink).
 
 The following is the all-to-all bandwidth.
 
-| Interconnect  | Link/Direction | Links | Unidirection | Duplex     |
-|               | peer-to-peer   |       | all-to-all   | all-to-all |
-| :------------ | -------------: | ----: | -----------: | ---------: |
-| MI325X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
-| MI300X        | 64 GBps        |     7 | 448 GBps     | 896 GBps   |
-| MI250X        | 50 GBps        |     7 | 350 GBps     | 700 GBps   |
-|               |                |       |              |            |
-| MI355X        | ??             |       |              |            |
+| Interconnect | Link/<br>Direction<br>P2P (GBps) | Links | Uni-dir.<br>all-to-all<br>(GBps) | Duplex<br>all-to-all<br>(GBps) |
+| :----------- | -------------------------------: | ----: | -------------------------------: | -----------------------------: |
+| MI325X       |                               64 |     7 |                              448 |                            896 |
+| MI300X       |                               64 |     7 |                              448 |                            896 |
+| MI250X       |                               50 |     7 |                              350 |                            700 |
+|              |                                  |       |                                  |                                |
+| MI355X       |                               ?? |       |                                  |                                |
 
 The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-GPU node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
 
@@ -433,32 +432,36 @@ When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirecti
 
 This is also known as scale-out networking.
 
-As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1 GBps = 8 Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
+As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1GBps = 8Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
 
 When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, GCP GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
-As of 2026-07-28, here is an inter-node unidirectional theoretical peak bandwidth cross-comparison for current platform configurations. An interface here is a fabric-facing NIC or adapter port, not a SerDes lane or a switch port. Total bandwidth is `interfaces * rate / 8`.
+As of 2026-07-28, here is an inter-node unidirectional theoretical peak bandwidth cross-comparison for current platform configurations and interconnect generations. An interface here is a fabric-facing NIC or adapter port, not a SerDes lane or a switch port. Total bandwidth is `interfaces * rate / 8`. The `Shipped` column says whether you can actually get the hardware today (V) or whether it's still a roadmap or pre-GA target (X).
 
 Sorted by Total unidirectional bandwidth descending, then Rate/interface descending, then Platform/example node ascending:
 
-| Platform/<br>           | Interfaces<br> | Rate/<br>     | Total<br>    | Notes                                 | Ref. |
-| example<br>             | per<br>        | interface<br> | Uni-dir.<br> |                                       |      |
-| node                    | node           | (Gbps)        | (GB/s)       |                                       |      |
-| :---------------------- | -------------: | ------------: | -----------: | :------------------------------------ | :--- |
-| NVIDIA DGX B300 XDR     |              8 |           800 |          800 | Eight single-port ConnectX-8 adapters | 1    |
-| AWS EFA v4 (P6-B300)    |             16 |           400 |          800 | Sixteen fabric-facing EFA interfaces  | 2    |
-| Intel Gaudi3            |             24 |           200 |          600 | Integrated RoCEv2 interfaces          | 3    |
-| NVIDIA DGX H100 NDR     |              8 |           400 |          400 | Eight single-port ConnectX-7 adapters | 4    |
-| AWS EFA v3 (P5en/Trn2)  |             16 |           200 |          400 | Common 3.2Tbps configuration          | 2    |
-| AWS EFA v2 (P5/P5e)     |             32 |           100 |          400 | Common 3.2Tbps configuration          | 2    |
-| Intel Gaudi2            |             24 |           100 |          300 | Integrated RoCEv2 interfaces          | 5    |
-| GCP A3 Mega TCPXO       |              8 |           200 |          200 | Eight accelerator-fabric interfaces   | 6    |
-| GCP A3 High TCPX        |              4 |           200 |          100 | Four accelerator-fabric interfaces    | 6    |
-| HPE Slingshot example   |              4 |           200 |          100 | Illustrative four-interface node      | 7    |
-| Omni-Path CN100 example |              8 |           100 |          100 | Illustrative eight-adapter node       | 8    |
-| AWS EFA v1 (P4d)        |              4 |           100 |           50 | Four fabric-facing EFA interfaces     | 2    |
+| Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | Shipped | Notes |
+| :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :-----: | :---- |
+| NVIDIA DGX B300 XDR          |                   8 |                          800 |                         800 |    V    | 1,19  |
+| AWS EFA v4 (P6-B300)         |                  16 |                          400 |                         800 |    V    | 2,20  |
+| Intel Gaudi3                 |                  24 |                          200 |                         600 |    V    | 3,21  |
+| NVIDIA DGX H100 NDR          |                   8 |                          400 |                         400 |    V    | 4,22  |
+| Omni-Path CN5000 example     |                   8 |                          400 |                         400 |    V    | 17,18 |
+| AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 |    V    | 2,23  |
+| AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 |    V    | 2,23  |
+| Intel Gaudi2                 |                  24 |                          100 |                         300 |    V    | 5,21  |
+| InfiniBand XDR200            |                   2 |                          800 |                         200 |    V    | 9,11  |
+| GCP A3 Mega TCPXO            |                   8 |                          200 |                         200 |    V    | 6,24  |
+| GCP A3 High TCPX             |                   4 |                          200 |                         100 |    V    | 6,25  |
+| HPE Slingshot example        |                   4 |                          200 |                         100 |    V    | 7,26  |
+| Omni-Path CN100 example      |                   8 |                          100 |                         100 |    V    | 8,27  |
+| InfiniBand NDR400            |                   1 |                          400 |                          50 |    V    | 10,12 |
+| AWS EFA v1 (P4d)             |                   4 |                          100 |                          50 |    V    | 2,28  |
+|                              |                     |                              |                             |         |       |
+| Omni-Path CN6000 example     |                   8 |                          800 |                         800 |    X    | 13,14 |
+| InfiniBand GDR3200           |                   2 |                         1600 |                         400 |    X    | 15,16 |
 
-Sources:
+Notes:
 
 1. [NVIDIA DGX B300 specifications](https://www.nvidia.com/en-us/data-center/dgx-b300/)
 2. [AWS EC2 accelerated-computing network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html)
@@ -468,41 +471,30 @@ Sources:
 6. [Google Cloud GPUDirect-TCPX/TCPXO](https://cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx)
 7. [HPE Slingshot 11 QuickSpecs](https://www.hpe.com/us/en/collaterals/collateral.a50002546enw.html)
 8. [Cornelis CN-100HFA specifications](https://www.cornelisnetworks.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa)
+9. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
+10. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
+11. Originally written as `8x200Gbps` lane arithmetic - eight 200Gbps XDR lanes are two full-width four-lane XDR ports, not a documented eight-port node. Legacy label from an earlier edition.
+12. Originally written as `4x100Gbps` lane arithmetic - four 100Gbps NDR lanes are one full-width four-lane NDR port, not four NICs. Legacy label from an earlier edition.
+13. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series)
+14. 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative.
+15. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+16. Originally written as `8x400Gbps` lane arithmetic - eight 400Gbps GDR lanes are two full-width four-lane GDR ports. GDR is not a standardized shipping platform; the original roadmap target was 2025.
+17. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network)
+18. 400Gbps family began shipping in June 2025 and broadly available from Q3 2025; eight-adapter node remains illustrative. The original roadmap target was Q2-2025.
+19. Eight single-port ConnectX-8 adapters.
+20. Sixteen fabric-facing EFA interfaces.
+21. Integrated RoCEv2 interfaces.
+22. Eight single-port ConnectX-7 adapters.
+23. Common 3.2Tbps configuration.
+24. Eight accelerator-fabric interfaces.
+25. Four accelerator-fabric interfaces.
+26. Illustrative four-interface node.
+27. Illustrative eight-adapter node.
+28. Four fabric-facing EFA interfaces.
 
-Notes:
+These are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
 
-* these are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
-* Note how the once order-of-magnitude difference between inter- and [intra-node bandwidth](#intra-node-networking) is starting to disappear - I have recently rescaled the speeds here from Gbps to GBps.
-
-The following table preserves two earlier InfiniBand rows that expressed lane arithmetic rather than a documented node interface count. It is sorted by **Total unidirectional bandwidth** descending.
-
-| Original<br>        | Original<br> |    Total<br> | Corrected scope / qualification                                | Ref. |
-| label               | expression   | Uni-dir.<br> |                                                                |      |
-|                     |              |       (GB/s) |                                                                |      |
-| :------------------ | :----------- | -----------: | :------------------------------------------------------------- | :--- |
-| InfiniBand XDR200   | 8x200Gbps    |          200 | Eight 200Gbps XDR-rate lanes; not a documented eight-port node | 1    |
-| InfiniBand NDR400   | 4x100Gbps    |           50 | One full-width four-lane NDR port, not four NICs               | 2    |
-
-Sources:
-
-1. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
-2. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
-
-The earlier future entries are restored below with their original arithmetic and targets preserved. It is sorted by **Original total** descending, then by **Product / generation** ascending. Status is as of 2026-07-28; an illustrative expression is not evidence that a shipping node contains that many adapters.
-
-| Product /<br>        | Original<br> | Original<br> | Original<br> | Status as of<br>                                                                                      | Ref. |
-| generation           | expression   |    total<br> | target       | 2026-07-28                                                                                            |      |
-|                      |              |       (GB/s) |              |                                                                                                       |      |
-| :------------------- | :----------- | -----------: | :----------- | :---------------------------------------------------------------------------------------------------- | :--- |
-| Omni-Path CN6000     | 8x800Gbps    |          800 | 2026         | 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative          | 1    |
-| InfiniBand GDR3200   | 8x400Gbps    |          400 | 2025         | Historical eight-lane roadmap arithmetic; GDR is not a standardized shipping platform                 | 2    |
-| Omni-Path CN5000     | 8x400Gbps    |          400 | Q2-2025      | 400Gbps family launched in June 2025; eight-adapter node remains illustrative                         | 3    |
-
-Sources:
-
-1. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series)
-2. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
-3. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network)
+footnote: Note how the once order-of-magnitude difference between inter- and [intra-node bandwidth](#intra-node-networking) is starting to disappear - I have recently rescaled the speeds here from Gbps to GBps.
 
 You will find the details analysis of each technology in the following sections.
 
@@ -516,16 +508,14 @@ As of 2026-07-28, XDR is the latest standardized InfiniBand generation. InfiniBa
 
 Sorted by 4x port rate descending:
 
-| Generation    | Rate/<br> | Lanes/<br> | 4x port<br> | Ref. |
-|               | lane<br>  | port       | rate<br>    |      |
-|               | (Gbps)    |            | (Gbps)      |      |
-| :------------ | --------: | ---------: | ----------: | :--- |
-| LDR (roadmap) |       800 |          4 |        3200 | 3    |
-| GDR (roadmap) |       400 |          4 |        1600 | 3    |
-| XDR           |       200 |          4 |         800 | 1    |
-| NDR           |       100 |          4 |         400 | 2    |
-| HDR           |        50 |          4 |         200 | 3    |
-| EDR           |        25 |          4 |         100 | 3    |
+| Generation    | Rate/<br>lane<br>(Gbps) | Lanes/<br>port | 4x port<br>rate<br>(Gbps) | Ref. |
+| :------------ | ----------------------: | -------------: | ------------------------: | :--- |
+| LDR (roadmap) |                     800 |              4 |                      3200 | 3    |
+| GDR (roadmap) |                     400 |              4 |                      1600 | 3    |
+| XDR           |                     200 |              4 |                       800 | 1    |
+| NDR           |                     100 |              4 |                       400 | 2    |
+| HDR           |                      50 |              4 |                       200 | 3    |
+| EDR           |                      25 |              4 |                       100 | 3    |
 
 Sources:
 
@@ -556,6 +546,7 @@ Sources:
 The earlier LDR 8x value was 4800Gbps; the corrected lane-rate arithmetic is `8 * 800 = 6400Gbps`.
 
 Latency in usecs, with columns ordered by generation from oldest to newest:
+
 | EDR | HDR | NDR | XDR | GDR | LDR |
 | --: | --: | --: | --: | --: | --: |
 | 0.5 | 0.6 | ??  | ??  | ??  | ??  |
@@ -566,8 +557,8 @@ InfiniBand provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_ac
 
 Here are some examples of NVIDIA devices with the fastest IB:
 
-- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 400Gbps, for a total of 3.2 Tbps (0.4 TBps) unidirectional to connect with other DGX servers.
-- For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 12.8 TBps of unidirectional bandwidth (25.6 TBps counting both directions) for use within the pod or for scaling out to multiple SuperPODs - that is an equivalent of 0.4 TBps (3.2 Tbps) unidirectional per node, matching the per-node figure above.
+- One configuration of NVIDIA DGX H100 comes with 8x NVIDIA ConnectX-7 (CX7) Ethernet/InfiniBand ports each of 400Gbps, for a total of 3.2Tbps (0.4TBps) unidirectional to connect with other DGX servers.
+- For DGX H100 SuperPOD the ConnectX-7s across all 32 DGX servers and associated InfiniBand switches provide 12.8TBps of unidirectional bandwidth (25.6TBps counting both directions) for use within the pod or for scaling out to multiple SuperPODs - that is an equivalent of 0.4TBps (3.2Tbps) unidirectional per node, matching the per-node figure above.
 - NVIDIA DGX GB200 NVL72 compute trays provide four single-port ConnectX-7 interfaces at up to 400Gbps each, corresponding to one 400Gbps connection per GPU ([networking documentation](https://docs.nvidia.com/dgx/dgxgb200-user-guide/networking.html)). Quantum-2 carries NDR at 400Gbps per port; an 800G OSFP cable can split into two 400Gbps ports, so it isn't a single 800Gbps NDR endpoint.
 - NVIDIA DGX B300 systems provide eight ConnectX-8 interfaces at up to 800Gbps each. In the documented SuperPOD design, the compute fabric uses Quantum-X800 XDR, while the storage fabric uses Quantum-2 NDR.
 
@@ -594,10 +585,10 @@ As of 2026-07-28, Quantum-X800 is used by Blackwell Ultra systems such as DGX B3
 
 [Elastic Fabric Adapter (EFA)](https://aws.amazon.com/hpc/efa/) is a recent inter-node networking technology created by AWS.
 
-- EFA v1 0.4 Tbps (effective 340 Gbps for all_reduce tests) (P4 AWS instances)
-- EFA v2 3.2 Tbps (since Q3-2023, P5 AWS instances - 32 100GbE (4x28G) NICs!)
-- EFA v3 3.2 Tbps (since Q1-2025, P5en AWS instances - 16 200GbE (4x56G) NICs! and Trn2 AWS instances) - same theoretical speed as v2, but should be delivering a much better actual speed at real world message sizes.
-- EFA v4 6.4 Tbps (starting with B300 Q4-2025)
+- EFA v1 0.4Tbps (effective 340Gbps for all_reduce tests) (P4 AWS instances)
+- EFA v2 3.2Tbps (since Q3-2023, P5 AWS instances - 32 100GbE (4x28G) NICs!)
+- EFA v3 3.2Tbps (since Q1-2025, P5en AWS instances - 16 200GbE (4x56G) NICs! and Trn2 AWS instances) - same theoretical speed as v2, but should be delivering a much better actual speed at real world message sizes.
+- EFA v4 6.4Tbps (starting with B300 Q4-2025)
 
 
 ### Gaudi2 (inter-node)
@@ -813,9 +804,9 @@ This gives us:
 tflops = 2 * 4 * 2 * 2048 * 16 / (8 * 1e3) = 65.536 TFLOP
 ```
 
-So if we do a mixed half-precision training and most of the operations are done in half-precision then we can roughly say that we do [312 TFLOPS on A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) and usually a well optimized framework on a well-tuned hardware will do at least 50% MFU - that is it'll be able to compute at about 1/2 peak performance.
+So if we do a mixed half-precision training and most of the operations are done in half-precision then we can roughly say that we do [312TFLOPS on A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) and usually a well optimized framework on a well-tuned hardware will do at least 50% MFU - that is it'll be able to compute at about 1/2 peak performance.
 
-footnote: It's a ~3x [989 TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
+footnote: It's a ~3x [989TFLOPS on H100](https://www.nvidia.com/en-us/data-center/h100) (scroll to the end) and also it shows a misleading 2x numbers for sparsity so you have to mentally divide it by 2.
 
 So continuing this train of thought it means that the setup will have about 156TFLOPS for mixed half-precision training - and so it'll take 0.42 secs on A100 GPU to process a single iteration (2x `forward` and 2x `backward` compute) if we ignore the overhead of the DataLoader (which we hope is close to instant).
 
@@ -967,7 +958,7 @@ Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
 [...]
 ```
 
-As you can see in the Unidirectional section of the report we do get 274 GBps out of the advertised 300GBps (~91%).
+As you can see in the Unidirectional section of the report we do get 274GBps out of the advertised 300GBps (~91%).
 
 Please note that when I re-run this same test on H100s (NVLink 4.0) I got a much worse efficiency:
 

@@ -61,19 +61,19 @@ In this section I will use BLOOM's training for the exemplification. We used 80G
 BFLOAT16 Tensor Core 	312 TFLOPS
 ```
 
-Therefore we now know that if we were to only run `matmul` on huge bf16 matrices of very specific dimensions without copying to and from the device we should get around 312 TFLOPS max.
+Therefore we now know that if we were to only run `matmul` on huge bf16 matrices of very specific dimensions without copying to and from the device we should get around 312TFLOPS max.
 
-Practically though, due to disk IO, communications and copying data from the GPU's memory to its computing unit overhead and because we can't do everything in bf16 and at times we have to do math in fp32 (or tf32) we can really expect much less than that. The realistic value will vary from accelerator to accelerator, but for A100 in 2022 getting above 50% (155 TFLOPS) was an amazing sustainable throughput for a complex 384 GPUs training setup.
+Practically though, due to disk IO, communications and copying data from the GPU's memory to its computing unit overhead and because we can't do everything in bf16 and at times we have to do math in fp32 (or tf32) we can really expect much less than that. The realistic value will vary from accelerator to accelerator, but for A100 in 2022 getting above 50% (155TFLOPS) was an amazing sustainable throughput for a complex 384 GPUs training setup.
 
 footnote: in 2023 the invention of flash attention and other techniques have pushed the bar to more than 50%.
 
-When we first started tuning things up we were at <100 TFLOPS and a few weeks later when we launched the training we managed to get 150 TFLOPS.
+When we first started tuning things up we were at <100TFLOPS and a few weeks later when we launched the training we managed to get 150TFLOPS.
 
 The important thing to notice here is that we knew that we can't push it further by much and we knew that there was no more point to try and optimize it even more.
 
 So a general rule of thumb for when you prepare for a massive model training - ask around what's the top TFLOPS one can expect to get with a given accelerator on a multi-node setup with the specified precision - and optimize until you get close to that. Once you did stop optimizing and start training.
 
-footnote: For 80GB A100s in 2022 that was 155, in 2023 it has been pushed to about 180 TFLOPS.
+footnote: For 80GB A100s in 2022 that was 155, in 2023 it has been pushed to about 180TFLOPS.
 
 footnote: When calculating TFLOPS it's important to remember that the math is different if [Gradient checkpointing](#gradient-checkpointing) are enabled, since when it's activated more compute is used and it needs to be taken into an account. Usually the cost is of an additional forward path, but recently better methods have been found that saves some of that recomputation.
 
@@ -138,9 +138,9 @@ HFU measures the actual FLOPS. For example, the technique of [Gradient checkpoin
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
-`Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989 TFLOPS.
+`Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989TFLOPS.
 
-Now, say, you measured your actual training loop's performance and it was 400 TFLOPS as actual achieved FLOPS. Then your HFU is:
+Now, say, you measured your actual training loop's performance and it was 400TFLOPS as actual achieved FLOPS. Then your HFU is:
 ```
 HFU = 400/989 = 40%
 ```
@@ -150,11 +150,11 @@ If you didn't use activation recomputation feature (not repeating `forward`) you
 For example [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) published the following stats for A100-80GB:
 
 | Model Size | Model FLOPs Utilization | Hardware FLOPs Utilization |
-| :---: | :---: | :---: |
-| 22B   | 41.5% | 43.7% |
-| 175B  | 51.4% | 52.8% |
-| 530B  | 56.0% | 57.0% |
-| 1T    | 56.3% | 57.0% |
+| :--------: | :---------------------: | :------------------------: |
+| 22B        | 41.5%                   | 43.7%                      |
+| 175B       | 51.4%                   | 52.8%                      |
+| 530B       | 56.0%                   | 57.0%                      |
+| 1T         | 56.3%                   | 57.0%                      |
 
 As you can see, since Megatron-LM was using activation recomputation for these trainings, MFU < HFU.
 

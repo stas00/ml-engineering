@@ -174,7 +174,7 @@ Now let's do the math, by inserting the numbers from the table above into the la
 - `1980*10**6 * 512 * 2 * 528 / 10**12 = 1070.530` TFLOPS
 - `1410*10**6 * 256 * 2 * 432 / 10**12 = 311.87` TFLOPS
 
-The calculated A100 SXM TFLOPS number matches the published 312 TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
+The calculated A100 SXM TFLOPS number matches the published 312TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
 
 **For AMD @ BF16**:
 
@@ -199,7 +199,7 @@ Intel Gaudi uses MMEs to do BF16 `matmul`
 Let's calculate ourselves as before:
 
 - Gaudi 2: `1650*10**6 * 256*256 * 2 * 2 / 10**12 = 432.5` TFLOPS - matches the published spec
-- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't match the published spec in the whitepaper (1835 TFLOPS), because in order to have 1835 TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
+- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't match the published spec in the whitepaper (1835TFLOPS), because in order to have 1835TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
@@ -260,7 +260,7 @@ Row-specific notes:
 
 8. Gaudi3 as of this writing is running at 1600Mhz (MME) and not the planned 1750Mhz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 
-9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563 TFLOPS w/ 4:1 sparsity
+9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563TFLOPS w/ 4:1 sparsity
 
 10. GB200 NVL72 and GB300 NVL72 seem to be the same but faster fp4 and more memory for the latter.
 
@@ -282,7 +282,7 @@ The problem with the advertised theoretical peak FLOPS is that they are **very**
 
 If you find solid reports (papers?) showing the actual TFLOPS one can expect from one or more of the high end accelerators discussed in this chapter please kindly submit a PR with this information. The key is to have a reference to a source that the reader can validate the proposed information with.
 
-To provide a numerical sense to what I'm talking about let's take an A100 with its 312 TFLOPS bf16 peak performance in the specs of this card. Until the invention of FlashAttention it was known that 150 TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300 TFLOPS.
+To provide a numerical sense to what I'm talking about let's take an A100 with its 312TFLOPS bf16 peak performance in the specs of this card. Until the invention of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300TFLOPS.
 
 You could measure the the actual achievable peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
@@ -294,37 +294,37 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 
 **BF16**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch version                  | Notes                              |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :--------------------------------- |
-| Intel Gaudi 2    |  418.7 |    432 |      96.9% |  14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
-| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |   1024x10240x5120 | 2.6.0+cu126                    |                                    |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |   1024x15360x4096 | 2.6.0+cu126                    | 900W 141GiB HBM3e version           |
-| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |    2048x5120x6144 | 2.5.1+cu124                    |                                    |
-| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |   2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
-| NVIDIA B300 SXM  | 1769.0 |   2250 |      78.6% |  12288x18432x1024 | 2.9.1+cu130                    | same as B200, newer torch/cuda     |
-| NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |   1792x16128x3072 | 2.7.1+cu128                    |                                    |
-| Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |    16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
-| NVIDIA GB200 SXM | 1822.0 |   2500 |      72.9% |    4096x9728x2048 | 2.10.0.dev20250916+cu130       |                                    |
-| AMD MI355X       | 1565.0 |   2300 |      68.0% |   12288x8192x8192 | 2.8.0+rocm7.0.2.git245bf6ed    | PYTORCH_TUNABLEOP_ENABLED=0        |
-| AMD MI325X       |  784.9 |   1300 |      60.4% |  13312x10240x8192 | 2.6.0+6.2.4                    | PYTORCH_TUNABLEOP_ENABLED=1, 1000W |
-| AMD MI300X       |  668.4 |   1300 |      51.4% |  10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
-|                  |        |        |            |                   |                                |                                    |
+| Accelerator      |   MAMF | Theory | Efficiency | Best Shape MxNxK | torch version                  | Notes                              |
+| :--------------- | -----: | -----: | ---------: | :--------------- | :----------------------------- | :--------------------------------- |
+| Intel Gaudi 2    |  418.7 |    432 |      96.9% | 14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
+| NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |  1024x10240x5120 | 2.6.0+cu126                    |                                    |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |  1024x15360x4096 | 2.6.0+cu126                    | 900W 141GiB HBM3e version          |
+| NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |   2048x5120x6144 | 2.5.1+cu124                    |                                    |
+| NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |  2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
+| NVIDIA B300 SXM  | 1769.0 |   2250 |      78.6% | 12288x18432x1024 | 2.9.1+cu130                    | same as B200, newer torch/cuda     |
+| NVIDIA B200 SXM  | 1745.0 |   2250 |      77.6% |  1792x16128x3072 | 2.7.1+cu128                    |                                    |
+| Intel Gaudi 3    | 1243.0 |   1677 |      74.1% |   16384x4096x768 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1                 |
+| NVIDIA GB200 SXM | 1822.0 |   2500 |      72.9% |   4096x9728x2048 | 2.10.0.dev20250916+cu130       |                                    |
+| AMD MI355X       | 1565.0 |   2300 |      68.0% |  12288x8192x8192 | 2.8.0+rocm7.0.2.git245bf6ed    | PYTORCH_TUNABLEOP_ENABLED=0        |
+| AMD MI325X       |  784.9 |   1300 |      60.4% | 13312x10240x8192 | 2.6.0+6.2.4                    | PYTORCH_TUNABLEOP_ENABLED=1, 1000W |
+| AMD MI300X       |  668.4 |   1300 |      51.4% | 10240x15360x8192 | 2.5.1+6.3.42131                | PYTORCH_TUNABLEOP_ENABLED=1        |
+|                  |        |        |            |                  |                                |                                    |
 
 
 **FP8 (`float8_e4m3fn`)**:
 
-| Accelerator      |   MAMF | Theory | Efficiency |  Best Shape MxNxK | torch version                  | Notes                    |
-| :--------------- | -----: | -----: | ---------: | :---------------- | :----------------------------- | :----------------------- |
-| Intel Gaudi 2    |  826.5 |    865 |      95.5% |   6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1       |
-| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% |  1024x14336x14336 | 2.6.0+cu126                    | 900W 141GiB HBM3e version |
-| Intel Gaudi 3    | 1289.5 |   1677 |      76.9% |   16640x1536x3072 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1       |
-| NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |   15360x4096x3072 | 2.7.1+cu128                    |                          |
-| NVIDIA B300 SXM  | 3353.3 |   4500 |      74.5% |    3072x6144x7168 | 2.9.1+cu130                    |                          |
-| NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |   1280x4096x12032 | 2.7.1+cu128                    |                          |
-| NVIDIA GB200 SXM | 3615.6 |   5000 |      72.3% |   19456x5120x1536 | 2.10.0.dev20250916+cu130       |                          |
-| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |   1024x9216x14336 | 2.7.0+cu126                    |                          |
-| AMD MI300X       |        |   2600 |            |                   |                                |                          |
-|                  |        |        |            |                   |                                |                          |
+| Accelerator      |   MAMF | Theory | Efficiency | Best Shape MxNxK | torch version                  | Notes                     |
+| :--------------- | -----: | -----: | ---------: | :--------------- | :----------------------------- | :------------------------ |
+| Intel Gaudi 2    |  826.5 |    865 |      95.5% |  6144x11264x5120 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1        |
+| NVIDIA GH200 SXM | 1535.0 |   1979 |      77.6% | 1024x14336x14336 | 2.6.0+cu126                    | 900W 141GiB HBM3e version |
+| Intel Gaudi 3    | 1289.5 |   1677 |      76.9% |  16640x1536x3072 | 2.6.0+hpu_1.21.4-3.gitabf798b  | PT_HPU_LAZY_MODE=1        |
+| NVIDIA B200 SXM  | 3432.5 |   4500 |      76.3% |  15360x4096x3072 | 2.7.1+cu128                    |                           |
+| NVIDIA B300 SXM  | 3353.3 |   4500 |      74.5% |   3072x6144x7168 | 2.9.1+cu130                    |                           |
+| NVIDIA H200 SXM  | 1453.4 |   1979 |      73.4% |  1280x4096x12032 | 2.7.1+cu128                    |                           |
+| NVIDIA GB200 SXM | 3615.6 |   5000 |      72.3% |  19456x5120x1536 | 2.10.0.dev20250916+cu130       |                           |
+| NVIDIA H100 SXM  | 1402.6 |   1979 |      70.9% |  1024x9216x14336 | 2.7.0+cu126                    |                           |
+| AMD MI300X       |        |   2600 |            |                  |                                |                           |
+|                  |        |        |            |                  |                                |                           |
 
 
 Caveat emptor: these numbers were achieved by a brute-force search of a non-exhaustive sub-space of various shapes performing `matmul`. See:  [Maximum Achievable Matmul TFLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) using the software components available at the time of taking the measurement, so I highly recommend you re-run `mamf-finder.py` on your particular setup to get the true to your setup numbers. The numbers in this table are a rough estimation and shouldn't be used as absolute. As the software improves these numbers will improve coming closer to the theoretical spec. So ideally they ought to be re-run every 6 months or so.
@@ -335,9 +335,9 @@ Notes:
 - While `mean` is probably what most users are interested in, the script reports `max`, `median` and `mean` - should you want the other numbers.
 - Best shape is the one detected by the script, but there could be many others with similar performance - it's listed for reproducibility
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
-- Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300 TFLOPS up. BLAS library type/version may have a big impact as well.
+- Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
-- AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383 TFLOPS is reported for 2 GCDs.
+- AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383TFLOPS is reported for 2 GCDs.
 
 Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are low that you will ever hit that exact shape. Instead, to know your system well, you'd run the [MAMF Finder](benchmarks#maximum-achievable-matmul-flops-finder) with the actual shapes your model is using during its training. This really is the main intention of this tool. You will have a good sense of when you can stop optimizing by comparing the TFLOPS reported by your training to Maximum Achievable MatMul TFLOPS you measured on your specific accelerator cluster.
 
@@ -409,34 +409,32 @@ Typically, the more on-device memory an accelerator has, the better its performa
 
 Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator           | Memory<br> | Type  | Peak<br>      |
-|                       | (GB)       |       | Bandwidth<br> |
-|                       |            |       | (TBps)        |
-| :-------------------- | ---------: | :---- | ------------: |
-| AMD MI450X            |        432 | HBM4  |         19.60 |
-| NVIDIA Rubin SXM      |        288 | HBM4  |         22.00 |
-| NVIDIA B300 SXM       |        288 | HBM3e |          8.00 |
-| AMD MI355X            |        288 | HBM3e |          8.00 |
-| AMD MI325X            |        256 | HBM3e |          6.00 |
-| AMD MI300X            |        192 | HBM3  |          5.30 |
-| NVIDIA GB200 SXM      |        186 | HBM3e |          8.00 |
-| NVIDIA B200 SXM       |        180 | HBM3e |          8.00 |
-| NVIDIA GH200 SXM (2)  |        141 | HBM3e |          4.80 |
-| NVIDIA H200 SXM       |        141 | HBM3e |          4.80 |
-| Intel Gaudi3          |        128 | HBM2e |          3.70 |
-| AMD MI250             |        128 | HBM2e |          3.28 |
-| AMD MI250X            |        128 | HBM2e |          3.28 |
-| NVIDIA GH200 SXM (1)  |         96 | HBM3  |          4.00 |
-| Intel Gaudi2          |         96 | HBM2e |          2.46 |
-| AWS Trainium2 / Ultra |         96 | HBM3  |          2.90 |
-| Google TPU v5p        |         95 | HBM2e |          2.76 |
-| NVIDIA H100 SXM       |         80 | HBM3  |          3.35 |
-| NVIDIA A100 SXM       |         80 | HBM2e |          2.00 |
-| NVIDIA H100 PCIe      |         80 | HBM3  |          2.00 |
-| NVIDIA A100 PCIe      |         80 | HBM2e |          1.94 |
-| NVIDIA L40S           |         48 | GDDR6 |          0.86 |
-| Google TPU v4         |         32 | HBM2  |          1.20 |
-| Google TPU v5e        |         16 | HBM2  |          0.82 |
+| Accelerator           | Memory<br>(GB) | Type  | Peak<br>Bandwidth<br>(TBps) |
+| :-------------------- | -------------: | :---- | --------------------------: |
+| AMD MI450X            |            432 | HBM4  |                       19.60 |
+| NVIDIA Rubin SXM      |            288 | HBM4  |                       22.00 |
+| NVIDIA B300 SXM       |            288 | HBM3e |                        8.00 |
+| AMD MI355X            |            288 | HBM3e |                        8.00 |
+| AMD MI325X            |            256 | HBM3e |                        6.00 |
+| AMD MI300X            |            192 | HBM3  |                        5.30 |
+| NVIDIA GB200 SXM      |            186 | HBM3e |                        8.00 |
+| NVIDIA B200 SXM       |            180 | HBM3e |                        8.00 |
+| NVIDIA GH200 SXM (2)  |            141 | HBM3e |                        4.80 |
+| NVIDIA H200 SXM       |            141 | HBM3e |                        4.80 |
+| Intel Gaudi3          |            128 | HBM2e |                        3.70 |
+| AMD MI250             |            128 | HBM2e |                        3.28 |
+| AMD MI250X            |            128 | HBM2e |                        3.28 |
+| NVIDIA GH200 SXM (1)  |             96 | HBM3  |                        4.00 |
+| Intel Gaudi2          |             96 | HBM2e |                        2.46 |
+| AWS Trainium2 / Ultra |             96 | HBM3  |                        2.90 |
+| Google TPU v5p        |             95 | HBM2e |                        2.76 |
+| NVIDIA H100 SXM       |             80 | HBM3  |                        3.35 |
+| NVIDIA A100 SXM       |             80 | HBM2e |                        2.00 |
+| NVIDIA H100 PCIe      |             80 | HBM3  |                        2.00 |
+| NVIDIA A100 PCIe      |             80 | HBM2e |                        1.94 |
+| NVIDIA L40S           |             48 | GDDR6 |                        0.86 |
+| Google TPU v4         |             32 | HBM2  |                        1.20 |
+| Google TPU v5e        |             16 | HBM2  |                        0.82 |
 
 
 Notes:
@@ -460,16 +458,15 @@ Therefore the following tables preserve the scope used in the vendor documentati
 
 The first table compares the capacity of broadly shared on-chip caches. It is sorted by **Shared capacity** descending, then by **Approx. announced** descending. For a grouped row, the date is that of the newest product named in the row. This helps answer which accelerator publishes more broadly shared cache capacity, but it isn't a cache-performance ranking: cache type, bandwidth, latency, sharing domain, and workload hit rate still differ. Vendor unit labels are preserved, so the ordering of `MB` and `MiB` values is approximate.
 
-| Shared capacity | Accelerator / architecture       | Cache type                     | Scope / qualification | Approx.<br> | Ref. |
-|                 |                                  |                                |                       | announced   |      |
-| :-------------- | :------------------------------- | :----------------------------- | :-------------------- | :---------- | :--- |
-| 256MiB          | AMD MI350X / MI355X              | Infinity Cache (LLC)           | per accelerator       | 2025-06     | 1    |
-| 256MiB          | AMD MI300X / MI325X              | Infinity Cache (LLC)           | per accelerator       | 2024-10     | 2    |
-| 192MB           | AMD MI455X                       | global L2                      | per accelerator       | 2026-06     | 3    |
-| 126MB           | NVIDIA Blackwell (GB200 example) | L2                             | per GPU               | 2024-03     | 4    |
-| 96MiB           | Intel Gaudi3                     | configurable L3 or 4 L2 slices | per accelerator       | 2024-04     | 5    |
-| 50MiB           | NVIDIA Hopper (H100 example)     | L2                             | per accelerator       | 2022-03     | 6    |
-| 40MiB           | NVIDIA Ampere (A100 example)     | L2                             | per accelerator       | 2020-05     | 7    |
+| Shared capacity | Accelerator / architecture       | Cache type                     | Scope / qualification | Approx.<br>announced | Ref. |
+| :-------------- | :------------------------------- | :----------------------------- | :-------------------- | :------------------- | :--- |
+| 256MiB          | AMD MI350X / MI355X              | Infinity Cache (LLC)           | per accelerator       | 2025-06              | 1    |
+| 256MiB          | AMD MI300X / MI325X              | Infinity Cache (LLC)           | per accelerator       | 2024-10              | 2    |
+| 192MB           | AMD MI455X                       | global L2                      | per accelerator       | 2026-06              | 3    |
+| 126MB           | NVIDIA Blackwell (GB200 example) | L2                             | per GPU               | 2024-03              | 4    |
+| 96MiB           | Intel Gaudi3                     | configurable L3 or 4 L2 slices | per accelerator       | 2024-04              | 5    |
+| 50MiB           | NVIDIA Hopper (H100 example)     | L2                             | per accelerator       | 2022-03              | 6    |
+| 40MiB           | NVIDIA Ampere (A100 example)     | L2                             | per accelerator       | 2020-05              | 7    |
 
 Sources:
 
@@ -483,17 +480,16 @@ Sources:
 
 The second table preserves vendor-native local resources. It is sorted by **Vendor** ascending, then by **Approx. announced** descending.
 
-| Vendor | Accelerator / architecture | Approx.<br> | Vendor-reported local resource                  | Scope               | Ref. |
-|        |                            | announced   |                                                 |                     |      |
-| :----- | :------------------------- | :---------- | :---------------------------------------------- | :------------------ | :--- |
-| AMD    | MI455X                     | 2026-06     | not disclosed in the cited public specification |                     | 1    |
-| AMD    | MI350X / MI355X            | 2025-06     | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 2    |
-| AMD    | MI300X / MI325X            | 2024-10     | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 3    |
-| Intel  | Gaudi3                     | 2024-04     | 24MiB configurable cache                        | per DCORE; 4 DCOREs | 4    |
-| Intel  | Gaudi2                     | 2022-05     | 48MiB software-managed SRAM                     | per accelerator     | 5    |
-| NVIDIA | Blackwell (GB200 example)  | 2024-03     | 256KB combined L1/texture/shared memory         | per SM              | 6    |
-| NVIDIA | Hopper (H100 example)      | 2022-03     | 256KiB combined L1/texture/shared memory        | per SM              | 7    |
-| NVIDIA | Ampere (A100 example)      | 2020-05     | 192KiB combined L1/texture/shared memory        | per SM              | 8    |
+| Vendor | Accelerator / architecture | Approx.<br>announced | Vendor-reported local resource                  | Scope               | Ref. |
+| :----- | :------------------------- | :------------------- | :---------------------------------------------- | :------------------ | :--- |
+| AMD    | MI455X                     | 2026-06              | not disclosed in the cited public specification |                     | 1    |
+| AMD    | MI350X / MI355X            | 2025-06              | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 2    |
+| AMD    | MI300X / MI325X            | 2024-10              | 32KiB L1 data cache; 4MiB L2 cache              | per CU; per XCD     | 3    |
+| Intel  | Gaudi3                     | 2024-04              | 24MiB configurable cache                        | per DCORE; 4 DCOREs | 4    |
+| Intel  | Gaudi2                     | 2022-05              | 48MiB software-managed SRAM                     | per accelerator     | 5    |
+| NVIDIA | Blackwell (GB200 example)  | 2024-03              | 256KB combined L1/texture/shared memory         | per SM              | 6    |
+| NVIDIA | Hopper (H100 example)      | 2022-03              | 256KiB combined L1/texture/shared memory        | per SM              | 7    |
+| NVIDIA | Ampere (A100 example)      | 2020-05              | 192KiB combined L1/texture/shared memory        | per SM              | 8    |
 
 Sources:
 
@@ -599,7 +595,7 @@ Sources:
 9. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/)
 10. [Intel Gaudi architecture documentation](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 11. Intel Gaudi exposes separate clocks for its Matrix Multiplication Engine (MME) and Tensor Processing Core (TPC).
-12. The NVIDIA H200 and H100 1830 MHz clocks are derived from 989 TFLOPS; see the [calculation](#how-to-calculate-theoretical-tflops).
+12. The NVIDIA H200 and H100 1830MHz clocks are derived from 989TFLOPS; see the [calculation](#how-to-calculate-theoretical-tflops).
 
 
 Here is how to get the actual clock speed (in particular when your accelerator is under load):
@@ -630,33 +626,32 @@ Beyond sizing power and cooling infrastructure, these specifications can also he
 
 The table is sorted by **Power spec (W)**, highest first, followed by `N/A` entries. Values are per accelerator rather than per node or rack. `N/A` means that the cited specification did not publish a product power value when checked on 2026-07-29.
 
-| Accelerator           | Power<br> | Vendor term                 | Notes                    |
-|                       | spec (W)  |                             |                          |
-| :-------------------- | --------: | :-------------------------- | :----------------------- |
-| NVIDIA GB300 SXM      |      1400 | per-GPU maximum power       | 1                        |
-| AMD MI355X            |      1400 | Typical Board Power         | 2                        |
-| NVIDIA GB200 SXM      |      1200 | per-GPU maximum power       | 1                        |
-| AMD MI325X            |      1000 | Typical Board Power         | 3; peak                  |
-| AMD MI350X            |      1000 | Typical Board Power         | 4                        |
-| NVIDIA B200 SXM       |      1000 | maximum TGP                 | 5                        |
-| NVIDIA B300 SXM       |      1000 | maximum TGP                 | 6                        |
-| Intel Gaudi3          |       900 | TDP                         | 7                        |
-| AMD MI300X            |       750 | Typical Board Power         | 8; peak                  |
-| NVIDIA H100 SXM       |       700 | maximum TDP                 | 9                        |
-| NVIDIA H200 SXM       |       700 | maximum TDP                 | 10                       |
-| AMD MI350P            |       600 | maximum Typical Board Power | 11; configurable to 450W |
-| Intel Gaudi2          |       600 | TDP                         | 12                       |
-| NVIDIA H200 NVL       |       600 | maximum TDP                 | 10                       |
-| NVIDIA RTX PRO 6000   |       600 | maximum power consumption   | 13; configurable         |
-| AMD MI250X            |       560 | Typical Board Power         | 14; peak; 500W TDP       |
-| NVIDIA H100 NVL       |       400 | maximum TDP                 | 9; configurable 350-400W |
-| NVIDIA A100 SXM       |       400 | maximum TDP                 | 15; CTS up to 500W       |
-| NVIDIA L40S           |       350 | maximum power consumption   | 16                       |
-| NVIDIA A100 PCIe      |       300 | maximum TDP                 | 15                       |
-| AMD MI455X            |       N/A |                             | 17                       |
-| AWS Trainium2 / Ultra |       N/A |                             | 18                       |
-| Google TPUs           |       N/A |                             | 20                       |
-| NVIDIA Rubin GPU      |       N/A |                             | 19                       |
+| Accelerator           | Power<br>spec (W) | Vendor term                 | Notes                    |
+| :-------------------- | ----------------: | :-------------------------- | :----------------------- |
+| NVIDIA GB300 SXM      |              1400 | per-GPU maximum power       | 1                        |
+| AMD MI355X            |              1400 | Typical Board Power         | 2                        |
+| NVIDIA GB200 SXM      |              1200 | per-GPU maximum power       | 1                        |
+| AMD MI325X            |              1000 | Typical Board Power         | 3; peak                  |
+| AMD MI350X            |              1000 | Typical Board Power         | 4                        |
+| NVIDIA B200 SXM       |              1000 | maximum TGP                 | 5                        |
+| NVIDIA B300 SXM       |              1000 | maximum TGP                 | 6                        |
+| Intel Gaudi3          |               900 | TDP                         | 7                        |
+| AMD MI300X            |               750 | Typical Board Power         | 8; peak                  |
+| NVIDIA H100 SXM       |               700 | maximum TDP                 | 9                        |
+| NVIDIA H200 SXM       |               700 | maximum TDP                 | 10                       |
+| AMD MI350P            |               600 | maximum Typical Board Power | 11; configurable to 450W |
+| Intel Gaudi2          |               600 | TDP                         | 12                       |
+| NVIDIA H200 NVL       |               600 | maximum TDP                 | 10                       |
+| NVIDIA RTX PRO 6000   |               600 | maximum power consumption   | 13; configurable         |
+| AMD MI250X            |               560 | Typical Board Power         | 14; peak; 500W TDP       |
+| NVIDIA H100 NVL       |               400 | maximum TDP                 | 9; configurable 350-400W |
+| NVIDIA A100 SXM       |               400 | maximum TDP                 | 15; CTS up to 500W       |
+| NVIDIA L40S           |               350 | maximum power consumption   | 16                       |
+| NVIDIA A100 PCIe      |               300 | maximum TDP                 | 15                       |
+| AMD MI455X            |               N/A |                             | 17                       |
+| AWS Trainium2 / Ultra |               N/A |                             | 18                       |
+| Google TPUs           |               N/A |                             | 20                       |
+| NVIDIA Rubin GPU      |               N/A |                             | 19                       |
 
 Notes:
 
@@ -827,7 +822,7 @@ for example, AMD MI250 has:
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
 - 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per Gaudi chip), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
-- 96GiB HBM2E memory on board w/2.45 TBps bandwidth per chip, for a total of 768GiB per node
+- 96GiB HBM2E memory on board w/2.45TBps bandwidth per chip, for a total of 768GiB per node
 
 A server/node is built from 8 Gaudi accelerators, which can then be expanded with racks of those servers.
 

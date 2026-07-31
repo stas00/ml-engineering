@@ -11,9 +11,9 @@ A practical guide to deciding whether a GPU generation upgrade is worth its cost
 | Attention kernel (HF auto-select) | FlashAttention-3 | FlashAttention-4 (beta) |                 — |
 | Peak bf16 TFLOPS (theoretical)    | 989              | 2250                    |         **2.28×** |
 | Peak fp8 TFLOPS (theoretical)     | 1979             | 4500                    |             2.27× |
-| HBM capacity (usable) HBM3e       | ~141 GiB         | ~180 GiB                |             1.28× |
-| HBM bandwidth                     | 4.8 TB/s         | 8.0 TB/s                |             1.67× |
-| TDP                               | 700 W            | 1000 W                  |             1.43× |
+| HBM capacity (usable) HBM3e       | ~141GiB          | ~180GiB                 |             1.28× |
+| HBM bandwidth                     | 4.8TBps          | 8.0TBps                 |             1.67× |
+| TDP                               | 700W             | 1000W                   |             1.43× |
 
 Theoretical peak TFLOPS is [a ceiling nobody hits in practice](../../training/performance/README.md#tflops-as-a-performance-metric) — see the [MAMF numbers below](#mamf-the-realistic-ceiling-not-the-marketing-number) for what's actually achievable. Full spec tables (all dtypes, all vendors, memory, power, clocks): [ml-engineering accelerator spec tables](../../compute/accelerator/README.md#tflops-comparison-table).
 
@@ -60,8 +60,8 @@ If you don't need the new functionalities covered by [part 1](#decision-framewor
 1. **Match the software stack on both GPUs.** Same torch/CUDA/library versions on old and new hardware — a newer GPU is often *also* validated on a newer stack, and stack deltas alone can be worth double-digit percent (see ["compare on an identical software stack" below](#caveats)). Compare apples to apples.
 2. **Find your workload's attention-vs-dense split, and how it scales with your real config.** New GPU generations usually improve attention (FlashAttention kernels) faster than dense GEMM maturity (cuBLAS/cuDNN need time to catch up on a new architecture). If your workload is attention-heavy (long context), you'll see a bigger win than a short-context/dense-bound workload — and that split isn't fixed, it grows with sequence length. Measure it, don't assume it.[^linear-attn]
 3. **Weigh the new GPU's quantitative hardware advantages for *your* workload — memory, bandwidth, interconnect.** These are lifts, not new capabilities, so their value is workload-specific and must be measured:
-   - **More memory** (e.g. 180 vs 141 GiB) is the borderline one. It can let a config fit that OOMs on the old GPU and lets you shed throughput-costing crutches (CPU offload, a high ZeRO stage, activation checkpointing) — so the *effective* speedup can even exceed the raw FLOPS ratio once you re-tune. But "doesn't fit" is rarely a hard wall: you can almost always fit on the older GPU with more parallelism (more GPUs + [ZeRO/TP/CP/SP/PP/EP](../../training/model-parallelism/README.md)), so it's usually a *cost/efficiency* trade-off, tipping to "just upgrade" only when the extra GPUs/parallelism to fit would cost or slow you more than the newer hardware. (In the extreme — when no amount of parallelism you can afford fits it — memory does become a hard capability gap, like a new dtype.)
-   - **More HBM bandwidth** (8.0 vs 4.8 TB/s, ~1.67×) sets the ceiling for bandwidth-bound work (norms, elementwise, optimizer, KV traffic) and decode-bound inference latency; payoff depends on how bandwidth-bound your workload actually is.
+   - **More memory** (e.g. 180 vs 141GiB) is the borderline one. It can let a config fit that OOMs on the old GPU and lets you shed throughput-costing crutches (CPU offload, a high ZeRO stage, activation checkpointing) — so the *effective* speedup can even exceed the raw FLOPS ratio once you re-tune. But "doesn't fit" is rarely a hard wall: you can almost always fit on the older GPU with more parallelism (more GPUs + [ZeRO/TP/CP/SP/PP/EP](../../training/model-parallelism/README.md)), so it's usually a *cost/efficiency* trade-off, tipping to "just upgrade" only when the extra GPUs/parallelism to fit would cost or slow you more than the newer hardware. (In the extreme — when no amount of parallelism you can afford fits it — memory does become a hard capability gap, like a new dtype.)
+   - **More HBM bandwidth** (8.0 vs 4.8TBps, ~1.67×) sets the ceiling for bandwidth-bound work (norms, elementwise, optimizer, KV traffic) and decode-bound inference latency; payoff depends on how bandwidth-bound your workload actually is.
    - **Faster interconnect** (newer NVLink/NVSwitch/NVLink-C2C) raises the ZeRO/TP/CP/SP/PP/EP comms, various host memory offloading strategies and multi-node-scaling ceiling; payoff depends on how comms-bound you are.
 4. **Compute \$/token (or \$/step), not just TFLOPS/step.** A 2× speedup at 2× the price is break-even on cost, with the tie broken by (a) wall-clock time and (b) memory headroom.
 5. **Watch out for real-world caveats that inflate or deflate the lab number** — packed vs unpacked sequences, beta-quality kernels, software-stack mismatches. See the [Caveats below](#caveats) for concrete examples.
@@ -97,7 +97,7 @@ Same config on both GPUs (ZeRO-3 + activation checkpointing + CPU-offload + Lige
 
 ### Does the bigger GPU unlock configs the old one can't run?
 
-Config: ZeRO-3, Liger-Kernel, activation checkpointing on, CPU AdamW offload on, mbs=1. With activation checkpointing + fused-CE, [activation memory](../../training/performance/README.md#anatomy-of-models-memory-usage) is small and linear: **peak ≈ 12.6 GiB + 0.00043 GiB/token** (the 12.6 GiB floor is ZeRO-3 param/grad shards; AdamW state lives on CPU).
+Config: ZeRO-3, Liger-Kernel, activation checkpointing on, CPU AdamW offload on, mbs=1. With activation checkpointing + fused-CE, [activation memory](../../training/performance/README.md#anatomy-of-models-memory-usage) is small and linear: **peak ≈ 12.6GiB + 0.00043 GiB/token** (the 12.6GiB floor is ZeRO-3 param/grad shards; AdamW state lives on CPU).
 
 Peak memory (`max_memory_reserved`, worst rank) is **identical on H200 and B200 at a given seqlen** — it's set by the model + ZeRO-3 sharding + activations, not the GPU architecture — so a seqlen that fits one fits the other, up to each GPU's own ceiling:
 
@@ -110,7 +110,7 @@ Peak memory (`max_memory_reserved`, worst rank) is **identical on H200 and B200 
 |     192K |            95.7 |            95.7 |         422 |         852 |
 | **256K** |       **124.5** |       **124.6** |     **419** |     **852** |
 
-Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed on both boxes (peaks match within ~0.2 GiB). B200's larger HBM (180 vs 141 GiB) could push past ~350k tokens — sequences H200 **cannot fit at any price** — and that's exactly the regime where B200's speedup is largest. This is the "more memory" advantage from [part 2](#decision-framework-part-2--is-it-worth-it-on-performance) in its extreme form: past 256k the comparison isn't "B200 is faster", it's "H200 can't do this job".
+Max on H200's ~130GiB usable budget is **256k tokens at ~125GiB**, confirmed on both boxes (peaks match within ~0.2GiB). B200's larger HBM (180 vs 141GiB) could push past ~350k tokens — sequences H200 **cannot fit at any price** — and that's exactly the regime where B200's speedup is largest. This is the "more memory" advantage from [part 2](#decision-framework-part-2--is-it-worth-it-on-performance) in its extreme form: past 256k the comparison isn't "B200 is faster", it's "H200 can't do this job".
 
 ### Caveats
 
@@ -127,7 +127,7 @@ Max on H200's ~130 GiB usable budget is **256k tokens at ~125 GiB**, confirmed o
    | **cu129**             | 113.8        | –      | –      | 140.4     |
    | **cu130**             | 117.8        | 120.5  | 140.1  | **140.2** |
 
-   Full-range torch 2.10.0 → 2.13.0 on the H200 is **+19% at fixed cu130** (117.8 → 140.2 TFLOPS), and almost all of that gain lands in one place — the torch 2.11.0 → 2.12.0 jump alone is **+16%** (120.5 → 140.1). CUDA, meanwhile, contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). So the original 2.10.0/cu129 → 2.13.0/cu130 comparison that kicked off this investigation (113.8 → 140.4, **+23.4%**) was almost entirely a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
+   Full-range torch 2.10.0 → 2.13.0 on the H200 is **+19% at fixed cu130** (117.8 → 140.2TFLOPS), and almost all of that gain lands in one place — the torch 2.11.0 → 2.12.0 jump alone is **+16%** (120.5 → 140.1). CUDA, meanwhile, contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). So the original 2.10.0/cu129 → 2.13.0/cu130 comparison that kicked off this investigation (113.8 → 140.4, **+23.4%**) was almost entirely a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
 
 ### Is B200 worth ~2× the H200 cost?
 
@@ -161,9 +161,9 @@ Deep-dive on the 8k step (ZeRO-2, no activation checkpointing, right-sized for s
 
 Two things stand out:
 - **Attention (FA4 vs FA3) scales 1.87×**, measured *in-step*, matching the isolated micro-benchmark ([`bench_flash_attn.py`](bench_flash_attn.py), FA4 vs FA3, 8B attn shape, causal: fwd+bwd **1.88× @ 8k → 1.95× @ 32k**). Attention is close to the 2.28× ceiling and is *not* the bottleneck.
-- **The ceiling is the dense "everything else" bucket at 1.67×** — essentially exactly the **HBM-bandwidth ratio** (8 vs 4.8 TB/s = 1.67×). At mbs=1 × 8k the per-GPU GEMMs are small and the dense path is bandwidth-/overhead-bound (norm/RoPE/SwiGLU/CE elementwise + NCCL comms + skinny GEMMs), so Blackwell's 2.28× *compute* advantage sits mostly idle and the bucket tracks memory bandwidth instead. That drags the blended total down to **1.69×**.
+- **The ceiling is the dense "everything else" bucket at 1.67×** — essentially exactly the **HBM-bandwidth ratio** (8 vs 4.8TBps = 1.67×). At mbs=1 × 8k the per-GPU GEMMs are small and the dense path is bandwidth-/overhead-bound (norm/RoPE/SwiGLU/CE elementwise + NCCL comms + skinny GEMMs), so Blackwell's 2.28× *compute* advantage sits mostly idle and the bucket tracks memory bandwidth instead. That drags the blended total down to **1.69×**.
 
-**Liger-Kernel** (fused RMSNorm/RoPE/SwiGLU/CE) is a **memory win, not a speed win at 8k**: it cuts peak memory ~20% (**99 → 80 GiB**, identical on both GPUs) while leaving step time within noise (≤1.5% on either box) and the blend essentially unchanged (~1.66×). Fusing the bandwidth-bound elementwise ops doesn't lift throughput here because the dense path is already limited by GEMM size and comms, not by those ops — consistent with the bucket tracking HBM bandwidth. cuBLAS sm_100 is "younger" than Hopper's cuBLAS and FA4 is in beta as of this writing, so this dense-path deficit should shrink over time — re-run this benchmark periodically rather than treating today's number as permanent.
+**Liger-Kernel** (fused RMSNorm/RoPE/SwiGLU/CE) is a **memory win, not a speed win at 8k**: it cuts peak memory ~20% (**99 → 80GiB**, identical on both GPUs) while leaving step time within noise (≤1.5% on either box) and the blend essentially unchanged (~1.66×). Fusing the bandwidth-bound elementwise ops doesn't lift throughput here because the dense path is already limited by GEMM size and comms, not by those ops — consistent with the bucket tracking HBM bandwidth. cuBLAS sm_100 is "younger" than Hopper's cuBLAS and FA4 is in beta as of this writing, so this dense-path deficit should shrink over time — re-run this benchmark periodically rather than treating today's number as permanent.
 
 ### Environment used for these experiments
 
@@ -220,13 +220,13 @@ Everything above compared two *generations* (Hopper → Blackwell). A within-gen
 | bf16 / fp8 TFLOPS (theoretical)  |  2250 / 4500 |   2250 / 4500 |      1.0× |
 | fp4 / nvfp4 TFLOPS (theoretical) | 9000 / 10000 | 12600 / 15000 | ~1.4–1.5× |
 | bf16 MAMF (achievable)           |         1745 |          1769 |    ~1.01× |
-| HBM (usable)                     |     ~180 GiB |      ~288 GiB |  **1.6×** |
-| HBM bandwidth                    |     8.0 TB/s |      8.0 TB/s |      1.0× |
-| TDP                              |       1000 W |        1300 W |      1.3× |
+| HBM (usable)                     |      ~180GiB |       ~288GiB |  **1.6×** |
+| HBM bandwidth                    |      8.0TBps |       8.0TBps |      1.0× |
+| TDP                              |        1000W |         1300W |      1.3× |
 
 What this means for the should-you-upgrade framework:
 
-- **[Part 1](#decision-framework-part-1--do-you-need-a-new-dtype) (do you need a new dtype?) rarely fires.** B300 introduces no dtype B200 lacks. The one thing that *can* act like a part-1 gap is **memory**: 288 vs 180 GiB (1.6×) is a big jump, so a model/config that can't be made to fit a B200 node even with parallelism may fit a B300 node outright.
+- **[Part 1](#decision-framework-part-1--do-you-need-a-new-dtype) (do you need a new dtype?) rarely fires.** B300 introduces no dtype B200 lacks. The one thing that *can* act like a part-1 gap is **memory**: 288 vs 180GiB (1.6×) is a big jump, so a model/config that can't be made to fit a B200 node even with parallelism may fit a B300 node outright.
 - **[Part 2](#decision-framework-part-2--is-it-worth-it-on-performance) (is it worth it on performance?): the only real compute uplift is fp4 (~1.4–1.5×)** — bf16/fp8 are unchanged, so B300 mainly pays off for low-precision inference/training and for the extra memory.
 - **Software-maturity risk is low.** Same architecture family (`sm_100`), same FA4/kernel stack — none of the "switching too early" cost from the cross-generation case.
 
