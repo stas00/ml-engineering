@@ -113,7 +113,7 @@ PyTorch API example:
 ![reduce-scatter](images/collective-reduce-scatter.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to efficiently reduce gradients across all participating ranks. This is 2x more efficient than [all-reduce](#all-reduce).
+For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to efficiently reduce gradients across all participating ranks. Note that it isn't a cheaper drop-in for [all-reduce](#all-reduce) - each rank ends up with only its own reduced shard rather than the full result. That is exactly what ZeRO wants, and it's why it costs half the data movement: a ring all-reduce is a reduce-scatter followed by an all-gather, so dropping the all-gather phase halves the bytes on the wire.
 
 PyTorch API example:
 

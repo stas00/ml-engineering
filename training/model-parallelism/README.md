@@ -572,7 +572,7 @@ So the promise is very attractive - it runs a 30min simulation on the cluster of
 
 ## Parallelism network collectives
 
-As intra- and inter-node speeds typically have a 10x difference, it's crucial to choose different parallelization techniques for intra- and inter-node crossing. e.g. TP must always remain within the node because of its massive synchronization requirements. Moreover, some accelerators, like the recent AMD MI3\*\* series have a very slow gpu-to-gpu connectivity which again impacts how parallelism is done for the best performance.
+As intra- and inter-node speeds have an order of magnitude difference, it's crucial to choose different parallelization techniques for intra- and inter-node crossing. e.g. TP should stay inside the fastest, lowest-latency domain because of its massive synchronization requirements - traditionally that means within the node, but on rack-scale systems like NVL72 that domain spans many nodes (called supernode), so the real rule is to keep TP inside the scale-up fabric and to cross into the slower scale-out network only when measurement says you can afford it or capacity leaves no choice. Moreover, some accelerators, like the recent AMD MI3\*\* series have a very slow gpu-to-gpu connectivity which again impacts how parallelism is done for the best performance.
 
 Here is a useful tidbit: the all-reduce collective can be decomposed into two separate phases: reduce-scatter and all-gather.
 
