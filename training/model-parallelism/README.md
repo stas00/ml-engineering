@@ -665,7 +665,7 @@ And now you know how long it'll take to transmit that many GBs over the network 
 
 which would definitely be a huge bottleneck compared to the faster compute.
 
-If the network were to be 5x faster, that is 212GBs (1700Gbps) then:
+If the network were to be 5x faster, that is 212GBps (1700Gbps) then:
 
 - comms = `3 * 2 * 80 / 212` = 2 sec
 

@@ -41,7 +41,7 @@ PyTorch API example:
 
 PyTorch API example:
 
-`dist.gather(tensor, gather_list, dst, group)`: Copies `tensor` from all processes in `dst`. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.gather)
+`dist.gather(tensor, gather_list, dst, group)`: Copies one `tensor` from every process in the group into `gather_list` on `dst`. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.gather)
 
 
 

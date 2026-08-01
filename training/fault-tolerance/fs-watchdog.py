@@ -95,7 +95,7 @@ def main():
 
         if size_bytes > soft_limit_bytes:
             current_usage_percent = 100*size_bytes/hard_limit_bytes
-            alerts.append(f"{partition_name} is at {current_usage_percent:.2f}% bytes usage ({size_bytes/2**30:.2f}GB/{hard_limit_bytes/2**30:.2f}GB)")
+            alerts.append(f"{partition_name} is at {current_usage_percent:.2f}% bytes usage ({size_bytes/2**30:.2f}GiB/{hard_limit_bytes/2**30:.2f}GiB)")
             alerts.append("")
 
     def analyse_partition_inodes(partition_name, partition_path, hard_limit_inodes, alert_inodes_threshold):
@@ -114,7 +114,7 @@ def main():
     def analyse_partition_idrquota(partition_name, partition_flag, alert_bytes_threshold, alert_inodes_threshold):
         cmd = f"idrquota {partition_flag} -p {SLURM_GROUP_NAME}"
         response = run_cmd(cmd.split())
-        match = re.findall(' \(([\d\.]+)%\)', response)
+        match = re.findall(r' \(([\d\.]+)%\)', response)
         if match:
             bytes_percent, inodes_percent = [float(x) for x in match]
         else:
@@ -151,7 +151,7 @@ def main():
         # default `df` counts uses 1024-byte units, and `1024 == 2 ** 10`
         available_disk_left = int(disk_meta["Available"]) * 2 ** 10
         if available_disk_left < alert_bytes_threshold:
-            alerts.append(f"Shared {partition_name} has {available_disk_left/2**40:.2f}TB left")
+            alerts.append(f"Shared {partition_name} has {available_disk_left/2**40:.2f}TiB left")
             alerts.append("")
 
     # WORK and STORE partitions stats can be accessed much faster through `idrquota`, and it already

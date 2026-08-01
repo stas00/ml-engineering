@@ -24,7 +24,7 @@ rw_type = job['jobname'] # read | write
 section = job[rw_type]
 numjobs = int(d['global options']['numjobs'])
 
-headers = ["lat msec", "bw MBps", "  IOPS  ", "jobs"]
+headers = ["lat msec", "bw MiBps", "  IOPS  ", "jobs"]
 width = [len(h) for h in headers]
 
 print("| " + " | ".join(headers)  + " |")

@@ -97,7 +97,7 @@ Same config on both GPUs (ZeRO-3 + activation checkpointing + CPU-offload + Lige
 
 ### Does the bigger GPU unlock configs the old one can't run?
 
-Config: ZeRO-3, Liger-Kernel, activation checkpointing on, CPU AdamW offload on, mbs=1. With activation checkpointing + fused-CE, [activation memory](../../training/performance/README.md#anatomy-of-models-memory-usage) is small and linear: **peak ≈ 12.6GiB + 0.00043 GiB/token** (the 12.6GiB floor is ZeRO-3 param/grad shards; AdamW state lives on CPU).
+Config: ZeRO-3, Liger-Kernel, activation checkpointing on, CPU AdamW offload on, mbs=1. With activation checkpointing + fused-CE, [activation memory](../../training/performance/README.md#anatomy-of-models-memory-usage) is small and linear: **peak ≈ 12.6GiB + 0.00043GiB/token** (the 12.6GiB floor is ZeRO-3 param/grad shards; AdamW state lives on CPU).
 
 Peak memory (`max_memory_reserved`, worst rank) is **identical on H200 and B200 at a given seqlen** — it's set by the model + ZeRO-3 sharding + activations, not the GPU architecture — so a seqlen that fits one fits the other, up to each GPU's own ceiling:
 

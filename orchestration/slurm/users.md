@@ -110,7 +110,7 @@ By default, if the cpu has [Hyper-Threads](https://en.wikipedia.org/wiki/Hyper-t
 
 footnote: HT is Intel-specific naming, the general concept is simultaneous multithreading (SMT)
 
-For example for a cluster with with 2 cpus per node with 24 cores and 2 hyper-threads each, there is a total of 96 hyper-threads or 48 cpu-cores available. Therefore to utilize the node fully you'd need to configure either:
+For example for a cluster with 2 cpus per node with 24 cores and 2 hyper-threads each, there is a total of 96 hyper-threads or 48 cpu-cores available. Therefore to utilize the node fully you'd need to configure either:
 
 ```
 #SBATCH --cpus-per-task=96
@@ -414,7 +414,7 @@ Let's start with just 10 such jobs:
 sbatch --array=1-10%1 array-test.slurm
 ```
 
-`%1` limits the number of simultaneously running tasks from this job array to 1. Without it it will try to run all the jobs at once, which we may want sometimes (in which case remove %1), but when training we need one job at a time.
+`%1` limits the number of simultaneously running tasks from this job array to 1. Without it, it will try to run all the jobs at once, which we may want sometimes (in which case remove %1), but when training we need one job at a time.
 
 Alternatively, as always this param can be part of the script:
 ```

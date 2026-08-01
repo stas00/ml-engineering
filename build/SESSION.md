@@ -105,6 +105,37 @@ wget --user-agent="Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:39.0) Geck
 12. `GA` belongs in a table when at least one row is not `Y`, since a uniformly `Y` column only adds width. Place it immediately before any trailing `Notes` or `Ref.` column so the reference stays last. Put a dated note next to any `?`.
 13. "Published spec" is not "available", and the two diverge in more ways than one: a released standard can precede silicon by years (PCIe 6.0 hardware arrived about three years after its specification), a vendor can publish full specs while marking them "Preliminary information ... subject to change" (NVIDIA Rubin), and a part can ship on one bus generation while the same node already uses a newer one elsewhere (accelerators on PCIe Gen5 x16 while ConnectX-8 NICs use Gen6). Decide `GA` on whether it can be obtained, not on whether numbers exist.
 
+## Product sync map
+
+A product's name, specs and availability are spread across many sections, so a single-place edit leaves the book arguing with itself. The failure is not hypothetical: the accelerator tables were given `GA` columns marking GB200/GB300 as shipping while the chapter's own opening summary still called them "expected", and one list said `MI400X` while every table said `MI455X`. When adding a product, renaming one, or changing an availability status, walk the list below and fix or consciously skip each entry.
+
+`compute/accelerator/README.md`:
+
+1. `## Bird's eye view on the high end accelerator reality` - the per-category lists (GPUs, HPU, TPU, On Pods and racks). This is the section most likely to be forgotten because it is prose, it sits far above the tables, and it is the first thing a reader sees. It also ends with a `That's about it as of DATE` stamp that must be re-dated whenever the lists change.
+2. `## Glossary` - any new abbreviation, in alphabetical position.
+3. `#### TFLOPS comparison table` - dtype columns, `GA`, the availability break, and the numbered row notes below it.
+4. `#### Maximum Achievable Matmul FLOPS comparison table` - measured, so a new product appears here only once someone has run the benchmark. Never carry a spec number into it.
+5. `### Accelerator memory size and speed` - capacity, type, bandwidth, `GA`, break.
+6. `### Caches` - both the cross-vendor comparison and the vendor-native tables, plus their sources.
+7. `### Clock speed`, `### Power consumption` - each with its own `GA`, break, `Notes` numbering, and `as of DATE` line explaining `not disclosed` / `N/A`.
+8. `### Cloud accelerators` - the per-vendor roadmap lists (NVIDIA, AMD, Intel, Amazon, Google, SambaNova). Status verbs live here, so this is where "supposed to become available mid-2024" rots.
+9. `## Accelerators in detail` - the per-vendor deep dives (`### NVIDIA`, `### AMD`, `### Intel Gaudi`, `### AWS Trainium`, `### Google TPU`, `### Huawei Ascend`, `### Cerebras`, `### SambaNova`) and the matching `## API` subsections.
+
+`network/README.md`:
+
+1. `## Glossary and concepts` - new fabric or adapter abbreviations.
+2. `### All-to-all bandwidth`, `### Peer-to-peer bandwidth` - the intra-node node-level tables; both carry `GA` and a break.
+3. The scale-up fabric sections a new accelerator lands in: `### PCIe`, `### NVLink`, `### NVLink-C2C`, `### NVSwitch`, `### Infinity Fabric / xGMI`, `### NeuronLink v3`, `### UB Link (UnifiedBus)`, `### Ultra Accelerator Link (UALink)`.
+4. `## Inter-node networking` - the node table, then `### Network adapters`, `### InfiniBand`, `### Switch platforms` and its `####` children, `### Reaching beyond the rack`.
+5. The per-vendor scale-out sections: `### EFA`, `### Gaudi2 (inter-node)`, `### Gaudi3 (inter-node)`, `### HPE Slingshot interconnect`, `### GPUDirect-TCPX`, `### Omni-Path`.
+
+Cross-chapter:
+
+1. An accelerator's scale-up bandwidth appears in both books' chapters - the accelerator chapter quotes it in prose while the network chapter tables it. Change both.
+2. `## Bird's eye view on the high end accelerator reality` in the accelerator chapter and `### Backend networking` in the network chapter both quote current typical top speeds. Neither cites the other, so both drift.
+3. Grep the whole repo for the old product name before concluding a rename is done - `MI450` survived in exactly one list after every table had moved to `MI455X`.
+4. After any of this, run `make fix-tables`, re-check internal anchors, and confirm no table sorts a not-yet-purchasable part above shipping hardware.
+
 ## Table ordering and source layout
 
 1. Keep Markdown table source vertically aligned for maintainer readability.

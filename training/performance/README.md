@@ -253,8 +253,8 @@ Let's look at the details.
 
 **Gradients**
 
-- 4 bytes * number of parameters for either fp32 precision and in some frameworks with mixed half-precision precision training.
-- 2 bytes * number of parameters for non-mixed half-precision and in some frameworks with mixed half-precision precision training.
+- 4 bytes * number of parameters for either fp32 precision and in some frameworks with mixed half-precision training.
+- 2 bytes * number of parameters for non-mixed half-precision and in some frameworks with mixed half-precision training.
 
 **Forward Activations**
 
@@ -909,7 +909,7 @@ For more background you can read [1](https://pytorch.org/docs/stable/notes/cuda.
 Notes:
 - Pinned memory is treated specially by the OS, by preventing the paging out when the total available memory is low, so it reduces the total amount of available memory to other programs. Thus use with care.
 - I recall that a few times people reported problems when using pinned memory - I think it's mostly when the system doesn't have much CPU memory to start with or they used too much of pinned memory, so the OS can start swapping heavily.
-- If you measure your [per iteration TFLOPS](#tflops-as-a-performance-metric) you can compare the throughput with and w/o these changes and choose the one that works the best. It'd be even easier to see the impact if you measure the `DataLoader` overhead separately from the the `forward/backwards` and post-compute (usually logging, which can be surprisingly slow at times).
+- If you measure your [per iteration TFLOPS](#tflops-as-a-performance-metric) you can compare the throughput with and w/o these changes and choose the one that works the best. It'd be even easier to see the impact if you measure the `DataLoader` overhead separately from the `forward/backwards` and post-compute (usually logging, which can be surprisingly slow at times).
 
 
 ## torch.compile

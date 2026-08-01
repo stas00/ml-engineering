@@ -27,13 +27,13 @@ If you do KV-cache offloading to disk, this would be another important IO use-ca
 
 ## Glossary
 
-- NAS: Network Attached Storage
-- SAN: Storage Area Network
 - DAS: Direct-Attached storage
-- NSD: Network Shared Disk
-- OSS: Object storage server
 - MDS: Metadata server
 - MGS: Management server
+- NAS: Network Attached Storage
+- NSD: Network Shared Disk
+- OSS: Object storage server
+- SAN: Storage Area Network
 
 
 
@@ -315,39 +315,39 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([su
 
 * filesize=16k read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 4.0      | 1006.3  | 257614   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      4.0 |   1006.3 | 257614 |   16 |
 
 * filesize=16k write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 3.2      | 1239.1  | 317200   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      3.2 |   1239.1 | 317200 |   16 |
 
 * filesize=1m read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.7      | 2400.1  | 614419   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      1.7 |   2400.1 | 614419 |   16 |
 
 * filesize=1m write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1940.5  | 496765   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      2.1 |   1940.5 | 496765 |   16 |
 
 * filesize=1g read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.4      | 2762.0  | 707062   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      1.4 |   2762.0 | 707062 |   16 |
 
 * filesize=1g write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1943.9  | 497638   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      2.1 |   1943.9 | 497638 |   16 |
 
 
 As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
@@ -715,7 +715,7 @@ tmpfs             16M  1.9K   16M    1% /run
 ```
  `-h` formats huge numbers into human-readable strings.
 
- So here you can see the the `/` partition is using 7% of the total possible inodes.
+ So here you can see the `/` partition is using 7% of the total possible inodes.
 
  Depending on the type of filesystem in some cases it's possible to add more inodes whereas in other cases it's not possible.
 
@@ -752,15 +752,15 @@ Here is a one-liner that will recursively analyze a path of your choice, find al
 ```bash
 find /mypath/ -type f -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
 This produces an output like:
 ```
-user_a   :     2.5TB
-user_c   :     1.6TB
-user_b   :     1.2TB
+user_a   :     2.5TiB
+user_c   :     1.6TiB
+user_b   :     1.2TiB
 ```
 
 Of course, you can change the regex to match other patterns or you can remove it altogether to measure all files:
@@ -768,7 +768,7 @@ Of course, you can change the regex to match other patterns or you can remove it
 ```bash
 find /mypath/ -type f | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
@@ -779,7 +779,7 @@ find /mypath/ -regextype posix-egrep \
 -type d -regex "/mypath/(exlude_a|exclude_b|exclude_c)/.*" -prune -o \
 -type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 

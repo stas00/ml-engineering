@@ -301,7 +301,7 @@ So you could stop here and your program will start much much faster already.
 
 And there is one more step you could do to make it truly tiny.
 
-What we haven't shrunken so far is the vocabulary dimension so 64x250k (hidden*vocab) is still huge. Granted this 250k vocab model is not typical - normally models models' vocab is ~30-50k, but even 30k is a lot if we want the model to be truly tiny.
+What we haven't shrunken so far is the vocabulary dimension so 64x250k (hidden*vocab) is still huge. Granted this 250k vocab model is not typical - normally models' vocab is ~30-50k, but even 30k is a lot if we want the model to be truly tiny.
 
 So next we will look into various techniques to shrinking the tokenizer, as it defines our vocab size.
 
@@ -410,7 +410,7 @@ But for the needs of a tiny model (testing) the frequency doesn't matter at all.
 
 ##### Hack the tokenizer file approach
 
-Some tokenizers can be be just manually truncated at the file level, e.g. let's shrink Llama2's tokenizer to 3k items:
+Some tokenizers can be just manually truncated at the file level, e.g. let's shrink Llama2's tokenizer to 3k items:
 
 ```python
 # Shrink the orig vocab to keep things small (just enough to tokenize any word, so letters+symbols)
@@ -1057,7 +1057,7 @@ and the corresponding log around it is:
 [0] mp: after copy to cpu
 ```
 
-So we can see that `MA` is half of `Max_MA` - because we had 2 tensors of the same size allocated and one of them freed. So the CUDA peak memory of 7.45GiB is 2x larger than the the current CUDA memory usage. This is a very important moment. Often the software OOMs exactly during peak memory usage. For example, if some intermediary tensor isn't freed up fast enough it could cause OOM - and also see the earlier note about python garbage collection, there are rare situations where a well placed `gc.collect` call can save the day and prevent OOM.
+So we can see that `MA` is half of `Max_MA` - because we had 2 tensors of the same size allocated and one of them freed. So the CUDA peak memory of 7.45GiB is 2x larger than the current CUDA memory usage. This is a very important moment. Often the software OOMs exactly during peak memory usage. For example, if some intermediary tensor isn't freed up fast enough it could cause OOM - and also see the earlier note about python garbage collection, there are rare situations where a well placed `gc.collect` call can save the day and prevent OOM.
 
 The `CA` and `MaxCA` columns report cached memory, I often find those not very useful for memory debug purposes, I sometimes even add:
 

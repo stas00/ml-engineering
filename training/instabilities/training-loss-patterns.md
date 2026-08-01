@@ -158,7 +158,7 @@ As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plottin
 
 There was no real spike in the two earlier runs. The loss never went up in the first place. In both resumes it was under-reporting loss due to an exactly repeated data and then it reached data it hasn't seen before and started reporting correctly. In other words it was overfitting and reporting a false loss.
 
-The cause of the problem is data repetition, and since it clearly memorised some of it it was reporting a better loss.
+The cause of the problem is data repetition, and since it clearly memorised some of it, it was reporting a better loss.
 
 The problem comes from [pytorch-lightning](https://github.com/lightning-ai/lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables).
 

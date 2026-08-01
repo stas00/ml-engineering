@@ -353,7 +353,7 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, default=0, help='local rank')
     parser.add_argument("--num_iterations", type=int, default=20, help='The number of iterations used to benchmark each collective call')
     parser.add_argument("--num_warmup_iterations", type=int, default=5, help='The number of warmup iterations')
-    parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If not specified the full range 2**15 .. 2**32 will be benchmarked')
+    parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If not specified the full range 2**15 .. 2**34 will be benchmarked')
     parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
 
     args = parser.parse_args(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

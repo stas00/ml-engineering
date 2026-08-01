@@ -6,10 +6,10 @@ Often you don't need to be a network engineer to figure out networking issues. S
 
 ## Glossary
 
-- OOB: Out-of-Band (typically a slower ethernet NIC)
 - Bonding: using multiple NICs together for faster speed or as a back up
 - IB: InfiniBand (Originally by Mellanox, acquired by NVIDIA)
 - NIC: Network Interface Card
+- OOB: Out-of-Band (typically a slower ethernet NIC)
 
 
 ## How to diagnose NCCL multi-gpu and multi-node connectivity issues
