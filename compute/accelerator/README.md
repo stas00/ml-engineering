@@ -27,8 +27,8 @@ AMD:
 While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
-- As of today, ML clouds/HPCs already have B200s/B300s. GB200/GB300 and Rubin is expected to emerge in H2-2026.
-- AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI400X hopefully in 2026. New: large CSPs started to offer AMD GPUs
+- As of today, ML clouds/HPCs already have B200s/B300s, and GB200/GB300 NVL72 racks are shipping. Rubin is expected to emerge in H2-2026.
+- AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI455X hopefully in 2026. New: large CSPs started to offer AMD GPUs
 
 HPU:
 - Intel's Gaudi2 and Gaudi3 are available at Intel's cloud.
@@ -44,7 +44,7 @@ On Pods and racks:
 - SambaNova's SambaRack (SN40L today, SN50 from H2-2026)
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
-That's about it as of Q5-2025.
+That's about it as of 2026-07-31.
 
 The rest of this document will compare most of the above in details and if you want to read the specs please head [here](#high-end-accelerators-for-ml-workloads).
 
@@ -304,7 +304,7 @@ If you find solid reports (papers?) showing the actual TFLOPS one can expect fro
 
 To provide a numerical sense to what I'm talking about let's take an A100 with its 312TFLOPS bf16 peak performance in the specs of this card. Until the invention of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300TFLOPS.
 
-You could measure the the actual achievable peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
+You could measure the actual achievable peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS Finder](benchmarks#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
 MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flops-comparison-table), which is a term coined by yours truly. It is very practical for those who do performance optimization work.
 
@@ -722,11 +722,11 @@ NVIDIA:
 - [Vera Rubin NVL72](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) -- the 72 GPUs supernode at NVLink speed with Grace Rubin - 36x blocks of 2x Rubin GPU + Vera CPU
 - [GB300 NVL72](https://www.nvidia.com/en-us/data-center/gb300-nvl72/) - the 72 GPUs supernode at NVLink speed with B300s (Grace Blackwell - 36x blocks of 2x B300 + Grace CPU)
 - [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) - the 72 GPUs supernode at NVLink speed with B200s. (Grace Blackwell - 36x blocks of 2x B200 + Grace CPU)
-- [B300](https://www.nvidia.com/en-us/data-center/hgx/) - NVIDIA now publishes official HGX B300 platform specs and lists it as shipping, as of 2026-07-31. Note that those are 8-GPU board figures (144 PFLOPS FP4 sparse, 2.1TB total memory, 14.4TB/s total NVLink) so per-GPU values have to be divided out, and HBM bandwidth still isn't published there - for that the [DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet) remains the practical source
-- [B200](https://www.nvidia.com/en-us/data-center/hgx/) - same story: official HGX B200 platform specs published and shipping (144 PFLOPS FP4 sparse, 1.4TB total memory, 14.4TB/s total NVLink), with the [DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet) filling in what the platform page omits. Worth knowing that B300 cut FP64 hard - 10 TFLOPS against B200's 296 TFLOPS per the same table - so it is not a strict upgrade for double-precision work
-- [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
+- [B300](https://www.nvidia.com/en-us/data-center/hgx/) - NVIDIA now publishes official HGX B300 platform specs and lists it as shipping, as of 2026-07-31. Note that those are 8-GPU board figures (144PFLOPS FP4 sparse, 2.1TB total memory, 14.4TBps total NVLink) so per-GPU values have to be divided out, and HBM bandwidth still isn't published there - for that the [DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet) remains the practical source
+- [B200](https://www.nvidia.com/en-us/data-center/hgx/) - same story: official HGX B200 platform specs published and shipping (144PFLOPS FP4 sparse, 1.4TB total memory, 14.4TBps total NVLink), with the [DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet) filling in what the platform page omits. Worth knowing that B300 cut FP64 hard - 10TFLOPS against B200's 296TFLOPS per the same table - so it is not a strict upgrade for double-precision work
+- [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Widely available as of 2026-07-31.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, has been available on all Tier-1 compute clouds since Q4-2023.
-- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GiB HBM3 or 144GiB HBM3e + (2) Grace CPU w/ 624GiB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
+- [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GiB HBM3 or 144GiB HBM3e + (2) Grace CPU w/ 624GiB RAM - available as of 2026-07-31. Do not confuse with H200, which is a different card.
 - [L40S](https://www.nvidia.com/en-us/data-center/l40s/) - a powerful card that is supposed to be more than 2x cheaper than H100, and it's more powerful than A100.
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability, but already getting outdated. But given the much lower cost than H100 this is still a great GPU.
 
@@ -750,7 +750,7 @@ Amazon:
 
 
 Google:
-- [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x) (Ironwood) - 2307 TFLOPS bf16 and 192GB HBM per chip, in 4-chip VMs up to a 9216-chip pod. Rent-only on GCP, like every TPU generation
+- [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x) (Ironwood) - 2307TFLOPS bf16 and 192GB HBM per chip, in 4-chip VMs up to a 9216-chip pod. Rent-only on GCP, like every TPU generation
 - [TPU v6e](https://docs.cloud.google.com/tpu/docs/v6e) (Trillium) and [TPU v5p](https://docs.cloud.google.com/tpu/docs/v5p) - the previous two generations, both still offered
 
 
@@ -884,7 +884,7 @@ TPU-specific vocabulary:
 - ICI (inter-chip interconnect) - the scale-up fabric, a 3D torus where each chip has "a direct connection to the nearest neighboring chips in 3 dimensions"
 - slice, cube, pod - the units of allocation; a slice is "a collection of chips all located inside the same TPU Pod connected by high-speed inter-chip interconnects (ICI)"
 
-TPU7x (Ironwood) per chip: 192GB HBM at "approximately 7.37 TB/s", 2307 TFLOPS bf16 and 4614 TFLOPS fp8, and a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200. The torus carries "bi-directional bandwidth of 200 GBps per axis", which is consistent with 1200 total across six neighbours. A VM is always 4 chips, and a pod reaches "a 9,216-chip footprint".
+TPU7x (Ironwood) per chip: 192GB HBM at "approximately 7.37 TB/s", 2307TFLOPS bf16 and 4614TFLOPS fp8, and a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200. The torus carries "bi-directional bandwidth of 200 GBps per axis", which is consistent with 1200 total across six neighbours. A VM is always 4 chips, and a pod reaches "a 9,216-chip footprint".
 
 The catch isn't performance, it is lock-in: TPUs are rent-only on GCP and the software path is XLA, so a codebase that reaches for custom CUDA kernels doesn't move over for free.
 
