@@ -31,7 +31,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - An accelerator or a processing unit is what does most of the work.
 
-- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
+- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
 [More details](../compute/accelerator).
 
@@ -265,26 +265,28 @@ As of this writing here are the most common accelerators that can be used for tr
 
 Widely available:
 
-  * NVIDIA H200+B200
-  * AMD MI325X and MI355X on neoclouds primarily, MI450X is planned to come out in 2026 and also large CSPs started to offer AMD GPUs
+  * NVIDIA H200, B200, B300 - B300 systems are shipping
+  * AMD MI325X, MI350X and MI355X - neoclouds primarily, but large CSPs have started offering AMD too
+  * Intel Gaudi3 - on Intel's cloud and via OEM servers
 
 Available, but locks you in:
 
-  * Google TPUs - fast! but the cost is a lock-in into a single vendor and cloud. It appears Google started to sell TPUs to some companies (outside of their cloud).
+  * Google TPUs - fast, but a lock-in to one vendor and one cloud, and the software path is XLA rather than CUDA. It appears Google started to sell TPUs to some companies (outside of their cloud) - not officially confirmed, but it would weaken the lock-in argument if it holds
+  * AWS Trainium2 - on AWS, also XLA
+  * Cerebras WaferScale Engine - on Cerebras' cloud
 
-Emerging to general availability:
+Not yet available:
 
-  * NVIDIA B300s/GB200/GB300s are starting to emerge. Rubin is supposed to come out in 2026
-  * AMD MI450X is planned to come out in 2026
-  * Intel Gaudi3 > H200 - is available on Intel's cloud
-  * Amazon's Trainium2 < H100 is available on AWS, Trainium3 has been just announced
-  * Cerebras WaferScale Engine - available on Cerebras' cloud
+  * NVIDIA Rubin - specs published but still marked preliminary
+  * AMD MI455X - Helios volume deployments expected 2H-2026; MI430X in 2027
+  * SambaNova SN50 - shipping "in the second half of 2026"; SN40L is the current part
+  * Intel Jaguar Shores - a roadmap name with no published specification or date
 
-No longer available:
+Regional:
 
-* GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
+  * Huawei Ascend - real scale, but China-only in practice, and the specs are only on Huawei's Chinese pages
 
-For the full list and more recently announced accelerators see [Accelerators](../compute/accelerator).
+Beware that "announced" is not "available" - see the `GA` column in [Accelerators](../compute/accelerator#tflops-comparison-table) for which is which. For the full list and the numbers see [Accelerators](../compute/accelerator).
 
 
 #### Accelerator Interoperability
@@ -299,7 +301,9 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
-- GraphCore IPU: can also be run via PyTorch via [poptorch](https://github.com/graphcore/poptorch)
+- Google TPU and AWS Trainium: both via [XLA](https://openxla.org/xla) - PyTorch works, custom CUDA kernels don't
+
+- Huawei Ascend: via CANN, with MindSpore first-party and PyTorch adaptation alongside it
 
 - Cerebras: is also working on PyTorch support via [Cerebras Software Platform (CSoft) via XLA](https://www.cerebras.net/blog/supporting-pytorch-on-the-cerebras-wafer-scale-engine/).
 
