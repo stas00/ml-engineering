@@ -9,9 +9,10 @@
 5. During consistency reviews, produce suggestions rather than silently fixing content. Internal anchor corrections were the only stated exception during the initial review.
 6. Never delete or remove any existing content, data, row, note, file, or roadmap entry without first discussing the exact proposed deletion and receiving explicit user approval.
 7. Propose deletion only when there is a concrete justification such as invalid, incorrect, harmful, or genuinely redundant content; restructuring, cleanup, uncertainty, or lack of a citation is not sufficient.
-8. Before any deletion, explain the reason, scope, consequences, and preservation alternatives so the user can make an informed decision.
-9. If restructuring makes existing data difficult to retain in its original location, leave it unchanged and propose a relocation, annotation, or schema adjustment.
-10. When replacing or restructuring a table, account for every original row and explicitly flag any row that cannot be represented faithfully.
+8. Unverified, rumoured, or unofficial information is not a deletion candidate - it is often exactly what a reader can't get from a vendor page, and removing it because it lacks a citation destroys the most valuable kind of content in the book. Label it as unconfirmed and say what would change if it held, rather than dropping it. "I could not verify this" is a reason to annotate, never a reason to delete.
+9. Before any deletion, explain the reason, scope, consequences, and preservation alternatives so the user can make an informed decision.
+10. If restructuring makes existing data difficult to retain in its original location, leave it unchanged and propose a relocation, annotation, or schema adjustment.
+11. When replacing or restructuring a table, account for every original row and explicitly flag any row that cannot be represented faithfully.
 
 ## Book style
 
@@ -27,6 +28,9 @@
 10. For comparison tables, define the comparison question and explain how the reader should use the values before proposing columns, normalization, or vendor-specific qualifications.
 11. Make comparison results visible immediately. Precompute useful ratios, deltas, rankings, or normalized values instead of requiring the reader to perform arithmetic.
 12. Lead with the reader-facing conclusion or at-a-glance comparison; place provenance, vendor terminology, derivation details, and caveats close by as supporting information rather than making them the primary interface.
+13. The book is written in English, so never add text in another language to a chapter. Consulting a non-English source is encouraged - it is often the only place a specification is published, as with Huawei's Chinese Ascend pages carrying per-accelerator figures the English pages omit - but what lands in the chapter is the English translation, not the original string. Do not paste the source text alongside the translation either: a reader who can't read it gains nothing, and it makes the line harder to scan.
+14. Translate the meaning rather than transliterating, and normalize the numbers to the book's own [Unit formatting](#unit-formatting) conventions, since a translation is no longer a verbatim quote and the vendor-quote exception no longer applies. Romanize a proper name that has no English form and gloss it once, as with `LingQu` for Huawei's UnifiedBus fabric.
+15. Say in prose where a figure came from when the source is non-English, so the reader knows the claim is traceable and knows which site to check. Naming the language is useful; reproducing it is not.
 
 ## Suggestions report
 
@@ -69,6 +73,13 @@ Use the newest `build/update-suggestions-*.md` file in the current repository un
 6. Where possible, place citations directly under a numerical table so readers can confirm the displayed values.
 7. Keep citations close to the claims or rows they support.
 8. Batch command-line liveness checks through `build/check-new-links.sh` and request one reusable approval for that wrapper rather than separate approval for each `curl` invocation.
+9. When a vendor or standards-body page appears unreachable, do not conclude the source is unavailable and do not fall back to a secondary source. Many such sites sit behind bot mitigation that rejects a bare HTTP client while serving the same page to a browser user-agent, so a specialized fetch tool can report a false negative. Retry with a normal downloader and a browser user-agent - this is pre-authorized for verifying citations in this repository, and no further approval is needed:
+
+```bash
+wget --user-agent="Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:39.0) Gecko/20100101 Firefox/39.0" URL
+```
+
+10. A guessed URL that returns a page is not necessarily the page you wanted - check the title and body before quoting it. If a guess lands on a listing or tag page, follow the site's own links, or read its `/specifications`-style index, to reach the document itself.
 
 ## Cross-vendor hardware tables
 
@@ -80,6 +91,19 @@ Use the newest `build/update-suggestions-*.md` file in the current repository un
 6. For new cache-table additions, consider only high-end GPUs.
 7. Research current primary specifications, including newly documented parts such as AMD Instinct MI455X, but propose rows before adding them.
 8. When one table would mix broadly shared cache capacity with private local resources, prefer separate comparison and vendor-native tables.
+9. Hardware whose specifications are published but which a reader cannot yet buy does not belong in the sorted body of a comparison table, because the declared sort would rank it above shipping hardware and imply it is the thing to reach for. Instead, close the sorted rows, add one completely empty row as a visual break, and list the upcoming entries below it:
+
+```
+| AWS EFA v1 (P4d)             |     4 |     100 |     50 |
+|                              |       |         |        |
+| Omni-Path CN6000 example     |     8 |     800 |    800 |
+| InfiniBand GDR3200           |     2 |    1600 |    400 |
+```
+
+10. This keeps a genuinely useful signal - the reader sees what is coming next - while making it unmistakable that those rows aren't available yet. Sort the below-the-break rows among themselves by the table's declared order. Move a row up into the body only once the product ships, and delete the break when nothing is left below it.
+11. State the availability basis rather than leaving it implied: add a `GA` column - generally available, i.e. a reader can actually buy or rent it - with values `Y`, `N`, or `?` where the vendor names a product but publishes no availability. The column name is deliberately two characters because the values are one; `Shipped` wasted width. Combine it with the break from item 9: `N` rows go below the break, `Y` rows stay in the sorted body, and `?` rows stay in the body with a note saying why they are unresolved.
+12. `GA` belongs in a table when at least one row is not `Y`, since a uniformly `Y` column only adds width. Place it immediately before any trailing `Notes` or `Ref.` column so the reference stays last. Put a dated note next to any `?`.
+13. "Published spec" is not "available", and the two diverge in more ways than one: a released standard can precede silicon by years (PCIe 6.0 hardware arrived about three years after its specification), a vendor can publish full specs while marking them "Preliminary information ... subject to change" (NVIDIA Rubin), and a part can ship on one bus generation while the same node already uses a newer one elsewhere (accelerators on PCIe Gen5 x16 while ConnectX-8 NICs use Gen6). Decide `GA` on whether it can be obtained, not on whether numbers exist.
 
 ## Table ordering and source layout
 
@@ -99,6 +123,14 @@ Use the newest `build/update-suggestions-*.md` file in the current repository un
 14. After every table edit, shrink each source column to the minimum width required by its longest header or body cell, while preserving vertical pipe alignment.
 15. Keep rendered tables compact to minimize line wrapping on narrow media. Compact disproportionately wide headers with `<br>` within the single header row, use concise labels, and move nonessential detail below the table without sacrificing clarity.
 16. After editing a table, run `make fix-tables`. It joins multi-line headers into one row, inserts a missing blank line before a table, and re-pads misaligned pipes, then cross-checks the source table count against what `pandoc` renders. It reports `file:line` for everything it fixed, and flags what it cannot fix - such as ragged cell counts, where there is no way to know which cell is missing.
+
+## Glossary sections
+
+1. Keep each glossary list alphabetically sorted, case-insensitively, so `RoCE` sorts next to `RoE` and `xGMI` lands with the letters rather than after them. Insert a new entry in place; never append to the end.
+2. Sort per list, not across the section. A chapter may hold several lists - for example an abbreviation list and a `Speed-related:` list - and each is sorted independently.
+3. A list whose order is deliberately pedagogical rather than alphabetical, such as one introducing `Unidirectional` before `Bi-directional`, may keep that order. Say so in a note, otherwise the next pass will "fix" it.
+4. When adding an abbreviation to a chapter, add it to that chapter's glossary in the same edit. This applies to anything a reader can't expand on sight - a `GA` table column, `busbw`, `SuperNIC` - and not to vendor names, product model numbers, or terms as widely known as `GPU` or `CPU`.
+5. Periodically check both directions: abbreviations used in the body but missing from the glossary, and glossary entries no longer used anywhere in the chapter. Neither is fatal, but the first hurts readers and the second is dead weight.
 
 ## Source line layout
 
