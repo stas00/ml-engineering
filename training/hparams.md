@@ -7,10 +7,10 @@ The easiest way to find a good hparam and model init starter set is to steal it 
 Training jargon uses a multitude of abbreviations and terms, so here are some important for this chapter.
 
 - BS: Batch Size - here we mean batch size per gpu, often it is also referred to as MBS (micro-batch-size)
-- GBS: Global Batch Size - total batch size per iteration - may include gradient accumulation
 - GAS: Gradient Accumulation Steps - how many forward/backward cycles to perform before one full iteration is complete
-- TFLOPS: Trillion FLOPs per second - [FLOPS](https://en.wikipedia.org/wiki/FLOPS)
+- GBS: Global Batch Size - total batch size per iteration - may include gradient accumulation
 - PP: Pipeline Parallelism
+- TFLOPS: Trillion FLOPs per second - [FLOPS](https://en.wikipedia.org/wiki/FLOPS)
 
 ## Global Batch Size Ramp Up
 
