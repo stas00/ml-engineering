@@ -1,6 +1,6 @@
 # Accelerators
 
-Compute accelerators are the workhorses of the ML training. At the beginning there were just GPUs. But now there are also TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs and more are being invented.
+Compute accelerators are the workhorses of the ML training. At the beginning there were just GPUs. But now there are also TPUs, FPGAs, HPUs, QPUs, RDUs and more are being invented.
 
 There exist two main ML workloads - training and inference. There is also the finetuning workload which is usually the same as training, unless a much lighter [LORA-style](https://arxiv.org/abs/2106.09685) finetuning is performed. The latter requires significantly fewer resources and time than normal finetuning.
 
@@ -33,10 +33,7 @@ GPUs:
 HPU:
 - Intel's Gaudi2 and Gaudi3 are available at Intel's cloud.
 - Falcon Shores is to replace Gaudi in 2025 - update - the project has been cancelled
-- Jaguar Shores is to replace Falcon Shores in 2026-2027
-
-IPU:
-- Graphcore with their IPU offering was briefly available at Paperspace, but it's gone now. I'm not sure if anybody offers those.
+- Jaguar Shores is named as the replacement, but as of 2026-07-31 Intel publishes nothing about it - see [Intel Gaudi](#intel-gaudi)
 
 TPU:
 - Google's TPUs are, of course, available but they aren't the most desirable accelerators because you can only rent them, and the software isn't quite easily convertible between GPUs and TPUs, and so many (most?) developers remain in the GPU land, since they don't want to be locked into a hardware which is a Google monopoly.
@@ -44,7 +41,7 @@ TPU:
 
 On Pods and racks:
 - Cerebras' WaferScale Engine (WSE)
-- SambaNova's DataScale
+- SambaNova's SambaRack (SN40L today, SN50 from H2-2026)
 - dozens of different pod and rack configs that compose the aforementioned GPUs with super-fast interconnects.
 
 That's about it as of Q5-2025.
@@ -58,24 +55,46 @@ As most of us rent the compute, and we never see what it looks like, here is how
 
 ## Glossary
 
+- BLAS: Basic Linear Algebra Subprograms
 - CPU: Central Processing Unit
+- CTS: Custom Thermal Solution - a vendor-supported cooling option that allows a higher power limit than the default
+- CU: Compute Unit - AMD's counterpart to NVIDIA's SM
+- CUDA: Compute Unified Device Architecture - NVIDIA's GPU programming platform
+- DCORE: the die core Intel reports Gaudi3 cache against; a Gaudi3 has 4 of them
+- DGX: NVIDIA's turn-key accelerator server line
+- ECC: Error Correcting Code
 - FMA: Fused Multiply Add
 - FPGA: Field Programmable Gate Arrays
+- GA: Generally Available - the product can actually be bought or rented, as opposed to announced, sampling, or spec'd only
 - GCD: Graphics Compute Die
+- GEMM: General Matrix Multiply
 - GPU: Graphics Processing Unit
 - HBM: High Bandwidth Memory
+- HFU: Hardware FLOPS Utilization
+- HGX: NVIDIA's accelerator baseboard that OEMs build their own servers around
 - HPC: High-performance Computing
 - HPU: Habana Gaudi AI Processor Unit
-- IPU: Intelligence Processing Unit
+- LLC: Last Level Cache
 - MAMF: Maximum Achievable Matmul FLOPS
+- MFU: Model FLOPS Utilization
+- MIG: Multi-Instance GPU - NVIDIA's partitioning of one GPU into isolated instances
 - MME: Matrix Multiplication Engine
+- NVL72: an NVLink domain of 72 accelerators; likewise NVL8 and NVL36
+- OAM: OCP Accelerator Module - the Open Compute Project's accelerator form factor
+- PSU: Power Supply Unit
+- PTX: Parallel Thread Execution - NVIDIA's intermediate GPU instruction set
 - QPU: Quantum Processing Unit
 - RDU: Reconfigurable Dataflow Unit
+- SM: Streaming Multiprocessor - NVIDIA's counterpart to AMD's CU
+- SRAM: Static Random Access Memory
 - TBP: Typical Board Power or Total Board Power, depending on vendor
 - TDP: Thermal Design Power or Thermal Design Parameter
 - TGP: Total Graphics Power
 - TPC: Tensor Processing Core
 - TPU: Tensor Processing Unit
+- WSE: Wafer Scale Engine - Cerebras' whole-wafer accelerator
+- XCD: Accelerator Complex Die - AMD's per-die cache reporting scope
+- XLA: Accelerated Linear Algebra - the compiler behind PyTorch/JAX on TPUs and Trainium
 
 [Additional glossary @ Modal](https://modal.com/gpu-glossary)
 
@@ -212,35 +231,35 @@ To check the actual clock speed when your accelerator is under load see the [clo
 
 Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Sorted by the bf16 column.
 
-| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 |  fp8  | int8 |  fp6  | fp4    | nvfp4   | Notes |
-| :-------------------- | ----: | -----: | ---: | ---: | ----: | ---: | ----: | -----: | ------: | ----: |
-| AMD MI450X            |       |        |      |      | 20000 |      |       | 40000  |         |       |
-| NVIDIA Rubin SXM      | 130.0 | 2000.0 | 4000 | 4000 | 17500 | 2500 | 17500 | 35000  | 35000   |       |
-| NVIDIA GB300 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000  | 5000 | 5000  | 15000  | ?       | 10    |
-| NVIDIA GB200 SXM      | 80.0  | 1250.0 | 2500 | 2500 | 5000  | 5000 | 5000  | 10000  | ?       | 2     |
-| Google TPU v7x        | ?     | ?      | 2307 | 2307 | 4614  | ?    | ?     | ?      | ?       |       |
-| AMD MI355X            | 157.3 | ?      | 2300 | 2300 | 4600  | 4600 | 9200  | 9200   | X       |       |
-| NVIDIA B300 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500  | 4500 | 4500  | 12600  | 15000   |       |
-| NVIDIA B200 SXM       | 80.0  | 1125.0 | 2250 | 2250 | 4500  | 4500 | 4500  | 9000   | 10000   |       |
-| Intel Gaudi3          | 229.0 | 459.0  | 459  | 1677 | 1677  | V    | X     | X      | X       | 1,8   |
-| AMD MI325X            | 163.4 | 653.7  | 1300 | 1300 | 2600  | 2600 | X     | X      | X       | 7     |
-| AMD MI300X            | 163.4 | 653.7  | 1300 | 1300 | 2600  | 2600 | X     | X      | X       |       |
-| NVIDIA H200 SXM       | 67.0  | 494.5  | 989  | 989  | 1979  | 1979 | X     | X      | X       | 4     |
-| NVIDIA H100 SXM       | 67.0  | 494.5  | 989  | 989  | 1979  | 1979 | X     | X      | X       | 3     |
-| NVIDIA GH200 SXM      | 67.0  | 494.5  | 989  | 989  | 1979  | 1979 | X     | X      | X       | 6     |
-| Google TPU v6e        |  ?    |  ?     |  918 | 918  | 918   | 1836 | X     | X      | X       |       |
-| NVIDIA H100 PCIe      | 51.0  | 378.0  | 756  | 756  | 1513  | 1513 | X     | X      | X       |       |
-| AWS Trainium2 / Ultra | 181.0 | 667.0  | 667  | 667  | 1299  | X    | X     | X      | X       | 9     |
-| Google TPU v5p        | X     | X      | X    | 459  | X     | 918  | X     | X      | X       |       |
-| Intel Gaudi2          | V     | V      | V    | 432  | 865   | V    | X     | X      | X       | 1     |
-| AMD MI250X            | 47.9  | X      | 383  | 383  | X     | 383  | X     | X      | X       |       |
-| NVIDIA L40S           | 91.6  | 183.0  | 362  | 362  | 733   | 733  | X     | X      | X       |       |
-| AMD MI250             | 45.3  | X      | 362  | 362  | X     | 362  | X     | X      | X       |       |
-| NVIDIA A100 SXM       | 19.5  | 156.0  | 312  | 312  | X     | 624  | X     | X      | X       |       |
-| NVIDIA A100 PCIe      | 19.5  | 156.0  | 312  | 312  | X     | 624  | X     | X      | X       | 5     |
-| Google TPU v4         | X     | X      | X    | 275  | X     | 275  | X     | X      | X       |       |
-| Google TPU v5e        | X     | X      | X    | 197  | X     | 394  | X     | X      | X       |       |
-|                       |       |        |      |      |       |      |       |        |         |       |
+| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8   | int8 | fp6   | fp4   | nvfp4 | GA   | Notes |
+| :-------------------- | ----: | -----: | ---: | ---: | ----: | ---: | ----: | ----: | ----: | :--: | ----: |
+| NVIDIA GB300 SXM      |  80.0 | 1250.0 | 2500 | 2500 |  5000 | 5000 |  5000 | 15000 |     ? |  Y   |    10 |
+| NVIDIA GB200 SXM      |  80.0 | 1250.0 | 2500 | 2500 |  5000 | 5000 |  5000 | 10000 |     ? |  Y   |     2 |
+| AMD MI355X            | 157.3 |      ? | 2300 | 2300 |  4600 | 4600 |  9200 |  9200 |     X |  Y   |       |
+| NVIDIA B300 SXM       |  80.0 | 1125.0 | 2250 | 2250 |  4500 | 4500 |  4500 | 12600 | 15000 |  Y   |       |
+| NVIDIA B200 SXM       |  80.0 | 1125.0 | 2250 | 2250 |  4500 | 4500 |  4500 |  9000 | 10000 |  Y   |       |
+| Intel Gaudi3          | 229.0 |  459.0 |  459 | 1677 |  1677 |    V |     X |     X |     X |  Y   |   1,8 |
+| AMD MI325X            | 163.4 |  653.7 | 1300 | 1300 |  2600 | 2600 |     X |     X |     X |  Y   |     7 |
+| AMD MI300X            | 163.4 |  653.7 | 1300 | 1300 |  2600 | 2600 |     X |     X |     X |  Y   |       |
+| NVIDIA H200 SXM       |  67.0 |  494.5 |  989 |  989 |  1979 | 1979 |     X |     X |     X |  Y   |     4 |
+| NVIDIA H100 SXM       |  67.0 |  494.5 |  989 |  989 |  1979 | 1979 |     X |     X |     X |  Y   |     3 |
+| NVIDIA GH200 SXM      |  67.0 |  494.5 |  989 |  989 |  1979 | 1979 |     X |     X |     X |  Y   |     6 |
+| Google TPU v6e        |     ? |      ? |  918 |  918 |   918 | 1836 |     X |     X |     X |  Y   |       |
+| NVIDIA H100 PCIe      |  51.0 |  378.0 |  756 |  756 |  1513 | 1513 |     X |     X |     X |  Y   |       |
+| AWS Trainium2 / Ultra | 181.0 |  667.0 |  667 |  667 |  1299 |    X |     X |     X |     X |  Y   |     9 |
+| Google TPU v5p        |     X |      X |    X |  459 |     X |  918 |     X |     X |     X |  Y   |       |
+| Intel Gaudi2          |     V |      V |    V |  432 |   865 |    V |     X |     X |     X |  Y   |     1 |
+| AMD MI250X            |  47.9 |      X |  383 |  383 |     X |  383 |     X |     X |     X |  Y   |       |
+| NVIDIA L40S           |  91.6 |  183.0 |  362 |  362 |   733 |  733 |     X |     X |     X |  Y   |       |
+| AMD MI250             |  45.3 |      X |  362 |  362 |     X |  362 |     X |     X |     X |  Y   |       |
+| NVIDIA A100 SXM       |  19.5 |  156.0 |  312 |  312 |     X |  624 |     X |     X |     X |  Y   |       |
+| NVIDIA A100 PCIe      |  19.5 |  156.0 |  312 |  312 |     X |  624 |     X |     X |     X |  Y   |     5 |
+| Google TPU v4         |     X |      X |    X |  275 |     X |  275 |     X |     X |     X |  Y   |       |
+| Google TPU v5e        |     X |      X |    X |  197 |     X |  394 |     X |     X |     X |  Y   |       |
+| Google TPU v7x        |     ? |      ? | 2307 | 2307 |  4614 |    ? |     ? |     ? |     ? |  ?   |       |
+|                       |       |        |      |      |       |      |       |       |       |      |       |
+| AMD MI455X            |     ? |      ? |    ? | 5000 | 20000 |    ? |     ? | 40000 |     ? |  N   |    11 |
+| NVIDIA Rubin SXM      | 130.0 | 2000.0 | 4000 | 4000 | 17500 | 2500 | 17500 | 35000 | 35000 |  N   |       |
 
 Row-specific notes:
 
@@ -263,6 +282,7 @@ Row-specific notes:
 9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563TFLOPS w/ 4:1 sparsity
 
 10. GB200 NVL72 and GB300 NVL72 seem to be the same but faster fp4 and more memory for the latter.
+11. AMD publishes only "up to 20 PFLOPS" fp8 and "up to 40 PFLOPS" peak OCP MXFP4 for MI455X, plus a bf16 matrix figure read off a chart rather than a spec table; the remaining dtypes aren't published. All of it is AMD Performance Labs projections carrying "Results subject to change when products are released in market". See [AMD Instinct MI455X](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html).
 
 General notes:
 
@@ -409,32 +429,34 @@ Typically, the more on-device memory an accelerator has, the better its performa
 
 Here are the memory specs for the recent high end accelerators (some aren't GA yet), sorted by memory size, then bandwidth:
 
-| Accelerator           | Memory<br>(GB) | Type  | Peak<br>Bandwidth<br>(TBps) |
-| :-------------------- | -------------: | :---- | --------------------------: |
-| AMD MI450X            |            432 | HBM4  |                       19.60 |
-| NVIDIA Rubin SXM      |            288 | HBM4  |                       22.00 |
-| NVIDIA B300 SXM       |            288 | HBM3e |                        8.00 |
-| AMD MI355X            |            288 | HBM3e |                        8.00 |
-| AMD MI325X            |            256 | HBM3e |                        6.00 |
-| AMD MI300X            |            192 | HBM3  |                        5.30 |
-| NVIDIA GB200 SXM      |            186 | HBM3e |                        8.00 |
-| NVIDIA B200 SXM       |            180 | HBM3e |                        8.00 |
-| NVIDIA GH200 SXM (2)  |            141 | HBM3e |                        4.80 |
-| NVIDIA H200 SXM       |            141 | HBM3e |                        4.80 |
-| Intel Gaudi3          |            128 | HBM2e |                        3.70 |
-| AMD MI250             |            128 | HBM2e |                        3.28 |
-| AMD MI250X            |            128 | HBM2e |                        3.28 |
-| NVIDIA GH200 SXM (1)  |             96 | HBM3  |                        4.00 |
-| Intel Gaudi2          |             96 | HBM2e |                        2.46 |
-| AWS Trainium2 / Ultra |             96 | HBM3  |                        2.90 |
-| Google TPU v5p        |             95 | HBM2e |                        2.76 |
-| NVIDIA H100 SXM       |             80 | HBM3  |                        3.35 |
-| NVIDIA A100 SXM       |             80 | HBM2e |                        2.00 |
-| NVIDIA H100 PCIe      |             80 | HBM3  |                        2.00 |
-| NVIDIA A100 PCIe      |             80 | HBM2e |                        1.94 |
-| NVIDIA L40S           |             48 | GDDR6 |                        0.86 |
-| Google TPU v4         |             32 | HBM2  |                        1.20 |
-| Google TPU v5e        |             16 | HBM2  |                        0.82 |
+| Accelerator           | Memory<br>(GB) | Type  | Peak<br>Bandwidth<br>(TBps) | GA   |
+| :-------------------- | -------------: | :---- | --------------------------: | :--: |
+| NVIDIA B300 SXM       |            288 | HBM3e |                        8.00 |  Y   |
+| AMD MI355X            |            288 | HBM3e |                        8.00 |  Y   |
+| AMD MI350X            |            288 | HBM3e |                        8.00 |  Y   |
+| AMD MI325X            |            256 | HBM3e |                        6.00 |  Y   |
+| AMD MI300X            |            192 | HBM3  |                        5.30 |  Y   |
+| NVIDIA GB200 SXM      |            186 | HBM3e |                        8.00 |  Y   |
+| NVIDIA B200 SXM       |            180 | HBM3e |                        8.00 |  Y   |
+| NVIDIA GH200 SXM (2)  |            141 | HBM3e |                        4.80 |  Y   |
+| NVIDIA H200 SXM       |            141 | HBM3e |                        4.80 |  Y   |
+| Intel Gaudi3          |            128 | HBM2e |                        3.70 |  Y   |
+| AMD MI250             |            128 | HBM2e |                        3.28 |  Y   |
+| AMD MI250X            |            128 | HBM2e |                        3.28 |  Y   |
+| NVIDIA GH200 SXM (1)  |             96 | HBM3  |                        4.00 |  Y   |
+| Intel Gaudi2          |             96 | HBM2e |                        2.46 |  Y   |
+| AWS Trainium2 / Ultra |             96 | HBM3  |                        2.90 |  Y   |
+| Google TPU v5p        |             95 | HBM2e |                        2.76 |  Y   |
+| NVIDIA H100 SXM       |             80 | HBM3  |                        3.35 |  Y   |
+| NVIDIA A100 SXM       |             80 | HBM2e |                        2.00 |  Y   |
+| NVIDIA H100 PCIe      |             80 | HBM3  |                        2.00 |  Y   |
+| NVIDIA A100 PCIe      |             80 | HBM2e |                        1.94 |  Y   |
+| NVIDIA L40S           |             48 | GDDR6 |                        0.86 |  Y   |
+| Google TPU v4         |             32 | HBM2  |                        1.20 |  Y   |
+| Google TPU v5e        |             16 | HBM2  |                        0.82 |  Y   |
+|                       |                |       |                             |      |
+| AMD MI455X            |            432 | HBM4  |                       23.30 |  N   |
+| NVIDIA Rubin SXM      |            288 | HBM4  |                       22.00 |  N   |
 
 
 Notes:
@@ -564,25 +586,26 @@ The same accelerator family may also have different clock rates across SKUs and 
 
 The table is sorted by compute clock, highest first. Products whose vendors do not disclose a compute clock follow alphabetically. `not disclosed` means that the linked product specification did not publish a compute clock when checked on 2026-07-28.
 
-| Accelerator          | Compute Clock (MHz) | Notes                                          | Ref.      |
-| :------------------- | ------------------: | :--------------------------------------------- | :-------- |
-| AMD MI455X           |                2400 | Peak Engine Clock                              | 2         |
-| AMD MI355X           |                2400 | Peak Engine Clock                              | 1         |
-| AMD MI300X           |                2100 | Peak Engine Clock                              | 3         |
-| AMD MI325X           |                2100 | Peak Engine Clock                              | 4         |
-| NVIDIA GB200 SXM     |                2062 | device-reported maximum SM clock               | 5         |
-| NVIDIA B200 SXM      |                1965 | device-reported maximum SM clock               | 5         |
-| NVIDIA H200 SXM      |                1830 | derived                                        | 12        |
-| NVIDIA H100 SXM      |                1830 | derived                                        | 12        |
-| Intel Gaudi2         |                1650 | device-reported MME clock; TPC=1800            | 6, 10, 11 |
-| Intel Gaudi3         |                1600 | device-reported MME clock; TPC=1600            | 6, 10, 11 |
-| NVIDIA A100 SXM      |                1410 | GPU Boost Clock                                | 7         |
-| NVIDIA A100 PCIe     |                1410 | GPU Boost Clock                                | 7         |
-| NVIDIA B300 SXM      |       not disclosed |                                                | 8         |
-| NVIDIA GB300 SXM     |       not disclosed |                                                | 8         |
-| NVIDIA Rubin GPU     |       not disclosed |                                                | 9         |
+| Accelerator      | Compute Clock (MHz) | GA   | Notes                                        |
+| :--------------- | ------------------: | :--: | :------------------------------------------- |
+| AMD MI355X       |                2400 |  Y   | 1; Peak Engine Clock                         |
+| AMD MI300X       |                2100 |  Y   | 3; Peak Engine Clock                         |
+| AMD MI325X       |                2100 |  Y   | 4; Peak Engine Clock                         |
+| NVIDIA GB200 SXM |                2062 |  Y   | 5; device-reported maximum SM clock          |
+| NVIDIA B200 SXM  |                1965 |  Y   | 5; device-reported maximum SM clock          |
+| NVIDIA H200 SXM  |                1830 |  Y   | 12; derived                                  |
+| NVIDIA H100 SXM  |                1830 |  Y   | 12; derived                                  |
+| Intel Gaudi2     |                1650 |  Y   | 6,10,11; device-reported MME clock; TPC=1800 |
+| Intel Gaudi3     |                1600 |  Y   | 6,10,11; device-reported MME clock; TPC=1600 |
+| NVIDIA A100 SXM  |                1410 |  Y   | 7; GPU Boost Clock                           |
+| NVIDIA A100 PCIe |                1410 |  Y   | 7; GPU Boost Clock                           |
+| NVIDIA B300 SXM  |       not disclosed |  Y   | 8                                            |
+| NVIDIA GB300 SXM |       not disclosed |  Y   | 8                                            |
+|                  |                     |      |                                              |
+| AMD MI455X       |                2400 |  N   | 2; Peak Engine Clock                         |
+| NVIDIA Rubin GPU |       not disclosed |  N   | 9                                            |
 
-Sources:
+Notes:
 
 1. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html)
 2. [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
@@ -626,32 +649,33 @@ Beyond sizing power and cooling infrastructure, these specifications can also he
 
 The table is sorted by **Power spec (W)**, highest first, followed by `N/A` entries. Values are per accelerator rather than per node or rack. `N/A` means that the cited specification did not publish a product power value when checked on 2026-07-29.
 
-| Accelerator           | Power<br>spec (W) | Vendor term                 | Notes                    |
-| :-------------------- | ----------------: | :-------------------------- | :----------------------- |
-| NVIDIA GB300 SXM      |              1400 | per-GPU maximum power       | 1                        |
-| AMD MI355X            |              1400 | Typical Board Power         | 2                        |
-| NVIDIA GB200 SXM      |              1200 | per-GPU maximum power       | 1                        |
-| AMD MI325X            |              1000 | Typical Board Power         | 3; peak                  |
-| AMD MI350X            |              1000 | Typical Board Power         | 4                        |
-| NVIDIA B200 SXM       |              1000 | maximum TGP                 | 5                        |
-| NVIDIA B300 SXM       |              1000 | maximum TGP                 | 6                        |
-| Intel Gaudi3          |               900 | TDP                         | 7                        |
-| AMD MI300X            |               750 | Typical Board Power         | 8; peak                  |
-| NVIDIA H100 SXM       |               700 | maximum TDP                 | 9                        |
-| NVIDIA H200 SXM       |               700 | maximum TDP                 | 10                       |
-| AMD MI350P            |               600 | maximum Typical Board Power | 11; configurable to 450W |
-| Intel Gaudi2          |               600 | TDP                         | 12                       |
-| NVIDIA H200 NVL       |               600 | maximum TDP                 | 10                       |
-| NVIDIA RTX PRO 6000   |               600 | maximum power consumption   | 13; configurable         |
-| AMD MI250X            |               560 | Typical Board Power         | 14; peak; 500W TDP       |
-| NVIDIA H100 NVL       |               400 | maximum TDP                 | 9; configurable 350-400W |
-| NVIDIA A100 SXM       |               400 | maximum TDP                 | 15; CTS up to 500W       |
-| NVIDIA L40S           |               350 | maximum power consumption   | 16                       |
-| NVIDIA A100 PCIe      |               300 | maximum TDP                 | 15                       |
-| AMD MI455X            |               N/A |                             | 17                       |
-| AWS Trainium2 / Ultra |               N/A |                             | 18                       |
-| Google TPUs           |               N/A |                             | 20                       |
-| NVIDIA Rubin GPU      |               N/A |                             | 19                       |
+| Accelerator           | Power<br>spec (W) | Vendor term                 | GA   | Notes                    |
+| :-------------------- | ----------------: | :-------------------------- | :--: | :----------------------- |
+| NVIDIA GB300 SXM      |              1400 | per-GPU maximum power       |  Y   | 1                        |
+| AMD MI355X            |              1400 | Typical Board Power         |  Y   | 2                        |
+| NVIDIA GB200 SXM      |              1200 | per-GPU maximum power       |  Y   | 1                        |
+| AMD MI325X            |              1000 | Typical Board Power         |  Y   | 3; peak                  |
+| AMD MI350X            |              1000 | Typical Board Power         |  Y   | 4                        |
+| NVIDIA B200 SXM       |              1000 | maximum TGP                 |  Y   | 5                        |
+| NVIDIA B300 SXM       |              1000 | maximum TGP                 |  Y   | 6                        |
+| Intel Gaudi3          |               900 | TDP                         |  Y   | 7                        |
+| AMD MI300X            |               750 | Typical Board Power         |  Y   | 8; peak                  |
+| NVIDIA H100 SXM       |               700 | maximum TDP                 |  Y   | 9                        |
+| NVIDIA H200 SXM       |               700 | maximum TDP                 |  Y   | 10                       |
+| AMD MI350P            |               600 | maximum Typical Board Power |  Y   | 11; configurable to 450W |
+| Intel Gaudi2          |               600 | TDP                         |  Y   | 12                       |
+| NVIDIA H200 NVL       |               600 | maximum TDP                 |  Y   | 10                       |
+| NVIDIA RTX PRO 6000   |               600 | maximum power consumption   |  Y   | 13; configurable         |
+| AMD MI250X            |               560 | Typical Board Power         |  Y   | 14; peak; 500W TDP       |
+| NVIDIA H100 NVL       |               400 | maximum TDP                 |  Y   | 9; configurable 350-400W |
+| NVIDIA A100 SXM       |               400 | maximum TDP                 |  Y   | 15; CTS up to 500W       |
+| NVIDIA L40S           |               350 | maximum power consumption   |  Y   | 16                       |
+| NVIDIA A100 PCIe      |               300 | maximum TDP                 |  Y   | 15                       |
+| AWS Trainium2 / Ultra |               N/A |                             |  Y   | 18                       |
+| Google TPUs           |               N/A |                             |  Y   | 20                       |
+|                       |                   |                             |      |                          |
+| AMD MI455X            |               N/A |                             |  N   | 17                       |
+| NVIDIA Rubin GPU      |               N/A |                             |  N   | 19                       |
 
 Notes:
 
@@ -698,8 +722,8 @@ NVIDIA:
 - [Vera Rubin NVL72](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) -- the 72 GPUs supernode at NVLink speed with Grace Rubin - 36x blocks of 2x Rubin GPU + Vera CPU
 - [GB300 NVL72](https://www.nvidia.com/en-us/data-center/gb300-nvl72/) - the 72 GPUs supernode at NVLink speed with B300s (Grace Blackwell - 36x blocks of 2x B300 + Grace CPU)
 - [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) - the 72 GPUs supernode at NVLink speed with B200s. (Grace Blackwell - 36x blocks of 2x B200 + Grace CPU)
-- B300 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet (XXX: update when official specs are released)
-- B200 - no official spec yet - only can be derived from the DGX spec: https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet (XXX: update when official specs are released)
+- [B300](https://www.nvidia.com/en-us/data-center/hgx/) - NVIDIA now publishes official HGX B300 platform specs and lists it as shipping, as of 2026-07-31. Note that those are 8-GPU board figures (144 PFLOPS FP4 sparse, 2.1TB total memory, 14.4TB/s total NVLink) so per-GPU values have to be divided out, and HBM bandwidth still isn't published there - for that the [DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet) remains the practical source
+- [B200](https://www.nvidia.com/en-us/data-center/hgx/) - same story: official HGX B200 platform specs published and shipping (144 PFLOPS FP4 sparse, 1.4TB total memory, 14.4TB/s total NVLink), with the [DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet) filling in what the platform page omits. Worth knowing that B300 cut FP64 hard - 10 TFLOPS against B200's 296 TFLOPS per the same table - so it is not a strict upgrade for double-precision work
 - [H200](https://www.nvidia.com/en-us/data-center/h200/) - mainly the same as H100, but with more and faster memory! Supposed to become available some time mid-2024.
 - [H100](https://www.nvidia.com/en-us/data-center/h100) - 2-3x faster than A100 (half precision), 6x faster for fp8, has been available on all Tier-1 compute clouds since Q4-2023.
 - [GH200](https://www.nvidia.com/en-us/data-center/grace-hopper-superchip/) - 2 chips on one card - (1) H100 w/ 96GiB HBM3 or 144GiB HBM3e + (2) Grace CPU w/ 624GiB RAM - first units have been reported to become available. Do not confuse with H200, which is a different card.
@@ -707,7 +731,7 @@ NVIDIA:
 - [A100](https://www.nvidia.com/en-us/data-center/a100/#specifications) - huge availability, but already getting outdated. But given the much lower cost than H100 this is still a great GPU.
 
 AMD:
-- MI450 - no official spec yet
+- [MI455X](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html) ~= Rubin, a little above it on the published numbers - but those are AMD Performance Labs projections carrying "Results subject to change when products are released in market", and it isn't purchasable as of 2026-07-31. See the [TFLOPS](#tflops) and [memory](#accelerator-memory-size-and-speed) tables, where it sits below the availability break
 - [MI355X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) ~= B200 - just starting to emerge, mainly on Tier-2 clouds
 - [MI350X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350x.html) ~= B200 - it seems that MI355X is made available instead of MI350X
 - [MI325X](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html) ~= H200 - available mainly on Tier-2 clouds
@@ -716,8 +740,8 @@ AMD:
 
 
 Intel:
-- Jaguar shores expected some time in 2026/27
-- Falcon shores line has been cancelled
+- Jaguar Shores - named as the successor, but no Intel specification or date is published; see [Intel Gaudi](#intel-gaudi)
+- Falcon Shores - cancelled
 - [Gaudi3](https://habana.ai/products/gaudi3/), somewhat below B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 - [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 
@@ -725,11 +749,14 @@ Amazon:
 - [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html) < H100 - available on AWS (works via PyTorch XLA)
 
 
-Graphcore:
-- [IPU](https://www.graphcore.ai/products/ipu) - available via [Paperspace](https://www.paperspace.com/graphcore). the latest product MK2 (C600) has only 0.9GiB SRAM per card, so it's not clear how this card can do anything ML-wise - even inference of a small model won't fit its model weights - but there is something new at works at Graphcore, which I'm told we should discover soon. Here is is a good explanation [of how IPU works](https://web.archive.org/web/20250521173833/https://thytu.com/posts/ipus-101/).
+Google:
+- [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x) (Ironwood) - 2307 TFLOPS bf16 and 192GB HBM per chip, in 4-chip VMs up to a 9216-chip pod. Rent-only on GCP, like every TPU generation
+- [TPU v6e](https://docs.cloud.google.com/tpu/docs/v6e) (Trillium) and [TPU v5p](https://docs.cloud.google.com/tpu/docs/v5p) - the previous two generations, both still offered
+
 
 SambaNova:
-- [DataScale SN30](https://sambanova.ai/products/datascale/)
+- [SN40L](https://sambanova.ai/products/rdu-ai-chips) - fourth-generation RDU, 16 per SambaRack; inference-oriented rather than a training part
+- [SN50](https://sambanova.ai/blog/introducing-the-sn50-rdu-purpose-built-for-agentic-inference) - fifth generation, announced Feb-2026, "will start shipping to customers in the second half of 2026"
 
 
 ### Cerebras on-premises clusters
@@ -830,9 +857,82 @@ There are no official TFLOPS information published (and from talking to an Intel
 
 Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
+On what comes after Gaudi: Falcon Shores was to replace it and was cancelled. Jaguar Shores is the name that replaced that plan, but as of 2026-07-31 there is nothing to evaluate - Intel's own [AI accelerators](https://www.intel.com/content/www/us/en/products/details/processors/ai-accelerators.html) page lists only Gaudi and the Data Center GPU Flex Series, with no occurrence of `Jaguar`, `Falcon` or `Shores` anywhere in it, and the [data center GPU](https://www.intel.com/content/www/us/en/products/details/discrete-gpus/data-center-gpu.html) page doesn't mention them either. So treat Jaguar Shores as a roadmap name with no published specification, no launch date, and no confirmation from Intel - not as a part you can plan around. Gaudi3 remains Intel's current accelerator.
 
 
 
+
+
+
+### AWS Trainium
+
+AWS-specific vocabulary:
+- NeuronCore - the compute unit. A Trainium2 chip holds "eight NeuronCore-V3 cores"
+- NeuronLink - the chip-to-chip interconnect. Trainium2 uses "NeuronLink-v3 for chip-to-chip interconnect provides 1.28 TB/sec bandwidth per chip"
+- CC-Cores - dedicated collective-communication engines; "16 CC-Cores orchestrate collective communication among Trainium2 chips within and across instances"
+
+A `trn2.48xlarge` instance holds 16 Trainium2 chips, and an UltraServer extends NeuronLink across "64 Trainium2 chips across four Trn2 instances". Memory pooling spans "Up to 64 chips", against 16 for the previous generation.
+
+You program it through the Neuron SDK and PyTorch XLA rather than CUDA, which is the main porting cost. AWS publishes no per-link rate or link count, only the 1.28TBps aggregate, so peer-to-peer bandwidth can't be derived - see [the intra-node tables](../../network#all-to-all-bandwidth).
+
+Specs: [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html), [Trn2 instances](https://aws.amazon.com/ec2/instance-types/trn2/).
+
+### Google TPU
+
+TPU-specific vocabulary:
+- TensorCore and SparseCore - the compute units. A TPU7x chip has "2 TensorCores and 4 SparseCores", split across two chiplets joined by a die-to-die interface
+- ICI (inter-chip interconnect) - the scale-up fabric, a 3D torus where each chip has "a direct connection to the nearest neighboring chips in 3 dimensions"
+- slice, cube, pod - the units of allocation; a slice is "a collection of chips all located inside the same TPU Pod connected by high-speed inter-chip interconnects (ICI)"
+
+TPU7x (Ironwood) per chip: 192GB HBM at "approximately 7.37 TB/s", 2307 TFLOPS bf16 and 4614 TFLOPS fp8, and a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200. The torus carries "bi-directional bandwidth of 200 GBps per axis", which is consistent with 1200 total across six neighbours. A VM is always 4 chips, and a pod reaches "a 9,216-chip footprint".
+
+The catch isn't performance, it is lock-in: TPUs are rent-only on GCP and the software path is XLA, so a codebase that reaches for custom CUDA kernels doesn't move over for free.
+
+Specs: [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x), [TPU system architecture](https://docs.cloud.google.com/tpu/docs/system-architecture-tpu-vm).
+
+### Huawei Ascend
+
+The one vendor here that most readers can't buy from, and the one with the least accessible documentation - but it ships at scale, so it belongs for context if nothing else.
+
+Huawei-specific vocabulary:
+- Ascend - the accelerator line; Atlas - the servers and rack-scale SuperPoDs built from them
+- UB Link (UnifiedBus) - the scale-up interconnect, Huawei's answer to [NVLink](../../network#nvlink) and [UALink](../../network#ultra-accelerator-link-ualink)
+- HiF8 - Huawei's own 8-bit float format, quoted alongside the OCP `mxFP8` standard rather than instead of it
+- CANN - the compute architecture and toolchain, with MindSpore as the first-party framework and PyTorch/TensorFlow adaptation layers alongside it
+
+As of this writing Huawei's Chinese pages carry the full specification table where the English ones carry almost nothing, so use those. For the Atlas 950 SuperPoD the Chinese page gives up to 1024 Ascend 950DT accelerators, on-chip memory of up to 1024 x 96GB at a bandwidth of up to 4.0TBps, AI compute of up to 1EFLOPS mxFP8/FP8/HiF8 and 2EFLOPS mxFP4, and a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional.
+
+Divided out over the 1024 accelerators, that is roughly 977TFLOPS mxFP8 and 1953TFLOPS mxFP4 per Ascend 950DT, with 96GB at 4.0TBps and 840GBps of unidirectional [UB Link](../../network#ub-link-unifiedbus) scale-up bandwidth each - which would place it just below NVLink 5. Unlike the English page, this division is safe rather than inferred: the accelerator count is stated, and it cross-checks twice over - 1024 accelerators across the stated 16 compute cabinets is 64 per cabinet exactly as the bandwidth line says, and 1024 x 1.68TBps is the 1.72PBps total the same page claims.
+
+Two things to be careful about. The smaller 64-card Atlas 950 configuration works out to about 1783TFLOPS mxFP4 per accelerator rather than 1953, so the two configurations are not simply the same part scaled - don't mix figures between them. And `HiF8` is quoted alongside `mxFP8` rather than instead of it, so a single "fp8" column can't represent both.
+
+Specs: [Ascend Community](https://www.hiascend.com/en). Be aware that both Huawei sites are JavaScript applications that serve only a page shell to a plain downloader - `e.huawei.com` returns 255KB of HTML containing not one occurrence of `PFLOPS`, `TB/s` or even `Ascend`. The Ascend Community site happens to inline enough text to read the Atlas 950 spec off; the product pages do not. So these figures are harder to confirm than any other vendor's here, and a second-hand UB Link or Ascend number should be treated as unverified until traced back to Huawei.
+
+### Cerebras
+
+The outlier in approach: rather than connecting many chips, put the whole cluster on one wafer. WSE-3 measures "46,225 mm2 and containing 4 trillion transistors", delivers compute through "900,000 AI-optimized cores", and is rated at "125 petaflops of AI compute".
+
+Wafer-scale trades a familiar problem for an unfamiliar one. There is no intra-node fabric to benchmark and no model-parallel partitioning across accelerators, because it is one device - but you also can't buy 8 of them in a node the way the rest of this chapter assumes, and the software stack is entirely its own. Yield is handled architecturally rather than avoided, "with redundant compute cores, redundant routing, and a fail-in-place architecture".
+
+On-chip SRAM capacity and memory bandwidth are not published on the chip page despite a heading promising them, so the two figures that matter most for a training workload have to come from the datasheet.
+
+Specs: [Cerebras WSE](https://www.cerebras.ai/chip).
+
+### SambaNova
+
+Inference-first, and explicitly so - the vocabulary and the product line are both organised around serving rather than training.
+
+SambaNova-specific vocabulary:
+- RDU (Reconfigurable Dataflow Unit) - the accelerator. The "fourth-generation RDU SN40" and "fifth-generation SN50" are the current parts
+- Dataflow architecture - the execution model, reconfiguring the chip around a model's graph instead of dispatching kernels
+- SambaRack - the rack; "The combination of 16 SN40L RDUs creates a single, high-performance rack"
+- three-tier memory - HBM plus large-capacity memory plus SRAM, so that "Models residing in HBM and SRAM can be hot swapped in milliseconds"
+
+SN50 was announced in February 2026 as the fifth generation and "will start shipping to customers in the second half of 2026", so SN40L is what you can actually deploy today. A SambaRack SN50 combines 16 chips for "five times more compute per accelerator and four times more network bandwidth", scales "up to 256 chips across multiple racks", and targets models "up to 10 trillion parameters in size" at context lengths "up to 10 million tokens".
+
+The three-tier memory and millisecond model swapping are the genuinely different idea here - it is aimed at serving many models from one machine, which is a different problem from the one the rest of this chapter optimises for. Don't read SambaNova's throughput comparisons against B200 as training numbers; they are agentic-inference numbers.
+
+Specs: [RDU AI chips](https://sambanova.ai/products/rdu-ai-chips), [SambaRack](https://sambanova.ai/products/sambarack).
 
 ## API
 
@@ -877,11 +977,11 @@ It is most likely that you're renting your accelerator nodes and someone else is
 
 ### Power
 
-Some high end consumer GPU cards have 2 and sometimes 3 PCI-E 8-Pin power sockets. Make sure you have as many independent 12V PCI-E 8-Pin cables plugged into the card as there are sockets. Do not use the 2 splits at one end of the same cable (also known as pigtail cable). That is if you have 2 sockets on the GPU, you want 2 PCI-E 8-Pin cables going from your PSU to the card and not one that has 2 PCI-E 8-Pin connectors at the end! You won't get the full performance out of your card otherwise.
+Some high end consumer GPU cards have 2 and sometimes 3 PCIe 8-Pin power sockets. Make sure you have as many independent 12V PCIe 8-Pin cables plugged into the card as there are sockets. Do not use the 2 splits at one end of the same cable (also known as pigtail cable). That is if you have 2 sockets on the GPU, you want 2 PCIe 8-Pin cables going from your PSU to the card and not one that has 2 PCIe 8-Pin connectors at the end! You won't get the full performance out of your card otherwise.
 
-Each PCI-E 8-Pin power cable needs to be plugged into a 12V rail on the PSU side and can supply up to 150W of power.
+Each PCIe 8-Pin power cable needs to be plugged into a 12V rail on the PSU side and can supply up to 150W of power.
 
-Some other cards may use a PCI-E 12-Pin connectors, and these can deliver up to 500-600W of power.
+Some other cards may use a PCIe 12-Pin connectors, and these can deliver up to 500-600W of power.
 
 Low end cards may use 6-Pin connectors, which supply up to 75W of power.
 
