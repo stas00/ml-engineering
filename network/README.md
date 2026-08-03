@@ -1253,37 +1253,39 @@ Two warnings come with this:
 
 #### So what should you expect?
 
-If `busbw` isn't a wire speed, what number can you hold against the NIC's spec? Undo both scalings at once. The elapsed time is `P * (2*(n-1)/n) / busbw`, and during it each accelerator's NIC moves `2*(k-1)/k * P/g` bytes, so dividing the bytes by the time cancels the payload entirely - units and all - and leaves a payload-free conversion: `per-NIC rate = busbw * (k-1)/(n-1)`. For the 4GiB 4-node row that is `377.34GBps * 3/31` = 36.52GBps per NIC, or 73% of the 50GBps one EFA v4 interface is specced for - which sits right next to the single-node column's own `740.64GBps / 900GBps` = 82% against NVLink 5. Expressed per NIC, the inter-node result stops looking anomalous and lands in the same ~80%-of-spec ballpark that intra-node measurements do.
+If `busbw` isn't a wire speed, what number can you hold against the NIC's spec? Undo both scalings at once. The elapsed time is `P * (2*(n-1)/n) / busbw`, and during it each accelerator's NICs move `2*(k-1)/k * P/g` bytes, so dividing the bytes by the time cancels the payload entirely - units and all - and leaves a payload-free conversion: `per-accelerator rate = busbw * (k-1)/(n-1)`. For the 4GiB 4-node row that is `377.34GBps * 3/31` = 36.52GBps per accelerator, or 73% of the 50GBps of inter-node bandwidth each accelerator has on this node type - which sits right next to the single-node column's own `740.64GBps / 900GBps` = 82% against NVLink 5. Expressed per accelerator, the inter-node result stops looking anomalous and lands in the same ballpark that intra-node measurements do.
 
-footnote: this is the one place in this section where the `GiB` vs `GBps` base trap does not bite, and it's worth seeing why. `P` appears in both the byte count and the elapsed time, so it cancels whatever unit it was quoted in, and the result comes out in `busbw`'s own decimal `GBps` - the same base the per-interface spec uses, since 400Gbps is 50GBps decimal. Going the long way round does need the conversion, and agrees: the 16GiB warning above reaches ~37GBps by converting 3GiB to 3.22e9 bytes and dividing by 87.2ms, while `381.80GBps * 3/31` = 36.95GBps.
+footnote: per accelerator, not per NIC, because the two only coincide when the node puts one interface on each accelerator - as P6-B200 does with its 8 EFA devices for 8 accelerators. P6-B300 puts 16 devices on 8 accelerators, so there the same conversion has to be compared against two interfaces' worth of bandwidth.
+
+footnote: this is the one place in this section where the `GiB` vs `GBps` base trap does not bite, and it's worth seeing why. `P` appears in both the byte count and the elapsed time, so it cancels whatever unit it was quoted in, and the result comes out in `busbw`'s own decimal `GBps` - the same base the interface spec uses, since 400Gbps is 50GBps decimal. Going the long way round does need the conversion, and agrees: the 16GiB warning above reaches ~37GBps by converting 3GiB to 3.22e9 bytes and dividing by 87.2ms, while `381.80GBps * 3/31` = 36.95GBps.
 
 `(k-1)/(n-1)` = `3/31` is the same 9.7% derived above as the share of traffic that leaves the node, which is the tidiest statement of this whole section: `busbw` overstates the wire by exactly the reciprocal of the fraction of bytes that cross it.
 
-Two properties make this, rather than `busbw` itself, the number to write into an acceptance test. It is comparable to a spec figure, whereas `busbw` is not comparable to anything. And it is a floor, because it charges the whole elapsed time to the NIC even though the intra-node phases overlap the exchange - the true wire rate is somewhat higher than what comes out.
+Two things to keep in mind about the resulting number. It is comparable to a spec figure, whereas `busbw` is not comparable to anything. And it is a floor rather than a wire measurement, because it charges the whole elapsed time to the NICs even though the intra-node phases overlap the exchange - the true wire rate is somewhat higher than what comes out.
 
-It only reaches that plateau at large payloads, though, so a threshold is meaningless without a payload attached. The same 4-node measurements converted, sorted by payload ascending:
+It also only reaches its plateau at large payloads. The same 4-node measurements converted, sorted by payload ascending:
 
-| payload | 4-node `busbw` | per-NIC rate | % of spec |
-| ------: | -------------: | -----------: | --------: |
-|   16MiB |      64.43GBps |     6.24GBps |     12.5% |
-|   32MiB |      91.19GBps |     8.82GBps |     17.6% |
-|   64MiB |     156.74GBps |    15.17GBps |     30.3% |
-|  128MiB |     197.94GBps |    19.16GBps |     38.3% |
-|  256MiB |     229.09GBps |    22.17GBps |     44.3% |
-|  512MiB |     326.90GBps |    31.64GBps |     63.3% |
-|    1GiB |     361.99GBps |    35.03GBps |     70.1% |
-|    2GiB |     372.42GBps |    36.04GBps |     72.1% |
-|    4GiB |     377.34GBps |    36.52GBps |     73.0% |
-|    8GiB |     380.39GBps |    36.81GBps |     73.6% |
-|   16GiB |     381.80GBps |    36.95GBps |     73.9% |
+| payload | 4-node<br>`busbw`<br>GBps | per-accel.<br>GBps | % of spec |
+| ------: | ------------------------: | -----------------: | --------: |
+|   16MiB |                     64.43 |               6.24 |     12.5% |
+|   32MiB |                     91.19 |               8.82 |     17.6% |
+|   64MiB |                    156.74 |              15.17 |     30.3% |
+|  128MiB |                    197.94 |              19.16 |     38.3% |
+|  256MiB |                    229.09 |              22.17 |     44.3% |
+|  512MiB |                    326.90 |              31.64 |     63.3% |
+|    1GiB |                    361.99 |              35.03 |     70.1% |
+|    2GiB |                    372.42 |              36.04 |     72.1% |
+|    4GiB |                    377.34 |              36.52 |     73.0% |
+|    8GiB |                    380.39 |              36.81 |     73.6% |
+|   16GiB |                    381.80 |              36.95 |     73.9% |
 
-`% of spec` is against the 50GBps of a single EFA v4 interface on this node type.
+`% of spec` is against the 50GBps of inter-node bandwidth per accelerator on this node type. Below about 1GiB it falls off a cliff, and at 16MiB a perfectly healthy fabric reports 12.5% - which is worth remembering before reading anything into a small-payload number.
 
-Below about 1GiB it falls off a cliff, and at 16MiB a perfectly healthy fabric reports 12.5%. So "at least 70% of the per-interface spec" is a reasonable thing to require at 4GiB and an impossible one at 128MiB.
+Now the caveat that matters most: these percentages describe this system, and they may or may not translate to another one. The conversion itself is topology only - `k` nodes, `n` ranks, no link speeds appear in it - so that part transfers anywhere. The *value* it produces does not, because it depends on how the intra-node and inter-node fabrics are balanced against each other, and that balance is a property of the node type. B300 shows how far it can shift without even changing accelerator generation: it keeps [NVLink 5](#nvlink) at the same 900GBps per accelerator as B200, while its inter-node side is twice as fast - 800Gbps per accelerator against B200's 400Gbps. In the hierarchical model the inter-node term shrinks in proportion while the intra-node terms don't move at all, so a larger share of the elapsed time is intra-node work, and a figure that charges all of that time to the NICs has to be read differently. What it actually comes out as there is unknown - this benchmark has not been run on a B300 cluster - so derive the number from that system's own measurements instead of carrying 73% across.
 
-footnote: this conversion assumes NCCL used the hierarchical algorithm - model 3 in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). Under a flat ring each link would instead carry `2*(n-1)/n * P` across `k` node boundaries and the conversion would not apply, so capture `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` alongside the numbers when the algorithm isn't already known.
+footnote: this conversion assumes NCCL used the hierarchical algorithm - model 3 in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). Under a flat ring each link would instead carry `2*(n-1)/n * P` across `k` node boundaries and the conversion would not apply, so capture `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` alongside the numbers when the algorithm isn't already known. That the numbers land where a hierarchical algorithm predicts is evidence for it, not proof of it.
 
-For turning this into a provider acceptance test, see [Ask for the actual performance numbers](../insights/how-to-choose-cloud-provider.md#ask-for-the-actual-performance-numbers).
+For how to get these numbers out of a provider in the first place, see [Ask for the actual performance numbers](../insights/how-to-choose-cloud-provider.md#ask-for-the-actual-performance-numbers).
 
 #### Measuring the inter-node fabric on its own
 

@@ -42,6 +42,16 @@
 6. Concrete failure: the `Inter-node speed depends on intra-node speed` section derived a 4GiB elapsed time from an `algbw` figure that came from raw benchmark output pasted into chat, while the section's own table shows only `busbw`. The fix was to recover the time from `busbw` by undoing the correction factor the chapter's glossary already defines.
 7. When quoting or computing from a script's output, adopt the script's own unit definitions rather than assuming them. `all_reduce_bench.py` prints `1GiB = 2**30 Bytes` alongside `1GBps = 10**9 Bytes per second`, so a `GiB / GBps` division needs the base conversion. Treating them as one base understated every elapsed time in that section by about 7%, and the error survived a full review pass because each individual figure looked plausible.
 
+## Positional cross-references
+
+1. `above` and `below` are only safe when the thing referred to is visible from where the reader is standing - the command, output block, table, or list item in the same section. Then leave them alone; a link to the section the reader is already in is noise.
+2. Once a reference crosses a heading, replace the bare `above`/`below` with a Markdown link to the target section. The reader who arrived by deep link, search, or a cross-chapter jump has no `above`.
+3. This applies to a `####` referring back to material in its parent `###`. The subsection is a landing point in its own right - `network/README.md`'s `So what should you expect?` is linked directly from the cloud-provider chapter - so "model 3 above" was unfollowable for anyone who entered there.
+4. Prefer naming the target in the link text over keeping the direction word: `model 3 in [Inter-node speed depends on intra-node speed](#...)` rather than `[model 3 above](#...)`. Direction words go stale when sections are reordered; names don't.
+5. Do not link when the target is already linked in the same sentence or paragraph. A second link to the same anchor a few words later adds nothing.
+6. Leave comparative `above`/`below` alone - `60W above its TDP`, `below about 1GiB`, `approaches 0 from above` are quantities, not positions. Skipping these is the bulk of the work when sweeping a chapter.
+7. Anchor arithmetic: an em dash in a heading is dropped and the spaces around it each become a hyphen, so `part 1 — do you need` yields `part-1--do-you-need` with a double hyphen. Verify a generated anchor against the file's own existing links rather than trusting a hand-rolled slugifier.
+
 ## Suggestions report
 
 1. Put a large set of findings in a repository file rather than only in chat.

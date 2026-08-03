@@ -14,7 +14,6 @@ These notes assume you already know what compute you want for your specific work
 
 ## Glossary
 
-- busbw: bus bandwidth - the bandwidth figure the `all-reduce` benchmarks report, see [busbw](../network#glossary-and-concepts)
 - CSP: Cloud Service Provider
 - SLA: Service-level_agreement
 - SLO: Service Level Objective
@@ -270,7 +269,11 @@ Please refer to [Real network throughput](../network#real-network-throughput) fo
 
 Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), which immediately tells me if the network is good. But it's very likely you will want to know 256-512MiB payload as well, so just as well ask for the wider range.
 
-For a single node that reported `busbw` maps onto the intra-node links directly, so the familiar rule applies as is - below about 80% of the theoretical unidirectional GBps and you have a problem. Multi-node needs one extra step first, because a multi-node `all-reduce` reports a figure that doesn't correspond to any single NIC - most of the bytes never leave the node, so `busbw` lands far *above* the per-interface spec and holding the two against each other tells you nothing. Multiply the reported `busbw` by `(k-1)/(n-1)`, where `k` is the node count and `n` the total rank count, and what comes out is the rate each NIC actually sustained, which is comparable. So what I'd write into the contract is that converted number at 70% of the per-interface spec or better, at a stated payload of 4GiB or larger, re-measured at the same node and rank count after any node replacement or driver/firmware update - a single acceptance run tells you nothing about whether it will still hold in month six. Note 70% and not 80%: the conversion charges the whole elapsed time to the NIC, so it reads low by design, and a healthy 4-node B200/EFA v4 cluster measures 73%. Naming the payload matters as much as the threshold - the same healthy cluster converts to 63% at 512MiB and 38% at 128MiB, so a single number with no payload attached is unenforceable. The network chapter's [So what should you expect?](../network#so-what-should-you-expect) derives the conversion and shows the full curve.
+The most practical approach I've used is to ask the CSP for their own `nccl-tests` `all-reduce` numbers - on 1 node, and on 4-16 nodes. Every provider wants to put their best foot forward, so what comes back is their best case, which is exactly what you want: it becomes the number you hold them to in your SLA. You can ask around whether those figures look right for that hardware, and in my experience they usually do. Then once you have the nodes, run the same benchmark yourself - those are the numbers you should be able to reproduce. If you can't, something about your allocation differs from what they demoed, and now you have a specific, quantified thing to escalate instead of a vague complaint that the network feels slow.
+
+footnote: of course, ask them about this upfront, not when you negotiate the SLA. That's too late and they then have no incentive to show you what their best case looks like.
+
+I'm yet to see NVLink not performing the same everywhere (unless it's misconfigured on the software level), but still ask to also see the single-node benchmark.
 
 
 ### Does the network steal from the accelerator memory?
