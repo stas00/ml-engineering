@@ -29,6 +29,8 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - EDR, HDR, NDR, XDR, GDR, LDR: InfiniBand per-lane data-rate generations - see [InfiniBand](#infiniband)
 - EFA: Elastic Fabric Adapter
 - GA: Generally Available - the product can actually be bought or rented, as opposed to announced, sampling, or spec'd only
+- GDR (1): an InfiniBand per-lane data-rate generation - a roadmap target at 400Gbps per lane, as in the `InfiniBand GDR3200` row of the [inter-node table](#inter-node-networking). Read `GDR` this way when it appears next to EDR/HDR/NDR/XDR or a link rate - see [InfiniBand](#infiniband)
+- GDR (2): GPUDirect RDMA - the direct path between a NIC and accelerator memory that avoids staging the payload in host memory first. Read `GDR` this way when it appears next to NCCL settings such as `NCCL_NET_GDR_LEVEL`. Unrelated to (1) - the clash is inherited from the two ecosystems that coined them, IBTA for the link generation and NVIDIA for the data path
 - HCA: Host Channel Adapter
 - HPC: High-performance Computing
 - IB: InfiniBand
@@ -42,9 +44,11 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - OSFP: Octal Small Form Factor Pluggable (transceiver)
 - P2P: peer-to-peer - traffic between exactly two accelerators, as opposed to all-to-all
 - QSFP-DD: Quad Small Form Factor Pluggable Double Density (transceiver)
+- RC: Reliable Connection - the default connection type in verbs-based tools, connection-oriented with reliable in-order delivery
 - RDMA: Remote Direct Memory Access
 - RoCE: RDMA over Converged Ethernet
 - SHARP: Scalable Hierarchical Aggregation Reduction Protocol
+- SRD: Scalable Reliable Datagram - AWS EFA's transport, which delivers reliably but does not preserve message order, unlike [RC](#glossary-and-concepts)
 - SuperNIC: NVIDIA's name for its recent high-rate network adapters
 - TCPX, TCPXO: Google Cloud's GPUDirect transports for A3 machine types
 - UEC: Ultra Ethernet Consortium - the body behind the Ultra Ethernet standard that AI NICs target
@@ -92,7 +96,7 @@ footnote: not all clusters will have external Internet connection available, e.g
 
 ### Backend networking
 
-Backend networking is to perform GPU-to-GPU connectivity which allows training and inference to scale to multiple accelerators (e.g. all-reduce, all-gather and other collective comms). This is the most important part of the AI cluster. Typically this would be either an [InfiniBand](#infiniband) or [RoCEv2 Ethernet](#rdma-networking). It then breaks down into [intra-node networking](#intra-node-networking) and [inter-node networking](#inter-node-networking) - the GPUs on the same node typically can communicate with each other at faster speed than with GPUs on other nodes. Here the typical top [unidirectional](#unidirectional-vs-bidirectional-duplex) speeds as of this writing would be around 900GBps per accelerator for intra-node (NVLink 5, as on B200/B300) and 100GBps per accelerator, or 800GBps per node, for inter-node (8x ConnectX-8, as on DGX B300 XDR) - so about an order of magnitude apart per accelerator, a ratio that has held for several generations because both sides keep doubling together. There will be at least one backend connection per accelerator and at times there can be multiple connections per accelerator, especially if low bandwidth NICs are used.
+Backend networking is to perform GPU-to-GPU connectivity which allows training and inference to scale to multiple accelerators (e.g. all-reduce, all-gather and other collective comms). This is the most important part of the AI cluster. Typically this would be either an [InfiniBand](#infiniband) or [RoCEv2 Ethernet](#rdma-networking). It then breaks down into [intra-node networking](#intra-node-networking) and [inter-node networking](#inter-node-networking) - the GPUs on the same node typically can communicate with each other at faster speed than with GPUs on other nodes. Here the typical top [unidirectional](#unidirectional-vs-bidirectional-duplex) speeds as of this writing would be around 900GBps per accelerator for intra-node (NVLink 5, as on B200/B300) and 100GBps per accelerator, or 800GBps per node, for inter-node (8x ConnectX-8, as on DGX B300 XDR) - so about an order of magnitude apart per accelerator, a ratio that has held for several generations because both sides keep doubling together. That is the gap between the links; the gap you actually measure with a collective is much smaller, for reasons explained in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). There will be at least one backend connection per accelerator and at times there can be multiple connections per accelerator, especially if low bandwidth NICs are used.
 
 footnote: not all providers will match the industry's standard networking speeds - on some the inter-node networking speed could be up to 10x slower. So always check what you get.
 
@@ -230,6 +234,8 @@ footnote: a released specification is not shipping silicon. As of 2026-07-30 [PC
 
 
 ### NVLink
+
+footnote: `nvidia-smi nvlink -s` reports the raw per-link signalling rate, and summing it overshoots the advertised aggregate. A B200 lists 18 links at 53.125GBps = 956.25GBps against the advertised 900GBps, and an H100 lists 18 at 26.5625GBps = 478.125GBps against 450GBps. Both land at a ratio of 0.9412, which is the encoding overhead, so multiply the sum by ~0.94 to get back to the spec figure.
 
 - [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by NVIDIA. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
@@ -396,6 +402,8 @@ Essentially, the end-to-end doesn't support the duplex C2C spec, but delivers ha
 
 ### NVSwitch
 
+footnote: on a rack-scale NVLink system this makes `nvidia-smi topo -m` unusually informative - it reports `NV#` connections to accelerators in other chassis, because those are inside the same scale-up domain. On a conventional node the same tool tells you nothing about inter-node connectivity, since it only knows about NVIDIA's own fabrics.
+
 [NVSwitch](https://www.nvidia.com/en-us/data-center/nvlink/) can connect more than 8 GPUs at the speed of [NVLink](#nvlink). It's advertised to connect up to 256 GPUs in the future generations of the switch.
 
 The benefit of connecting more than 8 GPUs at the speed of NVLink is that it allows all-to-all GPU communications at a much faster speed than any intra-node hardware can provide. And with ever increasing compute speeds the network is the likely bottleneck leading to underutilized super-expensive GPUs.
@@ -487,7 +495,7 @@ When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirecti
 
 This is also known as scale-out networking.
 
-As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1GBps = 8Gbps) (Though as of recent inter-node speeds are almost as fast as [intra-node](#intra-node-networking))
+As inter-node hardware used to be about of an order of magnitude slower than intra-node hardware in this universe Gbps are used instead of GBps. (1GBps = 8Gbps) (The links themselves are still about an order of magnitude apart, but the practical gap for collectives is much smaller, because an inter-node collective also does most of its work over the [intra-node](#intra-node-networking) links - see [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed))
 
 When it comes to inter-node networking hardware, there are the well established [InfiniBand](#infiniband) from NVIDIA and a few other players, various NVLink-based NVIDIA products and there are many new comers that mainly are coming from compute cloud providers who can't compete on the slim margin renting out someone else's hardware so they build their own (AWS EFA, GCP GPUDirect-TCPX), and there are also HPE and Cornelis Networks with recently updated products.
 
@@ -502,6 +510,7 @@ Sorted by Total unidirectional bandwidth descending, then Rate/interface descend
 | Intel Gaudi3                 |                  24 |                          200 |                         600 |    Y    | 3,21    |
 | NVIDIA DGX H100 NDR          |                   8 |                          400 |                         400 |    Y    | 4,22    |
 | Omni-Path CN5000 example     |                   8 |                          400 |                         400 |    Y    | 17,18   |
+| AWS EFA v4 (P6-B200)         |                   8 |                          400 |                         400 |    Y    | 2,30    |
 | AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 |    Y    | 2,23    |
 | AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 |    Y    | 2,23    |
 | Intel Gaudi2                 |                  24 |                          100 |                         300 |    Y    | 5,21    |
@@ -546,6 +555,7 @@ Notes:
 26. Illustrative four-interface node.
 27. Illustrative eight-adapter node.
 28. Four fabric-facing EFA interfaces.
+30. Eight fabric-facing EFA interfaces at 400Gbps each, device-reported via `/sys/class/infiniband/rdmap*/ports/1/rate`, for the 3.2Tbps AWS publishes per P6-B200 instance.
 29. Google publishes a higher headline number for these machine types - 1800Gbps max network bandwidth for A3 Mega and 1000Gbps for A3 High. Those totals include the VPC/frontend NIC; the figures above count only the accelerator fabric, so `8x200=1600Gbps` and `4x200=800Gbps` respectively. The ~200Gbps difference in each case is the general-purpose network interface, which doesn't carry collectives.
 
 These are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
@@ -717,7 +727,18 @@ If a job has to span sites, this is the layer that decides whether it is possibl
 - EFA v1 0.4Tbps (effective 340Gbps for all_reduce tests) (P4 AWS instances)
 - EFA v2 3.2Tbps (since Q3-2023, P5 AWS instances - 32 100GbE (4x28G) NICs!)
 - EFA v3 3.2Tbps (since Q1-2025, P5en AWS instances - 16 200GbE (4x56G) NICs! and Trn2 AWS instances) - same theoretical speed as v2, but should be delivering a much better actual speed at real world message sizes.
-- EFA v4 6.4Tbps (starting with B300 Q4-2025)
+- EFA v4 3.2Tbps (P6-B200 AWS instances - 8x 400Gbps NICs, i.e. 400Gbps per accelerator)
+- EFA v4 6.4Tbps (P6-B300 AWS instances, since Q4-2025 - 16x 400Gbps NICs, i.e. 800Gbps per accelerator). The 2x over B200 comes from doubling the NIC count at the same per-NIC rate, which AWS attributes to PCIe Gen6 - so don't assume "EFA v4" implies 6.4Tbps.
+
+To count the EFA devices on a node:
+
+```bash
+fi_info -p efa -t FI_EP_RDM | grep -c provider
+```
+
+Divide the result by two. `libfabric` reports two providers per EFA device - one with fabric `efa-direct`, matching the NIC's raw capabilities (8KiB max send, no ordering, no matching), and one with fabric `efa`, offering the fuller interface that MPI or NIXL would use. So `16` means 8 NICs.
+
+Do not count `/sys/class/infiniband/*` instead, because it also lists non-EFA adapters - a P6-B200 node shows 10 entries: the 8 EFA devices (`rdmap*`, each reporting `rate=400 Gb/sec`) plus 2 unrelated 100Gbps adapters. It is however the place to read the per-NIC rate: `cat /sys/class/infiniband/rdmap*/ports/1/rate`. `nvidia-smi topo -m` is the wrong tool for this - it is an intra-node tool and knows nothing about the inter-node fabric.
 
 
 ### Gaudi2 (inter-node)
@@ -1164,6 +1185,77 @@ Here are 2025 performance plots that show the actual achievable bandwidth with t
 
 
 Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
+
+### Inter-node speed depends on intra-node speed
+
+The specs make inter-node networking look hopeless. On a P6-B200 node (AWS) each accelerator has 900GBps of [NVLink 5](#nvlink) but its [EFA v4](#efa) inter-node is only 50GBps, so the links really are about 18x apart. It is natural to conclude that an `all-reduce` becomes ~18x slower the moment it crosses a node boundary. It doesn't, and this is probably the single most confusing thing about inter-node networking, so it's worth working through carefully.
+
+footnote: the spec for IB NDR400 for this type of a node is 50GBps per accelerator as well.
+
+The following table aggregates the `busbw` measurements for `all_reduce` measured with [all_reduce_bench.py](benchmarks/all_reduce_bench.py) on 1x and 4x P6-B200 nodes - 8x B200 per node, NVLink 5 inside, 8x 50GBps EFA v4 out - on `torch=2.9.1+cu130, cuda=13.0, nccl=2.27.7`. The last column is the price of leaving the node:
+
+| payload | 1 node     | 4 nodes    | slowdown |
+| ------: | ---------: | ---------: | -------: |
+|   32KiB |   1.20GBps |   0.01GBps |   120.0x |
+|   64KiB |   2.17GBps |   0.04GBps |    54.2x |
+|  128KiB |   4.86GBps |   0.45GBps |    10.8x |
+|  256KiB |   9.54GBps |   1.33GBps |     7.2x |
+|  512KiB |  18.71GBps |   2.84GBps |     6.6x |
+|    1MiB |  36.06GBps |   5.37GBps |     6.7x |
+|    2MiB |  63.09GBps |  10.38GBps |     6.1x |
+|    4MiB |  76.48GBps |  18.90GBps |     4.0x |
+|    8MiB | 126.49GBps |  35.12GBps |     3.6x |
+|   16MiB | 254.96GBps |  64.43GBps |     4.0x |
+|   32MiB | 325.97GBps |  91.19GBps |     3.6x |
+|   64MiB | 400.60GBps | 156.74GBps |     2.6x |
+|  128MiB | 568.38GBps | 197.94GBps |     2.9x |
+|  256MiB | 646.11GBps | 229.09GBps |     2.8x |
+|  512MiB | 688.99GBps | 326.90GBps |     2.1x |
+|    1GiB | 723.34GBps | 361.99GBps |     2.0x |
+|    2GiB | 734.97GBps | 372.42GBps |     2.0x |
+|    4GiB | 740.64GBps | 377.34GBps |     2.0x |
+|    8GiB | 839.07GBps | 380.39GBps |     2.2x |
+|   16GiB | 845.67GBps | 381.80GBps |     2.2x |
+
+At large payloads leaving the node costs about 2x, not 18x.
+
+The reason is that an inter-node NCCL collective does not stop using NVLink - it leans on it for nearly all of the data movement. NCCL reduces within each node first, sends only the reduced shard out over the network, and then broadcasts the result back inside each node. So the slow links carry a small fraction of the bytes, and every NIC in the node is busy at the same time.
+
+Let's do the arithmetic for a 4GiB `all-reduce` over 32 ranks (4 nodes x 8 accelerators). Write `P` for the payload, `g` for the accelerators per node, `k` for the nodes and `n = g*k` for the total ranks - here `P` = 4GiB, `g` = 8, `k` = 4 and `n` = 32. The table reports [`busbw`](#glossary-and-concepts), which is the payload-over-elapsed-time rate scaled by the `all-reduce` correction factor `2*(n-1)/n`, so undoing that scaling recovers an elapsed time - `P / (busbw / (2*(n-1)/n))`, which for 4 nodes is `4GiB / (377.34GBps / 1.9375)` = 22.05ms, against `4GiB / (740.64GBps / 1.75)` = 10.15ms on a single node, where `n` = 8 makes the factor `2*(8-1)/8` = 1.75. Three ways one might model the 4-node figure:
+
+footnote: mind the bases when doing this yourself - the benchmark prints `1GiB = 2**30 Bytes` but `1GBps = 10**9 Bytes per second`, so 4GiB is 4.29e9 bytes, not 4e9. Dividing GiB by GBps as if they shared a base understates every time in this section by about 7%.
+
+1. the naive inter-node model - the whole payload has to cross one accelerator's NIC: `P / 50GBps` = `4GiB / 50GBps` = 85.9ms. That is 3.9x more than measured, and it is the arithmetic to avoid.
+
+2. a flat ring across all `n` ranks - each link carries `2*(n-1)/n * P` = `2*(32-1)/32 * 4GiB` = 7.75GiB. A ring laid out over `k` nodes crosses a node boundary `k` = 4 times, and each of those hops is a single accelerator's NIC, so `7.75GiB / 50GBps` = 166.4ms. That is 7.5x more than measured, so NCCL is not doing this either.
+
+3. the hierarchical model - what actually happens. Each phase moves its own collective's correction factor times the payload that phase operates on:
+
+   - intra-node reduce-scatter: `(g-1)/g * P` = `(8-1)/8 * 4GiB` = 3.5GiB per accelerator over NVLink
+   - inter-node all-reduce of the resulting `P/g` = 0.5GiB shard, across the `k` nodes: `2*(k-1)/k * P/g` = `2*(4-1)/4 * 0.5GiB` = 0.75GiB per accelerator over EFA
+   - intra-node all-gather: `(g-1)/g * P` = `(8-1)/8 * 4GiB` = 3.5GiB per accelerator over NVLink
+
+   Per accelerator that is `2*(g-1)/g * P` = 7GiB over NVLink against `2*(k-1)/k * P/g` = 0.75GiB over EFA, so only `0.75/(7+0.75)` = 9.7% of the traffic leaves the node. And because each accelerator drives its own NIC, all `g` NICs are in flight at once, giving the node `g * 50GBps` = 400GBps of inter-node bandwidth rather than one link's 50GBps.
+
+   At wire rate that shard would cross in `0.75GiB / 50GBps` = 16.1ms, against 22.05ms measured - so the exchange effectively runs at ~73% of wire rate, with NIC efficiency and any non-overlapping intra-node time both folded into that figure. The two cannot simply be additive: `16.1 + 10.15` = 26.25ms would exceed the measured time, so the intra-node phases substantially overlap the exchange rather than queueing behind it. Either way this is the only one of the three models that lands in the right ballpark.
+
+So two effects rescue the inter-node case, and both come out of the hierarchy: only a fraction of the payload crosses the slow links, and the node's whole NIC bandwidth is used instead of a single link's. This is why a fast intra-node fabric matters even for workloads whose bottleneck you would call inter-node - degrade NVLink and the inter-node numbers degrade with it.
+
+Two warnings come with this:
+
+- It is a large-payload effect. The `slowdown` column collapses at small payloads - 120x at 32KiB - because latency, not bandwidth, dominates there and every node hop adds some. This is the strongest possible argument for bucketing gradients into large reductions rather than reducing each tensor separately.
+
+- Do not read the 4-node `busbw` as a wire speed. 381.80GBps at 16GiB is not what the NICs are doing - undoing the correction factor gives 87.2ms for that reduction, over which each accelerator's NIC moves `1.5 * 16GiB/8` = 3GiB, i.e. ~37GBps, or 74% of its 50GBps. `busbw` is derived from the payload and the elapsed time with a per-collective correction factor, so once NCCL uses a hierarchical algorithm it no longer maps onto any single link - the same caveat as in [SHARP](#sharp).
+
+#### Measuring the inter-node fabric on its own
+
+A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
+
+Despite the name it is not InfiniBand-only - it is written over `uverbs`, the userspace RDMA API, so it works on any adapter the RDMA stack enumerates. On InfiniBand a Subnet Manager must be running first. On EFA pass `-c SRD`, since the default [RC](#glossary-and-concepts) connection type doesn't exist there. Fabrics with their own userspace stack rather than verbs - [Slingshot](#hpe-slingshot-interconnect), [Omni-Path](#omni-path) via OPX, [GPUDirect-TCPX](#gpudirect-tcpx) - need their own tools, and [libfabric](https://ofiwg.github.io/libfabric/)'s `fi_pingpong` is the closest general substitute. Both sides need identical options and identical `perftest` versions, and the result is a synthetic operation stream rather than application traffic.
+
+footnote: RDMA-write-over-[SRD](#glossary-and-concepts) support was contributed to `perftest` by AWS ([PR 206](https://github.com/linux-rdma/perftest/pull/206)), and EFA device IDs are still being added to it, but the EFA path is unconfirmed here - it has not been run on a live instance.
+
+footnote: it is tempting to instead keep all the accelerators and take the intra-node fabric away with [`NCCL_P2P_DISABLE=1`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html), but that only pushes intra-node traffic down to host memory - the documented fallback order is P2P, then SHM, then network, so `NCCL_SHM_DISABLE=1` is needed as well before NCCL puts same-node ranks on a NIC. On EFA even that isn't enough, because [the libfabric provider uses the instance's shared memory for intra-node communication](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html): NCCL asks for the network and libfabric serves the transfer from host memory instead. [`FI_EFA_ENABLE_SHM_TRANSFER=0`](https://ofiwg.github.io/libfabric/main/man/fi_efa.7.html) overrides that. This is a useful ablation for this section's claim - degrade the intra-node fabric and the inter-node number degrades with it - but a poor way to find out what your NICs can do.
 
 ### Latency
 

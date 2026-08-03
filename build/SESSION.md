@@ -32,6 +32,16 @@
 14. Translate the meaning rather than transliterating, and normalize the numbers to the book's own [Unit formatting](#unit-formatting) conventions, since a translation is no longer a verbatim quote and the vendor-quote exception no longer applies. Romanize a proper name that has no English form and gloss it once, as with `LingQu` for Huawei's UnifiedBus fabric.
 15. Say in prose where a figure came from when the source is non-English, so the reader knows the claim is traceable and knows which site to check. Naming the language is useful; reproducing it is not.
 
+## Reader-visible grounding
+
+1. Every number, name, command, or claim that lands in a chapter must be derivable from what the reader can see: the same section, earlier content in the same chapter, or a cross-linked chapter or file in the repository.
+2. Never lean on anything that exists only in the assistant's context - benchmark output pasted into chat, a command run while researching, a file read but not quoted, a figure computed in a previous turn. The reader has none of it, and the resulting text looks rigorous while being impossible to check.
+3. When a derivation needs a value the chapter does not show, there are exactly two acceptable moves: add the value to the chapter, or restructure the derivation so it uses values that are already there. Silently using the hidden value is the failure mode.
+4. This applies with equal force to intermediate steps. A worked example that passes through an unshown quantity is unverifiable even when its final answer happens to be right.
+5. Prefer the derivation the reader can redo with the numbers in front of them, even when a hidden value would be more direct.
+6. Concrete failure: the `Inter-node speed depends on intra-node speed` section derived a 4GiB elapsed time from an `algbw` figure that came from raw benchmark output pasted into chat, while the section's own table shows only `busbw`. The fix was to recover the time from `busbw` by undoing the correction factor the chapter's glossary already defines.
+7. When quoting or computing from a script's output, adopt the script's own unit definitions rather than assuming them. `all_reduce_bench.py` prints `1GiB = 2**30 Bytes` alongside `1GBps = 10**9 Bytes per second`, so a `GiB / GBps` division needs the base conversion. Treating them as one base understated every elapsed time in that section by about 7%, and the error survived a full review pass because each individual figure looked plausible.
+
 ## Suggestions report
 
 1. Put a large set of findings in a repository file rather than only in chat.
