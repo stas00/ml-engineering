@@ -506,13 +506,13 @@ Sorted by Total unidirectional bandwidth descending, then Rate/interface descend
 | Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | GA      | Notes   |
 | :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :-----: | :------ |
 | NVIDIA DGX B300 XDR          |                   8 |                          800 |                         800 |    Y    | 1,19    |
-| AWS EFA v4 (P6-B300)         |                  16 |                          400 |                         800 |    Y    | 2,20    |
+| AWS EFA v4 (P6-B300)         |                  16 |                          400 |                         800 |    Y    | 2,20,31 |
 | Intel Gaudi3                 |                  24 |                          200 |                         600 |    Y    | 3,21    |
 | NVIDIA DGX H100 NDR          |                   8 |                          400 |                         400 |    Y    | 4,22    |
 | Omni-Path CN5000 example     |                   8 |                          400 |                         400 |    Y    | 17,18   |
-| AWS EFA v4 (P6-B200)         |                   8 |                          400 |                         400 |    Y    | 2,30    |
-| AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 |    Y    | 2,23    |
-| AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 |    Y    | 2,23    |
+| AWS EFA v4 (P6-B200)         |                   8 |                          400 |                         400 |    Y    | 2,30,31 |
+| AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 |    Y    | 2,23,31 |
+| AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 |    Y    | 2,23,31 |
 | Intel Gaudi2                 |                  24 |                          100 |                         300 |    Y    | 5,21    |
 | InfiniBand XDR200            |                   2 |                          800 |                         200 |    Y    | 9,11    |
 | GCP A3 Mega TCPXO            |                   8 |                          200 |                         200 |    Y    | 6,24,29 |
@@ -520,7 +520,7 @@ Sorted by Total unidirectional bandwidth descending, then Rate/interface descend
 | HPE Slingshot example        |                   4 |                          200 |                         100 |    Y    | 7,26    |
 | Omni-Path CN100 example      |                   8 |                          100 |                         100 |    Y    | 8,27    |
 | InfiniBand NDR400            |                   1 |                          400 |                          50 |    Y    | 10,12   |
-| AWS EFA v1 (P4d)             |                   4 |                          100 |                          50 |    Y    | 2,28    |
+| AWS EFA v1 (P4d)             |                   4 |                          100 |                          50 |    Y    | 2,28,31 |
 |                              |                     |                              |                             |         |         |
 | Omni-Path CN6000 example     |                   8 |                          800 |                         800 |    N    | 13,14   |
 | InfiniBand GDR3200           |                   2 |                         1600 |                         400 |    N    | 15,16   |
@@ -555,8 +555,9 @@ Notes:
 26. Illustrative four-interface node.
 27. Illustrative eight-adapter node.
 28. Four fabric-facing EFA interfaces.
-30. Eight fabric-facing EFA interfaces at 400Gbps each, device-reported via `/sys/class/infiniband/rdmap*/ports/1/rate`, for the 3.2Tbps AWS publishes per P6-B200 instance.
 29. Google publishes a higher headline number for these machine types - 1800Gbps max network bandwidth for A3 Mega and 1000Gbps for A3 High. Those totals include the VPC/frontend NIC; the figures above count only the accelerator fabric, so `8x200=1600Gbps` and `4x200=800Gbps` respectively. The ~200Gbps difference in each case is the general-purpose network interface, which doesn't carry collectives.
+30. Eight fabric-facing EFA interfaces at 400Gbps each, device-reported via `/sys/class/infiniband/rdmap*/ports/1/rate`, for the 3.2Tbps AWS publishes per P6-B200 instance.
+31. The `v1`-`v4` EFA generation labels are AWS's own, taken from the [supported instance types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html#efa-instance-types) tables, which group instances under `Nitro v3 (EFA v1)` through `Nitro v6 (EFA v4)` headings. The generation follows the Nitro version, not the accelerator - see [EFA](#efa).
 
 These are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
 
@@ -729,6 +730,10 @@ If a job has to span sites, this is the layer that decides whether it is possibl
 - EFA v3 3.2Tbps (since Q1-2025, P5en AWS instances - 16 200GbE (4x56G) NICs! and Trn2 AWS instances) - same theoretical speed as v2, but should be delivering a much better actual speed at real world message sizes.
 - EFA v4 3.2Tbps (P6-B200 AWS instances - 8x 400Gbps NICs, i.e. 400Gbps per accelerator)
 - EFA v4 6.4Tbps (P6-B300 AWS instances, since Q4-2025 - 16x 400Gbps NICs, i.e. 800Gbps per accelerator). The 2x over B200 comes from doubling the NIC count at the same per-NIC rate, which AWS attributes to PCIe Gen6 - so don't assume "EFA v4" implies 6.4Tbps.
+
+The generation labels above are AWS's own: its [supported instance types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html#efa-instance-types) page groups every EFA-capable instance under a `Nitro v3 (EFA v1)` through `Nitro v6 (EFA v4)` heading. The per-instance bandwidth figures come from the separate [network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html) page, so the two pages are the pair you need.
+
+footnote: the EFA generation tracks the Nitro generation, not the accelerator - so a newer accelerator does not imply a newer fabric. `p6e-gb200.36xlarge` sits under `Nitro v5 (EFA v3)` while `p6-b200.48xlarge` and `p6-b300.48xlarge` are under `Nitro v6 (EFA v4)`, which means a GB200 instance runs an older EFA generation than a B200 one.
 
 To count the EFA devices on a node:
 
@@ -1249,13 +1254,13 @@ Two warnings come with this:
 
 #### Measuring the inter-node fabric on its own
 
-A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
+A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA ([GDR (2)](#glossary-and-concepts)) path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
 
 Despite the name it is not InfiniBand-only - it is written over `uverbs`, the userspace RDMA API, so it works on any adapter the RDMA stack enumerates. On InfiniBand a Subnet Manager must be running first. On EFA pass `-c SRD`, since the default [RC](#glossary-and-concepts) connection type doesn't exist there. Fabrics with their own userspace stack rather than verbs - [Slingshot](#hpe-slingshot-interconnect), [Omni-Path](#omni-path) via OPX, [GPUDirect-TCPX](#gpudirect-tcpx) - need their own tools, and [libfabric](https://ofiwg.github.io/libfabric/)'s `fi_pingpong` is the closest general substitute. Both sides need identical options and identical `perftest` versions, and the result is a synthetic operation stream rather than application traffic.
 
 footnote: RDMA-write-over-[SRD](#glossary-and-concepts) support was contributed to `perftest` by AWS ([PR 206](https://github.com/linux-rdma/perftest/pull/206)), and EFA device IDs are still being added to it, but the EFA path is unconfirmed here - it has not been run on a live instance.
 
-footnote: it is tempting to instead keep all the accelerators and take the intra-node fabric away with [`NCCL_P2P_DISABLE=1`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html), but that only pushes intra-node traffic down to host memory - the documented fallback order is P2P, then SHM, then network, so `NCCL_SHM_DISABLE=1` is needed as well before NCCL puts same-node ranks on a NIC. On EFA even that isn't enough, because [the libfabric provider uses the instance's shared memory for intra-node communication](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html): NCCL asks for the network and libfabric serves the transfer from host memory instead. [`FI_EFA_ENABLE_SHM_TRANSFER=0`](https://ofiwg.github.io/libfabric/main/man/fi_efa.7.html) overrides that. This is a useful ablation for this section's claim - degrade the intra-node fabric and the inter-node number degrades with it - but a poor way to find out what your NICs can do.
+footnote: it is tempting to instead keep all the accelerators and take the intra-node fabric away with [`NCCL_P2P_DISABLE=1`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html), but that only pushes intra-node traffic down to host memory - the documented fallback order is P2P, then SHM, then network, so `NCCL_SHM_DISABLE=1` is needed as well before NCCL puts same-node ranks on a NIC. On EFA even that isn't enough, because [the libfabric provider uses the instance's shared memory for intra-node communication](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html): NCCL asks for the network and libfabric serves the transfer from host memory instead. [`FI_EFA_ENABLE_SHM_TRANSFER=0`](https://ofiwg.github.io/libfabric/main/man/fi_efa.7.html) overrides that.
 
 ### Latency
 
