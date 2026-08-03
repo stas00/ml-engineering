@@ -257,7 +257,7 @@ Having the flexibility to expand your total storage capacity, and keep the "hot"
 
 This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
-In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#inter-node-networking) network speeds match the promise and your expectations.
+In general you want to ensure that the offered [intra-node](../network/README.md#intra-node-networking) and [inter-node](../network/README.md#inter-node-networking) network speeds match the promise and your expectations.
 
 ### Ask for the actual performance numbers
 
@@ -265,7 +265,7 @@ Compute theory never matches reality, and the reality may dramatically vary from
 
 The easiest ask is to request an `all-reduce` benchmark plot over 4-8-16-32-64 nodes (or more if your cluster is more than 64 nodes). You'd expect the bandwidth to gradually become worse with more participating nodes, but not dramatically so. Some networks become very inefficient at higher number of nodes.
 
-Please refer to [Real network throughput](../network#real-network-throughput) for more details.
+Please refer to [Real network throughput](../network/README.md#real-network-throughput) for more details.
 
 Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), which immediately tells me if the network is good. But it's very likely you will want to know 256-512MiB payload as well, so just as well ask for the wider range.
 

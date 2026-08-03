@@ -790,7 +790,7 @@ Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_acc
 
 ### UB Link (UnifiedBus)
 
-Huawei's scale-up interconnect, playing the same role for [Ascend](../compute/accelerator#huawei-ascend) accelerators that [NVLink](#nvlink) does for NVIDIA and [Infinity Fabric](#infinity-fabric--xgmi) does for AMD. Worth knowing exists even if you can't buy it, because it is the third serious scale-up fabric and the one the [UALink](#ultra-accelerator-link-ualink) effort is implicitly racing.
+Huawei's scale-up interconnect, playing the same role for [Ascend](../compute/accelerator/README.md#huawei-ascend) accelerators that [NVLink](#nvlink) does for NVIDIA and [Infinity Fabric](#infinity-fabric--xgmi) does for AMD. Worth knowing exists even if you can't buy it, because it is the third serious scale-up fabric and the one the [UALink](#ultra-accelerator-link-ualink) effort is implicitly racing.
 
 Huawei's English pages quote it only at rack level, but the Chinese ones publish the per-accelerator figure. For the Atlas 950 SuperPoD they list a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional. So each NPU gets **1.68TBps duplex, i.e. 840GBps unidirectional**, which puts UB Link between NVLink 5 (900GBps) and NVLink 4 (450GBps).
 
@@ -1345,4 +1345,4 @@ case study: we had this issue at JeanZay HPC when we were doing preliminary expe
 
 ## Parallelism network collectives
 
-See [Parallelism network collectives](../training/model-parallelism#parallelism-network-collectives).
+See [Parallelism network collectives](../training/model-parallelism/README.md#parallelism-network-collectives).

@@ -99,13 +99,13 @@ If you want to discuss something related to ML engineering this repo has the [co
 
 High end accelerators:
 
-- [Theoretical accelerator TFLOPS](compute/accelerator#tflops-comparison-table)
-- [Accelerator memory size and speed](compute/accelerator#accelerator-memory-size-and-speed)
+- [Theoretical accelerator TFLOPS](compute/accelerator/README.md#tflops-comparison-table)
+- [Accelerator memory size and speed](compute/accelerator/README.md#accelerator-memory-size-and-speed)
 
 Networks:
 
-- [Theoretical inter-node speed](network#inter-node-networking)
-- [Theoretical intra-node speed](network#intra-node-networking)
+- [Theoretical inter-node speed](network/README.md#inter-node-networking)
+- [Theoretical intra-node speed](network/README.md#intra-node-networking)
 
 ## Shortcuts
 
@@ -122,7 +122,7 @@ Guides:
 - [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
 - [make tiny models/datasets/tokenizers](debug/pytorch.md#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets)
-- [LLM/VLM chronicles collection](resources#publicly-available-training-llmvlm-logbooks)
+- [LLM/VLM chronicles collection](resources/README.md#publicly-available-training-llmvlm-logbooks)
 
 
 ## Gratitude

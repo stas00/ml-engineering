@@ -6,7 +6,7 @@ The intention of this chapter is not to show code examples and explain APIs for 
 
 Point-to-point communications are the simplest type of communication where there is always a single sender and a single receiver.
 
-For example, [Pipeline Parallelism](../training/model-parallelism#pipeline-parallelism) performs a point-to-point communication where the activations from the current vertical stage is sent to the next stage. So the current gpu performs `send` and the gpu holding the next stage performs `recv`.
+For example, [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) performs a point-to-point communication where the activations from the current vertical stage is sent to the next stage. So the current gpu performs `send` and the gpu holding the next stage performs `recv`.
 
 PyTorch has `send` and `recv` for blocking, `isend` and `irecv` for non-blocking p2p comms. [more](https://pytorch.org/tutorials/intermediate/dist_tuto.html#id1).
 
@@ -53,7 +53,7 @@ PyTorch API example:
 ![all-gather](images/collective-all-gather-2.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to gather the sharded model weights before `forward` and `backward` calls.
+For example, this collective is used in [ZeRO](../training/model-parallelism/README.md#zero-data-parallelism) (DeepSpeed and FSDP) to gather the sharded model weights before `forward` and `backward` calls.
 
 PyTorch API example:
 
@@ -113,7 +113,7 @@ PyTorch API example:
 ![reduce-scatter](images/collective-reduce-scatter.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [ZeRO](../training/model-parallelism#zero-data-parallelism) (DeepSpeed and FSDP) to efficiently reduce gradients across all participating ranks. Note that it isn't a cheaper drop-in for [all-reduce](#all-reduce) - each rank ends up with only its own reduced shard rather than the full result. That is exactly what ZeRO wants, and it's why it costs half the data movement: a ring all-reduce is a reduce-scatter followed by an all-gather, so dropping the all-gather phase halves the bytes on the wire.
+For example, this collective is used in [ZeRO](../training/model-parallelism/README.md#zero-data-parallelism) (DeepSpeed and FSDP) to efficiently reduce gradients across all participating ranks. Note that it isn't a cheaper drop-in for [all-reduce](#all-reduce) - each rank ends up with only its own reduced shard rather than the full result. That is exactly what ZeRO wants, and it's why it costs half the data movement: a ring all-reduce is a reduce-scatter followed by an all-gather, so dropping the all-gather phase halves the bytes on the wire.
 
 PyTorch API example:
 
@@ -130,7 +130,7 @@ PyTorch API example:
 ![all-to-all](images/collective-all-to-all.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [DeepSpeed Sequence Parallelism](../training/model-parallelism#deepspeed-ulysses-sp) for attention computation, and in MoE [Expert Parallelism](../training/model-parallelism#expert-parallelism).
+For example, this collective is used in [DeepSpeed Sequence Parallelism](../training/model-parallelism/README.md#deepspeed-ulysses-sp) for attention computation, and in MoE [Expert Parallelism](../training/model-parallelism/README.md#expert-parallelism).
 
 
 PyTorch API example:

@@ -305,15 +305,15 @@ When a model can't fit onto a single accelerator or when it's more efficient to 
 
 #### Tensor parallelism
 
-Most of the time you are most likely to only run into [Tensor Parallelism](../training/model-parallelism#tensor-parallelism) where the model weights are sharded across 2 to 8 accelerators. Ideally you want to try to fit the model into a single accelerator, because then it has the least amount of overhead during generation. But surprisingly you are likely to end up with higher decoding throughput if you use tensor parallelism - this is because it enables you to fit much larger batches and also because the `forward` call may be faster despite the additional comms between the accelerators. Of course, you will be getting this speed up at a cost of using more accelerators in some cases. So it's best to experiment, there will be use-cases where a higher tensor parallelism degree will give a better total throughput considering the same number of accelerators.
+Most of the time you are most likely to only run into [Tensor Parallelism](../training/model-parallelism/README.md#tensor-parallelism) where the model weights are sharded across 2 to 8 accelerators. Ideally you want to try to fit the model into a single accelerator, because then it has the least amount of overhead during generation. But surprisingly you are likely to end up with higher decoding throughput if you use tensor parallelism - this is because it enables you to fit much larger batches and also because the `forward` call may be faster despite the additional comms between the accelerators. Of course, you will be getting this speed up at a cost of using more accelerators in some cases. So it's best to experiment, there will be use-cases where a higher tensor parallelism degree will give a better total throughput considering the same number of accelerators.
 
 footnote: in my experiments TP=1 leads to the highest TTFT and lowest decoding throughput, as compared to TP>1. So if you're being requested to make the TTFT faster and the model fits, use smaller TP or TP=1. If you're being requested to make the decoding throughput faster, throw more accelerators at it with a higher TP degree.
 
 #### Pipeline parallelism
 
-Further, while tensor parallelism helps to lower latency, using [Pipeline Parallelism](../training/model-parallelism#pipeline-parallelism) could help increase the throughput. This is especially so for very large models where many accelerators have to be used anyway to even load the model's weights. If say you're using Llama 405B and TP=8 is used, then each accelerator has to all-reduce to 7 other accelerators, whereas with PP=8 each accelerator needs to communicate only with 2 other accelerators (`recv` the input from the previous stage and `send` the current output to the next stage), creating a much lower pressure on the networking layer and this can speed things up dramatically if the hardware supports it.
+Further, while tensor parallelism helps to lower latency, using [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) could help increase the throughput. This is especially so for very large models where many accelerators have to be used anyway to even load the model's weights. If say you're using Llama 405B and TP=8 is used, then each accelerator has to all-reduce to 7 other accelerators, whereas with PP=8 each accelerator needs to communicate only with 2 other accelerators (`recv` the input from the previous stage and `send` the current output to the next stage), creating a much lower pressure on the networking layer and this can speed things up dramatically if the hardware supports it.
 
-It's important to clarify here that PP can be superior to TP only if you use the full PP and not the naive PP. In the [naive PP](../training/model-parallelism#naive-model-parallelism-vertical) only one PP stage works at any given time so it'd perform worse than TP. To benefit from PP the inference framework needs to feeds all PP stages in parallel to perform [full PP](../training/model-parallelism#pipeline-parallelism).
+It's important to clarify here that PP can be superior to TP only if you use the full PP and not the naive PP. In the [naive PP](../training/model-parallelism/README.md#naive-model-parallelism-vertical) only one PP stage works at any given time so it'd perform worse than TP. To benefit from PP the inference framework needs to feeds all PP stages in parallel to perform [full PP](../training/model-parallelism/README.md#pipeline-parallelism).
 
 The other important thing about PP inference is that unlike training, there is no `backward` pass, thus there is no need to solve the inactivity bubble problem. There will be only a tiny overhead of filling the PP stages in the first few micro-batches.
 
@@ -470,7 +470,7 @@ Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a muc
 
 When serving in production it might be OK to let the model takes its loading time since it happens once and then the server runs for days, so this overhead is amortized over many days. But when doing research, development and testing it's critical that the inference server starts serving really fast.
 
-Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism) and [PP](../training/model-parallelism#pipeline-parallelism).
+Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism/README.md#tensor-parallelism) and [PP](../training/model-parallelism/README.md#pipeline-parallelism).
 
 Various approaches are used for that - most involve some sort of pre-sharding and caching, with a subsequent direct loading onto GPU.
 
@@ -544,7 +544,7 @@ What I'm missing right now is a tool to measure the highest concurrency the serv
 
 ## Anatomy of Model's Memory Usage
 
-The inference memory usage is quite different from [training](../training/performance#anatomy-of-models-memory-usage). Here we have:
+The inference memory usage is quite different from [training](../training/performance/README.md#anatomy-of-models-memory-usage). Here we have:
 
 1. Model weights
 2. KV cache - crucial to not need to recalculate past tokens for each new generated token
@@ -707,7 +707,7 @@ To choose the most suitable inference framework you need to answer at least the 
 6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, TGI's big chunk is written in Rust). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
 7. The other issue you may run into is that some frameworks don't want your PRs where you implemented missing features or made improvements and then you will end up maintaining a fork, which can be extremely difficult if you want to continue syncing with the upstream and cause a lot of pain to your developers.
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
-9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
+9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator/README.md#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
 
 For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
 

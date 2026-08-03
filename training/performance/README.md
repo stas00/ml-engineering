@@ -138,7 +138,7 @@ HFU measures the actual FLOPS. For example, the technique of [Gradient checkpoin
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
-`Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989TFLOPS.
+`Theoretical_FLOPS` is what you see on the official accelerator specs. You can find the table of these values for high end accelerators [here](../../compute/accelerator/README.md#tflops-comparison-table). So let's use H100 as an example. Its BF16 theoretical TFLOPS is 989TFLOPS.
 
 Now, say, you measured your actual training loop's performance and it was 400TFLOPS as actual achieved FLOPS. Then your HFU is:
 ```
@@ -460,9 +460,9 @@ First, there are usually two batch sizes:
 
 Model replica is how many gpus are needed to fit the full model.
 
-- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../../training/model-parallelism#data-parallelism)
+- If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../../training/model-parallelism/README.md#data-parallelism)
 - If the model doesn't fit into a single GPU, it'd usually require some sort of sharding technique - it can be
- [Tensor Parallelism](../../training/model-parallelism#tensor-parallelism) (TP),  [Pipeline Parallelism](../../training/model-parallelism#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../../training/model-parallelism#zero-data-parallelism) (ZeRO-DP).
+ [Tensor Parallelism](../../training/model-parallelism/README.md#tensor-parallelism) (TP),  [Pipeline Parallelism](../../training/model-parallelism/README.md#pipeline-parallelism) (PP), or [ZeRO Data Parallelism](../../training/model-parallelism/README.md#zero-data-parallelism) (ZeRO-DP).
 
 You can have as many data streams as there are replicas. Which is the same as the value of DP.
 - So in the simple case of a model fitting into a single GPU. There are as many data streams as there are GPUs. DP=N_GPUS
@@ -527,7 +527,7 @@ The following benchmarks demonstrate how increasing the gradient accumulation st
 - [RTX-3090](https://github.com/huggingface/transformers/issues/14608#issuecomment-1004392537)
 - [A100](https://github.com/huggingface/transformers/issues/15026#issuecomment-1005033957)
 
-When [data parallelism](../../training/model-parallelism#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
+When [data parallelism](../../training/model-parallelism/README.md#data-parallelism) is used gradient accumulation further improves the training throughput because it reduces the number of gradient reduction calls, which is typically done via the `all_reduce` collective which costs a 2x size of gradients to be reduced. So for example, if one goes from GAS=1 to GAS=8 in `DistributedDataParallelism` (DDP) the network overhead is reduced by 8x times, which on a slow inter-node network can lead to a noticeable improvement in the training throughput.
 
 
 ### Gradient Checkpointing

@@ -1159,7 +1159,7 @@ Now, this doesn't always work. If the job is hanging, it'll never come to the po
 
 ## How to gracefully exit on SLURM job preemption
 
-There are several ways to gracefully handle time- and QoS-based SLURM pre-emption which are covered indepth in this section: [Dealing with forced job preemption](../../training/fault-tolerance/#dealing-with-forced-job-preemption).
+There are several ways to gracefully handle time- and QoS-based SLURM pre-emption which are covered indepth in this section: [Dealing with forced job preemption](../../training/fault-tolerance/README.md#dealing-with-forced-job-preemption).
 
 
 ## How many GPUs a job uses

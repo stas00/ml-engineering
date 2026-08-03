@@ -1502,7 +1502,7 @@ This allows you to quickly peek inside the tensor object. Except there might be 
 
 ### Detecting problematic tensor values
 
-See also [Numerical instabilities](../training/instabilities#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
+See also [Numerical instabilities](../training/instabilities/README.md#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
 
 #### Inf
 
@@ -1842,7 +1842,7 @@ debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_af
 
 ### Floating point math discrepancies on different devices
 
-See also [Reproducibility](../training/reproducibility#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
+See also [Reproducibility](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
 
 It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
 
@@ -2297,7 +2297,7 @@ It has a lot of functionality for working with image tensors as well.
 
 ## Debugging multi-node training
 
-For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
 
 ### Getting nodes to talk to each other
 
@@ -2373,7 +2373,7 @@ $ sudo ifconfig
 
 One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
 
-Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network#inter-node-networking)). There could be one or dozens of those interfaces.
+Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network/README.md#inter-node-networking)). There could be one or dozens of those interfaces.
 
 Here are some examples of `ifconfig`'s output:
 
@@ -2395,7 +2395,7 @@ ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-0
         inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
         [...]
 ```
-Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
+Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network/README.md#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
 
 If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
 

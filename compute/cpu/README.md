@@ -25,7 +25,7 @@ What happens if you have more very active processes than the total number of cpu
 
 But modern cloud offerings typically have 50-100+ cpu-cores so usually there is no problem to have enough cores to go around.
 
-See also [Asynchronous DataLoader](../../training/performance#asynchronous-dataloader).
+See also [Asynchronous DataLoader](../../training/performance/README.md#asynchronous-dataloader).
 
 
 
@@ -37,7 +37,7 @@ Some frameworks, like [DeepSpeed](https://www.deepspeed.ai/tutorials/zero-offloa
 
 ## NUMA affinity
 
-See [NUMA affinity](../../training/performance#numa-affinity).
+See [NUMA affinity](../../training/performance/README.md#numa-affinity).
 
 
 

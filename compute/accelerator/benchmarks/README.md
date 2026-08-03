@@ -4,7 +4,7 @@
 
 Maximum Achievable Matmul FLOPS (MAMF) Benchmark: [mamf-finder.py](./mamf-finder.py) was derived from research found in [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) paper.
 
-For a detailed discussion and the numbers for various accelerators see [Maximum Achievable FLOPS](../#maximum-achievable-flops).
+For a detailed discussion and the numbers for various accelerators see [Maximum Achievable FLOPS](../README.md#maximum-achievable-flops).
 
 While some accelerator manufacturers publish the theoretical TFLOPS these usually can't be reached. As a result of this when we try to optimize our software we have no realistic performance bar to compare ourselves to. The Model FLOPS Utilization (MFU) metric measures TFLOPS achieved against theoretical TFLOPS. Usually when one scores around 50% MFU it's considered a win. But this gives us no indication how far are we from the real achievable throughput.
 
@@ -105,7 +105,7 @@ To understand better which shapes give the highest matmul FLOPS for a particular
 
 ### Results
 
-The measurements that I have gathered so far can be found at [Maximum Achievable Matmul FLOPS comparison table](../#maximum-achievable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
+The measurements that I have gathered so far can be found at [Maximum Achievable Matmul FLOPS comparison table](../README.md#maximum-achievable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
 
 
 
