@@ -360,7 +360,7 @@ Intel Gaudi2:
 
 - You will see a wide range of speeds from 200Gbps to 6400Gbps
 
-- Originally an order of magnitude slower than Intra-node, now inter-node speed is starting to approach intra-node (e.g. 800GBps EFA vs 900GBps NVLink-5 on B300 instances)
+- Inter-node links remain about an order of magnitude slower than intra-node ones (e.g. 50GBps per accelerator of EFA v4 on a P6-B200 instance vs 900GBps of NVLink 5), but the practical gap is far smaller than that, because an inter-node collective also does most of its data movement over the intra-node links - a 4GiB `all-reduce` across 4 nodes measures only ~2x slower than on one node, not 18x. See [Inter-node speed depends on intra-node speed](../network/README.md#inter-node-speed-depends-on-intra-node-speed)
 
 - You need to reduce gradients and other tensors (e.g. MoE) faster than compute to avoid idling accelerators
 
