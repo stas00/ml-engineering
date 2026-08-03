@@ -73,6 +73,17 @@
 6. Leave comparative `above`/`below` alone - `60W above its TDP`, `below about 1GiB`, `approaches 0 from above` are quantities, not positions. Skipping these is the bulk of the work when sweeping a chapter.
 7. Anchor arithmetic: an em dash in a heading is dropped and the spaces around it each become a hyphen, so `part 1 — do you need` yields `part-1--do-you-need` with a double hyphen. Verify a generated anchor against the file's own existing links rather than trusting a hand-rolled slugifier.
 
+## Internal links and anchors
+
+1. An anchor needs a document to attach to. Link to `network/README.md#anchor`, never to `network#anchor` - the latter resolves to a directory, and a fragment on a directory has nothing to bind to.
+2. Concrete failure: `[Real network throughput](../network#real-network-throughput)` in the cloud-provider chapter. The heading was right and the generated anchor was right; the link form was not. GitHub resolves a relative link from a blob page to `/blob/master/network`, the blob URL of a directory, which does not render the README - so the fragment is dropped.
+3. The `README.md#anchor` form is the dominant convention regardless: 130 links already used it against the 60 fixed on 2026-08-02, and all 60 of those were broken.
+4. A link to a directory with *no* fragment is fine and needs no change. Only the anchored ones break, so a sweep should target `](path#anchor)` where `path` resolves to a directory.
+5. Never let a link checker treat a directory as its `README.md`. A checker that quietly appends it is validating a resolution step that neither GitHub nor any local renderer performs, and it will pass every link in the class above. This is exactly how 60 broken links survived two separate "0 broken" reports in one session - the checker was wrong, not the links.
+6. When generating anchors to check them, model GitHub faithfully: strip backticks and inline links from the heading text, lowercase it, drop every character that is not a word character, space, or hyphen, then replace each remaining space with a hyphen. Repeated identical headings get `-1`, `-2` appended in document order. Do not collapse runs of spaces - see [Positional cross-references](#positional-cross-references) item 7 for the em-dash case where that matters.
+7. Sweep the whole repository, not the file just edited. The root `README.md` held 5 of the 60, and the first pass missed 11 more because its pattern assumed every relative path begins with `./` or `../`, which `compute/accelerator#...`, `benchmarks#...` and `../#...` do not.
+8. `make check-links-local` runs `linkchecker` over the built HTML and is the authoritative check, but it depends on `markdown_it`, which is not installed as of 2026-08-02. Until it is, a hand-rolled scan is the fallback and is only worth running if it obeys items 5 and 6.
+
 ## Suggestions report
 
 1. Put a large set of findings in a repository file rather than only in chat.
