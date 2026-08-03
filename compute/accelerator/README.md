@@ -310,7 +310,7 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flo
 
 #### Maximum Achievable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see above for what MAMF stands for). Reporting a mean of 100 iterations after 50 warmup iterations for each shape. Sorted by accelerator efficiency:
+The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see [Maximum Achievable FLOPS](#maximum-achievable-flops) for what MAMF stands for). Reporting a mean of 100 iterations after 50 warmup iterations for each shape. Sorted by accelerator efficiency:
 
 **BF16**:
 

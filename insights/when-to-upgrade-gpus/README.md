@@ -187,7 +187,7 @@ New silicon almost always ships ahead of the software stack that can fully explo
 - Search the kernel library's issue tracker for your exact GPU's compute capability (e.g. `sm_100`) and your model's attention/MoE mechanism by name — a README saying "supported" doesn't mean GA-quality or even that pre-built wheels exist.
 - Confirm your training framework (DeepSpeed, Megatron-LM, TorchTitan, etc.) has a *released* version validated against the new compute capability — "should work, it's just CUDA" is not the same as tested.
 - If your model uses a non-standard op (linear attention, MoE routing, sparse attention, fused custom CUDA extensions), verify someone has actually built *and benchmarked* it on the new architecture. Don't assume it inherits the GPU's speedup just because the GPU is faster.
-- Re-measure periodically rather than trusting a one-time verdict. Beta kernels and young GEMM libraries both improve fast; the cuBLAS-maturity gap described above is exactly the kind of moving target that can flip a "not yet worth it" into "worth it" within a few release cycles — in either direction if a regression lands.
+- Re-measure periodically rather than trusting a one-time verdict. Beta kernels and young GEMM libraries both improve fast; the [cuBLAS-maturity gap](#where-the-dense-path-deficit-comes-from-why-not-the-full-228) is exactly the kind of moving target that can flip a "not yet worth it" into "worth it" within a few release cycles — in either direction if a regression lands.
 
 ## Rent the new target hardware
 
@@ -201,7 +201,7 @@ If the workload involves multiple nodes, then you definitely need to eventually 
 
 ## Applying this framework to your own upgrade decision
 
-Swap in your own model, GPUs, and prices, then work through the two-part decision framework above — first the feature check, then, if features don't already decide it, the performance steps:
+Swap in your own model, GPUs, and prices, then work through the two-part decision framework — [part 1](#decision-framework-part-1--do-you-need-a-new-dtype) then [part 2](#decision-framework-part-2--is-it-worth-it-on-performance) — first the feature check, then, if features don't already decide it, the performance steps:
 
 1. Pin an identical software stack on both GPUs (see ["compare on an identical software stack" above](#caveats)) — otherwise you're measuring the stack, not the hardware.
 2. Sweep the axis that shifts your attention/dense (or otherwise-accelerated/non-accelerated) split — for LLM training that's sequence length; for other workloads it may be batch size, resolution, or something else entirely.

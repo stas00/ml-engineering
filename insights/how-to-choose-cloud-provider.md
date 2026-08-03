@@ -14,6 +14,7 @@ These notes assume you already know what compute you want for your specific work
 
 ## Glossary
 
+- busbw: bus bandwidth - the bandwidth figure the `all-reduce` benchmarks report, see [busbw](../network#glossary-and-concepts)
 - CSP: Cloud Service Provider
 - SLA: Service-level_agreement
 - SLO: Service Level Objective
@@ -267,7 +268,9 @@ The easiest ask is to request an `all-reduce` benchmark plot over 4-8-16-32-64 n
 
 Please refer to [Real network throughput](../network#real-network-throughput) for more details.
 
-Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), if the performance drops below 80% of the theoretical GBps, then I know we have a problem.
+Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), which immediately tells me if the network is good. But it's very likely you will want to know 256-512MiB payload as well, so just as well ask for the wider range.
+
+For a single node that reported `busbw` maps onto the intra-node links directly, so the familiar rule applies as is - below about 80% of the theoretical unidirectional GBps and you have a problem. Multi-node needs one extra step first, because a multi-node `all-reduce` reports a figure that doesn't correspond to any single NIC - most of the bytes never leave the node, so `busbw` lands far *above* the per-interface spec and holding the two against each other tells you nothing. Multiply the reported `busbw` by `(k-1)/(n-1)`, where `k` is the node count and `n` the total rank count, and what comes out is the rate each NIC actually sustained, which is comparable. So what I'd write into the contract is that converted number at 70% of the per-interface spec or better, at a stated payload of 4GiB or larger, re-measured at the same node and rank count after any node replacement or driver/firmware update - a single acceptance run tells you nothing about whether it will still hold in month six. Note 70% and not 80%: the conversion charges the whole elapsed time to the NIC, so it reads low by design, and a healthy 4-node B200/EFA v4 cluster measures 73%. Naming the payload matters as much as the threshold - the same healthy cluster converts to 63% at 512MiB and 38% at 128MiB, so a single number with no payload attached is unenforceable. The network chapter's [So what should you expect?](../network#so-what-should-you-expect) derives the conversion and shows the full curve.
 
 
 ### Does the network steal from the accelerator memory?

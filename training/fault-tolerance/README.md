@@ -454,7 +454,7 @@ Signal handler called with signal 10
 
 which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exited.
 
-Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in Approach A above.
+Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in [Approach A](#approach-a-tell-the-program-at-launch-time-when-it-should-start-the-exiting-process).
 
 
 ### Approach B.2. Choosing which process to send the signal to

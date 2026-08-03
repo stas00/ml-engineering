@@ -163,7 +163,7 @@ Notes:
 2. AWS publishes `NeuronLink-v3 ... 1.28 TB/sec bandwidth per chip` for Trainium2 without declaring directionality, so it's halved here per the directionality note below. AWS doesn't publish a per-link rate or a link count, so Trainium2 can't be placed in the [peer-to-peer table](#peer-to-peer-bandwidth) below.
 3. PCIe 6 is listed below the break because no shipping accelerator attaches at Gen6 as of 2026-07-31 - current parts are Gen5 x16 (NVIDIA H200 SXM lists `PCIe Gen5`, AMD MI350X/MI355X list `PCIe 5.0 x16`), so 63GBps remains today's ceiling for accelerator-to-accelerator PCIe traffic. Gen6 already ships on the NIC side - NVIDIA markets ConnectX-8 as bringing "PCIe Gen6 connectivity in a single device", which is what lets one adapter feed 800Gbps.
 4. Google publishes a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200 for TPU7x, halved here per the note above. Peer-to-peer is the per-axis figure, "bi-directional bandwidth of 200 GBps per axis" - and 6 neighbours in the 3D torus at 200 each is exactly the 1200 total, so the two figures corroborate. `GA` is `?` because Google documents TPU7x fully without stating an availability stage. See [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x).
-5. Huawei publishes a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional for the Atlas 950 SuperPoD - 1.68TBps bidirectional per accelerator, halved here. Only the Chinese pages carry it; the English ones state no per-NPU figure. Peer-to-peer is unknown, so there is no row in the table below. `GA` is `?` - the product page is live but China-only in practice. See [UB Link](#ub-link-unifiedbus).
+5. Huawei publishes a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional for the Atlas 950 SuperPoD - 1.68TBps bidirectional per accelerator, halved here. Only the Chinese pages carry it; the English ones state no per-NPU figure. Peer-to-peer is unknown, so there is no row in the [peer-to-peer table](#peer-to-peer-bandwidth). `GA` is `?` - the product page is live but China-only in practice. See [UB Link](#ub-link-unifiedbus).
 
 General notes:
 
@@ -712,7 +712,7 @@ Note that NVIDIA does not attach a Quantum product name to the InfiniBand versio
 
 ### Reaching beyond the rack
 
-Not everything is a NIC or a top-of-rack switch. Three categories worth knowing exist, none of which you would size with the tables above:
+Not everything is a NIC or a top-of-rack switch. Three categories worth knowing exist, none of which you would size with the [node and adapter tables](#inter-node-networking):
 
 - MetroX - InfiniBand long-haul, reaching "up to 40 kilometers". This is the InfiniBand answer to [Spectrum-XGS](#spectrum-x-ethernet) for splitting one training job across buildings or sites
 - InfiniBand routers - for joining separate InfiniBand subnets, which is how very large fabrics are partitioned
@@ -1251,9 +1251,43 @@ Two warnings come with this:
 
 - Do not read the 4-node `busbw` as a wire speed. 381.80GBps at 16GiB is not what the NICs are doing - undoing the correction factor gives 87.2ms for that reduction, over which each accelerator's NIC moves `1.5 * 16GiB/8` = 3GiB, i.e. ~37GBps, or 74% of its 50GBps. `busbw` is derived from the payload and the elapsed time with a per-collective correction factor, so once NCCL uses a hierarchical algorithm it no longer maps onto any single link - the same caveat as in [SHARP](#sharp).
 
+#### So what should you expect?
+
+If `busbw` isn't a wire speed, what number can you hold against the NIC's spec? Undo both scalings at once. The elapsed time is `P * (2*(n-1)/n) / busbw`, and during it each accelerator's NIC moves `2*(k-1)/k * P/g` bytes, so dividing the bytes by the time cancels the payload entirely - units and all - and leaves a payload-free conversion: `per-NIC rate = busbw * (k-1)/(n-1)`. For the 4GiB 4-node row that is `377.34GBps * 3/31` = 36.52GBps per NIC, or 73% of the 50GBps one EFA v4 interface is specced for - which sits right next to the single-node column's own `740.64GBps / 900GBps` = 82% against NVLink 5. Expressed per NIC, the inter-node result stops looking anomalous and lands in the same ~80%-of-spec ballpark that intra-node measurements do.
+
+footnote: this is the one place in this section where the `GiB` vs `GBps` base trap does not bite, and it's worth seeing why. `P` appears in both the byte count and the elapsed time, so it cancels whatever unit it was quoted in, and the result comes out in `busbw`'s own decimal `GBps` - the same base the per-interface spec uses, since 400Gbps is 50GBps decimal. Going the long way round does need the conversion, and agrees: the 16GiB warning above reaches ~37GBps by converting 3GiB to 3.22e9 bytes and dividing by 87.2ms, while `381.80GBps * 3/31` = 36.95GBps.
+
+`(k-1)/(n-1)` = `3/31` is the same 9.7% derived above as the share of traffic that leaves the node, which is the tidiest statement of this whole section: `busbw` overstates the wire by exactly the reciprocal of the fraction of bytes that cross it.
+
+Two properties make this, rather than `busbw` itself, the number to write into an acceptance test. It is comparable to a spec figure, whereas `busbw` is not comparable to anything. And it is a floor, because it charges the whole elapsed time to the NIC even though the intra-node phases overlap the exchange - the true wire rate is somewhat higher than what comes out.
+
+It only reaches that plateau at large payloads, though, so a threshold is meaningless without a payload attached. The same 4-node measurements converted, sorted by payload ascending:
+
+| payload | 4-node `busbw` | per-NIC rate | % of spec |
+| ------: | -------------: | -----------: | --------: |
+|   16MiB |      64.43GBps |     6.24GBps |     12.5% |
+|   32MiB |      91.19GBps |     8.82GBps |     17.6% |
+|   64MiB |     156.74GBps |    15.17GBps |     30.3% |
+|  128MiB |     197.94GBps |    19.16GBps |     38.3% |
+|  256MiB |     229.09GBps |    22.17GBps |     44.3% |
+|  512MiB |     326.90GBps |    31.64GBps |     63.3% |
+|    1GiB |     361.99GBps |    35.03GBps |     70.1% |
+|    2GiB |     372.42GBps |    36.04GBps |     72.1% |
+|    4GiB |     377.34GBps |    36.52GBps |     73.0% |
+|    8GiB |     380.39GBps |    36.81GBps |     73.6% |
+|   16GiB |     381.80GBps |    36.95GBps |     73.9% |
+
+`% of spec` is against the 50GBps of a single EFA v4 interface on this node type.
+
+Below about 1GiB it falls off a cliff, and at 16MiB a perfectly healthy fabric reports 12.5%. So "at least 70% of the per-interface spec" is a reasonable thing to require at 4GiB and an impossible one at 128MiB.
+
+footnote: this conversion assumes NCCL used the hierarchical algorithm - model 3 in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). Under a flat ring each link would instead carry `2*(n-1)/n * P` across `k` node boundaries and the conversion would not apply, so capture `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` alongside the numbers when the algorithm isn't already known.
+
+For turning this into a provider acceptance test, see [Ask for the actual performance numbers](../insights/how-to-choose-cloud-provider.md#ask-for-the-actual-performance-numbers).
+
 #### Measuring the inter-node fabric on its own
 
-A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
+A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the [`busbw` table](#inter-node-speed-depends-on-intra-node-speed).
 
 Despite the name it is not InfiniBand-only - it is written over `uverbs`, the userspace RDMA API, so it works on any adapter the RDMA stack enumerates. On InfiniBand a Subnet Manager must be running first. On EFA pass `-c SRD`, since the default [RC](#glossary-and-concepts) connection type doesn't exist there. Fabrics with their own userspace stack rather than verbs - [Slingshot](#hpe-slingshot-interconnect), [Omni-Path](#omni-path) via OPX, [GPUDirect-TCPX](#gpudirect-tcpx) - need their own tools, and [libfabric](https://ofiwg.github.io/libfabric/)'s `fi_pingpong` is the closest general substitute. Both sides need identical options and identical `perftest` versions, and the result is a synthetic operation stream rather than application traffic.
 

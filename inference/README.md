@@ -414,7 +414,7 @@ If this is an offline system that doesn't interface individual humans and there 
 
 ### Simplified performance metrics
 
-As you can tell the discussed above metrics have a lot of overlap in them. Practically we can reduce all of them to just these 2 metrics: Prefill throughput and Decode throughput - and probably how many parallel requests per second the system can handle.
+As you can tell the [metrics discussed so far](#key-inference-performance-metrics) have a lot of overlap in them. Practically we can reduce all of them to just these 2 metrics: Prefill throughput and Decode throughput - and probably how many parallel requests per second the system can handle.
 
 #### Prefill throughput
 

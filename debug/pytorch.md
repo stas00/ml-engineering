@@ -3163,7 +3163,7 @@ Here I assume you're on an isolated cluster so you don't need to worry about sec
 
 ##### multi-node py-spy via ds_ssh
 
-This is yet another way, but please make sure to read the `pdsh` section above first.
+This is yet another way, but please make sure to read the [`pdsh` section](#multi-node-py-spy-via-pdsh) first.
 
 The following notes require `pip install deepspeed`.
 
