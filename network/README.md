@@ -29,8 +29,7 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - EDR, HDR, NDR, XDR, GDR, LDR: InfiniBand per-lane data-rate generations - see [InfiniBand](#infiniband)
 - EFA: Elastic Fabric Adapter
 - GA: Generally Available - the product can actually be bought or rented, as opposed to announced, sampling, or spec'd only
-- GDR (1): an InfiniBand per-lane data-rate generation - a roadmap target at 400Gbps per lane, as in the `InfiniBand GDR3200` row of the [inter-node table](#inter-node-networking). Read `GDR` this way when it appears next to EDR/HDR/NDR/XDR or a link rate - see [InfiniBand](#infiniband)
-- GDR (2): GPUDirect RDMA - the direct path between a NIC and accelerator memory that avoids staging the payload in host memory first. Read `GDR` this way when it appears next to NCCL settings such as `NCCL_NET_GDR_LEVEL`. Unrelated to (1) - the clash is inherited from the two ecosystems that coined them, IBTA for the link generation and NVIDIA for the data path
+- GDR: an InfiniBand per-lane data-rate generation - a roadmap target at 400Gbps per lane, as in the `InfiniBand GDR3200` row of the [inter-node table](#inter-node-networking) - see [InfiniBand](#infiniband). Beware that NCCL uses the same three letters for GPUDirect RDMA, the direct path between a NIC and accelerator memory, as in `NCCL_NET_GDR_LEVEL` - unrelated to this entry, and the clash is inherited from the two ecosystems that coined them, IBTA for the link generation and NVIDIA for the data path
 - HCA: Host Channel Adapter
 - HPC: High-performance Computing
 - IB: InfiniBand
@@ -733,7 +732,7 @@ If a job has to span sites, this is the layer that decides whether it is possibl
 
 The generation labels above are AWS's own: its [supported instance types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html#efa-instance-types) page groups every EFA-capable instance under a `Nitro v3 (EFA v1)` through `Nitro v6 (EFA v4)` heading. The per-instance bandwidth figures come from the separate [network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html) page, so the two pages are the pair you need.
 
-footnote: the EFA generation tracks the Nitro generation, not the accelerator - so a newer accelerator does not imply a newer fabric. `p6e-gb200.36xlarge` sits under `Nitro v5 (EFA v3)` while `p6-b200.48xlarge` and `p6-b300.48xlarge` are under `Nitro v6 (EFA v4)`, which means a GB200 instance runs an older EFA generation than a B200 one.
+footnote: the EFA generation tracks the Nitro generation, not the accelerator - and it says nothing about per-accelerator bandwidth. `p6e-gb200.36xlarge` sits under `Nitro v5 (EFA v3)` while `p6-b200.48xlarge` and `p6-b300.48xlarge` are under `Nitro v6 (EFA v4)`, yet the GB200 instance is the faster of the two per accelerator: AWS lists 3200Gbps for its 4 B200s, i.e. 800Gbps (100GBps) each, against the same 3200Gbps spread across 8 on P6-B200, i.e. 400Gbps (50GBps) each. So a higher `v` implies neither newer silicon above it nor more bandwidth per accelerator.
 
 To count the EFA devices on a node:
 
@@ -1254,7 +1253,7 @@ Two warnings come with this:
 
 #### Measuring the inter-node fabric on its own
 
-A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA ([GDR (2)](#glossary-and-concepts)) path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
+A collective can't tell you this. An `all-reduce` across nodes will always lean on the intra-node fabric, which is the whole point of this section. To measure the wire itself, use a point-to-point RDMA benchmark. [`ib_write_bw`](https://manpages.debian.org/testing/perftest/ib_write_bw.1.en.html) from [perftest](https://github.com/linux-rdma/perftest) runs between two hosts using one adapter (`-d`) and one queue pair (`-q`, default 1), so no second local accelerator and no collective are involved - the isolation is the tool's construction rather than something you configure. Add `--use_cuda=<gpu>` for the GPUDirect RDMA path out of accelerator memory instead of host memory, and `-a` to sweep payload sizes for comparison against the `busbw` table above.
 
 Despite the name it is not InfiniBand-only - it is written over `uverbs`, the userspace RDMA API, so it works on any adapter the RDMA stack enumerates. On InfiniBand a Subnet Manager must be running first. On EFA pass `-c SRD`, since the default [RC](#glossary-and-concepts) connection type doesn't exist there. Fabrics with their own userspace stack rather than verbs - [Slingshot](#hpe-slingshot-interconnect), [Omni-Path](#omni-path) via OPX, [GPUDirect-TCPX](#gpudirect-tcpx) - need their own tools, and [libfabric](https://ofiwg.github.io/libfabric/)'s `fi_pingpong` is the closest general substitute. Both sides need identical options and identical `perftest` versions, and the result is a synthetic operation stream rather than application traffic.
 
