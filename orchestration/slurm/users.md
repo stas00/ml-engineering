@@ -815,7 +815,7 @@ GPUS_PER_NODE=4
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 MASTER_PORT=6000
 
-export LAUNCHER="python -u -m torch.distributed.launch \
+export LAUNCHER="python -u -m torch.distributed.run \
     --nproc_per_node $GPUS_PER_NODE \
     --nnodes $NNODES \
     --master_addr $MASTER_ADDR \

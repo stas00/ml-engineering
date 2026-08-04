@@ -32,7 +32,7 @@ which will print a lot of debug info about the NCCL setup and its network traffi
 For example if you're using the aforementioned debug script, for a single node with 8 GPUs, you might do:
 
 ```bash
-NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 8 --nnodes 1 torch-distributed-gpu-test.py
+NCCL_DEBUG=INFO torchrun --nproc_per_node 8 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 To launch it on multiple nodes, you'd have to either use some orchestration software like SLURM or Kubernetes, or manually launch it on each node (`pdsh` would be of a huge help) - see the instructions inside [torch-distributed-gpu-test.py](../../debug/torch-distributed-gpu-test.py) for details. But to understand how things work I recommend starting with just 1 node and then progressing to 2, and later to more nodes.
@@ -285,7 +285,7 @@ Values:
 For example:
 
 ```bash
-NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+NCCL_DEBUG=INFO torchrun --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 This will dump a lot of NCCL-related debug information, which you can then search online if you find that some problems are reported.

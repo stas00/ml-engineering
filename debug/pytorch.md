@@ -2406,7 +2406,7 @@ In terminal A:
 
 ```bash
 $ ssh 10.0.0.1
-$ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
 ```
 
@@ -2414,7 +2414,7 @@ In terminal B:
 
 ```bash
 $ ssh 10.0.0.2
-$ python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
 ```
 
@@ -2428,7 +2428,7 @@ This approach of running things manually from each node is painful and so there 
 
 ```bash
 PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
-"python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+"torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
  --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
 ```
 
@@ -2455,7 +2455,7 @@ export GPUS_PER_NODE=8
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=6000
 #
-srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
 torch-distributed-gpu-test.py'
@@ -2523,7 +2523,7 @@ In this section we will use `torchrun` (`torch.distributed.run`) during the demo
 When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
 
 ```bash
-python -m torch.distributed.run --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
+torchrun --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
 torch-distributed-gpu-test.py
 ```
 
@@ -2534,7 +2534,7 @@ Note that the colon is important.
 If you're in a SLURM environment the above command line becomes:
 
 ```bash
-srun --jobid $SLURM_JOBID bash -c 'python -m torch.distributed.run \
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
 --role $(hostname -s): --tee 3 \
@@ -2546,7 +2546,7 @@ Of course adjust your environment variables to match, this was just an example.
 Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
 
 ```bash
-srun --jobid $SLURM_JOBID bash -c "python -m torch.distributed.run \
+srun --jobid $SLURM_JOBID bash -c "torchrun \
 --nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
 --master_addr $MASTER_ADDR --master_port $MASTER_PORT \
 --role \$(hostname -s): --tee 3 \
@@ -2914,7 +2914,7 @@ Now, since you're might want to strace the program from the very beginning, for 
 
 
 ```bash
-strace -o log.txt -f python -m torch.distributed.run --nproc_per_node=4 --nnodes=1 --tee 3 test.py
+strace -o log.txt -f torchrun --nproc_per_node=4 --nnodes=1 --tee 3 test.py
 ```
 
 So here we launch 4 processes and will end up running `strace` on at least 5 of them - the launcher plus 4 processes (each of which may spawn further child processes).
@@ -3206,7 +3206,7 @@ Is your `192.168.50.21` firewalled? or is it somehow a misconfigured network dev
 
 Does it work if you use a loopback device `127.0.0.1`?
 ```bash
-NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=lo python -m torch.distributed.run --nproc_per_node 4 --nnodes 1 torch-distributed-gpu-test.py
+NCCL_DEBUG=INFO NCCL_SOCKET_IFNAME=lo torchrun --nproc_per_node 4 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 if not, see what other local network devices you have via `ifconfig` - try that instead of `lo` if any.
@@ -3221,11 +3221,11 @@ You can also try to see if only some GPUs fail
 For example, does it work if you use the first 2 or the last 2 gpus:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 then the 2nd pair:
 ```bash
-CUDA_VISIBLE_DEVICES=2,3 python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 
