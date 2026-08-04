@@ -232,6 +232,23 @@ You will find the details analysis of each technology in the following sections.
 
 If one compares the latest generations of different intra-node networking technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
+The table above is spec. What a PCIe link actually delivers is a separate question, and one nobody seems to publish - so here is a measurement. On a node of 8x H200 where each accelerator has its own PCIe 5 x16 link, [nvbandwidth](#nvlink-c2c) reports 55.43GBps host-to-device and 55.06GBps device-to-host, which is 88% and 87% of the 63GBps row above. The eight links came out within 0.10GBps of each other, with `nvbandwidth` reporting a coefficient of variation of 0.00.
+
+To reproduce, first confirm the generation and width, since the 63GBps figure only applies to PCIe 5 at x16:
+
+```bash
+nvidia-smi --query-gpu=index,pcie.link.gen.current,pcie.link.width.current --format=csv
+```
+
+then, with `nvbandwidth` built as shown under [NVLink-C2C](#nvlink-c2c):
+
+```bash
+./nvbandwidth -i 10 -t host_to_device_memcpy_ce
+./nvbandwidth -i 10 -t device_to_host_memcpy_ce
+```
+
+caveat: `host_to_device_memcpy_ce` measures whatever the host-to-device path happens to be on that platform, so read it against the fabric the machine actually uses. On an x86 host with PCIe-attached SXM accelerators that path is PCIe, which is what the 88% above refers to. On a Grace-Blackwell system the very same testcase measures [NVLink-C2C](#nvlink-c2c) instead and reports several hundred GBps - same command, different fabric, an order of magnitude apart.
+
 footnote: a released specification is not shipping silicon. As of 2026-07-30 [PCI-SIG](https://pcisig.com/specifications) lists `PCI Express Base Specification Revision 7.0` as released, while PCIe 8.0 exists only as a members-only draft, targeted for 2028. And even a finished spec takes years to reach products - PCIe 6.0 hardware didn't launch until August 2025, about three years after its spec was done. So read the last rows as where the standard is heading, not as what you can buy.
 
 
@@ -362,7 +379,15 @@ request: I'm looking for an official spec if you find one please let me know.
 
 Next, it's important to understand that these speeds are of a standalone C2C technology and it can be much lower when integrated into the system, when bottlenecked by other components.
 
-On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using [nvbandwidth benchmark](https://github.com/NVIDIA/nvbandwidth).
+On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using [nvbandwidth benchmark](https://github.com/NVIDIA/nvbandwidth), which builds in three commands:
+
+```bash
+git clone https://github.com/NVIDIA/nvbandwidth
+cd nvbandwidth
+cmake . && make
+```
+
+Run it with no arguments for the full sweep, `./nvbandwidth -l` to list the testcases, or `-t <testcase>` to run just one. `-i N` raises the iteration count from its default of 3.
 
 ```bash
 $ ./nvbandwidth

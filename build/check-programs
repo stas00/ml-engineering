@@ -20,7 +20,8 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
-# The book's main reader-facing programs, plus the build tooling. Add new ones here.
+# The book's reader-facing programs - the ones a reader copies out of a chapter and runs. Build
+# tooling is deliberately out of scope. Add new ones here.
 PROGRAMS=(
     network/benchmarks/all_reduce_bench.py
     compute/accelerator/benchmarks/mamf-finder.py
