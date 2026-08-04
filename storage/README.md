@@ -586,41 +586,48 @@ The absent-source branch creates an empty target before linking it. If the targe
 
 Now that you know where the caches are, you could, of course, nuke the whole cache every so often, but if these are huge models and datasets, and especially if there was some preprocessing done for the latter - you really won't want to repeat those time consuming tasks again and again. So I will teach you how to use special tools provided by HuggingFace to do the cleanup.
 
-The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main` in a few quick steps without tedious manual editing.
+The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main`:
 
-In terminal A:
 ```bash
-$ pip install huggingface_hub["cli"] -U
-$ huggingface-cli delete-cache --disable-tui
-File to edit: /tmp/tmpundr7lky.txt
-0 revisions selected counting for 0.0. Continue ? (y/N)
+pip install -U "huggingface_hub"
+hf cache prune
 ```
-Do not answer the prompt and proceed with my instructions.
 
-(note your tmp file will have a different path, so adjust it below)
+`hf cache prune` deletes every revision that no longer has a branch or a tag pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. It shows you the damage and asks first:
 
-In terminal B:
 ```bash
-$ cp /tmp/tmpedbz00ox.txt cache.txt
-$ perl -pi -e 's|^#(.*\(detached\).*)|$1|' cache.txt
-$ cat cache.txt >>  /tmp/tmpundr7lky.txt
+$ hf cache prune
+About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
 ```
-The perl one-liner uncommented out all lines that had `(detached)` in it - so can be wiped out. And then we pasted it back into the tmp file `huggingface-cli` expects to be edited.
 
-Now go back to terminal A and hit: N, Y, Y, so it looks like:
+Add `--dry-run` to see what would go without deleting it, and `--yes` to skip the prompt when you run this from a cron job.
 
+To find out where the space went before deleting anything, `hf cache ls` gives you per-repo totals and `hf cache ls --revisions` breaks it down per revision. It takes filters, which understand human sizes and durations, so you can go hunting for the big and the forgotten:
+
+```bash
+hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
 ```
-0 revisions selected counting for 0.0. Continue ? (y/N) n
-89 revisions selected counting for 211.7G. Continue ? (y/N) y
-89 revisions selected counting for 211.7G. Confirm deletion ? (Y/n) y
+
+And to delete entire models or datasets rather than just their stale revisions, `hf cache rm` takes repo ids and revision hashes:
+
+```bash
+hf cache rm model/bert-base-cased dataset/glue
 ```
-Done.
 
-If you messed up with the prompt answering you still have `cache.txt` file which you can feed again to the new tmp file it'll create when you run `huggingface-cli delete-cache --disable-tui` again.
+which pairs with `hf cache ls -q` - identifiers only, one per line - to delete by filter:
 
-You can also copy-n-paste these steps directly from [this section](#huggingface-hub-caches).
+```bash
+hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+```
 
-Please note that you can also use this tool to choose which models or datasets to delete completely. You just need to open `cache.txt` in your editor and remove the `#` in front of lines that contain `main` in it for models/datasets you want to be deleted for you. and then repeat the process explained above minus the `perl` one liner which you'd replace with manual editing.
+If your cache isn't in the default location, every one of these takes `--cache-dir PATH`.
 
 Additionally you will find that HF `datasets` have a `~/.cache/huggingface/datasets/downloads` dir which often will contain a ton of leftovers from datasets downloads and their preprocessing, including various lock files. On one setup I found literally a few millions of files there. So here is how I clean those up:
 
@@ -642,7 +649,7 @@ export HF_TOKEN_PATH=~/.cache/hf_hub_token
 
 Now have each user run once:
 ```
-huggingface-cli login
+hf auth login
 ```
 which will ask them to add their access token from https://huggingface.co/settings/tokens - it'll save it under `~/.cache/hf_hub_token`.
 
