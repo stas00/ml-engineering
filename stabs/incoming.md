@@ -173,6 +173,8 @@ Print driver configuration (interface name comes from `ifconfig`):
 
 ### Performance
 
+note: `ib_write_bw` is already covered in [Measuring the inter-node fabric on its own](../network/README.md#measuring-the-inter-node-fabric-on-its-own) - what's left here is the rest of the family.
+
 `perftest` Package includes:
 - `ib_send_bw`
 - `ib_send_lat`
@@ -193,6 +195,7 @@ If the network is much slower than it should be, might have to specify which HCA
 ```
 export NCCL_IB_HCA=mlx5
 ```
+see [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues) for the in-depth discussion, including the per-port `=mlx5_0:1` form and the `^=` syntax for excluding an adapter.
 
 might need to install ib packages on the vms:
 
