@@ -27,13 +27,8 @@ If you do KV-cache offloading to disk, this would be another important IO use-ca
 
 ## Glossary
 
-- DAS: Direct-Attached storage
-- MDS: Metadata server
-- MGS: Management server
-- NAS: Network Attached Storage
+- IOPS: Input/Output Operations Per Second
 - NSD: Network Shared Disk
-- OSS: Object storage server
-- SAN: Storage Area Network
 
 
 
