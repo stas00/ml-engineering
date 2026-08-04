@@ -185,7 +185,7 @@ The opposite is the **buffered** IO, which is usually the default way most appli
 
 When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
 
-In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. I have seen opening the log file with `O_DIRECT` by the writer get the reader to see the logged lines much sooner.
+In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
 
 And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
 
@@ -307,7 +307,7 @@ fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --
 
 Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4KiB (typical for most OSes) with the file size of 16KiB (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good proxy benchmark for how fast you can import Python modules on 16 concurrent processes.
 
-case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
+case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 5-10x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
 
 good read: [Fio Output Explained](https://tobert.github.io/post/2014-04-17-fio-output-explained.html) - it's an oldie but is still a goodie - if you have a more up-to-date write up please send me a link or a PR.
 
@@ -802,14 +802,14 @@ If you want to exclude some sub-dirs efficiently:
 
 ```bash
 find /mypath/ -regextype posix-egrep \
--type d -regex "/mypath/(exclude_a|exclude_b|exclude_c)/.*" -prune -o \
--type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
+-type d -regex "/mypath/(exclude_a|exclude_b|exclude_c)" -prune -o \
+-type f -regex ".*\.(pt|pth|ckpt|safetensors)$" -print | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-hint: the second line tells `find` to skip folders matching the `/mypath/(exclude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
+hint: the second line tells `find` to skip folders matching the `/mypath/(exclude_a|exclude_b|exclude_c)` regex. Two subtleties: the regex has to match the folder's path exactly, because if you append a trailing `/.*` then `find` descends into the folder itself and prunes only its sub-folders - so any files sitting directly in it still get counted. And the `-print` is required, because `-prune` is an action and without a second one `find` prints the pruned folders too, which then get `stat`ed and added to somebody's total. Adapt to your use case as needed.
 
 
 ### How to automatically delete old checkpoints
