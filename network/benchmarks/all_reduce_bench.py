@@ -347,7 +347,7 @@ def device_id_kwargs(local_rank):
 
 def parse_args():
     global args
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # this arg is not used directly, but a launcher may pass it
     parser.add_argument("--local_rank", type=int, default=0, help='local rank')
@@ -356,7 +356,7 @@ def parse_args():
     parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If not specified the full range 2**15 .. 2**34 will be benchmarked')
     parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
 
-    args = parser.parse_args(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    args = parser.parse_args()
 
     if args.profile_stability and args.payload_size_in_gib is None:
         raise ValueError("--profile_stability requires --payload_size_in_gib to profile one specific payload, e.g. to profile a 0.5GiB payload use: --profile_stability --payload_size_in_gib 0.5")
