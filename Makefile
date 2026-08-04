@@ -1,6 +1,6 @@
 # usage: make help
 
-.PHONY: help spell prep-html-files html html-local pdf epub upload fix-tables check-links-local check-links-all clean
+.PHONY: help spell prep-html-files html html-local pdf epub upload fix-tables check-links-local check-links-all check-programs clean
 .DEFAULT_GOAL := help
 
 help: ## this help
@@ -52,6 +52,9 @@ check-links-local: html-local ## check local links
 
 check-links-all: html ## check all links including external ones
 	linkchecker --config build/linkcheckerrc $$(cat chapters-html.txt | tr "\n" " ") --check-extern --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0" | tee linkchecker-all.txt
+
+check-programs: ## check the book's main programs still start up and print --help (doesn't run them)
+	@build/check-programs
 
 clean: ## remove build files
 	find . -name "*html" -exec rm {} \;
