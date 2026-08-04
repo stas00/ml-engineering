@@ -13,8 +13,6 @@ https://github.com/stas00/ml-engineering/tree/master/network/benchmarks#all_redu
 
 Small things left open at the end of the 2026-08-02 session. The two items above plus [suggestion 39](build/consistency-review-2026-07-27.md) and [suggestion 11](build/update-suggestions-2026-07-27.md) are the substantive ones; these are the loose ends.
 
-- verify `fi_pingpong`. The new [Measuring the inter-node fabric on its own](https://github.com/stas00/ml-engineering/blob/master/network/README.md#measuring-the-inter-node-fabric-on-its-own) section names it as the substitute for fabrics that use their own userspace stack rather than verbs, but no man page was ever opened and no flags are given. Either document a concrete invocation or drop the mention.
-
 - run `ib_write_bw -c SRD` on EFA once. The same section says RDMA-write-over-SRD was contributed to `perftest` by AWS and that the EFA path is unconfirmed. One test on any two EFA instances resolves it, after which the "unconfirmed here" footnote can go.
 
 - reconcile the `perftest` stab. [stabs/incoming.md](stabs/incoming.md) still lists `perftest`/`ib_write_bw` as unwritten material, but the new section now covers part of it. Either fold the rest in or trim the stab.

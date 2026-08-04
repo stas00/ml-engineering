@@ -7,6 +7,7 @@ Often you don't need to be a network engineer to figure out networking issues. S
 ## Glossary
 
 - Bonding: using multiple NICs together for faster speed or as a back up
+- HCA: Host Channel Adapter - InfiniBand's term for a network adapter
 - IB: InfiniBand (Originally by Mellanox, acquired by NVIDIA)
 - NIC: Network Interface Card
 - OOB: Out-of-Band (typically a slower ethernet NIC)
@@ -329,6 +330,21 @@ find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
 NCCL_DEBUG_SUBSYS=INIT,GRAPH,ENV,TUNING
 ```
 
+
+
+### `NCCL_IB_HCA`
+
+When the collectives run over IB Verbs rather than sockets, this is the variable that selects which adapters they use - the RDMA counterpart to [`NCCL_SOCKET_IFNAME`](#nccl_socket_ifname). Run `ibv_devinfo` to see what the node has.
+
+There are three forms:
+
+```bash
+export NCCL_IB_HCA=mlx5                # every port of every card whose name starts with mlx5
+export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1  # exactly port 1 of mlx5_0 and of mlx5_1
+export NCCL_IB_HCA=^=mlx5_1,mlx5_4     # everything except mlx5_1 and mlx5_4
+```
+
+A worked example of using the exclusion form to route around a single problem adapter is in [How to diagnose NCCL multi-gpu and multi-node connectivity issues](#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues). The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
 
 ### `NCCL_P2P_DISABLE`
