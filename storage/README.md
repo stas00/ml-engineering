@@ -383,7 +383,7 @@ Besides properly designed performance benchmarks which give you some numbers tha
 
 So with file system the questions are very simple - does it feel that it takes too long to install or launch a program? Since a lot of us live in the Python world, python is known to have thousands of tiny files which are usually installed into a virtual environment, with [conda](https://www.anaconda.com/download) being the choice of many as of this writing.
 
-In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch'` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
+In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch"` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
 
 So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
 
@@ -500,7 +500,7 @@ git clone https://github.com/pytorch/pytorch
 cd pytorch
 time git status
 ```
-and it was taking 3.7secs on this slow file system and needed to be fixed (it was taking 0.02 secs on a local SSD). The good thing this actual perception benchmark was easy to pass to a sysadmin and them reproducing the problem instantly and then working on fixing it, while re-using this benchmark as a reference.
+and it was taking 3.7 secs on this slow file system and needed to be fixed (it was taking 0.02 secs on a local SSD). The good thing this actual perception benchmark was easy to pass to a sysadmin and them reproducing the problem instantly and then working on fixing it, while re-using this benchmark as a reference.
 
 Yet, another time I noticed, `pytest` was taking forever to start, so I measured its collection and it indeed was very slow:
 
@@ -807,19 +807,19 @@ If you want to exclude some sub-dirs efficiently:
 
 ```bash
 find /mypath/ -regextype posix-egrep \
--type d -regex "/mypath/(exlude_a|exclude_b|exclude_c)/.*" -prune -o \
+-type d -regex "/mypath/(exclude_a|exclude_b|exclude_c)/.*" -prune -o \
 -type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
 END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-hint: the second line tells `find` to skip folders matching the `/mypath/(exlude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
+hint: the second line tells `find` to skip folders matching the `/mypath/(exclude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
 
 
 ### How to automatically delete old checkpoints
 
-Continuing from above, here is how to automatically delete old checkpoints (e.g. those older than 30 days).
+Continuing from [finding the users whose checkpoints consume the most disk space](#how-to-find-users-whose-checkpoints-consume-a-lot-of-disk-space), here is how to automatically delete old checkpoints (e.g. those older than 30 days).
 
 First try to ensure the candidates are indeed good to delete:
 
