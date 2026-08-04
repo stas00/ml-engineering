@@ -184,13 +184,37 @@ Typically the more IO requests get buffered the bigger the latency will be, and 
 
 ### Direct vs Buffered IO
 
-**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in `open(2)` system call.
+**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
 
 The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
 
 When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
 
-In certain situation opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer typically helps to get the reader see the logged lines much sooner.
+In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. I have seen opening the log file with `O_DIRECT` by the writer get the reader to see the logged lines much sooner.
+
+And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
+
+- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
+- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
+- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
+
+For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
+
+Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
+```
+
+Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
+```
+
+Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
+
+`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
 
 
 ### Synchronous vs asynchronous IO
