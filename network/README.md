@@ -34,10 +34,13 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - HPC: High-performance Computing
 - IB: InfiniBand
 - IBTA: InfiniBand Trade Association
+- ICI: Inter-Chip Interconnect - Google's scale-up fabric between TPU chips
 - MFU: Model Flops Utilization (e.g. `mfu=0.5` at half-precision on A100 comes from getting 156TFLOPS, because peak half-precision spec is 312TFLOPS, and thus `156/312=0.5`)
 - NCCL: NVIDIA Collective Communications Library
 - NIC: Network Interface Card
 - NVL72: an NVLink domain of 72 accelerators; likewise NVL8 and NVL36
+- NVLS: NVLink [SHARP](#glossary-and-concepts) - the NCCL algorithm that reduces inside the NVSwitch
+- NVLSTree: a second NCCL algorithm using NVLink SHARP offload
 - OPA: Omni-Path Architecture
 - OPX: Omni-Path Express
 - OSFP: Octal Small Form Factor Pluggable (transceiver)
