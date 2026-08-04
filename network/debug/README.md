@@ -11,6 +11,7 @@ Often you don't need to be a network engineer to figure out networking issues. S
 - IB: InfiniBand (Originally by Mellanox, acquired by NVIDIA)
 - NIC: Network Interface Card
 - OOB: Out-of-Band (typically a slower ethernet NIC)
+- RDMA: Remote Direct Memory Access
 
 
 ## How to diagnose NCCL multi-gpu and multi-node connectivity issues
