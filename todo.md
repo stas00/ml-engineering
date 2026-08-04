@@ -2,10 +2,27 @@
 
 Also see [stabs](./stabs)
 
+Grouped by the hardware a task needs, since that is usually what blocks it. The `Parked networking items - 2026-08-02` group was dissolved into these sections on 2026-08-04.
+
+## No hardware needed
+
+- settle what `NVLSTree` actually does from the NCCL source (`src/graph/tuning.cc` for the selection logic, `src/device/` for the implementations). NCCL's [env var docs](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) say only that "NVLS and NVLSTree enable NVLink SHARP offload" and never state how the two differ in scope, so reading `NVLSTree` as "NVLS within the node, tree between nodes" is an inference from the name. That inference is load-bearing for [suggestion 39](build/consistency-review-2026-07-27.md), so it needs settling either way - the 2-node run below can confirm it empirically, but the source answers it for free.
+
+- reconcile the `perftest` stab. [stabs/incoming.md](stabs/incoming.md) still lists `perftest`/`ib_write_bw` as unwritten material, but the new section now covers part of it. Either fold the rest in or trim the stab. Partly addressed on 2026-08-04 - a pointer to [Measuring the inter-node fabric on its own](network/README.md#measuring-the-inter-node-fabric-on-its-own) was added above the list - so what remains is deciding whether `ib_write_bw` itself should come out of the list.
+
+- optional: give model 2 in the hierarchical-arithmetic list the same general-form treatment models 1 and 3 got. Its `2*(32-1)/32 * 4GiB` now reads through the shared `P`/`g`/`k`/`n` symbols defined just above it, so this is cosmetic.
+
+## 1 node, 8x accelerators
+
 - re-run all-reduce bench and update plot+table as the bench switched to KiB/MiB/etc.
 https://github.com/stas00/ml-engineering/tree/master/network/benchmarks#all_reduce-benchmark
+  Note this was impossible between 2025-12-08 and 2026-08-04: `all_reduce_bench.py` passed `formatter_class` to `parse_args()` and so raised a `TypeError` on every invocation, on every Python version. Now fixed, and an 8x H200 run is in hand - the full 32KiB-16GiB `busbw`/`algbw` table plus a generated plot - so what is left is choosing what to publish and where.
 
-- confirm which NCCL algorithm a multi-node `all-reduce` actually selects, because [suggestion 39](build/consistency-review-2026-07-27.md) is blocked on it. **This needs at least 2 nodes** - a single node has no inter-node traffic at all, so no amount of GPUs on one box can answer it. Two nodes is enough to identify the algorithm; reproducing the 73.9% table in [Inter-node speed depends on intra-node speed](https://github.com/stas00/ml-engineering/blob/master/network/README.md#inter-node-speed-depends-on-intra-node-speed) needs the original 4, since `(k-1)/(n-1)` is `3/31` at 4 nodes and `1/15` at 2. Using the multi-node recipe from [network/benchmarks/README.md](network/benchmarks/README.md), with debug logging added:
+- reference notes for any future attempt to force a collective onto the NIC path, which is harder than it looks: `NCCL_P2P_DISABLE=1` alone does not do it, because NCCL falls back P2P -> SHM -> network, so `NCCL_SHM_DISABLE=1` is needed as well, and even then libfabric's EFA provider serves intra-node traffic from the instance's shared memory unless `FI_EFA_ENABLE_SHM_TRANSFER=0`. Also confirm GPUDirect RDMA is actually active, since NCCL disables it when the accelerator-to-NIC distance exceeds its threshold and then stages through host RAM, and on a virtualized instance ACS cannot be turned off and redirects PCIe peer-to-peer traffic through the CPU root complex unless the adapter has ATS enabled - each of these changes what the measurement means.
+
+## 2 nodes
+
+- confirm which NCCL algorithm a multi-node `all-reduce` actually selects, because [suggestion 39](build/consistency-review-2026-07-27.md) is blocked on it. A single node has no inter-node traffic at all, so no amount of GPUs on one box can answer it. Two nodes is enough to identify the algorithm; reproducing the 73.9% table needs 4 - see the 4-node section. Using the multi-node recipe from [network/benchmarks/README.md](network/benchmarks/README.md), with debug logging added:
 
 ```bash
 GPUS_PER_NODE=8
@@ -25,18 +42,18 @@ python -u -m torch.distributed.run \
 
 then `grep -iE "algo|proto|nvls|tree|ring|collnet" nccl-algo.txt | sort -u`. If it reports `NVLS`/`NVLSTree`/`Tree` at large payloads, the hierarchical model is confirmed and the `Multiple node training` worked example needs revising; if it reports `Ring` across all ranks, then 381.80GBps `busbw` at 16GiB needs a different explanation, since a flat ring would put 7.75GiB across a single 50GBps NIC per node hop.
 
-  caveat on the interpretation, which matters as much as the run: NCCL's [env var docs](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html) say only that "NVLS and NVLSTree enable NVLink SHARP offload", and never state how the two differ in scope. So reading `NVLSTree` as "NVLS within the node, tree between nodes" - which is what the hierarchical model needs - is an inference from the name, not documented behaviour. Settle that from the NCCL source (`src/graph/tuning.cc` for the selection logic, `src/device/` for the implementations) rather than from the algorithm name, otherwise 39 gets closed on a sound measurement plus an unsourced assumption.
+  caveat on the interpretation, which matters as much as the run: the step from algorithm name to traffic pattern is exactly what NCCL does not document - see the `NVLSTree` item under `No hardware needed`. Otherwise 39 gets closed on a sound measurement plus an unsourced assumption.
 
-- measure PCIe's achievable-vs-spec bandwidth ratio - nobody seems to publish it. Run `all_reduce_bench.py` with `NCCL_P2P_DISABLE=1` on a node whose topology is known (`nvidia-smi topo -m`), which forces the collective over PCIe, and compare the `busbw` against the x16 spec figure in the [PCIe table](https://github.com/stas00/ml-engineering/blob/master/network/README.md#pcie). We know NVLink lands at ~80% of spec (300GBps spec -> 235GBps measured); the equivalent PCIe number is currently unknown, so the PCIe rows in the intra-node tables can only be labelled theoretical. Note that [disable-nvlink.md](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/results/disable-nvlink.md) does *not* answer this - it measures gpt2 training wall-clock (101s vs 131s), not bandwidth. Two refinements found on 2026-08-02: on EFA `NCCL_P2P_DISABLE=1` alone does not force the NIC path, because NCCL falls back P2P -> SHM -> network so `NCCL_SHM_DISABLE=1` is needed as well, and even then libfabric's EFA provider serves intra-node traffic from the instance's shared memory unless `FI_EFA_ENABLE_SHM_TRANSFER=0`. Also confirm GPUDirect RDMA is actually active, since NCCL disables it when the accelerator-to-NIC distance exceeds its threshold and then stages through host RAM, and on a virtualized instance ACS cannot be turned off and redirects PCIe peer-to-peer traffic through the CPU root complex unless the adapter has ATS enabled - each of these changes what the measurement means.
+- confirm `NVLSTree` is selected only when there is a node boundary to cross. On a single 8x H200 node on 2026-08-04 it appeared in NCCL's tuning table as a candidate and was chosen zero times, while `NVLS` was selected for every payload from 2MiB up and `RING` below that. Two nodes would show whether the "Tree" half is the inter-node layer.
 
-## Parked networking items - 2026-08-02
+- run `ib_write_bw -c SRD` on EFA once. The [Measuring the inter-node fabric on its own](network/README.md#measuring-the-inter-node-fabric-on-its-own) section says RDMA-write-over-SRD was contributed to `perftest` by AWS and that the EFA path is unconfirmed. One test on any two EFA instances resolves it, after which the "unconfirmed here" footnote can go. The `stas-dev-2` H200 nodes qualify - they expose 16 `rdmap*` devices, i.e. EFA - but `perftest` is not installed there and has to be built from source.
 
-Small things left open at the end of the 2026-08-02 session. The two items above plus [suggestion 39](build/consistency-review-2026-07-27.md) and [suggestion 11](build/update-suggestions-2026-07-27.md) are the substantive ones; these are the loose ends.
+- answer [aws-ofi-nccl#890](https://github.com/aws/aws-ofi-nccl/issues/890) ourselves rather than waiting: how many EFA devices the `aws-ofi-nccl` plugin assigns to a single rank. It has no upstream replies. A multi-node `NCCL_DEBUG=INFO` log reports the `NET/OFI` device assignment directly, so the 2-node run above should answer it as a side effect. It matters because it decides whether a one-rank-per-node run measures one NIC, several NICs, or the accelerator's PCIe link - which is why that approach was rejected for the chapter in favour of `ib_write_bw`.
 
-- run `ib_write_bw -c SRD` on EFA once. The same section says RDMA-write-over-SRD was contributed to `perftest` by AWS and that the EFA path is unconfirmed. One test on any two EFA instances resolves it, after which the "unconfirmed here" footnote can go.
+## 4 nodes
 
-- reconcile the `perftest` stab. [stabs/incoming.md](stabs/incoming.md) still lists `perftest`/`ib_write_bw` as unwritten material, but the new section now covers part of it. Either fold the rest in or trim the stab.
+- reproduce the `busbw` table in [Inter-node speed depends on intra-node speed](network/README.md#inter-node-speed-depends-on-intra-node-speed). The conversion is `(k-1)/(n-1)`, which is `3/31` = 9.7% at 4 nodes and `1/15` = 6.7% at 2, so the published 73.9% figures need the original 4 nodes. Two nodes identifies the algorithm but will not reproduce the numbers.
 
-- open question, not ours: how many EFA devices the `aws-ofi-nccl` plugin assigns to a single rank. [aws-ofi-nccl#890](https://github.com/aws/aws-ofi-nccl/issues/890) asks exactly this and has no replies. It matters because it decides whether a one-rank-per-node run measures one NIC, several NICs, or the accelerator's PCIe link - which is why that approach was rejected for the chapter in favour of `ib_write_bw`.
+## Specific hardware not currently to hand
 
-- optional: give model 2 in the hierarchical-arithmetic list the same general-form treatment models 1 and 3 got. Its `2*(32-1)/32 * 4GiB` now reads through the shared `P`/`g`/`k`/`n` symbols defined just above it, so this is cosmetic.
+- [suggestion 11](build/update-suggestions-2026-07-27.md): add the P6e-GB200 row, blocked on reading its per-NIC rate off a live instance.

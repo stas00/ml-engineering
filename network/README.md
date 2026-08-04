@@ -1129,19 +1129,21 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MiB the throughput is very low - and it starts saturating around payload size of 512MiB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on the same A100 node:
+Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on an 8x H200 node:
 
 ```bash
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
 
 ----------- 1x 4.0GB ----------------
- busbw: 1257.165 Gbps
+ busbw: 3722.778 Gbps
 
 ----------- 1000x 0.004GB ----------------
- busbw: 374.391 Gbps
+ busbw: 1146.127 Gbps
 ```
 
 It's easy to see that it's about 3x slower in this particular case to send the same payload but in 1000 smaller chunks.
+
+footnote: this benchmark does 3 warmup iterations before timing anything, and it has to. NCCL sets up its channels and buffers on the first collective of a given size, and on NVLink 4 and higher also registers the NVLS multicast group - all of which would otherwise be charged to the `1x` measurement, since that one runs first. Without the warmup the same 4GB payload measured 561Gbps instead of 3722Gbps on this node, which is not only 6x low but large enough to reverse the comparison and make 1000 small chunks look faster than one big one.
 
 So when you calculate how long does it take to `all_reduce` a given payload size, you need to use the corresponding `busbw` entry (after of course you have run this benchmark on your particular hardware/environment).
 
