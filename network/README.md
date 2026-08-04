@@ -82,6 +82,17 @@ If you measure the bandwidth on your setup and it's about 40% of the advertised 
 
 case study: for a while I couldn't understand why when I run the nccl-tests all_reduce benchmark on an A100 node with advertised 600GBps intra-node speed I was getting only 235GBps (40%) until Horace He kindly pointed out that I should be looking at unidirectional speed which is 300GBps, and then I get 80% of the theoretical spec which checks out.
 
+That ~80% expectation holds on newer hardware too. On a node of 8x H200 (NVLink 4, NVSwitch-connected) a pairwise copy measures 396.40GBps unidirectional against the 450GBps spec, or 88%, and 783.73GBps duplex against 900GBps, or 87% - so on this fabric running both directions at once costs almost nothing:
+
+```bash
+./nvbandwidth -i 10 -t device_to_device_memcpy_write_ce                # 396.40 GB/s per pair
+./nvbandwidth -i 10 -t device_to_device_bidirectional_memcpy_write_ce  # 783.73 GB/s per pair, total
+```
+
+footnote: the bidirectional testcase prints `Write1`, `Write2` and a combined `total` matrix - read the total rather than doubling one direction.
+
+A pairwise copy is the right instrument for this comparison because it moves bytes and nothing else. A *collective* on the same hardware can report more than the unidirectional spec, which is a different effect entirely - see [SHARP](#sharp).
+
 
 ## Cluster networks
 
@@ -851,6 +862,17 @@ To take advantage of this great feature:
 In the case of NVL36, NVL72 and others bigger than NVL8, the collective has to engage multiples of 8 gpus, because multi-cast groups are setup this way ([NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) and multi-cast is a requirement for NVLink SHARP to work. For more clarify to why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042). Also please note that GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200.
 
 The left side of the following slide shows a nice 30% speed up of `all-reduce` bandwidth from NVLink 4 non-SHARP (370GBps) to NVLink 4 SHARP (480GBps). I was able to match the results with a payload of about 8GiB. For `all-reduce` on NVL72 (right side) it shows a 25% improvement (`850/680`).
+
+To see it for yourself on your own node, run the same benchmark twice - `NCCL_NVLS_ENABLE=0` forces the ring path:
+
+```bash
+# SHARP (default)
+torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d all_reduce_bench.py
+# ring
+NCCL_NVLS_ENABLE=0 torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d all_reduce_bench.py
+```
+
+On 8x H200 with `nccl=2.27.7` that gives 482.26GBps against 367.61GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the following slide. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
 
 ![all-reduce bw](images/all-reduce-bw-2025.png)
 

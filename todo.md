@@ -12,7 +12,7 @@ GPUS_PER_NODE=8
 NNODES=2   # 4 to also reproduce the busbw table
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING \
-python -u -m torch.distributed.run \
+torchrun \
     --nproc_per_node $GPUS_PER_NODE \
     --nnodes $NNODES \
     --rdzv_endpoint $MASTER_ADDR:6000 \
