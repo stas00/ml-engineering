@@ -36,9 +36,13 @@ And it also creates a plot:
 
 ![all-reduce-bench-plot 4 nodes](images/all-reduce-bench-plot-4n.png)
 
-For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
+Here is the same benchmark on a single 8x H200 node (`torch=2.9.1+cu130`, `cuda=13.0`, `nccl=2.27.7`, 5 warmup and 20 trial iterations per payload, 47 seconds for the whole sweep):
 
-For a full worked example with the environment recorded alongside it, see [all-reduce on a single 8x H200 node](results/all-reduce-8xH200.md) - a 32KiB to 16GiB sweep whose top figure comes out above the wire spec, because NCCL engages [SHARP](../README.md#sharp) at large payloads.
+![all-reduce-bench-plot 8x H200](images/all-reduce-bench-plot-8xh200.png)
+
+Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the printed table than off the curve. That sweep tops out at 482.26GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
+
+For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
 
 This table should give a good sense for what scores you should expect for all-reduce collective on a well-tuned network (left is intra-node and right is inter-node):
 

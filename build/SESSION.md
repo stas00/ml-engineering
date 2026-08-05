@@ -105,8 +105,9 @@
 3. Use one flat numerical sequence. A number such as `2` must be sufficient; do not require prefixes such as `HIGH-02`.
 4. Make each suggestion independently actionable so suggestions can be applied in any order.
 5. When a suggestion is applied, remove it from the report.
-6. Never renumber the remaining suggestions after removing an applied item.
-7. Include a numerical correction plan ordered by practical priority.
+6. Renumber the remaining suggestions when a batch is removed, so that the highest number equals the count of open items and the size of the queue is visible at a glance. Do it as a deliberate pass, not incidentally: renumber the open items into a compact `1..N` sequence, record the renumbering date at the top of the file, note that numbers appearing in the historical sections are pre-renumbering identifiers, and update every external reference in the same pass - `todo.md` and the assistant's own memory notes both cite these numbers by value.
+7. The cost of renumbering is that a number stops being a durable identifier, so `do 39` in an old transcript no longer resolves. That is accepted deliberately in exchange for the count being legible; it is why the renumbering date and the historical-numbers note are not optional.
+8. Include a numerical correction plan ordered by practical priority.
 
 Use the newest `build/consistency-review-*.md` file in the current repository unless the user names a different report.
 
@@ -133,6 +134,15 @@ Use the newest `build/update-suggestions-*.md` file in the current repository un
 8. Claims about a *dependency's* capabilities or documentation rot fastest - much faster than hardware specs or arithmetic, which mostly stay put. Sweep for `you can't`, `there is no way to`, `not documented`, `not possible`, `they are working on`, and anything described as `new`. `new` rots fastest of all.
 9. Concrete failure, both in one paragraph of `network/benchmarks/README.md` on 2026-08-04. It stated that you cannot know which algorithm NCCL selected, citing a December 2022 NCCL answer, while `network/README.md` had just been updated to instruct readers to read exactly that from `NCCL_DEBUG_SUBSYS=INIT,TUNING` - the book contradicted itself in two files. The same paragraph called `NVLS` "not documented anywhere" and said the inter-node version was still being worked on, when `NVLS` and `NVLSTree` had been documented `NCCL_ALGO` values since NCCL 2.17 and 2.18. Neither sentence was wrong when written; both had quietly stopped being true.
 10. So when a chapter is edited because a dependency gained a feature, grep the neighbouring files for older statements about that same dependency. The new measurement is what reveals the old claim - nothing else will, because a stale "you can't" reads exactly like a true one.
+
+## Outdated references and dead artifacts
+
+1. Periodically sweep for content that has quietly aged out rather than become wrong. Two kinds: files nothing points at any more, and references to software or hardware so old that following them wastes the reader's time.
+2. Find orphaned files by checking whether each non-`README` file is named anywhere else in the repository. On 2026-08-05 that turned up `network/benchmarks/results/disable-nvlink.md`, reachable only from its own directory index and therefore effectively unreachable while reading. `trash/` is untracked scratch and `stabs/incoming.md` is deliberately unlinked - its README says to ignore the directory - so exclude both rather than reporting them every pass.
+3. Prefer inlining a result over parking it in a side file. The book is otherwise entirely inline, and the one exception had gone stale unnoticed; a side file also breaks reading flow and sets a precedent for scattering. `network/benchmarks/results/` was removed on 2026-08-05 for exactly this reason, its plot and environment stamp moved into the section that discusses them.
+4. Sweep for aged technology references with a term list: `TITAN`, `K80`, `P100`, `V100`, `pytorch-1.`, `torch==1.`, `cuda-10`, `cuda-11`, `python2`, and old pinned library versions. Most hits will be legitimate - a generations table needs its earlier generations, and a dated bug report with a linked issue is exactly how such things should be recorded.
+5. The ones to act on are those that send a reader somewhere useless. Concrete: `storage/README.md` explained a `fio-scan` failure as "you run it on a system with python2 installed by default", five years after Python 2 reached end of life, so the diagnosis pointed at a cause that no longer exists.
+6. Check the artifact before deleting the advice. In that same case the script really does call bare `python` rather than `python3`, and many current systems ship only `python3` - so the failure mode is live and only its stated cause was obsolete. The note was trimmed to the current diagnosis rather than removed, which the sweep would have gotten wrong had the script not been read.
 
 ## Sources and citations
 

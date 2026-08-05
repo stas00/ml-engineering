@@ -397,7 +397,9 @@ used=total-free; print(f'pt={torch.__version__}: {used=:0.2f}GiB, {free=:0.2f}Gi
 pt=1.13.1: used=0.90GiB, free=78.31GiB, total=79.21GiB
 ```
 
-The older pytorch "wasted" 1.78GiB of A100, the newer only 0.9GiB, thus saving a whooping 0.9GiB, which can be the saving grace for the OOM situations.
+The older pytorch "wasted" 1.78GiB of an A100 where the newer used only 0.9GiB - and 0.9GiB recovered can be the saving grace in an OOM situation.
+
+Do not read that as a one-way trend, though. This overhead is a side effect of how a given pytorch and CUDA version happen to package and load their kernels, so it moves in both directions between releases: it nearly halved from `1.10.2` to `1.13.1`, then edged back up slightly by `2.1.1` below. The figures here are from 2022-2023 and are kept because they show how wide the swing can be - close to a gigabyte on the same GPU purely from a version change. Treat them as an illustration of the effect rather than as numbers to plan against, and run the one-liner above on your own combination of GPU, pytorch and CUDA to get the figure that actually applies to you.
 
 `CUDA_MODULE_LOADING=EAGER` is needed in the recent pytorch version if we want to force cuda kernels pre-loading, which are otherwise lazy-loaded on demand. But do not use this setting in production since it's likely to use more memory than needed. The whole point of lazy-loading is to load only the kernels that are needed.
 

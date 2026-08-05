@@ -10,13 +10,13 @@ Grouped by the hardware a task needs, since that is usually what blocks it. The 
 
 ## 1 node, 8x accelerators
 
-- refresh the illustrative `busbw` table in [network/benchmarks/README.md](network/benchmarks/README.md) under `### all_reduce benchmark`, whose top figure is 91.69GBps from an earlier cluster. Left alone on 2026-08-04 because it does illustrate the output format correctly and the 4-node plot beside it matches - so this is a "is a current example better than an old one" call, not a correctness fix. A current 8x H200 sweep is published at [results/all-reduce-8xH200.md](network/benchmarks/results/all-reduce-8xH200.md) if you want to swap it in.
+- refresh the illustrative `busbw` table in [network/benchmarks/README.md](network/benchmarks/README.md) under `### all_reduce benchmark`, whose top figure is 91.69GBps from an earlier cluster. Left alone on 2026-08-04 because it does illustrate the output format correctly and the 4-node plot beside it matches - so this is a "is a current example better than an old one" call, not a correctness fix. A current 8x H200 plot and its environment now sit directly beneath it if you want to swap the table too.
 
 - reference notes for any future attempt to force a collective onto the NIC path, which is harder than it looks: `NCCL_P2P_DISABLE=1` alone does not do it, because NCCL falls back P2P -> SHM -> network, so `NCCL_SHM_DISABLE=1` is needed as well, and even then libfabric's EFA provider serves intra-node traffic from the instance's shared memory unless `FI_EFA_ENABLE_SHM_TRANSFER=0`. Also confirm GPUDirect RDMA is actually active, since NCCL disables it when the accelerator-to-NIC distance exceeds its threshold and then stages through host RAM, and on a virtualized instance ACS cannot be turned off and redirects PCIe peer-to-peer traffic through the CPU root complex unless the adapter has ATS enabled - each of these changes what the measurement means.
 
 ## 2 nodes
 
-- confirm which NCCL algorithm a multi-node `all-reduce` actually selects, because [suggestion 39](build/consistency-review-2026-07-27.md) is blocked on it. A single node has no inter-node traffic at all, so no amount of GPUs on one box can answer it. Two nodes is enough to identify the algorithm; reproducing the 73.9% table needs 4 - see the 4-node section. Using the multi-node recipe from [network/benchmarks/README.md](network/benchmarks/README.md), with debug logging added:
+- confirm which NCCL algorithm a multi-node `all-reduce` actually selects, because [suggestion 1](build/consistency-review-2026-07-27.md) is blocked on it. A single node has no inter-node traffic at all, so no amount of GPUs on one box can answer it. Two nodes is enough to identify the algorithm; reproducing the 73.9% table needs 4 - see the 4-node section. Using the multi-node recipe from [network/benchmarks/README.md](network/benchmarks/README.md), with debug logging added:
 
 ```bash
 GPUS_PER_NODE=8
@@ -52,4 +52,4 @@ then `grep -iE "algo|proto|nvls|tree|ring|collnet" nccl-algo.txt | sort -u`. If 
 
 - validate the SHARP/multicast granularity on an NVL36 or NVL72 system. [The SHARP section](network/README.md#sharp) now says the granularity there is *likely* 4 GPUs rather than 8, on the grounds that a compute tray is 2 GB200 modules = 4 GPUs and that the [partition guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) sizes partitions in fours and says partitions of `<=4` GPUs get no multicast benefit. What is actually measured is the 8x H200 HGX case: `NVLS` is not selected at 4 GPUs and the gain ramps 1.14x -> 1.29x from 5 to 8. Run the same `all_reduce_perf -g N` sweep with and without `NCCL_NVLS_ENABLE=0` on NVL hardware and the claim either firms up or gets corrected.
 
-- [suggestion 11](build/update-suggestions-2026-07-27.md): add the P6e-GB200 row, blocked on reading its per-NIC rate off a live instance.
+- [suggestion 3](build/update-suggestions-2026-07-27.md): add the P6e-GB200 row, blocked on reading its per-NIC rate off a live instance.

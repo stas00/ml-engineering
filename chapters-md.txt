@@ -20,8 +20,6 @@ network/README.md
 network/comms.md
 network/debug/README.md
 network/benchmarks/README.md
-network/benchmarks/results/README.md
-network/benchmarks/results/disable-nvlink.md
 
 orchestration/README.md
 orchestration/slurm/README.md
