@@ -38,6 +38,8 @@ And it also creates a plot:
 
 For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
 
+For a full worked example with the environment recorded alongside it, see [all-reduce on a single 8x H200 node](results/all-reduce-8xH200.md) - a 32KiB to 16GiB sweep whose top figure comes out above the wire spec, because NCCL engages [SHARP](../README.md#sharp) at large payloads.
+
 This table should give a good sense for what scores you should expect for all-reduce collective on a well-tuned network (left is intra-node and right is inter-node):
 
 ![all-reduce multi node bandwidth](images/all-reduce-multi-node-bandwidth.png)

@@ -185,7 +185,7 @@ For NVIDIA BF16 operations are performed by Tensor cores.
 
 | Accelerator | Boost Clock | FMAs ops per Tensor Core per clock cycle | Tensor Cores | Spec TFLOPS |
 | :---------  | ---------:  | ---------------------------------------: | -----------: | ----------: |
-| H100 SXM    | 1980Mhz     |                                      512 |          528 |         989 |
+| H100 SXM    | 1980MHz     |                                      512 |          528 |         989 |
 | A100 SXM    | 1410MHz     |                                      256 |          432 |         312 |
 
 Now let's do the math, by inserting the numbers from the table above into the last FMA-based formula:
@@ -193,13 +193,13 @@ Now let's do the math, by inserting the numbers from the table above into the la
 - `1980*10**6 * 512 * 2 * 528 / 10**12 = 1070.530` TFLOPS
 - `1410*10**6 * 256 * 2 * 432 / 10**12 = 311.87` TFLOPS
 
-The calculated A100 SXM TFLOPS number matches the published 312TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830Mhz as the actual boost clock speed of H100 SXM.
+The calculated A100 SXM TFLOPS number matches the published 312TFLOPS, but H100 SXM is slightly off (some 80 points higher than the spec) - most likely when its theoretical specs were calculated a lower boost clock speed was used. We can reverse engineer what it was using the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Indeed some Internet articles publish 1830MHz as the actual boost clock speed of H100 SXM.
 
 **For AMD @ BF16**:
 
 | Accelerator | Boost Clock | FMAs ops per Tensor Core per clock cycle | Tensor Cores | Spec TFLOPS |
 | :---------  | ---------:  |   -------------------------------------: |  ----------: | ----------: |
-| MI300X      | 2100Mhz     |                                      256 |         1216 |        1307 |
+| MI300X      | 2100MHz     |                                      256 |         1216 |        1307 |
 
 Let's calculate ourselves as before:
 
@@ -211,14 +211,14 @@ Intel Gaudi uses MMEs to do BF16 `matmul`
 
 | Accelerator | Boost Clock | FMAs ops per MME per clock cycle | MMEs  | Spec TFLOPS |
 | :---------  | ---------:  | -------------------------------: | ----: | ----------: |
-| Gaudi 2     | 1650Mhz     | 256*256                          | 2     | 432         |
-| Gaudi 3     | 1600Mhz     | 256*256                          | 8     | 1677        |
+| Gaudi 2     | 1650MHz     | 256*256                          | 2     | 432         |
+| Gaudi 3     | 1600MHz     | 256*256                          | 8     | 1677        |
 |             |             |                                  |       |             |
 
 Let's calculate ourselves as before:
 
 - Gaudi 2: `1650*10**6 * 256*256 * 2 * 2 / 10**12 = 432.5` TFLOPS - matches the published spec
-- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't match the published spec in the whitepaper (1835TFLOPS), because in order to have 1835TFLOPS the clock has to be 1750Mhz. i.e. the current incarnation of Gaudi3 is running at 1600Mhz.
+- Gaudi 3: `1600*10**6 * 256*256 * 2 * 8 / 10**12 = 1677` TFLOPS - note that this doesn't match the published spec in the whitepaper (1835TFLOPS), because in order to have 1835TFLOPS the clock has to be 1750MHz. i.e. the current incarnation of Gaudi3 is running at 1600MHz.
 
 It should become obvious now that if your accelerator runs at a lower boost clock than the spec (e.g. overheating that leads to accelerator throttling) the expected TFLOPS will be lower than advertised.
 
@@ -277,7 +277,7 @@ Row-specific notes:
 
 7. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute).
 
-8. Gaudi3 as of this writing is running at 1600Mhz (MME) and not the planned 1750Mhz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
+8. Gaudi3 as of this writing is running at 1600MHz (MME) and not the planned 1750MHz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 
 9. Trainium2 also supports FP8/FP16/BF16/TF32 @ 2563TFLOPS w/ 4:1 sparsity
 
@@ -318,7 +318,7 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | :--------------- | -----: | -----: | ---------: | :--------------- | :----------------------------- | :--------------------------------- |
 | Intel Gaudi 2    |  418.7 |    432 |      96.9% | 14336x15360x2048 | 2.6.0+hpu_1.21.2-76.gitabf798b | PT_HPU_LAZY_MODE=1                 |
 | NVIDIA A100 SXM  |  271.2 |    312 |      86.9% |  1024x10240x5120 | 2.6.0+cu126                    |                                    |
-| NVIDIA GH200 SXM |  828.6 |    989 |      83.6% |  1024x15360x4096 | 2.6.0+cu126                    | 900W 141GiB HBM3e version          |
+| NVIDIA GH200 SXM |  828.6 |    989 |      83.8% |  1024x15360x4096 | 2.6.0+cu126                    | 900W 141GiB HBM3e version          |
 | NVIDIA A100 PCIe |  252.9 |    312 |      81.1% |   2048x5120x6144 | 2.5.1+cu124                    |                                    |
 | NVIDIA H100 SXM  |  794.5 |    989 |      80.3% |  2048x2048x13312 | 2.7.0+cu126                    | H200 is the same                   |
 | NVIDIA B300 SXM  | 1769.0 |   2250 |      78.6% | 12288x18432x1024 | 2.9.1+cu130                    | same as B200, newer torch/cuda     |
@@ -964,7 +964,7 @@ Useful integrations:
 
 It's very difficult to compare specs of different offerings since marketing tricks get deployed pretty much by all competitors so that one can't compare 2 sets of specs and know the actual difference.
 
-- [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [training v3.0](https://mlcommons.org/en/training-normal-30/) and [inference v3.1](https://mlcommons.org/en/inference-datacenter-31/) results.
+- [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. The round numbers advance a few times a year, so head to the suite pages rather than a pinned version - [training](https://mlcommons.org/benchmarks/training/) and [inference: datacenter](https://mlcommons.org/benchmarks/inference-datacenter/) each show the latest results.
 
    Except I have no idea how to make use of it - it's close to impossible to make sense of or control the view. This is a great intention lost in over-engineering and not thinking about how the user will benefit from it, IMHO. For example, I don't care about CV data, I only want to quickly see the LLM rows, but I can't do it. And then the comparisons are still not apples to apples so how can you possibly make sense of which hardware is better I don't know.
 

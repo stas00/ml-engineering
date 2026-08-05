@@ -1352,7 +1352,7 @@ footnote: mind the bases when doing this yourself - the benchmark prints `1GiB =
 
 1. the naive inter-node model - the whole payload has to cross one accelerator's NIC: `P / 50GBps` = `4GiB / 50GBps` = 85.9ms. That is 3.9x more than measured, and it is the arithmetic to avoid.
 
-2. a flat ring across all `n` ranks - each link carries `2*(n-1)/n * P` = `2*(32-1)/32 * 4GiB` = 7.75GiB. A ring laid out over `k` nodes crosses a node boundary `k` = 4 times, and each of those hops is a single accelerator's NIC, so `7.75GiB / 50GBps` = 166.4ms. That is 7.5x more than measured, so NCCL is not doing this either.
+2. a flat ring across all `n` ranks - each link carries `2*(n-1)/n * P` = `2*(32-1)/32 * 4GiB` = 7.75GiB. A ring laid out over `k` nodes crosses a node boundary `k` = 4 times, and each of those hops is a single accelerator's NIC. Those links all carry their share concurrently, so it is the slowest of them that sets the time rather than `k` of them adding up: `2*(n-1)/n * P / 50GBps` = `7.75GiB / 50GBps` = 166.4ms. That is 7.5x more than measured, so NCCL is not doing this either.
 
 3. the hierarchical model - what actually happens. Each phase moves its own collective's correction factor times the payload that phase operates on:
 

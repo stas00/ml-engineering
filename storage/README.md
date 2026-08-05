@@ -521,7 +521,7 @@ For a more rigorous, reproducible benchmark of a shared/parallel file system tha
 
 Here are some published IO benchmarks:
 
-- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/benchmarks/storage/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
+- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. The [storage results](https://mlcommons.org/benchmarks/storage/) are the relevant ones here - that page always shows the current round, which advances a few times a year. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
 
 
 

@@ -9,6 +9,8 @@ Stas Bekman - Machine Learning Engineering.epub
 
 trash
 
+.codex-run-state
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

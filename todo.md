@@ -6,15 +6,11 @@ Grouped by the hardware a task needs, since that is usually what blocks it. The 
 
 ## No hardware needed
 
-- reconcile the `perftest` stab. [stabs/incoming.md](stabs/incoming.md) still lists `perftest`/`ib_write_bw` as unwritten material, but the new section now covers part of it. Either fold the rest in or trim the stab. Partly addressed on 2026-08-04 - a pointer to [Measuring the inter-node fabric on its own](network/README.md#measuring-the-inter-node-fabric-on-its-own) was added above the list - so what remains is deciding whether `ib_write_bw` itself should come out of the list.
-
 - optional: give model 2 in the hierarchical-arithmetic list the same general-form treatment models 1 and 3 got. Its `2*(32-1)/32 * 4GiB` now reads through the shared `P`/`g`/`k`/`n` symbols defined just above it, so this is cosmetic.
 
 ## 1 node, 8x accelerators
 
-- re-run all-reduce bench and update plot+table as the bench switched to KiB/MiB/etc.
-https://github.com/stas00/ml-engineering/tree/master/network/benchmarks#all_reduce-benchmark
-  Note this was impossible between 2025-12-08 and 2026-08-04: `all_reduce_bench.py` passed `formatter_class` to `parse_args()` and so raised a `TypeError` on every invocation, on every Python version. Now fixed, and an 8x H200 run is in hand - the full 32KiB-16GiB `busbw`/`algbw` table plus a generated plot - so what is left is choosing what to publish and where.
+- refresh the illustrative `busbw` table in [network/benchmarks/README.md](network/benchmarks/README.md) under `### all_reduce benchmark`, whose top figure is 91.69GBps from an earlier cluster. Left alone on 2026-08-04 because it does illustrate the output format correctly and the 4-node plot beside it matches - so this is a "is a current example better than an old one" call, not a correctness fix. A current 8x H200 sweep is published at [results/all-reduce-8xH200.md](network/benchmarks/results/all-reduce-8xH200.md) if you want to swap it in.
 
 - reference notes for any future attempt to force a collective onto the NIC path, which is harder than it looks: `NCCL_P2P_DISABLE=1` alone does not do it, because NCCL falls back P2P -> SHM -> network, so `NCCL_SHM_DISABLE=1` is needed as well, and even then libfabric's EFA provider serves intra-node traffic from the instance's shared memory unless `FI_EFA_ENABLE_SHM_TRANSFER=0`. Also confirm GPUDirect RDMA is actually active, since NCCL disables it when the accelerator-to-NIC distance exceeds its threshold and then stages through host RAM, and on a virtualized instance ACS cannot be turned off and redirects PCIe peer-to-peer traffic through the CPU root complex unless the adapter has ATS enabled - each of these changes what the measurement means.
 

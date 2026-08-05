@@ -173,12 +173,10 @@ Print driver configuration (interface name comes from `ifconfig`):
 
 ### Performance
 
-note: `ib_write_bw` is already covered in [Measuring the inter-node fabric on its own](../network/README.md#measuring-the-inter-node-fabric-on-its-own) - what's left here is the rest of the family.
-
 `perftest` Package includes:
 - `ib_send_bw`
 - `ib_send_lat`
-- `ib_write_bw`
+- `ib_write_bw` - done: [Measuring the inter-node fabric on its own](../network/README.md#measuring-the-inter-node-fabric-on-its-own)
 - `ib_write_lat`
 - `ib_read_bw`
 - `ib_read_lat`
