@@ -40,7 +40,7 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - NIC: Network Interface Card
 - NVL72: an NVLink domain of 72 accelerators; likewise NVL8 and NVL36
 - NVLS: NVLink [SHARP](#glossary-and-concepts) - the NCCL algorithm that reduces inside the NVSwitch
-- NVLSTree: a second NCCL algorithm using NVLink SHARP offload
+- NVLSTree: the NCCL algorithm that combines `NVLS` inside each node with a tree across nodes; multi-node only
 - OPA: Omni-Path Architecture
 - OPX: Omni-Path Express
 - OSFP: Octal Small Form Factor Pluggable (transceiver)
@@ -943,7 +943,7 @@ which means that the GPU just needs to do many matmuls and it'd do it amazingly 
 
 The previous situation was fantastic due to the close to perfect MFU, but you realize that the training on a single GPU is going to take quite some time, since we are in AI race you'd probably want to finish the training sooner than later. So you'd ask - can I train the model on 8 GPUs instead, and the answer would be - yes, of course. With one caveat - at the end of each iteration you'd need to sync the gradients between the 8 processes (each process for a single GPU), so that each participating process of the training can benefit from what the other 7 have learned during the last iteration.
 
-footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment.
+footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDIA GPU-based compute nodes these days have 8 GPUs so why not get the best return on investment. On NVLink 4 and higher there is a performance reason as well: an `all-reduce` over 4 or fewer accelerators loses [SHARP](#sharp) altogether, and 5 to 7 accelerators get only part of its benefit.
 
 footnote: In the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's what one would expect - the same $$ spent, but finishing 8x faster. But because of data synchronization requirements, this is not the case.
 
