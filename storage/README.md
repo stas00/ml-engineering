@@ -330,7 +330,7 @@ Adapt `path_to_test` to point to the partition path you want to benchmark.
 
 note: `fio-scan` calls `python ./fio-json-extract.py`, so if it fails check what `python` resolves to - on many systems only `python3` exists. Edit `fio-scan` to point at the right interpreter.
 
-Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](benchmarks/results/hope-2023-12-20-14-37-02-331702-summary.md)):
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive, run on 2023-12-20 against a `/mnt/nvme0` partition:
 
 * filesize=16k read
 

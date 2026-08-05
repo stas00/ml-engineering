@@ -1,6 +1,6 @@
 # usage: make help
 
-.PHONY: help spell prep-html-files html html-local pdf epub upload fix-tables check-links-local check-links-all check-programs clean
+.PHONY: help spell prep-html-files html html-local pdf epub upload fix-tables check-links-local check-links-all check-links-local-fast check-programs clean
 .DEFAULT_GOAL := help
 
 help: ## this help
@@ -55,6 +55,9 @@ check-links-all: html ## check all links including external ones
 
 check-programs: ## check the book's main programs still start up and print --help (doesn't run them)
 	@build/check-programs
+
+check-links-local-fast: ## scan local links+anchors without building html (no markdown_it needed)
+	@python build/check-links.py
 
 clean: ## remove build files
 	find . -name "*html" -exec rm {} \;
