@@ -56,4 +56,6 @@ then `grep -iE "algo|proto|nvls|tree|ring|collnet" nccl-algo.txt | sort -u`. If 
 
 ## Specific hardware not currently to hand
 
+- validate the SHARP/multicast granularity on an NVL36 or NVL72 system. [The SHARP section](network/README.md#sharp) now says the granularity there is *likely* 4 GPUs rather than 8, on the grounds that a compute tray is 2 GB200 modules = 4 GPUs and that the [partition guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) sizes partitions in fours and says partitions of `<=4` GPUs get no multicast benefit. What is actually measured is the 8x H200 HGX case: `NVLS` is not selected at 4 GPUs and the gain ramps 1.14x -> 1.29x from 5 to 8. Run the same `all_reduce_perf -g N` sweep with and without `NCCL_NVLS_ENABLE=0` on NVL hardware and the claim either firms up or gets corrected.
+
 - [suggestion 11](build/update-suggestions-2026-07-27.md): add the P6e-GB200 row, blocked on reading its per-NIC rate off a live instance.

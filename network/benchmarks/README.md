@@ -58,6 +58,46 @@ To check the stability of all-reduce over time, rather than averaging the result
 
 [all_reduce_latency_comp.py](all_reduce_latency_comp.py) - exemplifies how 1x 4GB reduction is much faster than 1000x 4MB reductions.
 
+### nccl-tests
+
+[NVIDIA/nccl-tests](https://github.com/NVIDIA/nccl-tests) benchmarks collectives - `all-reduce`, `all-gather`, `reduce-scatter` and the rest. It reports the same `busbw`/`algbw` columns as [all_reduce_bench.py](all_reduce_bench.py) and the two agree closely, but it covers every collective rather than just `all-reduce`.
+
+`MPI=0` is fine for a single node, and `NCCL_HOME` points at whichever NCCL you want to test - the one bundled with PyTorch being the convenient choice, since that is what your training will actually use:
+
+```bash
+git clone https://github.com/NVIDIA/nccl-tests
+cd nccl-tests
+make -j MPI=0 NCCL_HOME=$(python -c "import torch, os; print(os.path.dirname(torch.__file__) + '/lib')")
+```
+
+That puts one binary per collective under `build/` - `all_reduce_perf`, `all_gather_perf`, `reduce_scatter_perf`, `alltoall_perf` and others. If they fail to find `libnccl` at run time, add the same directory to `LD_LIBRARY_PATH`. Add `-z 1` for a blocking run, which matches how `all_reduce_bench.py` measures.
+
+### nvbandwidth
+
+[NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth) measures point-to-point bandwidth between hosts and accelerators - the closest thing to a direct reading of a single link, as opposed to a collective's aggregate:
+
+```bash
+git clone https://github.com/NVIDIA/nvbandwidth
+cd nvbandwidth
+cmake . && make
+```
+
+Run it with no arguments for the full sweep, `./nvbandwidth -l` to list the testcases, or `-t <testcase>` to run just one. `-i N` raises the iteration count from its default of 3.
+
+note: `host_to_device_memcpy_ce` measures whatever the host-to-device path happens to be on that platform - PCIe on an x86 host with PCIe-attached accelerators, NVLink-C2C on a Grace-Blackwell system. Same command, an order of magnitude apart, so read the number against the fabric the machine actually uses.
+
+### p2pBandwidthLatencyTest
+
+[p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/cpp/5_Domain_Specific/p2pBandwidthLatencyTest) from CUDA samples is a low-level accelerator-to-accelerator benchmark:
+
+```bash
+git clone https://github.com/NVIDIA/cuda-samples/
+cd cuda-samples/cpp/5_Domain_Specific/p2pBandwidthLatencyTest
+nvcc -o p2pBandwidthLatencyTest p2pBandwidthLatencyTest.cu -I ../../../Common
+```
+
+note: this repository reorganized its layout - the samples used to live under `Samples/` and are now under `cpp/`. If the `cd` fails, `find . -name p2pBandwidthLatencyTest.cu` will locate it. `Common` is still at the repository root, so the `-I` path is unchanged.
+
 
 
 

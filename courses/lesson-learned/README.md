@@ -91,7 +91,8 @@ You can take it as a self-guided course, or teach it to others yourself!
   - On an H100 node, an intra-node NVLink 4.0 all-reduce reported 480GBps for a 4GiB payload - even though the unidirectional spec is "only" 450GBps.
   - **The explanation:** NVIDIA's SHARP protocol lets NCCL perform the reduction directly on network switch hardware. Once NCCL detects InfiniBand/NVSwitch SHARP support, it switches to the `NVLS` algorithm, which needs only `N+1` sends instead of the usual `2N`.
   - This also means the standard `busbw` calculation (which assumes the `2N` model) under-reports true efficiency once `NVLS`/SHARP kicks in - a number that looks "too good" is a smarter algorithm at work, not an instrumentation error.
-  - You get the SHARP speedup automatically as long as a collective engages all 8 GPUs on the node (or a full multiple-of-8 group on NVL36/NVL72) and `NCCL_NVLS_ENABLE` isn't disabled.
+  - The speedup needs more than 4 GPUs in the collective, and `NCCL_NVLS_ENABLE` env var not disabled.
+  - SHARP applies to `all-reduce` only. A full-node `all-gather` or `reduce-scatter` runs the ring path and lands at the ordinary ~80% of the unidirectional spec.
 
   📖 [SHARP](../../network/README.md#sharp)
 

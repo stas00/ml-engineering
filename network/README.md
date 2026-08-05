@@ -82,7 +82,7 @@ If you measure the bandwidth on your setup and it's about 40% of the advertised 
 
 case study: for a while I couldn't understand why when I run the nccl-tests all_reduce benchmark on an A100 node with advertised 600GBps intra-node speed I was getting only 235GBps (40%) until Horace He kindly pointed out that I should be looking at unidirectional speed which is 300GBps, and then I get 80% of the theoretical spec which checks out.
 
-That ~80% expectation holds on newer hardware too. On a node of 8x H200 (NVLink 4, NVSwitch-connected) a pairwise copy measures 396.40GBps unidirectional against the 450GBps spec, or 88%, and 783.73GBps duplex against 900GBps, or 87% - so on this fabric running both directions at once costs almost nothing:
+That ~80% expectation holds on newer hardware too. On a node of 8x H200 (NVLink 4, NVSwitch-connected) a pairwise copy measures 396.40GBps unidirectional against the 450GBps spec, or 88%, and 783.73GBps duplex against 900GBps, or 87% - so on this fabric running both directions at once costs almost nothing, measured with [nvbandwidth](benchmarks/README.md#nvbandwidth):
 
 ```bash
 ./nvbandwidth -i 10 -t device_to_device_memcpy_write_ce                # 396.40 GB/s per pair
@@ -251,7 +251,7 @@ To reproduce, first confirm the generation and width, since the 63GBps figure on
 nvidia-smi --query-gpu=index,pcie.link.gen.current,pcie.link.width.current --format=csv
 ```
 
-then, with `nvbandwidth` built as shown under [NVLink-C2C](#nvlink-c2c):
+then, with [nvbandwidth](benchmarks/README.md#nvbandwidth):
 
 ```bash
 ./nvbandwidth -i 10 -t host_to_device_memcpy_ce
@@ -390,15 +390,7 @@ request: I'm looking for an official spec if you find one please let me know.
 
 Next, it's important to understand that these speeds are of a standalone C2C technology and it can be much lower when integrated into the system, when bottlenecked by other components.
 
-On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using [nvbandwidth benchmark](https://github.com/NVIDIA/nvbandwidth), which builds in three commands:
-
-```bash
-git clone https://github.com/NVIDIA/nvbandwidth
-cd nvbandwidth
-cmake . && make
-```
-
-Run it with no arguments for the full sweep, `./nvbandwidth -l` to list the testcases, or `-t <testcase>` to run just one. `-i N` raises the iteration count from its default of 3.
+On DGX Station (comprised of half the GB300 module) I benchmarked ~80% unidirection and ~38% duplex efficiency vs theoretical bandwidth using the [nvbandwidth benchmark](benchmarks/README.md#nvbandwidth):
 
 ```bash
 $ ./nvbandwidth
@@ -856,12 +848,38 @@ The SHARP hardware, that is part of the NVSwitch or InfiniBand switches and also
 case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GiB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo, which engaged NVLink SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
 
 To take advantage of this great feature:
-- a comm collective has to use all 8 GPUs for it to activate. If you engage less than 8 you will get the normal NVLink speed.
+- the collective has to engage more than 4 GPUs - see the measurements below for how the gain scales with the number of GPUs.
 - ensure that the env var `NCCL_NVLS_ENABLE` is either unset or set to `1`.
 
-In the case of NVL36, NVL72 and others bigger than NVL8, the collective has to engage multiples of 8 gpus, because multi-cast groups are setup this way ([NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) and multi-cast is a requirement for NVLink SHARP to work. For more clarify to why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042). Also please note that GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200.
+Measured on an 8x H200 node at an 8GiB payload with `nccl-tests`, running each GPU count twice - once as-is and once with `NCCL_NVLS_ENABLE=0` to force the ring - so the last column isolates what SHARP is actually contributing:
+
+| GPUs | algo NCCL picks | busbw     | busbw, NVLS off | gain from SHARP |
+| ---: | :-------------- | --------: | --------------: | --------------: |
+|    4 | Ring            | 363.3GBps |       363.3GBps |           1.00x |
+|    5 | NVLS            | 414.2GBps |       364.4GBps |           1.14x |
+|    6 | NVLS            | 435.6GBps |       365.1GBps |           1.19x |
+|    7 | NVLS            | 460.0GBps |       365.7GBps |           1.26x |
+|    8 | NVLS            | 473.1GBps |       365.6GBps |           1.29x |
+
+So it isn't a cliff at 8 GPUs, it's a ramp that starts above 4. At 4 GPUs NCCL doesn't even select `NVLS`, and the ring number is identical either way - exactly 1.00x. From 5 GPUs up it selects `NVLS` and the gain grows with each accelerator added. Admittedly a 5- or 7-GPU collective is an odd thing to run, but it does mean a partial-node job gets a partial benefit rather than none.
+
+NVIDIA's own documentation draws the line in the same place, though it takes one step to see why: NVLink SHARP is implemented with multicast - the switch reduces and then fans the result back out to every participant - which is why NCCL's setup log for `NVLS` literally reads `Created Multicast group`. So a statement about multicast is a statement about SHARP, and the [GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) says that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same 4-GPU boundary the measurements above land on.
+
+footnote: the multicast group itself is created regardless - `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=NVLS` reports `NVLS Created Multicast group` at 4 GPUs just as it does at 8, along with the same 16 nvls channels. What changes above 4 GPUs is that NCCL starts *using* the `NVLS` algorithm. So "is a multicast group set up" and "is SHARP doing anything for you" are separate questions.
+
+footnote: don't confuse the GPU count with `multicastGroupsLimit`, which the same guide says "must be 0 or a multiple of 4". That one is the number of multicast *teams* reserved to a partition out of the 1,024 the system provides - a fabric-manager resource allocation, unrelated to how many GPUs your collective engages.
+
+In the case of NVL36, NVL72 and others bigger than NVL8 the granularity is likely 4 GPUs rather than 8, since a compute tray holds 2 GB200 modules and each module is 1 Grace CPU + 2 Blackwell GPUs. The [NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) points the same way: its partition sizing examples step in fours (72, 68 and 64 GPUs), and it states that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same threshold measured above on an 8-GPU node. Multi-cast is a requirement for NVLink SHARP to work; for more clarity on why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042).
+
+**This one needs validating on real NVL hardware.** The 4-GPU threshold above was measured on an 8x H200 HGX node, and the guide's statements concern fabric-level partitioning rather than which algorithm NCCL selects inside a partition - the two could diverge. So read the 4-GPU granularity as the likely case rather than an established one, until someone runs the sweep on an NVL36 or NVL72 system.
+
+Part of what makes this murky is that the GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200 - and reading that "4x" as a minimum partition size is an easy way to arrive at a granularity of 8 GPUs when the tray itself holds only 4.
 
 The left side of the following slide shows a nice 30% speed up of `all-reduce` bandwidth from NVLink 4 non-SHARP (370GBps) to NVLink 4 SHARP (480GBps). I was able to match the results with a payload of about 8GiB. For `all-reduce` on NVL72 (right side) it shows a 25% improvement (`850/680`).
+
+![all-reduce bw](images/all-reduce-bw-2025.png)
+
+[source](https://www.nvidia.com/en-us/on-demand/session/gtc25-s72583/)
 
 To see it for yourself on your own node, run the same benchmark twice - `NCCL_NVLS_ENABLE=0` forces the ring path:
 
@@ -872,11 +890,29 @@ torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d a
 NCCL_NVLS_ENABLE=0 torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d all_reduce_bench.py
 ```
 
-On 8x H200 with `nccl=2.27.7` that gives 482.26GBps against 367.61GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the following slide. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
+On 8x H200 with `nccl=2.27.7` that gives 482.26GBps against 367.61GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the slide above. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
 
-![all-reduce bw](images/all-reduce-bw-2025.png)
+The GPU count is only one of the two conditions. The other is the collective itself - `NVLS` implements `all-reduce` and nothing else. Measured on the same node at a 16GiB payload, all with 8 GPUs engaged:
 
-[source](https://www.nvidia.com/en-us/on-demand/session/gtc25-s72583/)
+| collective                       | algo | busbw     | % of 450GBps |
+| :------------------------------- | :--- | --------: | -----------: |
+| all-reduce, `NCCL_NVLS_ENABLE=1` | NVLS | 480.0GBps |         107% |
+| all-reduce, `NCCL_NVLS_ENABLE=0` | Ring | 367.2GBps |          82% |
+| all-gather                       | Ring | 361.4GBps |          80% |
+| reduce-scatter                   | Ring | 362.9GBps |          81% |
+
+The second row is the same collective at the same width with SHARP switched off, and it is the one that makes the other two readable: `all-gather` and `reduce-scatter` are not slow collectives, they are simply running the ring path that `all-reduce` also falls back to. All three land at 80-82% of the unidirectional spec - the ordinary NVLink efficiency you would expect from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex). Which means `~80%` is the normal case and the 107% is the exception, reachable only by an `all-reduce` over more than 4 accelerators.
+
+If you want to reproduce these numbers use [nccl-tests](benchmarks/README.md#nccl-tests):
+
+```bash
+NCCL_NVLS_ENABLE=1 ./build/all_reduce_perf     -b 16G -e 16G -g 8 -z 1  # 480.0 - NVLS
+NCCL_NVLS_ENABLE=0 ./build/all_reduce_perf     -b 16G -e 16G -g 8 -z 1  # 367.2 - Ring, SHARP off
+./build/all_gather_perf                        -b 16G -e 16G -g 8 -z 1  # 361.4 - Ring, wrong collective
+./build/reduce_scatter_perf                    -b 16G -e 16G -g 8 -z 1  # 362.9 - Ring, wrong collective
+```
+
+footnote: `busbw` uses a different correction factor per collective - `2*(n-1)/n` for `all-reduce` against `(n-1)/n` for `all-gather` and `reduce-scatter` - and `nccl-tests` applies the right one for each, so the last column really is comparable across the rows as a fraction of the wire.
 
 
 ## Understanding why inter-node network speed is of a huge importance
@@ -1095,7 +1131,8 @@ The network throughput in the advertised spec and the actual throughput will nev
 
 Then the network throughput will depend on the size of payload being sent during each communication. The higher the payload the higher the throughput will be.
 
-Let's demonstrate this using [nccl-tests](https://github.com/NVIDIA/nccl-tests) on a single A100 node
+Let's demonstrate this using [nccl-tests](benchmarks/README.md#nccl-tests) on a single A100 node:
+
 ```bash
 $ ./build/all_reduce_perf -b 32k -e 16G -f 2 -g 8 -n 50
 [...]
@@ -1129,6 +1166,45 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MiB the throughput is very low - and it starts saturating around payload size of 512MiB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
+Here is the same sweep on an 8x H200 node, using this repo's [all_reduce_bench.py](benchmarks/all_reduce_bench.py), which reports the same two columns:
+
+```bash
+$ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_bench.py
+
+| payload |    busbw   |    algbw   |
+| ------: | ---------: | ---------: |
+|   32KiB |   1.44GBps |   0.82GBps |
+|   64KiB |   2.93GBps |   1.67GBps |
+|  128KiB |   5.73GBps |   3.27GBps |
+|  256KiB |  11.74GBps |   6.71GBps |
+|  512KiB |  23.94GBps |  13.68GBps |
+|    1MiB |  39.93GBps |  22.82GBps |
+|    2MiB |  64.53GBps |  36.87GBps |
+|    4MiB | 107.16GBps |  61.23GBps |
+|    8MiB | 155.53GBps |  88.87GBps |
+|   16MiB | 219.89GBps | 125.65GBps |
+|   32MiB | 275.84GBps | 157.62GBps |
+|   64MiB | 346.51GBps | 198.01GBps |
+|  128MiB | 401.93GBps | 229.67GBps |
+|  256MiB | 436.15GBps | 249.23GBps |
+|  512MiB | 450.29GBps | 257.31GBps |
+|    1GiB | 463.58GBps | 264.90GBps |
+|    2GiB | 469.17GBps | 268.10GBps |
+|    4GiB | 473.10GBps | 270.34GBps |
+|    8GiB | 477.45GBps | 272.83GBps |
+|   16GiB | 482.26GBps | 275.58GBps |
+```
+
+The curve has the same shape - low until a few MiB, most of the way there by 512MiB - but the saturated end is instructive. Comparing the 16GiB rows against each node's unidirectional spec:
+
+| node                             | busbw @16GiB | uni-dir. spec | % of spec |
+| :------------------------------- | -----------: | ------------: | --------: |
+| A100, [NVLink 3](#nvlink)        |   234.89GBps |           300 |       78% |
+| H200, [NVLink 4](#nvlink), ring  |   367.61GBps |           450 |       82% |
+| H200, [NVLink 4](#nvlink), SHARP |   482.26GBps |           450 |      107% |
+
+The ~80% rule of thumb from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex) is alive and well - the H200 node lands on 82% when NCCL rings, which is what the middle row measures with `NCCL_NVLS_ENABLE=0`. What takes the top row past the wire spec is [SHARP](#sharp): at large payloads NCCL reduces inside the NVSwitch, so fewer bytes cross the links than a ring would need and `busbw`'s ring-based formula stops describing the wire. The A100 node has no such path, which is why its number obeys the rule without any flag.
+
 Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on an 8x H200 node:
 
 ```bash
@@ -1152,15 +1228,7 @@ Figuring out the payload can be tricky since it'd depend on the implementation o
 But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
 uni-directional 300GBps so we get about 78% of the theoretical speed with 16GiB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
-We can also run [p2pBandwidthLatencyTest](https://github.com/NVIDIA/cuda-samples/tree/master/cpp/5_Domain_Specific/p2pBandwidthLatencyTest) which performs a low-level p2p benchmark.
-
-First, let's build it:
-
-```bash
-git clone https://github.com/NVIDIA/cuda-samples/
-cd cuda-samples/Samples/5_Domain_Specific/p2pBandwidthLatencyTest
-nvcc -o p2pBandwidthLatencyTest p2pBandwidthLatencyTest.cu -I ../../../Common
-```
+We can also run [p2pBandwidthLatencyTest](benchmarks/README.md#p2pbandwidthlatencytest) which performs a low-level p2p benchmark.
 
 Now let's run it on A100:
 ```bash
