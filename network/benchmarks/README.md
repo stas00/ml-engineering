@@ -221,7 +221,7 @@ When asking about which algorithm is better, I received:
 
 > Roughly speaking, ring is superior in terms of peak bandwidth (except on 2 nodes), tree is superior in terms of base latency (especially as we scale). `Bandwidth = Size / Time`, so whether you look at the time or the bandwidth for a given size, it will be a combination of both the peak bandwidth and the base latency. For a fixed size, as you scale, the base latency of ring will become prevalent and tree will be better.
 
-There is also a new algo, named `NVLS`, which if NVLink SHARP is available will run faster than NVLink itself, e.g. with NVLink 4.0 (450GBps) one can clock 480GBps doing all-reduce benchmarks. They are working on the inter-node version of that which [requires IB or RoCE](https://github.com/NVIDIA/nccl/issues/1031#issuecomment-1773965518) - this new algo is not documented anywhere as of this writing.
+There is also an algo named `NVLS`, which uses NVLink SHARP to do the reduction inside the switch and can therefore report more than the wire spec - with NVLink 4.0 (450GBps) an `all-reduce` benchmark clocks 480GBps. `NVLSTree` (NCCL 2.18+) is the inter-node counterpart and [requires IB or RoCE](https://github.com/NVIDIA/nccl/issues/1031#issuecomment-1773965518). See [SHARP](../README.md#sharp) for when it engages, what it is worth, and why `busbw` stops describing the wire once it does.
 
 And if you would like to know which algo is being used, `NCCL_DEBUG=INFO` combined with `NCCL_DEBUG_SUBSYS=INIT,TUNING` reports the selection per payload size:
 
@@ -234,8 +234,6 @@ grep -ihoE "AllReduce: [0-9]+ Bytes -> Algo [A-Z]+ proto [A-Z0-9]+" /tmp/nccl.*.
 On an 8x H200 node that prints lines like `AllReduce: 2097152 Bytes -> Algo NVLS proto SIMPLE`, and reveals where NCCL switches over - `RING` with the `LL` protocol for payloads up to 1MiB, then `NVLS` with `SIMPLE` from 2MiB up. `NCCL_DEBUG_FILE` keeps all of this out of the benchmark's own output, which otherwise gets buried.
 
 Setting `NCCL_ALGO` explicitly is still worth doing, but for a different purpose - measuring what each algorithm delivers on your hardware, rather than discovering which one NCCL chose.
-
-footnote: this used to be impossible. [This NCCL answer](https://github.com/NVIDIA/nccl/issues/754#issuecomment-1346163469) from December 2022 said the only ways to find out were to try each `NCCL_ALGO` in turn or to edit and recompile NCCL, and that advice is now obsolete - the `TUNING` subsystem reports the choice directly. Verified with `nccl=2.27.7` on 2026-08-04.
 
 
 
