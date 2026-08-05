@@ -1,6 +1,6 @@
 # Tensor Precision / Data Types
 
-These are the common datatypes that are used as of this writing in ML (usually referred to as `dtype`):
+These are the common data types that are used as of 2026-08 in ML (usually referred to as `dtype`):
 
 Floating point formats:
 - fp32 - 32 bits
@@ -24,10 +24,12 @@ For visual comparison refer to this representations:
 
 The new formats that are being adopted by new hardware are:
 - fp4: `float4_e2m1fn`
-- fp6:`float6_e2m3fn` and `float6_e3m2fn`
+- fp6: `float6_e2m3fn` and `float6_e3m2fn`
 - fp8: `float8_e3m4`, `float8_e4m3`, `float8_e4m3b11fnuz`, `float8_e4m3fn`, `float8_e4m3fnuz`, `float8_e5m2`, `float8_e5m2fnuz`, `float8_e8m0fnu`
 
 There is an excellent explanation of each of these variations [here](https://github.com/jax-ml/ml_dtypes?tab=readme-ov-file#specifications-of-implemented-floating-point-formats).
+
+`float8_e8m0fnu` is the odd one out in that list - it is not an element format but the shared scale that block-scaled formats attach to a group of elements, which is why it has no mantissa. Pairing it with a 4-, 6- or 8-bit element encoding is what produces the `MXFP4`/`MXFP6`/`MXFP8` names quoted in accelerator specs: one `E8M0` scale per block of 32 values, whose per-parameter byte cost is worked out in [Model Weights](../inference/README.md#model-weights). NVIDIA's [`NVFP4`](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/) is the same two-part idea tuned differently - the same `E2M1` element, but a block of 16 with an `E4M3` scale plus a single fp32 scale for the whole tensor, which tracks local dynamic range more closely than a power-of-two `E8M0` scale can.
 
 To decipher the letters followed by the numbers:
 - The `e` indicates the length of exponent

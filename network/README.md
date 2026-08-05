@@ -805,9 +805,7 @@ This technology didn't catch on and has been phasing out while getting replaced 
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
-As of this writing I see that the product comes with either 100 or 200Gbps bandwidth. So it's unlikely you will see anybody offering this solution for ML workloads, unless they manage to install many NICs perhaps?
-
-[Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now.
+[Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now - and until 2025 this was the only Omni-Path generation that shipped, since Intel cancelled the planned 200Gbps `OPA 200` series in July 2019. At 100Gbps per NIC you were unlikely to see Omni-Path offered for ML workloads unless someone installed many NICs per node.
 
 [CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [adapter table](#network-adapters). One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
 
