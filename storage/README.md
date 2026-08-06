@@ -369,7 +369,7 @@ Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive, run
 |      2.1 |   1943.9 | 497638 |   16 |
 
 
-As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
+As you can see this is a fast PCIe 4.0 NVMe drive if you want to use it as a baseline against, say, a network shared file system.
 
 
 ### Usability perception IO benchmarks

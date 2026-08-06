@@ -105,8 +105,8 @@
 3. Use one flat numerical sequence. A number such as `2` must be sufficient; do not require prefixes such as `HIGH-02`.
 4. Make each suggestion independently actionable so suggestions can be applied in any order.
 5. When a suggestion is applied, remove it from the report.
-6. Renumber the remaining suggestions when a batch is removed, so that the highest number equals the count of open items and the size of the queue is visible at a glance. Do it as a deliberate pass, not incidentally: renumber the open items into a compact `1..N` sequence, record the renumbering date at the top of the file, note that numbers appearing in the historical sections are pre-renumbering identifiers, and update every external reference in the same pass - `todo.md` and the assistant's own memory notes both cite these numbers by value.
-7. The cost of renumbering is that a number stops being a durable identifier, so `do 39` in an old transcript no longer resolves. That is accepted deliberately in exchange for the count being legible; it is why the renumbering date and the historical-numbers note are not optional.
+6. Do not renumber the remaining suggestions. Removing an applied item leaves a gap, and the gap is correct - a number has to stay a durable identifier so that `do 39` in an old transcript still resolves to the same finding. Record applied numbers in the report's historical sections so the gaps read as history rather than as lost items.
+7. Renumbering happened once, on 2026-08-05, as a deliberate one-time compaction into `1..N` after the queue had been reduced from 39 items to a handful and the sequence had become impossible to count. It is not to be repeated. If the count is what you need, state it in the `Severity summary` line rather than reshuffling the identifiers.
 8. Include a numerical correction plan ordered by practical priority.
 
 Use the newest `build/consistency-review-*.md` file in the current repository unless the user names a different report.

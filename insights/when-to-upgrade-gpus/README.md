@@ -131,7 +131,7 @@ Max on H200's ~130GiB usable budget is **256k tokens at ~125GiB**, confirmed on 
 
 ### Is B200 worth ~2× the H200 cost?
 
-For simplicity let's assume the cost difference is 2×, which is usually the case when a new GPU family just starts to come out. As of this writing Blackwell has been out for about a year, so the actual cost difference is already less than 2×.
+For simplicity let's assume the cost difference is 2×, which is usually the case when a new GPU family just starts to come out. Blackwell had been out since mid-2026, so the actual cost difference is already less than 2×.
 
 In your actual calculations use your quoted price, not the information found online.
 
