@@ -65,22 +65,31 @@ But fp16 proved to be not very stable and training LLM was extremely difficult.
 
 Luckily bf16 came out and replaced fp16 using the same mixed precision protocol. This made the LLM training much more stable.
 
-Then fp8 came and mixed precision has switched to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html) and which makes the training even faster. See the paper: [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433).
+Then fp8 came and mixed precision could switch to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html), which makes the training even faster. See [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433). As of this writing bf16 mixed precision is still the default for most training runs, but fp8 training is no longer experimental - [DeepSeek-V3](https://arxiv.org/abs/2412.19437) was trained in fp8.
 
-To appreciate the speed ups between the different formats have a look at this table for NVIDIA A100 TFLOPS spec (w/o sparsity):
+And then Blackwell added fp6, fp4 and NVIDIA's own nvfp4. So far these are mostly inference formats - fp4 training is still a research topic.
 
-| Data type              | TFLOPS |
-| :---                   |    --: |
-| FP32                   |   19.5 |
-| Tensor Float 32 (TF32) |    156 |
-| BFLOAT16 Tensor Core   |    312 |
-| FP16 Tensor Core       |    312 |
-| FP8 Tensor Core        |    624 |
-| INT8 Tensor Core       |    624 |
+To appreciate the speed ups between the different formats here is a table for NVIDIA B200 TFLOPS spec (w/o sparsity), along with the accelerator that first supported each dtype in non-CPU hardware (cpu is weak for deep learning). It's sorted by `B200 TFLOPS` ascending, and where several dtypes run at the same speed, by the year the hardware support arrived:
 
-Each next dtype is about 2x faster than the previous one (except fp32 which is much slower than the rest).
+| Data type | B200 TFLOPS | First hardware support                               |
+| :-------- | ----------: | :--------------------------------------------------- |
+| fp32      |          80 | predates ML accelerators                             |
+| tf32      |        1125 | NVIDIA A100 (Ampere, 2020)                           |
+| fp16      |        2250 | NVIDIA P100 (Pascal, 2016)                           |
+| bf16      |        2250 | Google TPU v2 (2017)<br>NVIDIA A100 (Ampere, 2020)   |
+| int8      |        4500 | Google TPU v1 (2015)<br>NVIDIA P4/P40 (Pascal, 2016) |
+| fp8       |        4500 | NVIDIA H100 (Hopper, 2022)<br>Intel Gaudi 2 (2022)   |
+| fp6       |        4500 | NVIDIA B200 (Blackwell, 2024)                        |
+| fp4       |        9000 | NVIDIA B200 (Blackwell, 2024)                        |
+| nvfp4     |       10000 | NVIDIA B200 (Blackwell, 2024)                        |
 
-In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes) which provides many 4 and 8-bit quantization solutions. The DeepSpeed team also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
+int8 is TOPS rather than TFLOPS, since those are integer ops.
+
+Some of these dates mark when a dtype became usable rather than when it became fast. P100 could do fp16 arithmetic at 2x the fp32 rate, but it took V100's tensor cores in 2017 to make fp16 `matmul`s fast. Pascal's int8 was the `DP4A` dot-product instruction; int8 tensor cores arrived with Turing in 2018.
+
+The doubling holds all the way down to fp8 - each halving of the element width buys about 2x the throughput. Then it stops: fp6 runs at the same 4500 TFLOPS as fp8, so it buys you memory and bandwidth but no compute. fp4 doubles again over fp8, and on GB300 it's 3x (15000 vs 5000). So don't assume the pattern continues - check the spec for the dtype you're actually planning to use.
+
+In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) which provides many 4 and 8-bit quantization solutions. DeepSpeed also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
 
 ## TF32
 
