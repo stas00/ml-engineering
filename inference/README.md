@@ -552,6 +552,8 @@ The inference memory usage is quite different from [training](../training/perfor
 
 ### Model Weights
 
+Bytes per parameter for each [dtype](../training/dtype.md):
+
 - 4 bytes * number of parameters for fp32
 - 2 bytes * number of parameters for fp16/bf16
 - 1 byte  * number of parameters for fp8/int8

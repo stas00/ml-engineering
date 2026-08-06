@@ -39,7 +39,7 @@ Takeaway: the *achievable* bf16 ratio (1745/794.5 = **2.20×**) tracks the theor
 
 ## Decision framework, part 1 — do you need a new dtype?
 
-Start here, because this one question can settle the decision on its own, with no benchmarking. The real first question isn't *"how much faster is it"* but *"does the new GPU do something the current one **can't**?"* — and for a hardware-generation jump the clearest such capability gap is **new low-precision dtypes**.
+Start here, because this one question can settle the decision on its own, with no benchmarking. The real first question isn't *"how much faster is it"* but *"does the new GPU do something the current one **can't**?"* — and for a hardware-generation jump the clearest such capability gap is **[new low-precision dtypes](../../training/dtype.md)**.
 
 Blackwell adds **FP4/NVFP4/FP6** that Hopper **cannot execute in hardware at all** — relevant for FP4 inference or microscaling training recipes.[^unlocks] If your target recipe needs one of these formats, the old GPU scores zero, not "2× slower" — there's nothing to benchmark, you either need the capability or you don't. (Caveat: this is also the feature *most* exposed to software-maturity risk — the silicon can do it before the framework/kernels/numerics recipes can; see [software support below](#software-support-the-cost-of-switching-too-early).)
 

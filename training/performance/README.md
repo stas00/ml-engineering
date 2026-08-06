@@ -269,7 +269,7 @@ Here is a rough breakdown of activation memory per GPU:
 3. Logits working memory: `fp32_size * bs * seqlen * vocab_size`
 
 In all the following calculations:
-- `dtype_size`: size of the one element of `dtype` being used, e.g. `1` byte for fp8, `2` for bf16, `4` for fp32, etc.
+- `dtype_size`: size of the one element of `dtype` being used, e.g. `1` byte for fp8, `2` for bf16, `4` for fp32, etc. - see [Tensor precision / Data types](../dtype.md) for the full set
 - `fp32_size`: `4` bytes
 - `bs`: batch size
 - `hidden_size`: hidden size of the model

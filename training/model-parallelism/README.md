@@ -622,7 +622,7 @@ Values used for IDEFICS-80B training:
 - `model_size_in_B` = `80`
 - `n_bytes` = `2` in case of bf16 which is 2 bytes
 - `comms_multiplier` = `3` in the case of ZeRO-3/FSDP (1x reduce_scatter + 2x all_gather (fwd + bwd)) and 2 in case of ZeRO-1 (1x reduce_scatter + 1x all_gather),
-- additionally, in the case of IDEFICS-80B we decided to reduce grads in fp32 to minimize NCCL accumulation loss, so we actually had `comms_multiplier*n_bytes=3*2+2=4*2` for the additional 2 bytes but since half the model was frozen only about half of gradients were sent, so we still have the multiplier of 3.
+- additionally, in the case of IDEFICS-80B we decided to [reduce grads in fp32](../dtype.md#when-to-use-fp32-accumulators) to minimize NCCL accumulation loss, so we actually had `comms_multiplier*n_bytes=3*2+2=4*2` for the additional 2 bytes but since half the model was frozen only about half of gradients were sent, so we still have the multiplier of 3.
 - `n_passes` = `4` with activation recomputation, or `3` w/o it. The model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once wrt inputs and once wrt weights). And with activation recomputation one more `forward` is done.
 - `total_gpus` = `512`
 - `global_batch_size` = `3584`

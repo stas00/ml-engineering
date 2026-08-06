@@ -1517,7 +1517,7 @@ tensor(65504., dtype=torch.float16)
 $ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16) + 50)"
 tensor(inf, dtype=torch.float16)
 ```
-The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why bf16 superseded fp16, since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
+The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why [bf16 superseded fp16](../training/dtype.md#ml-dtype-progression), since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
 
 To create an `inf` value on demand:
 ```bash
