@@ -14,7 +14,7 @@ def enforce_reproducibility(use_seed=None):
     seed = use_seed if use_seed is not None else random.randint(1, 1000000)
     print(f"Using seed: {seed}")
 
-    if use_seed is not None: # slower speed! https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
+    if use_seed is not None: # slower speed! https://docs.pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
         # CUBLAS_WORKSPACE_CONFIG must be set before any CUDA context gets created, i.e. before
         # the torch.cuda.* calls below - if CUDA is initialized earlier elsewhere it's too late,
         # and silently so, hence the explicit assert instead of letting it fail quietly
@@ -70,7 +70,7 @@ Resources:
 - [NVIDIA cuBLAS docs - Reproducibility](https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility) - the canonical explanation of cuBLAS non-determinism and the accepted `CUBLAS_WORKSPACE_CONFIG` values
 - [`torch.use_deterministic_algorithms`](https://docs.pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html) - the full list of affected ops and how `warn_only` works
 - [PyTorch CUDA environment variables reference](https://docs.pytorch.org/docs/stable/cuda_environment_variables.html) - the exact `:[SIZE]:[COUNT]` format spec for `CUBLAS_WORKSPACE_CONFIG`
-- [PyTorch Reproducibility notes](https://pytorch.org/docs/stable/notes/randomness.html) - ties this together with seeding, `cudnn.deterministic` and `cudnn.benchmark` for the full picture
+- [PyTorch Reproducibility notes](https://docs.pytorch.org/docs/stable/notes/randomness.html) - ties this together with seeding, `cudnn.deterministic` and `cudnn.benchmark` for the full picture
 
 If your code also touches other accelerator backends or frameworks besides CPU/CUDA - e.g. NPU, XPU, or TensorFlow - seed their RNGs too:
 ```python
@@ -100,7 +100,7 @@ enforce_reproducibility(1234)
 ```
 and you will get the same RNGs setup.
 
-As mentioned earlier, there could be many other RNGs involved in a system - for example, if you want the data to be fed in the same order for a `DataLoader`, you need [to have its seed set as well](https://pytorch.org/docs/stable/notes/randomness.html#dataloader).
+As mentioned earlier, there could be many other RNGs involved in a system - for example, if you want the data to be fed in the same order for a `DataLoader`, you need [to have its seed set as well](https://docs.pytorch.org/docs/stable/notes/randomness.html#dataloader).
 
 See also [Floating point math discrepancies on different devices](../../debug/pytorch.md#floating-point-math-discrepancies-on-different-devices) in the debugging chapter.
 

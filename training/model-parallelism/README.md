@@ -37,7 +37,7 @@ The introduction sections of this paper is probably one of the best explanations
 
 Most users with just 2 GPUs already enjoy the increased training speed up thanks to `DataParallel` (DP) and `DistributedDataParallel` (DDP) that are almost trivial to use. This is a built-in feature of PyTorch.
 
-For details see [DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
+For details see [DistributedDataParallel](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
 
 ### ZeRO Data Parallelism
 
@@ -116,7 +116,7 @@ If you pay close attention the way ZeRO partitions the model's weights - it look
 
 Implementations of ZeRO-DP stages 1+2+3:
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/zero/)
-- [PyTorch](https://pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/) and later it was upstreamed into the PyTorch core)
+- [PyTorch](https://docs.pytorch.org/docs/stable/fsdp.html) (originally it was implemented in [FairScale](https://github.com/facebookresearch/fairscale/) and later it was upstreamed into the PyTorch core)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
 DeepSpeed ZeRO Integration:
@@ -173,7 +173,7 @@ By default ZeRO uses all GPUs to create a single model replica - that's the mode
 
 The first limitation doesn't exactly get fixed since the overall global batch size remains the same, but since each replica is more efficient and because the additional memory pressure is likely to limit the possible micro batch size on each gpu, this overall should improve the throughput of the system.
 
-PyTorch FSDP has this feature implemented in [shardingStrategy.HYBRID_SHARD](https://pytorch.org/docs/stable/fsdp.html)
+PyTorch FSDP has this feature implemented in [shardingStrategy.HYBRID_SHARD](https://docs.pytorch.org/docs/stable/fsdp.html)
 
 Papers:
 
@@ -336,7 +336,7 @@ Alternative names:
 
 Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) has an internal implementation, as it's very model-specific
-- [PyTorch](https://pytorch.org/docs/stable/distributed.tensor.parallel.html)
+- [PyTorch](https://docs.pytorch.org/docs/stable/distributed.tensor.parallel.html)
 - [SageMaker](https://arxiv.org/abs/2111.05972) - this is a proprietary solution that can only be used on AWS.
 - [OSLO](https://github.com/eleutherAI/Oslo) has the tensor parallelism implementation based on the Transformers.
 - [nanotron](https://github.com/huggingface/nanotron)
@@ -417,7 +417,7 @@ ZeRO stage 3 is not a good choice either for the same reason - more inter-node c
 And since we have ZeRO, the other benefit is ZeRO-Offload. Since this is stage 1 optimizer states can be offloaded to CPU.
 
 Implementations:
-- [Megatron-DeepSpeed](https://github.com/microsoft/Megatron-DeepSpeed) and [Megatron-DeepSpeed from BigScience](https://github.com/bigscience-workshop/Megatron-DeepSpeed), which is the fork of the former repo.
+- [Megatron-DeepSpeed](https://github.com/deepspeedai/Megatron-DeepSpeed) and [Megatron-DeepSpeed from BigScience](https://github.com/bigscience-workshop/Megatron-DeepSpeed), which is the fork of the former repo.
 - [OSLO](https://github.com/eleutherAI/Oslo)
 - [torchtitan](https://github.com/pytorch/torchtitan)
 
@@ -479,8 +479,8 @@ DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs propo
 
 Arctic Long Sequence Training ports [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) to HuggingFace Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
 
-- paper: https://www.arxiv.org/abs/2506.13996
-- implementation and integration: [ArtcticTraining](https://github.com/snowflakedb/ArcticTraining/blob/main/projects/sequence-parallelism/) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
+- paper: https://arxiv.org/abs/2506.13996
+- implementation and integration: [ArtcticTraining](https://github.com/snowflakedb/ArcticTraining/tree/main/projects/sequence-parallelism) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
 
 ### Colossal-AI's SP
 
@@ -533,7 +533,7 @@ For detailed explanations please see:
 
 ## FlexFlow
 
-[FlexFlow](https://github.com/flexflow/FlexFlow) also solves the parallelization problem in a slightly different approach.
+[FlexFlow](https://github.com/flexflow/flexflow-train) also solves the parallelization problem in a slightly different approach.
 
 Paper: ["Beyond Data and Model Parallelism for Deep Neural Networks" by Zhihao Jia, Matei Zaharia, Alex Aiken](https://arxiv.org/abs/1807.05358)
 
@@ -601,7 +601,7 @@ The ZeRO protocol partially overlaps comms with compute, so ideally you want to 
 
 In ZeRO-3, we have `all_gather` on weights in `forward`, then `all_gather` on weights in `backward`, last is `reduce_scatter` on gradients in backward. In total there are 3 global collective calls each sending a model size multiplied by how many bytes per parameter are used. e.g. a 10B param model in bf16 under ZeRO-3 will need to send `10*2*3` = 60GB of data.
 
-In comparison [DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) (DDP) uses a single `all_reduce` call, but which requires 2x data transmission, and so a 10B param model in bf16 under DDP will need to send `10*2*2` = 40GB of data.
+In comparison [DistributedDataParallel](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) (DDP) uses a single `all_reduce` call, but which requires 2x data transmission, and so a 10B param model in bf16 under DDP will need to send `10*2*2` = 40GB of data.
 
 ZeRO-1 which only shards the optimiser states, like DDP, will too need to transmit 40GB of data (one `all_gather` and one `reduce_scatter`.)
 

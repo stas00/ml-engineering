@@ -509,7 +509,7 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 
 ### NeuronLink v3
 
-NeuronLink v3 ([spec](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trn2-arch.html)) is the intra-node equivalent of NVLink for AWS Trainium2, but it's a point-to-point architecture, like AMD MI* so it can't take advantage of the other Trainium2 chips' NeuronLink v3 unless they are engaged in the same process group. This technology is based on PCIe-5.0 (so 32Gbps per lane unidirectional).
+NeuronLink v3 ([spec](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trn2-arch.html)) is the intra-node equivalent of NVLink for AWS Trainium2, but it's a point-to-point architecture, like AMD MI* so it can't take advantage of the other Trainium2 chips' NeuronLink v3 unless they are engaged in the same process group. This technology is based on PCIe-5.0 (so 32Gbps per lane unidirectional).
 
 NeuroLink v3 also has an inter-node use in addition to EFA v3.
 
@@ -563,16 +563,16 @@ Notes:
 3. [Intel Gaudi3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 4. [NVIDIA DGX H100/H200 user guide](https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html)
 5. [Intel Gaudi2 data sheet](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf)
-6. [Google Cloud GPUDirect-TCPX/TCPXO](https://cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx)
+6. [Google Cloud GPUDirect-TCPX/TCPXO](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx)
 7. [HPE Slingshot 11 QuickSpecs](https://www.hpe.com/us/en/collaterals/collateral.a50002546enw.html)
-8. [Cornelis CN-100HFA specifications](https://www.cornelisnetworks.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa)
-9. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
+8. [Cornelis CN-100HFA specifications](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa)
+9. [InfiniBand Trade Association XDR specification release](https://infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
 10. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
 11. Originally written as `8x200Gbps` lane arithmetic - eight 200Gbps XDR lanes are two full-width four-lane XDR ports, not a documented eight-port node. Legacy label from an earlier edition.
 12. Originally written as `4x100Gbps` lane arithmetic - four 100Gbps NDR lanes are one full-width four-lane NDR port, not four NICs. Legacy label from an earlier edition.
 13. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series)
 14. 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative.
-15. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+15. [InfiniBand Trade Association roadmap](https://infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
 16. Originally written as `8x400Gbps` lane arithmetic - eight 400Gbps GDR lanes are two full-width four-lane GDR ports. GDR is not a standardized shipping platform; the original roadmap target was 2025.
 17. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network)
 18. 400Gbps family began shipping in June 2025 and broadly available from Q3 2025; eight-adapter node remains illustrative. The original roadmap target was Q2-2025.
@@ -644,9 +644,9 @@ Sorted by 4x port rate descending:
 
 Sources:
 
-1. [InfiniBand Trade Association XDR specification release](https://www.infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
+1. [InfiniBand Trade Association XDR specification release](https://infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
 2. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
-3. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+3. [InfiniBand Trade Association roadmap](https://infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
 
 Only 4x ports are shown in the product-oriented table because four lanes are the full-width port configuration used by the modern high-end products compared here. The 1x value is already the Rate/lane column. The earlier 8x and 12x arithmetic is preserved separately below so lane totals aren't compared with port or node totals as if they were the same scope.
 
@@ -665,8 +665,8 @@ The following table restores the earlier theoretical width arithmetic. It is sor
 
 Sources:
 
-1. [InfiniBand Trade Association roadmap](https://www.infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
-2. [InfiniBand Trade Association historical 8X and 12X roadmap](https://www.infinibandta.org/infiniband-trade-association-ibta-announces-updated-infiniband-roadmap-projecting-data-speeds-of-104gb-s-per-4x-port-in-2011/)
+1. [InfiniBand Trade Association roadmap](https://infinibandta.org/wp-content/uploads/2021/06/IBTA-Roadmap-June-2021.pdf)
+2. [InfiniBand Trade Association historical 8X and 12X roadmap](https://infinibandta.org/infiniband-trade-association-ibta-announces-updated-infiniband-roadmap-projecting-data-speeds-of-104gb-s-per-4x-port-in-2011/)
 
 The earlier LDR 8x value was 4800Gbps; the corrected lane-rate arithmetic is `8 * 800 = 6400Gbps`.
 
@@ -687,7 +687,7 @@ Here are some examples of NVIDIA devices with the fastest IB:
 - NVIDIA DGX GB200 NVL72 compute trays provide four single-port ConnectX-7 interfaces at up to 400Gbps each, corresponding to one 400Gbps connection per GPU ([networking documentation](https://docs.nvidia.com/dgx/dgxgb200-user-guide/networking.html)). Quantum-2 carries NDR at 400Gbps per port; an 800G OSFP cable can split into two 400Gbps ports, so it isn't a single 800Gbps NDR endpoint.
 - NVIDIA DGX B300 systems provide eight ConnectX-8 interfaces at up to 800Gbps each. In the documented SuperPOD design, the compute fabric uses Quantum-X800 XDR, while the storage fabric uses Quantum-2 NDR.
 
-[InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers, but at the moment it's just NVIDIA (purchased Mellanox) - which makes it a single-vendor interconnect, a lock-in consideration when weighing it against Ethernet. Intel is often still counted as the second vendor because it purchased QLogic's InfiniBand business, but that lineage became [Omni-Path](#omni-path) - a separate fabric rather than InfiniBand - and Intel later sold it on to Cornelis Networks. Also see [InfiniBand Trade Association](https://www.infinibandta.org/).
+[InfiniBand](https://en.wikipedia.org/wiki/InfiniBand) used to have multiple manufacturers, but at the moment it's just NVIDIA (purchased Mellanox) - which makes it a single-vendor interconnect, a lock-in consideration when weighing it against Ethernet. Intel is often still counted as the second vendor because it purchased QLogic's InfiniBand business, but that lineage became [Omni-Path](#omni-path) - a separate fabric rather than InfiniBand - and Intel later sold it on to Cornelis Networks. Also see [InfiniBand Trade Association](https://infinibandta.org/).
 
 Practical links:
 - [InfiniBand Utilities](https://networking-docs.nvidia.com/mlnxofedswum/24.10-5.1.6.1lts/infiniband-fabric-utilities) (the link could be outdated as it's versioned) - these are useful when debugging an IB setup.
@@ -795,7 +795,7 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 
 ### GPUDirect-TCPX
 
-GPUDirect-TCPX is an RDMA-over-TCP software solution developed by Google for A3 instances. GPUDirect-TCPXO is a hardware-accelerated extension of TCPX available only on A3 Mega. The docs are scarce, but here is some information on [TCPX](https://cloud.google.com/compute/docs/gpus/gpudirect) and [TCPXO](https://cloud.google.com/cluster-toolkit/docs/machine-learning/a3-mega-enable-gpudirect-tcpxo).
+GPUDirect-TCPX is an RDMA-over-TCP software solution developed by Google for A3 instances. GPUDirect-TCPXO is a hardware-accelerated extension of TCPX available only on A3 Mega. The docs are scarce, but here is some information on [TCPX](https://docs.cloud.google.com/compute/docs/gpus/gpudirect) and [TCPXO](https://docs.cloud.google.com/cluster-toolkit/docs/machine-learning/a3-mega-enable-gpudirect-tcpxo).
 
 This technology didn't catch on and has been phasing out while getting replaced with RoCE starting with Blackwell instances at GCP.
 
@@ -814,7 +814,7 @@ Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_acc
 
 ### Ultra Accelerator Link (UALink)
 
-[The UALink initiative](https://www.google.ca/search?q=Ultra+Accelerator+Link) is an attempt to create an open standard to compete with [NVLink](#nvlink). Supposedly it'll be based on AMD's [Infinity Fabric](#infinity-fabric--xgmi). As of this writing there is no actual hardware to speak of.
+[The UALink initiative](https://ualinkconsortium.org/) is an attempt to create an open standard to compete with [NVLink](#nvlink). Supposedly it'll be based on AMD's [Infinity Fabric](#infinity-fabric--xgmi). The consortium published the `UALink 200G 1.0` specification in April 2025 and four more in April 2026, covering in-network compute, chiplets, manageability and 200G performance. As of 2026-08 I'm not aware of any actual hardware to speak of - the consortium lists specifications and members, but no products.
 
 
 
@@ -835,7 +835,7 @@ caveat on sourcing: use Huawei's Chinese pages, not the English ones. Both are J
 
 ### SHARP
 
-NVIDIA [Scalable Hierarchical Aggregation and Reduction Protocol (SHARP)](https://docs.nvidia.com/networking/display/sharpv300) - allows performing data reductions and aggregations on the network itself (in-network computing). This is very useful if you do a lot of MPI, NCCL and other network collectives that support SHARP, as those should get their latencies much improved.
+NVIDIA [Scalable Hierarchical Aggregation and Reduction Protocol (SHARP)](https://networking-docs.nvidia.com/sharpum/300) - allows performing data reductions and aggregations on the network itself (in-network computing). This is very useful if you do a lot of MPI, NCCL and other network collectives that support SHARP, as those should get their latencies much improved.
 
 To understand the importance of this technology - for `all-reduce` operations, instead of 2N sends, it will only need N+1 sends - so for a large N - it almost doubles the effective all-reduce throughput. (N is the number of communicating ranks/gpus). For details see [all-reduce operation compatibility](https://web.archive.org/web/20231208180425/https://developer.nvidia.com/blog/upgrading-multi-gpu-interconnectivity-with-the-third-generation-nvidia-nvswitch/) (you'd have to scroll down to get to that section).
 
@@ -945,13 +945,13 @@ footnote: You could, of course, use less than 8 GPUs, it is just that most NVIDI
 
 footnote: In the ideal world the training on 1 GPU for 8 durations of time, should cost the same as training on 8 GPUs for 1 duration of time. That's what one would expect - the same $$ spent, but finishing 8x faster. But because of data synchronization requirements, this is not the case.
 
-If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
+If the experimental model still contains 2B params like in the previous section and grads are in fp32 then the training program needs to send 8GB (`2B * 4B`) of data on every iteration. Moreover, since syncing the gradients requires an [`all_reduce` collective](https://docs.pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication) - it needs to transmit the data twice - the first time sending the gradient data by each GPU, computing the sum of gradients and send this value back to each participating GPU so that each training process will benefit from the learning advancements each of its peers made in the last iteration.
 
 Here is the all-reduce collective visualized:
 
 ![all-reduce](images/all-reduce-collective.png)
 
-([source](https://pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication))
+([source](https://docs.pytorch.org/tutorials/intermediate/dist_tuto.html#collective-communication))
 
 So we need to send 8GB twice on every iteration, which means we need to send 16GB of data.
 
@@ -974,7 +974,7 @@ And here is how our timeline will look like:
 |<---- iteration ---->||<---- iteration ---->||<---- iteration ----->|
 ```
 
-oh and this whole synchronization protocol is called DDP ([DistributedDataParallel](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)) in the PyTorch lingo.
+oh and this whole synchronization protocol is called DDP ([DistributedDataParallel](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)) in the PyTorch lingo.
 
 #### Comms and compute overlap
 
@@ -1451,7 +1451,7 @@ When you plan to eventually have a large cluster but starting small make sure th
 Here are the cloud-specific ways of accomplishing node proximity:
 
 - Azure: [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
-- GCP: [compact placement policies](https://cloud.google.com/compute/docs/instances/use-compact-placement-policies)
+- GCP: [compact placement policies](https://docs.cloud.google.com/compute/docs/instances/use-compact-placement-policies)
 
 Depending on the type of package you have or what type of machines you rent - you may or may not be able to use those.
 

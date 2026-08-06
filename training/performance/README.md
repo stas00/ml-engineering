@@ -249,7 +249,7 @@ Let's look at the details.
 - 8 bytes * number of parameters for normal AdamW (maintains 2 states)
 - 4 bytes * number of parameters for AdamW running at bf16. See [this work](https://github.com/huggingface/transformers/pull/21312) that uses `AnyPrecisionAdamW`.
 - 4 bytes * number of parameters for optimizers like SGD with momentum (maintains only 1 state) or LION, or Adafactor (and others) (Adafactor uses some additional memory beside 4 bytes)
-- 2 bytes * number of parameters for 8-bit AdamW optimizers like [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- 2 bytes * number of parameters for 8-bit AdamW optimizers like [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes)
 
 **Gradients**
 
@@ -447,7 +447,7 @@ So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) too
 
 As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GiB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
-Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://pytorch.org/docs/stable/notes/cuda.html#memory-management).
+Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://docs.pytorch.org/docs/stable/notes/cuda.html#memory-management).
 I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
 
 
@@ -558,10 +558,10 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 
 2-byte optimizers:
 
-- There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/TimDettmers/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
+- There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/bitsandbytes-foundation/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
 
 For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
-Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
+Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
 
 
 
@@ -618,7 +618,7 @@ There are multiple tile sizes that the kernel can choose from. If the GEMM size 
 
 Another quantization effect is called **wave quantization**. As the thread blocks are scheduled to SMs, only 108 thread blocks at a time may be scheduled. If, for example, 109 thread blocks must be scheduled, two rounds, or waves, of thread blocks must be scheduled to GPU. The first wave will have 108 thread blocks, and the second wave will have 1. The second wave will have almost the same latency as the first, but with a small fraction of the useful compute. As the matrix size increases, the last or tail wave grows. The throughput will increase, until a new wave is required. Then, the throughput will drop.
 
-What this means for transformers, is that for a given ratio of `h/a`, one needs to ensure they're on the crest of a wave. If you're using NVIDIA V100/A100 GPUs, we've already done this work for you in https://arxiv.org/pdf/2401.14489.pdf
+What this means for transformers, is that for a given ratio of `h/a`, one needs to ensure they're on the crest of a wave. If you're using NVIDIA V100/A100 GPUs, we've already done this work for you in https://arxiv.org/pdf/2401.14489
 
 An example of this for 32 attention heads:
 
@@ -906,7 +906,7 @@ pin_memory=False, non_blocking=False: average time: 0.646
 ```
 so you can see that `pin_memory=True`+`non_blocking=True` is a worthy change.
 
-For more background you can read [1](https://pytorch.org/docs/stable/notes/cuda.html#use-pinned-memory-buffers) and [2](https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/).
+For more background you can read [1](https://docs.pytorch.org/docs/stable/notes/cuda.html#use-pinned-memory-buffers) and [2](https://developer.nvidia.com/blog/how-optimize-data-transfers-cuda-cc/).
 
 Notes:
 - Pinned memory is treated specially by the OS, by preventing the paging out when the total available memory is low, so it reduces the total amount of available memory to other programs. Thus use with care.

@@ -243,7 +243,7 @@ Therefore once you know the MFU you can now adjust the cost estimate from the pr
 
 Why can't the advertised TFLOPS be achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disk and other gpus to the accelerator's memory.
 
-- There is not much that can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
+- There is not much that can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://docs.pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
 - If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../training/model-parallelism) network becomes the bottleneck.
 
@@ -295,7 +295,7 @@ In general most (all?) accelerators are supported by major frameworks like PyTor
 
 For example, if your PyTorch application calls `torch.mm` - it should work everywhere, but if it includes custom CUDA kernels it'll only work on NVIDIA GPUs and may be on the recent AMD MI-series.
 
-- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda-toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
+- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda/toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
 - AMD MI250/MI3**X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
@@ -305,7 +305,7 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - Huawei Ascend: via CANN, with MindSpore first-party and PyTorch adaptation alongside it
 
-- Cerebras: is also working on PyTorch support via [Cerebras Software Platform (CSoft) via XLA](https://www.cerebras.net/blog/supporting-pytorch-on-the-cerebras-wafer-scale-engine/).
+- Cerebras: is also working on PyTorch support via [Cerebras Software Platform (CSoft) via XLA](https://www.cerebras.ai/blog/supporting-pytorch-on-the-cerebras-wafer-scale-engine/).
 
 Also in general most ML code could be compiled into cross-platform formats like [Open Neural Network Exchange (ONNX)](https://en.wikipedia.org/wiki/Open_Neural_Network_Exchange) which can be run on a variety of accelerators. This approach is typically used more often for inference workloads.
 

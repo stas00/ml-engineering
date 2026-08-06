@@ -492,8 +492,8 @@ The first table compares the capacity of broadly shared on-chip caches. It is so
 
 Sources:
 
-1. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
-2. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
+1. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/workload-optimization.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
+2. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/workload-optimization.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
 3. [AMD Instinct MI455X specifications and announcement](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
 4. NVIDIA Blackwell [cache specification](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
 5. Intel Gaudi3 [cache specification](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) and [announcement](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
@@ -516,8 +516,8 @@ The second table preserves vendor-native local resources. It is sorted by **Vend
 Sources:
 
 1. [AMD Instinct MI455X specifications and announcement](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
-2. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
-3. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
+2. AMD MI350X / MI355X [cache specification](https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/workload-optimization.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2025-6-12-amd-unveils-vision-for-an-open-ai-ecosystem-detai.html)
+3. AMD MI300X / MI325X [cache specification](https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/workload-optimization.html) and [announcement](https://www.amd.com/en/newsroom/press-releases/2024-10-10-amd-delivers-leadership-ai-performance-with-amd-in.html)
 4. Intel Gaudi3 [cache specification](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html) and [announcement](https://newsroom.intel.com/artificial-intelligence/vision-2024-enterprise-ai-gaudi-3-open-systems-strategy)
 5. Intel Gaudi2 [architecture specification](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) and [announcement](https://www.intel.com/content/www/us/en/developer/articles/technical/habana-gaudi2-processor-for-deep-learning.html)
 6. NVIDIA Blackwell [cache specification](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) and [announcement](https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing)
@@ -544,7 +544,7 @@ The third table restores the per-product detail from the earlier comparison whil
 
 Sources:
 
-1. [AMD Instinct MI300 Series / MI350 Series workload optimization](https://rocm.docs.amd.com/en/latest/how-to/rocm-for-ai/inference-optimization/workload.html)
+1. [AMD Instinct MI300 Series / MI350 Series workload optimization](https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/workload-optimization.html)
 2. [Intel Gaudi architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 3. [Intel Gaudi3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
 4. [NVIDIA Ampere Tuning Guide](https://docs.nvidia.com/cuda/ampere-tuning-guide/index.html)
@@ -690,13 +690,13 @@ Notes:
 9. [NVIDIA H100 specifications](https://www.nvidia.com/en-us/data-center/h100/)
 10. [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/)
 11. [AMD Instinct MI350P specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350p.html)
-12. [Intel Gaudi 2 AI accelerator white paper](https://www.intel.com/content/www/us/en/content-details/839363/intel-gaudi-2-ai-accelerator-white-paper.html)
+12. [Intel Gaudi 2 AI accelerator white paper](https://www.intel.com/content/www/us/en/content-details/839363/intel-gaudi-2-ai-accelerators-white-paper.html)
 13. [NVIDIA RTX PRO 6000 Blackwell Server Edition specifications](https://www.nvidia.com/en-us/data-center/rtx-pro-6000-blackwell-server-edition/)
 14. [AMD Instinct accelerator specifications](https://www.amd.com/en/products/accelerators/instinct/specifications.html)
 15. [NVIDIA A100 specifications](https://www.nvidia.com/en-us/data-center/a100/)
 16. [NVIDIA L40S specifications](https://www.nvidia.com/en-us/data-center/l40s/)
 17. [AMD Instinct MI455X specifications](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html)
-18. [AWS Trainium2 architecture documentation](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html)
+18. [AWS Trainium2 architecture documentation](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html)
 19. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/)
 20. Google doesn't publish power consumption specs for recent TPUs, the older ones can be found [here](https://en.wikipedia.org/wiki/Tensor_Processing_Unit#Products)
 
@@ -746,7 +746,7 @@ Intel:
 - [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 
 Amazon:
-- [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html) < H100 - available on AWS (works via PyTorch XLA)
+- [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html) < H100 - available on AWS (works via PyTorch XLA)
 
 
 Google:
@@ -761,7 +761,7 @@ SambaNova:
 
 ### Cerebras on-premises clusters
 
-[Cerebras](https://www.cerebras.net/) cluster and systems based on WaferScale Engine (WSE).
+[Cerebras](https://www.cerebras.ai/) cluster and systems based on WaferScale Engine (WSE).
 
 
 
@@ -770,7 +770,7 @@ SambaNova:
 
 These can be only used via clouds:
 
-Google [TPUs](https://cloud.google.com/tpu), [specs](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm) - lock-in, can't switch to another vendor like NVIDIA -> AMD
+Google [TPUs](https://cloud.google.com/tpu), [specs](https://docs.cloud.google.com/tpu/docs/system-architecture-tpu-vm) - lock-in, can't switch to another vendor like NVIDIA -> AMD
 
 Recent architecture specs:
 - [v7x](https://docs.cloud.google.com/tpu/docs/tpu7x)
@@ -778,7 +778,7 @@ Recent architecture specs:
 - [v5p](https://docs.cloud.google.com/tpu/docs/v5p)
 
 Cerebras:
-- [Cloud](https://www.cerebras.net/product-cloud/)
+- [Cloud](https://www.cerebras.ai/cloud)
 
 
 
@@ -842,7 +842,7 @@ for example, AMD MI250 has:
 - 13,312 Stream Processors
 - 208 Compute Units
 
-[AMD's table comparing its high-end gpus](https://rocm.docs.amd.com/en/latest/reference/gpu-arch-specs.html)
+[AMD's table comparing its high-end gpus](https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html)
 
 ### Intel Gaudi
 
@@ -875,7 +875,7 @@ A `trn2.48xlarge` instance holds 16 Trainium2 chips, and an UltraServer extends 
 
 You program it through the Neuron SDK and PyTorch XLA rather than CUDA, which is the main porting cost. AWS publishes no per-link rate or link count, only the 1.28TBps aggregate, so peer-to-peer bandwidth can't be derived - see [the intra-node tables](../../network/README.md#all-to-all-bandwidth).
 
-Specs: [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/arch/neuron-hardware/trainium2.html), [Trn2 instances](https://aws.amazon.com/ec2/instance-types/trn2/).
+Specs: [Trainium2](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html), [Trn2 instances](https://aws.amazon.com/ec2/instance-types/trn2/).
 
 ### Google TPU
 
@@ -941,7 +941,7 @@ Which software is needed to deploy the high end accelerators?
 
 ### NVIDIA
 
-NVIDIA GPUs run on [CUDA](https://developer.nvidia.com/cuda-toolkit)
+NVIDIA GPUs run on [CUDA](https://developer.nvidia.com/cuda/toolkit)
 
 ### AMD
 
@@ -949,7 +949,7 @@ AMD GPUs run on [ROCm](https://www.amd.com/en/products/software/rocm.html) - not
 
 ### Intel Gaudi
 
-The API is via [Habana SynapseAI® SDK](https://habana.ai/training-software/) which supports PyTorch and TensorFlow.
+The API is via [Habana SynapseAI® SDK](https://habana.ai/intel-gaudi-software/) which supports PyTorch and TensorFlow.
 
 Useful integrations:
 - [HF Optimum Habana](https://github.com/huggingface/optimum-habana) which also includes - [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) integration.
@@ -964,7 +964,7 @@ Useful integrations:
 
 It's very difficult to compare specs of different offerings since marketing tricks get deployed pretty much by all competitors so that one can't compare 2 sets of specs and know the actual difference.
 
-- [MLPerf via MLCommons](https://mlcommons.org/en/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. The round numbers advance a few times a year, so head to the suite pages rather than a pinned version - [training](https://mlcommons.org/benchmarks/training/) and [inference: datacenter](https://mlcommons.org/benchmarks/inference-datacenter/) each show the latest results.
+- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. The round numbers advance a few times a year, so head to the suite pages rather than a pinned version - [training](https://mlcommons.org/benchmarks/training/) and [inference: datacenter](https://mlcommons.org/benchmarks/inference-datacenter/) each show the latest results.
 
    Except I have no idea how to make use of it - it's close to impossible to make sense of or control the view. This is a great intention lost in over-engineering and not thinking about how the user will benefit from it, IMHO. For example, I don't care about CV data, I only want to quickly see the LLM rows, but I can't do it. And then the comparisons are still not apples to apples so how can you possibly make sense of which hardware is better I don't know.
 

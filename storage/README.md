@@ -45,7 +45,7 @@ The 3 excellent performing parallel file systems that I had experience with are:
 - [WekaIO](https://www.weka.io/)
 - [Lustre FS](https://www.lustre.org/) (Open Source) ([Wiki](https://wiki.lustre.org/Main_Page))
 
-These solutions have been around for 2+ decades. They are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
+These solutions have been around for 2+ decades. They are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://docs.cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
 
 case study: At JeanZay HPC (France) in 2021 we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
 
@@ -109,7 +109,7 @@ So if you have control ask the cloud provider to give you the cpu-only storage s
 
 Here are shared file system storage solutions made available by various cloud providers:
 
-- [GCP](https://cloud.google.com/architecture/filers-on-compute-engine)
+- [GCP](https://docs.cloud.google.com/architecture/parallel-file-systems-for-hpc)
 - [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
 - [AWS](https://aws.amazon.com/what-is/nas/#how-can-aws-help-with-storage-solutions--mxce5s)
 
@@ -136,7 +136,7 @@ From talking to IO engineers, the accepted reality (that for some reason is not 
 
 Which means that if you want to have 100TB of reliable cloud storage you actually need to buy 125TB of storage, since 80% of that will be 100TB. So you need to plan to pay 25% more than what you provisioned for your actual needs. I'm not sure why the customer should pay for the technology deficiency but that's how it is.
 
-For example, GCP states that only [89%](https://cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
+For example, GCP states that only [89%](https://docs.cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
 
 I also talked to [Sycomp](https://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
 
@@ -154,7 +154,7 @@ If you start making a backup and suddenly everything fails because all processes
 So say you paid for a 100TB partition and you used up 95TB and now you want to back it up - well, you can't - where would it put 95TB of data if it has 5TB of data left even if it compresses it.
 
 As I discover specific solution that have this unintuitive behavior I will add pointers to how you can see the actual disk usage:
-- [GCP FileStore](https://cloud.google.com/filestore/docs/monitoring-instances#free-raw-capacity-percent) (but it doesn't work for Basic Tier)
+- [GCP FileStore](https://docs.cloud.google.com/filestore/docs/monitoring-instances#free-raw-capacity-percent) (but it doesn't work for Basic Tier)
 
 
 ## Don't forget the checksums

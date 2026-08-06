@@ -8,7 +8,7 @@ Point-to-point communications are the simplest type of communication where there
 
 For example, [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) performs a point-to-point communication where the activations from the current vertical stage is sent to the next stage. So the current gpu performs `send` and the gpu holding the next stage performs `recv`.
 
-PyTorch has `send` and `recv` for blocking, `isend` and `irecv` for non-blocking p2p comms. [more](https://pytorch.org/tutorials/intermediate/dist_tuto.html#id1).
+PyTorch has `send` and `recv` for blocking, `isend` and `irecv` for non-blocking p2p comms. [more](https://docs.pytorch.org/tutorials/intermediate/dist_tuto.html#id1).
 
 
 ## Collective communications
@@ -27,7 +27,7 @@ In the world of PyTorch typically each process is tied to a single accelerator, 
 
 PyTorch API example:
 
-`dist.broadcast(tensor, src, group)`: Copies `tensor` from `src` to all other processes. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.broadcast).
+`dist.broadcast(tensor, src, group)`: Copies `tensor` from `src` to all other processes. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.broadcast).
 
 
 
@@ -41,7 +41,7 @@ PyTorch API example:
 
 PyTorch API example:
 
-`dist.gather(tensor, gather_list, dst, group)`: Copies one `tensor` from every process in the group into `gather_list` on `dst`. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.gather)
+`dist.gather(tensor, gather_list, dst, group)`: Copies one `tensor` from every process in the group into `gather_list` on `dst`. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.gather)
 
 
 
@@ -57,7 +57,7 @@ For example, this collective is used in [ZeRO](../training/model-parallelism/REA
 
 PyTorch API example:
 
-`dist.all_gather(tensor_list, tensor, group)`: Copies `tensor` from all processes to `tensor_list`, on all processes. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.all_gather)
+`dist.all_gather(tensor_list, tensor, group)`: Copies `tensor` from all processes to `tensor_list`, on all processes. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.all_gather)
 
 
 
@@ -71,9 +71,9 @@ PyTorch API example:
 
 PyTorch API example:
 
-`dist.reduce(tensor, dst, op, group)`: Applies `op` to every `tensor` and stores the result in `dst`. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.reduce)
+`dist.reduce(tensor, dst, op, group)`: Applies `op` to every `tensor` and stores the result in `dst`. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce)
 
-PyTorch supports multiple reduction operations like: `avg`, `sum`, `product`, `min`, `max`, `band`, `bor`, `bxor`, and others - [full list](https://pytorch.org/docs/stable/distributed.html#torch.distributed.ReduceOp).
+PyTorch supports multiple reduction operations like: `avg`, `sum`, `product`, `min`, `max`, `band`, `bor`, `bxor`, and others - [full list](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.ReduceOp).
 
 
 
@@ -85,11 +85,11 @@ PyTorch supports multiple reduction operations like: `avg`, `sum`, `product`, `m
 ![all-reduce](images/collective-all-reduce-2.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
 
-For example, this collective is used in [DDP](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) to reduce gradients between all participating ranks.
+For example, this collective is used in [DDP](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html) to reduce gradients between all participating ranks.
 
 PyTorch API example:
 
-`dist.all_reduce(tensor, op, group)`: Same as reduce, but the result is stored in all processes. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.all_reduce)
+`dist.all_reduce(tensor, op, group)`: Same as reduce, but the result is stored in all processes. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.all_reduce)
 
 
 
@@ -103,7 +103,7 @@ PyTorch API example:
 
 PyTorch API example:
 
-`dist.scatter(tensor, scatter_list, src, group)`: Copies the `i`-th tensor `scatter_list[i]` to the `i`-th process. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.scatter)
+`dist.scatter(tensor, scatter_list, src, group)`: Copies the `i`-th tensor `scatter_list[i]` to the `i`-th process. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.scatter)
 
 
 
@@ -117,7 +117,7 @@ For example, this collective is used in [ZeRO](../training/model-parallelism/REA
 
 PyTorch API example:
 
-`reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
+`reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
 
 
 
@@ -135,7 +135,7 @@ For example, this collective is used in [DeepSpeed Sequence Parallelism](../trai
 
 PyTorch API example:
 
-`dist.all_to_all(output_tensor_list, input_tensor_list, group)`: Scatters list of input tensors to all processes in a group and return gathered list of tensors in output list. [doc](https://pytorch.org/docs/stable/distributed.html#torch.distributed.all_to_all)
+`dist.all_to_all(output_tensor_list, input_tensor_list, group)`: Scatters list of input tensors to all processes in a group and return gathered list of tensors in output list. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.all_to_all)
 
 
 

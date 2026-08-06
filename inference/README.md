@@ -199,8 +199,10 @@ This technique has several costs:
 - it slows down the generation - the more complex the schema it has to adhere to the slower it'll be at generating tokens. From measuring generation speed I found some structured text generation libraries perform much faster than others.
 - it may contribute to model hallucination.
 
-There are multiple implementations of this technique, as of this writing the two popular libraries are:
-- https://github.com/outlines-dev/outlines
+There are multiple implementations of this technique. As of 2026-08 vLLM supports four of them as [structured output backends](https://docs.vllm.ai/en/latest/features/structured_outputs/), and picks one automatically unless you override it:
+- https://github.com/mlc-ai/xgrammar
+- https://github.com/guidance-ai/llguidance
+- https://github.com/dottxt-ai/outlines
 - https://github.com/noamgat/lm-format-enforcer
 
 You ideally want the implementations that have already been integrated into inference frameworks like vLLM and others.
@@ -686,7 +688,7 @@ The main accelerator-specific software stacks are:
 
 - **Intel Gaudi (HPU)**: the [vllm-gaudi](https://github.com/vllm-project/vllm-gaudi) plugin (the older [HabanaAI/vllm-fork](https://github.com/HabanaAI/vllm-fork) is being retired), plus [Optimum for Intel Gaudi](https://github.com/huggingface/optimum-habana) for the HF `transformers`/`diffusers` ecosystem.
 - **AWS Trainium/Inferentia**: the [AWS Neuron SDK](https://github.com/aws-neuron/aws-neuron-sdk), which serves through standard vLLM APIs and [Optimum Neuron](https://github.com/huggingface/optimum-neuron).
-- **Google TPU**: [tpu-inference](https://github.com/vllm-project/tpu-inference) - the vLLM TPU plugin unifying JAX and PyTorch, and the successor to the now-archived [JetStream](https://github.com/google/JetStream); [MaxText](https://github.com/AI-Hypercomputer/maxtext) is the JAX-native alternative.
+- **Google TPU**: [tpu-inference](https://github.com/vllm-project/tpu-inference) - the vLLM TPU plugin unifying JAX and PyTorch, and the successor to the now-archived [JetStream](https://github.com/AI-Hypercomputer/JetStream); [MaxText](https://github.com/AI-Hypercomputer/maxtext) is the JAX-native alternative.
 - **Modular MAX**: [MAX](https://github.com/modular/modular) - a portable serving stack that also runs on CPUs and NVIDIA/AMD GPUs.
 - **Apple Silicon**: [MLX](https://github.com/ml-explore/mlx) / [mlx-lm](https://github.com/ml-explore/mlx-lm), plus llama.cpp's Metal backend.
 - **Tenstorrent**: [tt-metal](https://github.com/tenstorrent/tt-metal) and its vLLM integration.

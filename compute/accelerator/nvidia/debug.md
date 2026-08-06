@@ -33,7 +33,7 @@ sudo dmesg -T | grep Xid
 
 Typically, as long as the training doesn't crash, these errors often indicate issues that automatically get corrected by the hardware.
 
-The full list of Xid Errors and their interpretation can be found [here](https://docs.nvidia.com/deploy/xid-errors/index.html).
+The full list of Xid Errors and their interpretation can be found [here](https://docs.nvidia.com/deploy/xid-errors/latest/index.html).
 
 You can run `nvidia-smi -q` and see if there are any error counts reported. For example, in this case of Xid 63, you will see something like:
 

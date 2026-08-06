@@ -255,7 +255,7 @@ To disable the shuffling for all tests:
 pytest --random-order-bucket=none
 ```
 
-By default `--random-order-bucket=module` is implied, which will shuffle the files on the module levels. It can also shuffle on `class`, `package`, `global` and `none` levels. For the complete details please see its [documentation](https://github.com/jbasko/pytest-random-order).
+By default `--random-order-bucket=module` is implied, which will shuffle the files on the module levels. It can also shuffle on `class`, `package`, `global` and `none` levels. For the complete details please see its [documentation](https://github.com/pytest-dev/pytest-random-order).
 
 Another randomization alternative is: [`pytest-randomly`](https://github.com/pytest-dev/pytest-randomly). This module has a very similar functionality/interface, but it doesn't have the bucket modes available in `pytest-random-order`. It has the same problem of imposing itself once installed.
 
@@ -263,7 +263,7 @@ Another randomization alternative is: [`pytest-randomly`](https://github.com/pyt
 
 #### pytest-sugar
 
-[pytest-sugar](https://github.com/Frozenball/pytest-sugar) is a plugin that improves the look-n-feel, adds a progressbar, and show tests that fail and the assert instantly. It gets activated automatically upon installation.
+[pytest-sugar](https://github.com/Teemu/pytest-sugar) is a plugin that improves the look-n-feel, adds a progressbar, and show tests that fail and the assert instantly. It gets activated automatically upon installation.
 
 ```bash
 pip install pytest-sugar
@@ -447,7 +447,7 @@ pytest --pastebin=all tests/utils/test_logging.py
 
 ## Writing tests
 
-Most of the time if combining `pytest` and `unittest` in the same test suite works just fine. You can read [here](https://docs.pytest.org/en/stable/unittest.html) which features are supported when doing that , but the important thing to remember is that most `pytest` fixtures don't work. Neither parametrization, but we use the module `parameterized` that works in a similar way.
+Most of the time if combining `pytest` and `unittest` in the same test suite works just fine. You can read [here](https://docs.pytest.org/en/stable/how-to/unittest.html) which features are supported when doing that , but the important thing to remember is that most `pytest` fixtures don't work. Neither parametrization, but we use the module `parameterized` that works in a similar way.
 
 
 ### Parametrization
@@ -754,7 +754,7 @@ class TestClass():
     def test_feature_x(self):
 ```
 
-More details, example and ways are [here](https://docs.pytest.org/en/latest/skipping.html).
+More details, example and ways are [here](https://docs.pytest.org/en/latest/how-to/skipping.html).
 
 
 
@@ -762,7 +762,7 @@ More details, example and ways are [here](https://docs.pytest.org/en/latest/skip
 
 #### Capturing the stdout/stderr output
 
-In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/latest/capture.html). Here is how this is accomplished:
+In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/latest/how-to/capture-stdout-stderr.html). Here is how this is accomplished:
 
 ```python
 import sys

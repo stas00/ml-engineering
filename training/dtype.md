@@ -111,7 +111,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 ```
 
-For more information about the actual precision loss please see [this](https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices).
+For more information about the actual precision loss please see [this](https://docs.pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices).
 
 
 ## When to use fp32 accumulators

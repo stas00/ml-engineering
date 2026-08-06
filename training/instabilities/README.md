@@ -36,7 +36,7 @@ See also [Detecting problematic tensor values](../../debug/pytorch.md#detecting-
 
 Certain mathematical operations could be unstable when dealing with low precision numbers.
 
-For example, please see this very interesting [PyTorch guide on numerical stability](https://pytorch.org/docs/stable/notes/numerical_accuracy.html).
+For example, please see this very interesting [PyTorch guide on numerical stability](https://docs.pytorch.org/docs/stable/notes/numerical_accuracy.html).
 
 Now let's look at a specific example of this concept in action.
 
@@ -76,7 +76,7 @@ The issue is that `alpha` is multiplied after the matrix-matrix multiplication i
 
 ## "Bad" combination of data batch and model parameter state
 
-PaLM team observed dozens of loss spikes at "highly irregular intervals" when training larger models. While they were not able to track down the root cause, they mitigated the issue by restarting from an earlier checkpoint and skipping potentially problematic data batches. [Section 5.1 Training instability](https://arxiv.org/pdf/2204.02311.pdf)
+PaLM team observed dozens of loss spikes at "highly irregular intervals" when training larger models. While they were not able to track down the root cause, they mitigated the issue by restarting from an earlier checkpoint and skipping potentially problematic data batches. [Section 5.1 Training instability](https://arxiv.org/pdf/2204.02311)
 
 
 ## Time-domain correlation divergence in Adam
