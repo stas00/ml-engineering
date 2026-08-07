@@ -165,7 +165,7 @@ looponfailroots = transformers tests
 This would lead to only looking for file changes in the respective directories, specified relatively to the ini-file’s
 directory.
 
-[pytest-watch](https://github.com/joeyespo/pytest-watch) is an alternative implementation of this functionality.
+[pytest-watcher](https://github.com/olzhasar/pytest-watcher) is an alternative implementation of this functionality. The older `pytest-watch` is widely linked but has had no commit since 2022, so prefer the former or `--looponfail` above.
 
 
 ### Skip a test module
@@ -211,9 +211,9 @@ And then run every test multiple times (50 by default):
 pytest --flake-finder --flake-runs=5 tests/test_failing_test.py
 ```
 
-footnote: This plugin doesn't work with `-n` flag from `pytest-xdist`.
+footnote: This plugin doesn't work with `-n` flag from `pytest-xdist`. It has also had no commit since 2022, so treat it as functional-but-unmaintained rather than actively developed.
 
-footnote: There is another plugin `pytest-repeat`, but it doesn't work with `unittest`.
+footnote: There is another plugin [`pytest-repeat`](https://github.com/pytest-dev/pytest-repeat), which is actively maintained but cannot repeat `unittest.TestCase` tests - they "simply always run once, regardless of `--count`" and emit a warning. So the two swap trade-offs: `pytest-flakefinder` handles `unittest` classes but is dormant, `pytest-repeat` is current but skips them silently apart from that warning. If your suite is built on `unittest.TestCase`, as many `transformers`-derived suites are, that limitation decides it.
 
 
 #### Run tests in a random order
@@ -754,7 +754,7 @@ class TestClass():
     def test_feature_x(self):
 ```
 
-More details, example and ways are [here](https://docs.pytest.org/en/latest/how-to/skipping.html).
+More details, example and ways are [here](https://docs.pytest.org/en/stable/how-to/skipping.html).
 
 
 
@@ -762,7 +762,7 @@ More details, example and ways are [here](https://docs.pytest.org/en/latest/how-
 
 #### Capturing the stdout/stderr output
 
-In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/latest/how-to/capture-stdout-stderr.html). Here is how this is accomplished:
+In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/stable/how-to/capture-stdout-stderr.html). Here is how this is accomplished:
 
 ```python
 import sys

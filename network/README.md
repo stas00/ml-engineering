@@ -104,13 +104,13 @@ Each node of the cluster has 3 networks, each running at a very different speed 
 
 ### Frontend networking
 
-Frontend networking is typically for the Internet connection (e.g. downloading python packages and offloading to the cloud storage), distributed network storage (e.g. checkpoints and datasets) and orchestration (e.g. SLURM and Kubernetes). As of this writing a typical node is likely to have a single 100-400Gbps connection.
+Frontend networking is typically for the Internet connection (e.g. downloading python packages and offloading to the cloud storage), distributed network storage (e.g. checkpoints and datasets) and orchestration (e.g. SLURM and Kubernetes). As of 2026-08 a typical node is likely to have a single 100-400Gbps connection.
 
 footnote: not all clusters will have external Internet connection available, e.g. many HPC environments only provide external access via special cpu-only nodes.
 
 ### Backend networking
 
-Backend networking is to perform GPU-to-GPU connectivity which allows training and inference to scale to multiple accelerators (e.g. all-reduce, all-gather and other collective comms). This is the most important part of the AI cluster. Typically this would be either an [InfiniBand](#infiniband) or [RoCEv2 Ethernet](#rdma-networking). It then breaks down into [intra-node networking](#intra-node-networking) and [inter-node networking](#inter-node-networking) - the GPUs on the same node typically can communicate with each other at faster speed than with GPUs on other nodes. Here the typical top [unidirectional](#unidirectional-vs-bidirectional-duplex) speeds as of this writing would be around 900GBps per accelerator for intra-node (NVLink 5, as on B200/B300) and 100GBps per accelerator, or 800GBps per node, for inter-node (8x ConnectX-8, as on DGX B300 XDR) - so about an order of magnitude apart per accelerator, a ratio that has held for several generations because both sides keep doubling together. That is the gap between the links; the gap you actually measure with a collective is much smaller, for reasons explained in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). There will be at least one backend connection per accelerator and at times there can be multiple connections per accelerator, especially if low bandwidth NICs are used.
+Backend networking is to perform GPU-to-GPU connectivity which allows training and inference to scale to multiple accelerators (e.g. all-reduce, all-gather and other collective comms). This is the most important part of the AI cluster. Typically this would be either an [InfiniBand](#infiniband) or [RoCEv2 Ethernet](#rdma-networking). It then breaks down into [intra-node networking](#intra-node-networking) and [inter-node networking](#inter-node-networking) - the GPUs on the same node typically can communicate with each other at faster speed than with GPUs on other nodes. Here the typical top [unidirectional](#unidirectional-vs-bidirectional-duplex) speeds as of 2026-08 would be around 900GBps per accelerator for intra-node (NVLink 5, as on B200/B300) and 100GBps per accelerator, or 800GBps per node, for inter-node (8x ConnectX-8, as on DGX B300 XDR) - so about an order of magnitude apart per accelerator, a ratio that has held for several generations because both sides keep doubling together. That is the gap between the links; the gap you actually measure with a collective is much smaller, for reasons explained in [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). There will be at least one backend connection per accelerator and at times there can be multiple connections per accelerator, especially if low bandwidth NICs are used.
 
 footnote: not all providers will match the industry's standard networking speeds - on some the inter-node networking speed could be up to 10x slower. So always check what you get.
 
@@ -288,7 +288,7 @@ footnote: `nvidia-smi nvlink -s` reports the raw per-link signalling rate, and s
 
 - [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by NVIDIA. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
-I found the NVLink wiki page to be quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of this writing some of the numbers on that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
+I found the NVLink wiki page to be quite difficult to follow, so I will try to help bring clarity into this. And I'm pretty sure as of 2026-08 some of the numbers on that wiki page are bogus and it doesn't look like NVIDIA maintains that page.
 
 Effective payload rate of intra-node GPU-to-GPU communication hardware:
 
@@ -401,7 +401,7 @@ Of course, other A100 and H100s node reports may vary, e.g. the number of cpu co
 
 This is a high-bandwidth connection between Grace CPU and GPUs on GH200 and GB200+ modules, Vera CPU and Rubin GPUs.
 
-As of this writing there is no public spec of the speed, but I found 450GBps unidirectional mentioned [here](https://newsletter.semianalysis.com/p/gb200-hardware-architecture-and-component#%C2%A7the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirectional bandwidth for NVLink-5 - so half the speed of the latter.
+As of 2026-08 there is no public spec of the speed, but I found 450GBps unidirectional mentioned [here](https://newsletter.semianalysis.com/p/gb200-hardware-architecture-and-component#%C2%A7the-4-rack-scale-form-factors-of-blackwell) for GB200. As compared to 900GBps unidirectional bandwidth for NVLink-5 - so half the speed of the latter.
 
 request: I'm looking for an official spec if you find one please let me know.
 
@@ -850,7 +850,7 @@ According to [Gaudi3 spec](https://www.intel.com/content/www/us/en/content-detai
 
 ### HPE Slingshot interconnect
 
-[HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of this writing it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
+[HPE Slingshot interconnect](https://www.hpe.com/ca/en/compute/hpc/slingshot-interconnect.html) seems to be used by HPCs. As of 2026-08 it provides 200Gbps per link. Some HPCs use 4 of those links to build 800Gbps interconnects, and, of course, with more links will deliver a higher overall bandwidth.
 
 
 
