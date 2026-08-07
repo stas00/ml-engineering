@@ -64,7 +64,7 @@ Weka is quite similar to GPFS in features and performance. The main difference w
 Other parallel file systems I don't yet have direct experience with:
 
 - [BeeGFS](https://www.beegfs.io/)
-- [DAOS](https://docs.daos.io/) (Distributed Asynchronous Object Storage) (Intel)
+- [DAOS](https://docs.daos.io/latest/) (Distributed Asynchronous Object Storage) (Intel)
 - [NetApp](https://www.netapp.com)
 - [VAST](https://www.vastdata.com/)
 

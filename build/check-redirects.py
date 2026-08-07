@@ -29,6 +29,17 @@ from urllib.parse import urljoin, urlparse
 URL = re.compile(r'https?://[^)\]}"\'>\s]+')
 TRAILING = '.,;:!?`'
 
+# A URL inside a `code span` is a template for the reader to complete, not a citation. Concrete
+# failure: debug/tools.md says to visit `github.com/huggingface/transformers/commit/` "and append
+# the commit SHA", and this was reported as having moved to /commit/main - a "fix" that would have
+# broken the instruction. Only 2 of the book's URLs live solely in code spans and both are that
+# example, so stripping them costs no coverage.
+#
+# Note this deliberately does NOT skip ``` fences ```, unlike build/check-links.py: 13 URLs appear
+# only inside fences and they include live download links such as the Miniconda installer and
+# dcgm-exporter, whose death would break the book's setup instructions. Those must stay checked.
+CODE_SPAN = re.compile(r'`[^`]*`')
+
 # Some vendors reject a bare HTTP client outright - amd.com, hpe.com, microsoft.com, nasa.gov
 # all do. Retrying with a browser user-agent separates real 404s from bot mitigation, which
 # matters: amd.com's instinct/specifications.html looked merely "blocked" for a whole pass
@@ -65,6 +76,15 @@ MAX_META_HOPS = 3
 CHALLENGE = re.compile(r'Vercel Security Checkpoint|Just a moment\.\.\.|cf-browser-verification|'
                        r'challenge-platform|Enable JavaScript to continue|Attention Required!', re.I)
 
+# Some meta-refresh targets are a JS gate's retry endpoint carrying a single-use session token,
+# not a new home. Concrete failure: google.com/search?q=... refreshes to
+# /httpservice/retry/enablejs?sei=<token>, which the first version of this check offered as the
+# replacement URL - it would have pasted a dead session token into the book.
+JS_RETRY = re.compile(r'/httpservice/retry/enablejs|/cdn-cgi/challenge|__cf_chl|/sorry/index', re.I)
+
+# Illustrative URLs in the prose, not citations - there is nothing to check or fix.
+LOCAL_HOST = re.compile(r'^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])([:/]|$)', re.I)
+
 # Docs sites commonly refresh a rolling alias to the release it currently points at. The target is
 # correct today and wrong next release, so it must never be pasted into the book - cite the alias.
 # Same hazard as CDN_HOSTS, different mechanism.
@@ -83,6 +103,15 @@ def extract(line):
             u += ')'
         out.append(u)
     return out
+
+def cms_landing(url, final):
+    """True when a bare domain root redirects to a path on the same host. That path is a CMS
+    landing route - beegfs.io/ serves its home page at /c/, wandb.ai/ at /site - and the root is
+    both the friendlier citation and the more durable one, since the route will be renamed long
+    before the domain is. A root redirecting to a *different* host is a real move and is still
+    reported."""
+    p = urlparse(url)
+    return p.path in ('', '/') and not p.query and urlparse(final).hostname == p.hostname
 
 def normalize(u):
     """Strip the differences that are not moves, so only real relocations remain."""
@@ -198,7 +227,9 @@ for f in files:
         print(f'MISSING CHAPTER {f}')
         continue
     for ln, line in enumerate(lines, 1):
-        for u in extract(line):
+        for u in extract(CODE_SPAN.sub('', line)):
+            if LOCAL_HOST.match(u):            # an example in the prose, not a citation
+                continue
             sites.setdefault(u, []).append((f, ln))
 
 by_host = {}
@@ -241,10 +272,18 @@ for url, final, code, meta_final, chain in results:
     elif code == '404' or code.startswith('5'):
         dead.append((url, final, code))                # gone, not moved - needs a new source
     else:
-        if normalize(final) != normalize(url):
+        if normalize(final) != normalize(url) and not cms_landing(url, final):
             moved.append((url, final, code))
         if chain:                                      # invisible to HTTP - see META_TAG above
-            meta.append((url, meta_final, chain))
+            if JS_RETRY.search(meta_final):
+                challenged.append((url, 'js-gate'))    # a retry token, not a home
+            else:
+                fix = suggested(url, dealias(url, meta_final) or meta_final)[0]
+                # A rolling alias that refreshes only to its pinned release needs no change: the
+                # book already cites the right URL. Reporting those buried the 3 real findings
+                # under 30 no-ops on the first full run.
+                if normalize(fix) != normalize(url):
+                    meta.append((url, meta_final, chain, fix))
 
 for url, final, code in sorted(moved):
     where = sites[url][0]
@@ -267,21 +306,19 @@ if prefixes:
 
 if meta:
     print(f'\n{len(meta)} URL(s) answer 200 but the page has MOVED via <meta refresh> - the old '
-          f'URL will keep working indefinitely, so this is invisible to every other check here:')
-    for url, target, chain in sorted(meta):
+          f'URL will keep working indefinitely, so this is invisible to every other check here. '
+          f'Rolling aliases that merely refresh to their current release are not listed, having '
+          f'nothing to change:')
+    for url, target, chain, fix in sorted(meta):
         where = sites[url][0]
         print(f'  {where[0]}:{where[1]}')
         print(f'    from {url}')
         for i, hop in enumerate(chain, 1):
             print(f'    hop {i} {hop}')
-        # A rolling alias refreshing to a pinned release: cite neither end of the chain.
-        unpinned = dealias(url, target)
-        if unpinned:
-            print(f'    NOT the target - it pins the book to one release. Use the alias with the '
-                  f'rest of the move applied, and verify it resolves:')
-            print(f'    suggest {suggested(url, unpinned)[0]}')
-        else:
-            print(f'    suggest {suggested(url, target)[0]}')
+        if dealias(url, target):
+            print(f'    NOT the raw target - that pins the book to one release; the alias is kept '
+                  f'and the rest of the move applied. Verify it resolves:')
+        print(f'    suggest {fix}')
 
 if dead:
     print(f'\n{len(dead)} URL(s) are GONE, not moved - these need a replacement source, '

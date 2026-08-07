@@ -636,10 +636,29 @@ Generally, it's most computationally efficient to keep the ratio of `h/a` as lar
 
 ### Flash attention
 
-If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention), good news! These MHA sizing constraints are taken care of for you. Your only constraint is to have a large enough ratio of `h/a` to saturate your GPU cores:
+If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention), good news! These
+MHA sizing constraints are taken care of for you. Your only constraint is to have a large enough
+ratio of `h/a` to saturate your GPU cores:
 
 ![flash attention](images/flash-attention.png)
 
+Which *version* you run matters as much as whether you run it at all, because each major version
+targets an accelerator generation - FA3 for Hopper, FA4 for Blackwell - and an older version on
+newer hardware leaves the new architecture's features unused. This book measures the difference: on
+an 8B causal attention shape, FA4 on B200 against FA3 on H200 gives **1.88x on `forward`+`backward`
+at 8K sequence length, rising to 1.95x at 32K**, against a 2.28x hardware ratio - so attention is
+close to the ceiling and is *not* what limits that particular upgrade. See
+[FA3 vs FA4](../../insights/when-to-upgrade-gpus/README.md#worked-example-meta-llamallama-31-8b-training-step-fa3-vs-fa4)
+for the full comparison and the scripts that produce it.
+
+The trap is the gap between silicon and kernels. A fully usable FA4 took many months to appear -
+it was still beta when the measurement above was taken - and until then the fallback was FA2, which
+is very slow on Blackwell precisely because it cannot exploit the new architecture. So a new
+accelerator can be sitting in the rack while its attention kernel is not ready, which makes the
+version you can actually run a constraint on the upgrade rather than a detail of it;
+[Software support: the cost of switching too early](../../insights/when-to-upgrade-gpus/README.md#software-support-the-cost-of-switching-too-early)
+treats this as a hard gate. HF Transformers auto-selects the backend per accelerator through
+`attn_implementation`, so check which version it actually chose instead of assuming the newest.
 
 ### SwiGLU-based MLP
 

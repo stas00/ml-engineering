@@ -11,6 +11,16 @@ import os, re, sys
 
 LINK = re.compile(r'!?\[[^\]]*\]\(\s*([^)\s]+?)\s*(?:"[^"]*")?\)')
 CODE = re.compile(r'`[^`]*`')
+SCHEME = re.compile(r'https?://')
+
+# External URLs are otherwise out of scope here - build/check-redirects.py resolves those over the
+# network. But one defect is detectable locally and cheaply, so it is caught on every run: a URL
+# wrapped into another URL. An archive citation legitimately carries two schemes
+# (web.archive.org/web/<ts>/https://original), so three or more means a replacement was applied to a
+# URL that was a substring of a longer one. Concrete near-miss: swapping a withdrawn NVIDIA blog URL
+# for its Wayback capture, when the same URL already appeared inside an existing archive link 423
+# lines below, would have produced web.archive.org/.../web.archive.org/.../developer.nvidia.com.
+# See SESSION.md "External link rot".
 
 def slug(heading):
     """Model GitHub's anchor generation: strip inline links and backticks, lowercase,
@@ -63,6 +73,11 @@ for f in files:
             continue
         for target in LINK.findall(CODE.sub('', line)):    # nor is `[x](y)` in backticks
             if target.startswith(('http://', 'https://', 'mailto:')):
+                n_schemes = len(SCHEME.findall(target))
+                if n_schemes >= 3:
+                    print(f'{f}:{ln}: MALFORMED URL - scheme appears {n_schemes}x, so a URL is '
+                          f'wrapped inside another -> {target}')
+                    n_bad += 1
                 continue
             n_links += 1
             path, _, anchor = target.partition('#')
