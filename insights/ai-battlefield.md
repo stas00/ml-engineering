@@ -261,7 +261,7 @@ Why can't the advertised TFLOPS be achieved? It's because it takes time to move 
 
 ### Accelerators
 
-As of this writing here are the most common accelerators that can be used for training, finetuning and inferencing ML models:
+As of 2026-08 here are the most common accelerators that can be used for training, finetuning and inferencing ML models:
 
 Widely available:
 

@@ -722,7 +722,7 @@ To choose the most suitable inference framework you need to answer at least the 
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
 9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator/README.md#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
 
-For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
+For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of 2026-08.
 
 ![vllm](images/github-vllm-stats-2024-08-24.png)
 

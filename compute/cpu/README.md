@@ -1,6 +1,6 @@
 # CPU
 
-As of this writing Machine learning workloads don't use much CPU so there aren't too many things to tell in this chapter. As CPUs evolve to become more like GPUs this is like to change, so I'm expecting this chapter to evolve along the evolution of the CPUs.
+As of 2026-08 Machine learning workloads don't use much CPU so there aren't too many things to tell in this chapter. As CPUs evolve to become more like GPUs this is like to change, so I'm expecting this chapter to evolve along the evolution of the CPUs.
 
 ## How many cpu cores do you need
 

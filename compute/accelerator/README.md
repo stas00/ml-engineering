@@ -24,7 +24,7 @@ AMD:
 
 ## Bird's eye view on the high end accelerator reality
 
-While this might be changing in the future, unlike the consumer GPU market, as of this writing there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
+While this might be changing in the future, unlike the consumer GPU market, as of 2026-08 there aren't that many high end accelerators, and if you rent on the cloud, most providers will have more or less the same few accelerators to offer.
 
 GPUs:
 - As of today, ML clouds/HPCs already have B200s/B300s, and GB200/GB300 NVL72 racks are shipping. Rubin is expected to emerge in H2-2026.
@@ -199,6 +199,8 @@ Now let's do the math, by inserting the numbers from the table above into the la
 
 Both calculated numbers match the published specs - 989 for H100 SXM and 312 for A100 SXM.
 
+Note that this peak is an aggregate over the whole accelerator - `528` Tensor Cores is `4 x 132` SMs - so it is not what a single matmul achieves unless that matmul is large enough to occupy every SM. For why a part with more SMs does not automatically deliver more TFLOPS, see [Do more SMs give more TFLOPS?](../../training/performance/README.md#do-more-sms-give-more-tflops).
+
 The H100 SXM clock above is 1830MHz, which is now NVIDIA's official figure. Earlier 1980MHz was the widely published number, and it doesn't work out: `1980*10**6 * 512 * 2 * 528 / 10**12 = 1070.530` TFLOPS, some 80 points above the spec. Before 1830MHz became official you could already recover it by inverting the same formula against the spec TFLOPS: `989 / (512 * 2 * 528 / 10**12) / 10**6 = 1829.20`. Which is a useful trick in general - if a vendor publishes the TFLOPS but not the clock, or publishes a clock that doesn't reproduce their own TFLOPS, the formula tells you which number they actually used.
 
 **For AMD @ BF16**:
@@ -302,7 +304,7 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 16. H200 is the same as H100 but has 141GiB vs 80GiB of HBM memory, and its memory is faster, HBMe@4.8TBps vs HBM@3.35TBps - so basically H200 solves the memory-bandwidth and memory-capacity bottlenecks of H100. See [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/).
 17. [AMD Instinct MI300X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
 18. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute). See [AMD Instinct MI325X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html).
-19. Gaudi3 as of this writing is running at 1600MHz (MME) and not the planned 1750MHz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
+19. Gaudi3 as of 2026-08 is running at 1600MHz (MME) and not the planned 1750MHz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 20. [NVIDIA DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet)
 21. [NVIDIA DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet)
 22. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) - these are AMD's dense figures. AMD also publishes `with Structured Sparsity` variants at exactly 2x - 10.1 PFLOPS for OCP-FP8 and 5 PFLOPS for FP16 matrix - so a 10.1 PFLOPS fp8 number quoted elsewhere is the sparse one, not this table's. The `fp6` and `fp4` entries carry no sparsity qualifier on AMD's page and are dense. MI350X is the same silicon at 2200MHz and 1000W, with everything scaled by the clock ratio (144.2 vs 157.3 fp32); it is left out because MI355X is the part you can actually rent.
@@ -317,7 +319,7 @@ General notes:
 
 * if you find numbers that are double of the above - it usually means with sparsity (which at the moment almost nobody can benefit from as our matrices are dense).
 
-* when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of this writing you will be not using sparsity and thus the actual theoretical TFLOPS that you care for most of the time are w/o sparsity (i.e. the table above).
+* when looking at specs be very careful at which numbers you're reading - many vendors often publish TFLOPS with sparsity, as they are ~2x bigger, but if they even indicate this they often do it in small print. I had to ask NVIDIA to add a note to their H100 spec that those numbers were w/ sparsity as they originally didn't mention this important technical fact. And 99% of the time as of 2026-08 you will be not using sparsity and thus the actual theoretical TFLOPS that you care for most of the time are w/o sparsity (i.e. the table above).
 
 * also beware that if accelerator A publishes a higher TFLOPS than accelerator B, it doesn't mean A is faster. These are theoretical numbers which not only can never be achieved in practice - the actual TFLOPS efficiency [Hardware FLOPS Utilization](../../training/performance/README.md#mfu-vs-hfu) (HFU) can vary a lot from vendor to vendor or even for the same vendor's different accelerator architectures.
 
@@ -497,6 +499,34 @@ Notes:
 * The listed sizes preserve vendor-published `GB` labels. As of 2026-07-29, NVIDIA's [HGX AI Factory components](https://docs.nvidia.com/enterprise-reference-architectures/hgx-ai-factory/latest/components.html) page lists B200 at 180GB, and its [MIG table](https://www.nvidia.com/en-gb/technologies/multi-instance-gpu/) lists B200 at 180GB and GB200 at 186GB. NVIDIA's [OpenFold2 support matrix](https://docs.nvidia.com/nim/bionemo/openfold2/2.0.0/support-matrix.html) instead lists B200 at 192GB without explaining whether the discrepancy reflects physical, usable, reserved, or differently reported capacity. This table follows the hardware and platform values; the possible physical-capacity/ECC explanation above is an arithmetic derivation, not a documented NVIDIA specification.
 
 * I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GiB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
+
+#### How to calculate theoretical memory bandwidth
+
+The `Peak Bandwidth` figures above aren't measured - like the [theoretical TFLOPS](#how-to-calculate-theoretical-tflops) they fall out of three numbers:
+
+```
+bandwidth (bytes/sec) = memory clock (Hz) * bus width (bytes) * 2
+```
+
+The `*2` is because HBM, like all Double Data Rate memory, transfers on both the rising and the falling clock edge - hence one transfer per half-cycle rather than per cycle. The bus width is the *whole* memory interface summed across every stack, not one stack's width, which is the easiest of the three to get wrong.
+
+Worked on a B200: `nvidia-smi -q -d CLOCK` reports a 3996MHz memory clock and the bus is 8192 bits, so 1024 bytes:
+
+- `3996*10**6 * 1024 * 2 / 10**12 = 8.184` TBps
+
+against the 8.00TBps NVIDIA publishes and this table carries. The 2.3% gap is the published figure being rounded down, not an error in the arithmetic - which is the normal outcome and the reason this is worth doing as a *cross-check* rather than as a way to obtain the number. If your result is far off rather than a couple of percent off, one of the three inputs is wrong.
+
+All three inputs are readable from the accelerator itself, so nothing has to be transcribed from a spec sheet:
+
+```python
+import torch
+p = torch.cuda.get_device_properties(0)
+# memory_clock_rate is the *peak* clock in kHz; memory_bus_width is in bits
+bw = p.memory_clock_rate * 1e3 * (p.memory_bus_width / 8) * 2 / 1e12
+print(f"{p.name}: {p.memory_clock_rate/1e6:.3f}GHz x {p.memory_bus_width}-bit bus -> {bw:.2f}TBps")
+```
+
+Two things to watch. Take the **peak** memory clock rather than the current one - an idle accelerator clocks its memory down, so `nvidia-smi`'s `Clocks` section will read low while `Max Clocks` reads the figure this arithmetic needs, and PyTorch's `memory_clock_rate` is already the peak. And this gives the *theoretical* ceiling; what a real workload achieves is lower, which is what [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flops-comparison-table) is to TFLOPS - see [Do more SMs give more TFLOPS?](../../training/performance/README.md#do-more-sms-give-more-tflops) for why aggregate peaks and achieved throughput diverge in general.
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough, the compute ends up idling waiting for the data to be moved to and from the memory.
 
@@ -843,7 +873,7 @@ Remember that the advertised prices are almost always open to negotiations as lo
 
 If your company has venture capital investors - it could help a lot to mention that, as then the cloud provider knows you are likely to buy more compute down the road and more likely to discount more.
 
-Tier 2 clouds are likely to give better prices than Tier 1. Tier 1 as of this writing is AWS, OCI, Azure and GCP.
+Tier 2 clouds are likely to give better prices than Tier 1. Tier 1 as of 2026-08 is AWS, OCI, Azure and GCP.
 
 For the baseline prices it should be easy to find a few good sites that provide an up-to-date public price comparisons across clouds - just search for something like [cloud gpu pricing comparison](https://www.google.com/search?q=cloud+gpu+pricing+comparison). Some good starting points: [vast.ai](https://cloud.vast.ai/create/) and specifically for clusters [gpulist.ai](https://gpulist.ai).
 
@@ -945,7 +975,7 @@ Huawei-specific vocabulary:
 - HiF8 - Huawei's own 8-bit float format, quoted alongside the OCP `mxFP8` standard rather than instead of it
 - CANN - the compute architecture and toolchain, with MindSpore as the first-party framework and PyTorch/TensorFlow adaptation layers alongside it
 
-As of this writing Huawei's Chinese pages carry the full specification table where the English ones carry almost nothing, so use those. For the Atlas 950 SuperPoD the Chinese page gives up to 1024 Ascend 950DT accelerators, on-chip memory of up to 1024 x 96GB at a bandwidth of up to 4.0TBps, AI compute of up to 1EFLOPS mxFP8/FP8/HiF8 and 2EFLOPS mxFP4, and a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional.
+As of 2026-08 Huawei's Chinese pages carry the full specification table where the English ones carry almost nothing, so use those. For the Atlas 950 SuperPoD the Chinese page gives up to 1024 Ascend 950DT accelerators, on-chip memory of up to 1024 x 96GB at a bandwidth of up to 4.0TBps, AI compute of up to 1EFLOPS mxFP8/FP8/HiF8 and 2EFLOPS mxFP4, and a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional.
 
 Divided out over the 1024 accelerators, that is roughly 977TFLOPS mxFP8 and 1953TFLOPS mxFP4 per Ascend 950DT, with 96GB at 4.0TBps and 840GBps of unidirectional [UB Link](../../network/README.md#ub-link-unifiedbus) scale-up bandwidth each - which would place it just below NVLink 5. Unlike the English page, this division is safe rather than inferred: the accelerator count is stated, and it cross-checks twice over - 1024 accelerators across the stated 16 compute cabinets is 64 per cabinet exactly as the bandwidth line says, and 1024 x 1.68TBps is the 1.72PBps total the same page claims.
 
