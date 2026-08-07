@@ -16,40 +16,20 @@ Grouped by the hardware a task needs, since that is usually what blocks it. The 
 
 ## 2 nodes
 
-- confirm which NCCL algorithm a multi-node `all-reduce` actually selects, because [suggestion 1](build/consistency-review-2026-07-27.md) is blocked on it. A single node has no inter-node traffic at all, so no amount of GPUs on one box can answer it. Two nodes is enough to identify the algorithm; reproducing the 73.9% table needs 4 - see the 4-node section. Using the multi-node recipe from [network/benchmarks/README.md](network/benchmarks/README.md), with debug logging added:
+All four items here were done on 2026-08-07 on a 4-node 8x H200 `p5en.48xlarge` allocation, and the section is kept only to record what was answered:
 
-```bash
-GPUS_PER_NODE=8
-NNODES=2   # 4 to also reproduce the busbw table
-MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING \
-python -u -m torch.distributed.run \
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --rdzv_endpoint $MASTER_ADDR:6000 \
-    --rdzv_backend c10d \
-    --max_restarts 0 \
-    --role `hostname -s`: \
-    --tee 3 \
-    all_reduce_bench.py 2>&1 | tee nccl-algo.txt
-```
-
-then `grep -iE "algo|proto|nvls|tree|ring|collnet" nccl-algo.txt | sort -u`. If it reports `NVLS`/`NVLSTree`/`Tree` at large payloads, the hierarchical model is confirmed and the `Multiple node training` worked example needs revising; if it reports `Ring` across all ranks, then 381.80GBps `busbw` at 16GiB needs a different explanation, since a flat ring would put 7.75GiB across a single 50GBps NIC per node hop.
-
-  the interpretation is now settled, which is what makes the run above conclusive rather than suggestive. `NCCL_ALGO_NVLS_TREE` in `src/graph/tuning.cc` (v2.27.7) is explicitly gated off on one node - `// Disable NVLS Tree on a single node` / `if (comm->nNodes == 1 && a == NCCL_ALGO_NVLS_TREE) disable = 1;` - its bandwidth model is bounded by both fabrics, `min(bwIntra, nNodes <= 2 ? bwInter : bwInter/2)`, and its latency model is `intraLat + 2 * log2i(nNodes) * interLat`: one intra-node step plus a log-depth tree across nodes. Compare plain `NVLS`, which is `intraLat` plus a single `interLat`. So `NVLSTree` really is NVLS inside each node with a tree between nodes, and a reported `NVLSTree` at large payloads does mean the hierarchical model rather than a flat ring.
-
-- while running the sweep above, confirm `NVLSTree` does get selected once there are two nodes. The source says it must - `tuning.cc` disables it outright when `nNodes == 1`, which matches a single 8x H200 node on 2026-08-04 where it was offered in the tuning table and chosen zero times, `NVLS` winning every payload from 2MiB up and `RING` below. So this is a check that the model behaves as its code says, not an open question.
-
-- run `ib_write_bw -c SRD` on EFA once. The [Measuring the inter-node fabric on its own](network/README.md#measuring-the-inter-node-fabric-on-its-own) section says RDMA-write-over-SRD was contributed to `perftest` by AWS and that the EFA path is unconfirmed. One test on any two EFA instances resolves it, after which the "unconfirmed here" footnote can go. The `stas-dev-2` H200 nodes qualify - they expose 16 `rdmap*` devices, i.e. EFA - but `perftest` is not installed there and has to be built from source.
-
-- answer [aws-ofi-nccl#890](https://github.com/aws/aws-ofi-nccl/issues/890) ourselves rather than waiting: how many EFA devices the `aws-ofi-nccl` plugin assigns to a single rank. It has no upstream replies. A multi-node `NCCL_DEBUG=INFO` log reports the `NET/OFI` device assignment directly, so the 2-node run above should answer it as a side effect. It matters because it decides whether a one-rank-per-node run measures one NIC, several NICs, or the accelerator's PCIe link - which is why that approach was rejected for the chapter in favour of `ib_write_bw`.
+- **which algorithm a multi-node `all-reduce` selects** - `Ring` at 4 nodes, confirmed by forcing rather than by reading a log enum: `NCCL_ALGO=allreduce:ring` gave 364.65GBps `busbw` against the default's 364.87, while `allreduce:nvlstree` was available but 15% slower at 310.07. This closed review item `1` and opened item `73`, because the flat-ring model the chapter rejects turns out to fit its own measurements best once its one-NIC-per-hop premise is corrected.
+- **NVLSTree at two nodes** - it is selected there (forced 463.29 against default 463.55), so the code behaves as `tuning.cc` says. But the number is useless: 2-node `busbw` came out at 486.80GBps against a *single* node's 482.05, i.e. faster than pure NVLink, which is impossible for a real inter-node measurement. NCCL's own model special-cases it - `min(bwIntra, nNodes <= 2 ? bwInter : bwInter/2)`. **Never characterise a fabric on two nodes.**
+- **`ib_write_bw -c SRD` on EFA** - 193.72Gbps on one adapter, 96.9% of its 200Gbps line rate. The "unconfirmed here" footnote is gone. `perftest` needed `sudo apt-get install -y perftest` on both hosts, and without `-c SRD` the run dies at `Unable to create QP` since EFA has no RC transport.
+- **aws-ofi-nccl#890** - partly answered. The node exposes 16 EFA devices at 200Gbps each, 2 per accelerator, 3200Gbps/400GBps per node - which confirms the chapter's `EFA v3 ... 16 200GbE` line. The plugin's *per-rank* device assignment was not captured before the allocation was released, so the upstream question is still open; a `NET/OFI` grep of an `NCCL_DEBUG=INFO` multi-node log would finish it.
 
 ## 4 nodes
 
-- reproduce the `busbw` table in [Inter-node speed depends on intra-node speed](network/README.md#inter-node-speed-depends-on-intra-node-speed). The conversion is `(k-1)/(n-1)`, which is `3/31` = 9.7% at 4 nodes and `1/15` = 6.7% at 2, so the published 73.9% figures need the original 4 nodes. Two nodes identifies the algorithm but will not reproduce the numbers.
+- the `busbw` table in [Inter-node speed depends on intra-node speed](network/README.md#inter-node-speed-depends-on-intra-node-speed) was reproduced on H200 rather than the published B200: 1 node 482.05GBps against 4 nodes 369.06GBps at 16GiB, so leaving the node costs 1.31x where B200 costs 2.2x. That difference is the section's own thesis - both platforms have the same 400GBps per node, but H200's NVLink 4 is 450GBps against B200's NVLink 5 at 900GBps, so the closer the two fabrics are the less the node boundary costs. Worth adding as a second table, but held until item `73` settles what the section concludes.
 
 ## Specific hardware not currently to hand
 
+- verify which collective algorithm the published B200 `busbw` rows actually ran, on a 4-node P6-B200 allocation. [Item `73`](build/consistency-review-2026-07-27.md) left the section honest but undecided: models 2 and 3 both fit the 22.05ms measurement within ~10%, and only the algorithm distinguishes them. One 4GiB run with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` via `.deepspeed_env`, then `NCCL_ALGO=allreduce:ring` and `allreduce:nvlstree` compared against the default - about three minutes of node time. H200 measured `Ring`, but the AWS tuner keys off the instance type - its log says `base Tuner is chosen for platform: p5en.48xlarge` - so a P6-B200 allocation gets a different tuner table and the H200 result does not transfer.
 - validate the SHARP/multicast granularity on an NVL36 or NVL72 system. [The SHARP section](network/README.md#sharp) now says the granularity there is *likely* 4 GPUs rather than 8, on the grounds that a compute tray is 2 GB200 modules = 4 GPUs and that the [partition guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) sizes partitions in fours and says partitions of `<=4` GPUs get no multicast benefit. What is actually measured is the 8x H200 HGX case: `NVLS` is not selected at 4 GPUs and the gain ramps 1.14x -> 1.29x from 5 to 8. Run the same `all_reduce_perf -g N` sweep with and without `NCCL_NVLS_ENABLE=0` on NVL hardware and the claim either firms up or gets corrected.
 
 - [suggestion 3](build/update-suggestions-2026-07-27.md): add the P6e-GB200 row, blocked on reading its per-NIC rate off a live instance.
