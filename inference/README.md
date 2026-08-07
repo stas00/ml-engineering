@@ -383,7 +383,7 @@ A relatively low Time Per Output Token (TPOT) is desired, but it doesn't have to
 
 According to wiki there are [3 types of reading](https://en.wikipedia.org/wiki/Speed_reading#Types_of_reading) and the reading speed is measured in words per minute (WPM).
 
-The average tokens per word can vary from tokenizer to tokenizer, primarily depending on their vocab size and the language(s). Here let's consider an English tokenizer with about 1.5 tokens per word. Now we can convert words per minute (WPM) to tokens per minute (TPM).
+The average tokens per word varies with the language, somewhat with the tokenizer, and most of all with the kind of text being generated. Here let's consider an English tokenizer with about 1.5 tokens per word. Now we can convert words per minute (WPM) to tokens per minute (TPM).
 
 And now we just need to divide by 60 to get Tokens Per Second (TPS) and invert to get time per output token (TPOT)
 
@@ -395,7 +395,16 @@ So `TPOT = 60 / (WPM*1.5)` in seconds
 | Auditory | 450 |  675 | 11.25 | 0.089 |
 | Visual   | 700 | 1050 | 18.75 | 0.057 |
 
-Remember to change the 1.5 co-efficient to the actual word to tokens average ratio of your tokenizer. For example, as of this writing OpenAI ChatGPT's with a 50k vocab is reported to be about 1.3 tokens per word, while many other LLMs have 30k vocabs, which lead to a higher tokens per words ratio.
+Remember to change the 1.5 co-efficient to the actual word to tokens average ratio of your tokenizer, which you can measure on your own text:
+
+```python
+import re, tiktoken
+enc  = tiktoken.get_encoding("cl100k_base")
+text = open("sample.txt").read()
+print("tokens per word: ", len(enc.encode(text)) / len(re.findall(r"\S+", text)))
+```
+
+Measured on a paragraph of plain English this gives about 1.2 tokens per word on OpenAI's `cl100k` and `o200k` tokenizers, and the same on GPT-2's older 50k vocab - for prose the choice of tokenizer barely moves it. What does move it is the kind of text the model emits: the same measurement on Python code gives about 3.3 tokens per word. So if you serve code completions rather than prose, a 1.5 co-efficient sets your TPOT target more than 2x too lax - you'd budget 0.16 secs per token for a 250 WPM reader where the code case needs closer to 0.07.
 
 As you can see TPOT is an awkward value to track and think of in one's head, so **once you know your targeted TPOT it's better to convert it to Tokens Per Seconds (TPS) and track that instead**.
 

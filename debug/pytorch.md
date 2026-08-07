@@ -3476,7 +3476,7 @@ and now when you run `py-spy` the line numbers will be correct. The processes ha
 
 #### AMD/ROCm hangs or slow with IOMMU enabled
 
-AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/toolbox/issues/1#issuecomment-1076830400) or set it to:
+AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/ml-engineering/issues/1#issuecomment-1076830400) or set it to:
 ```bash
 GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
 ```

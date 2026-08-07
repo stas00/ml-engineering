@@ -1,22 +1,40 @@
 #!/usr/bin/env python3
-"""Report external links whose URL has moved, so the book can cite the endpoint directly.
+"""Report external links whose URL has moved or died, so the book can cite the endpoint.
 
 A redirect is invisible to a reader and to build/check-links.py - the old URL still works,
 so nothing looks broken - yet it means the book names a location the project has left.
 GitHub org renames are the common case: outlines-dev/outlines, TimDettmers/bitsandbytes.
 
-Only cross-host and path changes are reported. An http->https upgrade, a gained or lost
-trailing slash, and a dropped #fragment are normal and are not moves.
-
 Needs network, so this is not part of the fast local pass - run it deliberately.
 
-usage: python build/check-redirects.py [--jobs N] [file ...]   (defaults to chapters-md.txt)
-"""
-import re, subprocess, sys
-from concurrent.futures import ThreadPoolExecutor
+Politeness: requests to one domain are serialized with --delay seconds between them, while
+different domains proceed in parallel. Never remove this. The book cites 243 distinct
+github.com URLs and 46 on huggingface.co; firing those off concurrently looks like a scraper
+and gets the runner throttled or IP-blocked, which is far more expensive than a slow check.
+That floor makes a full run take roughly (largest per-domain count x delay) - about 12
+minutes at the default. Raise --jobs to cover more domains at once, not to go faster on one.
 
-URL = re.compile(r'https?://[^)"\'>\s]+')
+usage: python build/check-redirects.py [--jobs N] [--delay SECS] [file ...]
+       (defaults to chapters-md.txt)
+"""
+import re, subprocess, sys, time
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
+
+URL = re.compile(r'https?://[^)\]}"\'>\s]+')
 TRAILING = '.,;:!?`'
+
+# Some vendors reject a bare HTTP client outright - amd.com, hpe.com, microsoft.com, nasa.gov
+# all do. Retrying with a browser user-agent separates real 404s from bot mitigation, which
+# matters: amd.com's instinct/specifications.html looked merely "blocked" for a whole pass
+# and was in fact gone. See SESSION.md "Sources and citations" item 9.
+BROWSER_UA = ('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:39.0) '
+              'Gecko/20100101 Firefox/39.0')
+
+# Hosts that redirect to signed, expiring, or geo-specific endpoints. The final URL is not a
+# canonical location and must never be pasted into the book - it rots within hours and pins
+# the reader to one region's CDN.
+CDN_HOSTS = ('cdn.hf.co', 'cloudfront.net', 'akamaized.net', 'blob.core.windows.net')
 
 def extract(line):
     """URLs on one line, with two Markdown quirks handled.
@@ -32,11 +50,6 @@ def extract(line):
         out.append(u)
     return out
 
-# Hosts that redirect to signed, expiring, or geo-specific endpoints. The final URL is not a
-# canonical location and must never be pasted into the book - it rots within hours and pins
-# the reader to one region's CDN.
-CDN_HOSTS = ('cdn.hf.co', 'cloudfront.net', 'akamaized.net', 'blob.core.windows.net')
-
 def normalize(u):
     """Strip the differences that are not moves, so only real relocations remain."""
     u = re.sub(r'^http://', 'https://', u)
@@ -45,23 +58,45 @@ def normalize(u):
     u = re.sub(r'^(https://github\.com/[^/]+/[^/]+)\.git$', r'\1', u)
     return u.rstrip('/')
 
-def final_url(url):
+def final_url(url, ua=None):
     """Where the URL actually lands, or None when it cannot be determined."""
+    cmd = ['curl', '-sIL', '--max-time', '20', '-o', '/dev/null',
+           '-w', '%{url_effective}\t%{http_code}']
+    if ua:
+        cmd += ['-A', ua]
     try:
-        r = subprocess.run(
-            ['curl', '-sIL', '--max-time', '20', '-o', '/dev/null',
-             '-w', '%{url_effective}\t%{http_code}', url],
-            capture_output=True, text=True, timeout=30)
+        r = subprocess.run(cmd + [url], capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         return None, 'timeout'
     out = r.stdout.strip().split('\t')
     return (out[0], out[1]) if len(out) == 2 else (None, 'error')
 
-args = [a for a in sys.argv[1:] if not a.startswith('--')]
-jobs = 8
+def resolve(url, delay):
+    """A bare client first, then a browser user-agent if the host refused to answer at all."""
+    final, code = final_url(url)
+    if final is None or code in ('000', 'error', 'timeout'):
+        time.sleep(delay)
+        final, code = final_url(url, ua=BROWSER_UA)
+    return final, code
+
+def suggested(url, final):
+    """curl never sends the #fragment, so `final` always lacks it. Carry it over, or a naive
+    replace silently downgrades a deep link to its page - and can collide with a sibling
+    fragment on the same page, mangling the URL outright."""
+    if '#' not in url:
+        return final, ''
+    frag = url.split('#', 1)[1]
+    return (f'{final.split("#")[0]}#{frag}',
+            '  (fragment carried over - verify it still exists on the new page)')
+
+args, jobs, delay = [], 8, 3.0
 for a in sys.argv[1:]:
     if a.startswith('--jobs'):
-        jobs = int(a.split('=')[1]) if '=' in a else 8
+        jobs = int(a.split('=')[1]) if '=' in a else jobs
+    elif a.startswith('--delay'):
+        delay = float(a.split('=')[1]) if '=' in a else delay
+    elif not a.startswith('--'):
+        args.append(a)
 
 files = args or [l.strip() for l in open('chapters-md.txt') if l.strip()]
 
@@ -76,32 +111,40 @@ for f in files:
         for u in extract(line):
             sites.setdefault(u, []).append((f, ln))
 
-print(f'checking {len(sites)} distinct external URLs from {len(files)} files '
-      f'with {jobs} parallel requests...\n')
+by_host = {}
+for u in sites:
+    by_host.setdefault(urlparse(u).hostname or '', []).append(u)
+
+worst = max((len(v) for v in by_host.values()), default=0)
+print(f'checking {len(sites)} distinct external URLs across {len(by_host)} domains from '
+      f'{len(files)} files\n{jobs} domains at a time, {delay}s between requests to the same '
+      f'domain - the busiest has {worst} URLs, so expect ~{int(worst * delay / 60)}+ min\n')
+
+def check_host(host):
+    """One domain's URLs, sequentially, spaced by `delay`. Called once per domain so that
+    different domains overlap while a single domain is never hit concurrently."""
+    out = []
+    for i, u in enumerate(by_host[host]):
+        if i:
+            time.sleep(delay)
+        out.append((u, *resolve(u, delay)))
+    return out
+
+results = []
+with ThreadPoolExecutor(max_workers=jobs) as pool:
+    for chunk in pool.map(check_host, by_host):
+        results.extend(chunk)
 
 moved, unreachable, cdn, dead = [], [], [], []
-with ThreadPoolExecutor(max_workers=jobs) as pool:
-    for url, (final, code) in zip(sites, pool.map(lambda u: final_url(u), sites)):
-        if final is None or code in ('000', 'error', 'timeout'):
-            unreachable.append((url, code))
-            continue
-        if any(h in final for h in CDN_HOSTS):
-            cdn.append(url)                            # a download endpoint, not a new home
-            continue
-        if code == '404' or code.startswith('5'):
-            dead.append((url, final, code))            # gone, not moved - needs a new source
-            continue
-        if normalize(final) != normalize(url):
-            moved.append((url, final, code))
-
-def suggested(url, final):
-    """curl never sends the #fragment, so `final` always lacks it. Carry it over, or a naive
-    replace silently downgrades a deep link to its page - and can collide with a sibling
-    fragment on the same page, mangling the URL outright."""
-    if '#' not in url:
-        return final, ''
-    frag = url.split('#', 1)[1]
-    return f'{final.split("#")[0]}#{frag}', '  (fragment carried over - verify it still exists on the new page)'
+for url, final, code in results:
+    if final is None or code in ('000', 'error', 'timeout'):
+        unreachable.append((url, code))
+    elif any(h in final for h in CDN_HOSTS):
+        cdn.append(url)                                # a download endpoint, not a new home
+    elif code == '404' or code.startswith('5'):
+        dead.append((url, final, code))                # gone, not moved - needs a new source
+    elif normalize(final) != normalize(url):
+        moved.append((url, final, code))
 
 for url, final, code in sorted(moved):
     where = sites[url][0]

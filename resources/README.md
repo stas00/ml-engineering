@@ -71,4 +71,4 @@ The listing is in no particular order other than being grouped by the year.
 
 - Imbue published a detailed log of how they have set up a 512-node IB-fat-tree cluster and made it to work: [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure), they also open-sourced the [cluster tooling](https://github.com/imbue-ai/cluster-health) they created in the process.
 
-- SemiAnalysis published a great detailed writeup about [what it takes to set up a Neocloud cluster](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/).
+- SemiAnalysis published a great detailed writeup about [what it takes to set up a Neocloud cluster](https://newsletter.semianalysis.com/p/ai-neocloud-playbook-and-anatomy).

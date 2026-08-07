@@ -152,9 +152,11 @@ I rolled back to just before the weird behavior occurred and restarted. The loss
 
 I have never seen this type of divergence before. I was scratching my head for a while and then decided to look at the bigger picture.
 
-As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plotting correctly if a rollback was performed, that is it ignores all new data after the rollback until the steps of the old data have been overcome. This forces us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you need to see the whole plot you have to stitch them together, which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
+[wandb](https://wandb.ai/) didn't handle resume data plotting correctly if a rollback was performed, that is it ignored all new data after the rollback until the steps of the old data have been overcome. This forced us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you need to see the whole plot you have to stitch them together, which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
 
 ![](images/ptl-repeat-data-p3.png)
+
+footnote: as of 2025 wandb can do this properly - [rewinding a run](https://docs.wandb.ai/models/runs/rewind) with `wandb.init(resume_from="<run_id>?_step=N")` truncates the history at step `N` and lets you log forward under the same run id, and `fork_from` does the same while leaving the original run intact (wandb SDK 0.17.1+; wandb recommends forking over rewinding for performance). Two catches: it's cloud-only - Multi-tenant and Dedicated Cloud, not Self-Managed - and it needs monotonically increasing steps, so it won't work alongside a non-monotonic `define_metric()`. Self-hosting, the stitching above is still the way.
 
 There was no real spike in the two earlier runs. The loss never went up in the first place. In both resumes it was under-reporting loss due to an exactly repeated data and then it reached data it hasn't seen before and started reporting correctly. In other words it was overfitting and reporting a false loss.
 
