@@ -916,15 +916,74 @@ Notes:
 
 ## torch.compile
 
-`torch.compile` will eventually speed things up amazingly for both training and inference. It's very difficult to make it work well on a random model, because the level of complexities to overcome is huge. There are some models that already work well with it, but many are still a long term work in progress.
+`torch.compile` speeds up both training and inference by tracing your model into a graph and
+generating fused kernels for it. It shipped in PyTorch 2.0 and as of 2026-08 much of the
+ecosystem runs it by default, but getting a good speedup on an arbitrary model is still not
+automatic - the tracer has to be able to see your code, and that is where the work is.
 
-If you tried it and thing don't work you:
+### Where it pays off
+
+Look back at the three groups in [Anatomy of Model's Operations](#anatomy-of-models-operations),
+because they behave very differently under compilation:
+
+1. **Tensor contractions** already dispatch to vendor GEMM libraries running near the hardware
+limit, so there is little here for a compiler to win. `mode="max-autotune"` will search Triton
+matmul variants and can occasionally beat the vendor library, but this is the least promising group.
+
+2. **Statistical normalizations** and 3. **element-wise operators** are where the wins are. These
+are memory-bandwidth-bound rather than compute-bound: each reads its input from HBM, does very
+little arithmetic, and writes the result back. Eager mode pays that round-trip once per operation.
+Fusing a chain of them into a single kernel pays it once for the whole chain. That is the bulk of
+what `torch.compile` does to a transformer, and it is why a model made of many small operations
+gains more than one dominated by large matmuls.
+
+So the speedup to expect is a function of how much of your step time sits in group 2 and 3 work.
+Profile first with the [memory profiler tools](#memory-profiler-tools), then compile.
+
+A separate win applies when you are launch-bound rather than bandwidth-bound:
+`mode="reduce-overhead"` captures the step into CUDA graphs and replays one launch sequence
+instead of issuing thousands of individual kernel launches. This matters most at small batch
+sizes and in low-latency inference decode, where the accelerator sits idle waiting for the CPU to
+feed it. It costs memory, since the captured graph pins its buffers, and it needs static shapes.
+
+### What makes it hard
+
+The tracer has to turn your `forward` into a graph, and anything it cannot trace becomes a
+**graph break** - it compiles what it can, falls back to eager for the untraceable part, then
+starts a new graph. Every break is also a fusion boundary, so a model with many breaks can
+"work" under `torch.compile` and gain almost nothing. Data-dependent control flow, `.item()`,
+`print` and unsupported operations all break the graph.
+
+The other trap is **recompilation**. A compiled graph is specialized to the shapes it was traced
+on, so a new sequence length triggers a recompile, and that only happens a bounded number of times
+(`torch._dynamo.config.recompile_limit`, 8 by default) before the compiler gives up on that
+function and runs it eager from then on. Variable-length batches are the usual cause, and they are
+common - so if your inputs vary in shape, `torch.compile(model, dynamic=True)` is the normal
+answer. It compiles one shape-agnostic graph up front, giving up some peak performance in exchange
+for never recompiling. Reach for it as the default when shapes vary, rather than as a fix after
+you notice the recompiles.
+
+Neither trap is mysterious - both are printable:
+
+```bash
+TORCH_LOGS="graph_breaks,recompiles" python train.py
+```
+
+which reports each break against the line of your code that caused it, and each recompile against
+the guard that failed. `torch.compile(model, fullgraph=True)` promotes breaks to errors, which is
+the quickest way to find all of them at once.
+
+Compilation itself costs wall-clock time on the first step, and again after any change that
+invalidates the cache. When the model is one block repeated `n` times, compiling the block instead
+of the whole model cuts that cost sharply, because the compiler does the work once and reuses it
+for every layer.
+
+If you tried it and things don't work you:
 1. may report it to the PyTorch team, ideally with a small reproducible example
-2. can try to read this extensive [torch.compile, the missing manual](https://docs.google.com/document/d/1y5CRfMLdwEoF1nTk9q8qEu1mgMUuUtvhklPKJ2emLU8/edit#heading=h.ivdr7fmrbeab) and you might be able to make some things work, and may still need to report some issues to PyTorch
+2. can work through PyTorch's own [torch.compile troubleshooting guide](https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/torch.compiler_troubleshooting.html), which is maintained alongside the compiler and has sections for each of the failure modes above, and you might be able to make some things work, and may still need to report some issues to PyTorch
 
-One thing is certain is that you want to use the latest pytorch version, which most likely would be some recent nightly build, rather than the last released version (though you might start with the latter).
-
-
+Use a recent PyTorch release - the compiler improves substantially between versions, and a problem
+you hit on an older one may not exist on the current stable.
 
 ## Automatic garbage collection
 
