@@ -278,7 +278,7 @@ Available, but locks you in:
 Not yet available:
 
   * NVIDIA Rubin - specs published but still marked preliminary
-  * AMD MI455X - Helios volume deployments expected 2H-2026; MI430X in 2027
+  * AMD MI455X - Helios volume deployments expected 2H-2026
   * SambaNova SN50 - shipping "in the second half of 2026"; SN40L is the current part
   * Intel Jaguar Shores - a roadmap name with no published specification or date
 
@@ -286,7 +286,7 @@ Regional:
 
   * Huawei Ascend - real scale, but China-only in practice, and the specs are only on Huawei's Chinese pages
 
-Beware that "announced" is not "available" - see the `GA` column in [Accelerators](../compute/accelerator/README.md#tflops-comparison-table) for which is which. For the full list and the numbers see [Accelerators](../compute/accelerator).
+Beware that "announced" is not "available" - the [Accelerators](../compute/accelerator/README.md#tflops-comparison-table) tables are split in two for exactly this reason, `Generally available` first and `Announced, availability not confirmed` after it. For the full list and the numbers see [Accelerators](../compute/accelerator).
 
 
 #### Accelerator Interoperability
