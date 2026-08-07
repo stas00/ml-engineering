@@ -65,7 +65,7 @@ But fp16 proved to be not very stable and training LLM was extremely difficult.
 
 Luckily bf16 came out and replaced fp16 using the same mixed precision protocol. This made the LLM training much more stable.
 
-Then fp8 came and mixed precision could switch to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html), which makes the training even faster. See [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433). As of this writing bf16 mixed precision is still the default for most training runs, but fp8 training is no longer experimental - [DeepSeek-V3](https://arxiv.org/abs/2412.19437) was trained in fp8.
+Then fp8 came and mixed precision could switch to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html), which makes the training even faster. See [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433). As of 2026-08 bf16 mixed precision is still the default for most training runs, but fp8 training is no longer experimental - [DeepSeek-V3](https://arxiv.org/abs/2412.19437) was trained in fp8.
 
 And then Blackwell added fp6, fp4 and NVIDIA's own nvfp4. So far these are mostly inference formats - fp4 training is still a research topic.
 
