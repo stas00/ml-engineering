@@ -102,7 +102,7 @@ footnote: For Inference only it'd be: `24Bsh^2 + 4Bs^2h` floating point operatio
 
 #### Automating FLOP calculation
 
-Until recently we had to rely on manual FLOP calculations as explained in the previous section - many of those formulas have mistakes in them, and many models behave differently depending on various configuration settings. So it can be tricky to get the FLOP count correctly (and across many different model architectures). But fear not, the awesome PyTorch team developed an automatic way of measuring FLOPs.
+Manual FLOP calculation, as explained in the previous section, is difficult to get right - many of those formulas have mistakes in them, and many models behave differently depending on various configuration settings. So it can be tricky to get the FLOP count correctly (and across many different model architectures). The PyTorch team developed an automatic way of measuring FLOPs.
 
 ```python
 from torch.utils.flop_counter import FlopCounterMode
@@ -112,7 +112,7 @@ with flop_counter:
     model(**input).sum().backward()
 total_flops =  flop_counter.get_total_flops()
 ```
-Voila, you have the FLOPs counted for you!
+Voila, you have the FLOPs counted for you! In theory, at least. In practice `FlopCounterMode` has proved to have multiple problems impacting performance and memory usage that as of 2026-08 it can't be relied on to replace the manual calculation - so expect to still need the formulas from the previous section, and to treat the counter as a cross-check rather than as the answer.
 
 In my code I run it only on a 2nd iteration (as the first iteration is likely to have some additional compute that is run once). You don't need to repeat it again, you can just cache its value (well, unless you have a situation where iterations aren't the same for some reason).
 
@@ -552,7 +552,7 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 
 4-byte optimizers:
 
-- There are optimizers like Adafactor that need only 4 bytes. Same goes for the recently invented [LION optimizer](https://arxiv.org/abs/2302.06675).
+- There are optimizers like Adafactor that need only 4 bytes. Same goes for the [LION optimizer](https://arxiv.org/abs/2302.06675).
 
 - `AnyPrecisionAdamW`. Some courageous souls try to do the whole training in BF16 (not mixed precision!), including the optimizer and thus need only 4 bytes per parameter for optim states. See [this work](https://github.com/huggingface/transformers/pull/21312). Hint: this optimizer requires Kahan summation and/or stochastic rounding, see [Revisiting BFloat16 Training (2020)](https://arxiv.org/abs/2010.06192). You need only 8 bytes per parameter for weights, optim states and gradients here! Instead of 18!
 

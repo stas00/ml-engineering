@@ -1159,6 +1159,8 @@ Let's bring both use cases together:
 
 on this 200Gbps inter-node setup the comms are 12x slower than the same performed on an intra-node NVLink connections.
 
+footnote: this arithmetic assumes the whole payload crosses the inter-node wire at one accelerator's NIC rate - a flat ring across all 32 ranks. For example, on a 4-node 8x H200 cluster (`p5en.48xlarge`, NCCL 2.27.7, EFA) a 4GiB `all-reduce` across 32 ranks selects `Ring`, measured 2026-08-07. Forcing `NCCL_ALGO=allreduce:ring` reproduced the default to within 0.1% - 364.65 against 364.87GBps `busbw` - while `NCCL_ALGO=allreduce:nvlstree` was available but 15% slower at 310.07GBps, which is why the AWS tuner rejects it. Do not assume this generalizes: the algorithm is chosen per platform, and on that cluster the chooser is AWS's `NCCL_TUNER_PLUGIN=ofi` plugin rather than NCCL's own tuner. Check yours with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`.
+
 In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
 
 So in this particular situation if you were able to get a 400Gbps inter-node the speed would double and the comms will finish in 0.32 secs and thus will be faster than that 0.42 secs the compute would take.
