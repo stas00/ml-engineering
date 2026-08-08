@@ -55,8 +55,7 @@ The 2 main use cases are often optimized for different performance metrics - the
 
 ### Grounding
 
-It's the process of giving the pre-trained model additional information that wasn't available during its training.
-For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
+It's the process of giving the pre-trained model additional information that wasn't available during its training. For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
 
 Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
 
@@ -114,8 +113,7 @@ Paged Attention is very popular with inference servers as it allows for a very e
 
 ### Decoding methods
 
-The main decoding methods are:  [Greedy decoding](#greedy-decoding),
-[Beam search](#beam-search) and [Sampling](#sampling).
+The main decoding methods are:  [Greedy decoding](#greedy-decoding), [Beam search](#beam-search) and [Sampling](#sampling).
 
 
 #### Greedy decoding
@@ -603,8 +601,7 @@ notes:
 - `2` stands for keys + values as there are 2 of them.
 - `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
 
-You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different.
-e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
+You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different. e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
 
 Examples:
 

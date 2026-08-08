@@ -58,8 +58,7 @@ pytest tests/utils/test_logging.py
 
 ### Run specific tests
 
-If `unittest` is used, to run specific subtests you need to know the name of the `unittest`
-class containing those tests. For example, it could be:
+If `unittest` is used, to run specific subtests you need to know the name of the `unittest` class containing those tests. For example, it could be:
 
 ```bash
 pytest tests/test_optimization.py::OptimizationTest::test_adam_w
@@ -93,8 +92,7 @@ To run only tests whose name contains `adam`:
 pytest -k adam tests/test_optimization.py
 ```
 
-Logical `and` and `or` can be used to indicate whether all keywords should match or either. `not` can be used to
-negate.
+Logical `and` and `or` can be used to indicate whether all keywords should match or either. `not` can be used to negate.
 
 To run all tests except those whose name contains `adam`:
 
@@ -146,9 +144,7 @@ pip install pytest-xdist
 
 To enter the mode: `pytest -f` or `pytest --looponfail`
 
-File changes are detected by looking at `looponfailroots` root directories and all of their contents (recursively).
-If the default for this value does not work for you, you can change it in your project by setting a configuration
-option in `setup.cfg`:
+File changes are detected by looking at `looponfailroots` root directories and all of their contents (recursively). If the default for this value does not work for you, you can change it in your project by setting a configuration option in `setup.cfg`:
 
 ```ini
 [tool:pytest]
@@ -162,8 +158,7 @@ or `pytest.ini`/``tox.ini`` files:
 looponfailroots = transformers tests
 ```
 
-This would lead to only looking for file changes in the respective directories, specified relatively to the ini-file’s
-directory.
+This would lead to only looking for file changes in the respective directories, specified relatively to the ini-file’s directory.
 
 [pytest-watcher](https://github.com/olzhasar/pytest-watcher) is an alternative implementation of this functionality. The older `pytest-watch` is widely linked but has had no commit since 2022, so prefer the former or `--looponfail` above.
 
@@ -222,8 +217,7 @@ footnote: There is another plugin [`pytest-repeat`](https://github.com/pytest-de
 pip install pytest-random-order
 ```
 
-Important: the presence of `pytest-random-order` will automatically randomize tests, no configuration change or
-command line options is required.
+Important: the presence of `pytest-random-order` will automatically randomize tests, no configuration change or command line options is required.
 
 As explained earlier this allows detection of coupled tests - where one test's state affects the state of another. When `pytest-random-order` is installed it will print the random seed it used for that session, e.g:
 
@@ -486,8 +480,7 @@ or all but `negative` sub-tests, with:
 pytest -k "not negative" tests/test_mytest.py
 ```
 
-Besides using the `-k` filter that was just mentioned, you can find out the exact name of each sub-test and run any
-or all of them using their exact names.
+Besides using the `-k` filter that was just mentioned, you can find out the exact name of each sub-test and run any or all of them using their exact names.
 
 ```bash
 pytest test_this1.py --collect-only -q
@@ -587,8 +580,7 @@ class PathExampleTest(TestCasePlus):
         data_dir = self.tests_dir / "fixtures/tests_samples/wmt_en_ro"
 ```
 
-If you don't need to manipulate paths via `pathlib` or you just need a path as a string, you can always invoked
-`str()` on the `pathlib` object or use the accessors ending with `_str`. For example:
+If you don't need to manipulate paths via `pathlib` or you just need a path as a string, you can always invoked `str()` on the `pathlib` object or use the accessors ending with `_str`. For example:
 
 ```python
 from testing_utils import TestCasePlus
@@ -653,8 +645,7 @@ footnote: Each test can register multiple temporary directories and they all wil
 
 #### Temporary sys.path override
 
-If you need to temporary override `sys.path` to import from another test for example, you can use the
-`ExtendSysPath` context manager. Example:
+If you need to temporary override `sys.path` to import from another test for example, you can use the `ExtendSysPath` context manager. Example:
 
 
 ```python
@@ -668,8 +659,7 @@ with ExtendSysPath(f"{bindir}/.."):
 
 ### Skipping tests
 
-This is useful when a bug is found and a new test is written, yet the bug is not fixed yet. In order to be able to
-commit it to the main repository we need make sure it's skipped during `make test`.
+This is useful when a bug is found and a new test is written, yet the bug is not fixed yet. In order to be able to commit it to the main repository we need make sure it's skipped during `make test`.
 
 Methods:
 
@@ -677,8 +667,7 @@ Methods:
 
 -  A **xfail** means that you expect a test to fail for some reason. A common example is a test for a feature not yet implemented, or a bug not yet fixed. When a test passes despite being expected to fail (marked with `pytest.mark.xfail`), it’s an xpass and will be reported in the test summary.
 
-One of the important differences between the two is that `skip` doesn't run the test, and `xfail` does. So if the
-code that's buggy causes some bad state that will affect other tests, do not use `xfail`.
+One of the important differences between the two is that `skip` doesn't run the test, and `xfail` does. So if the code that's buggy causes some bad state that will affect other tests, do not use `xfail`.
 
 #### Implementation
 
@@ -925,8 +914,7 @@ This helper method creates a copy of the `os.environ` object, so the original re
 
 ### Getting reproducible results
 
-In some situations you may want to remove randomness for your tests. To get identical reproducible results set, you
-will need to fix the seed:
+In some situations you may want to remove randomness for your tests. To get identical reproducible results set, you will need to fix the seed:
 
 ```python
 seed = 42

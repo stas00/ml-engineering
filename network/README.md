@@ -1286,8 +1286,7 @@ So when you calculate how long does it take to `all_reduce` a given payload size
 
 Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
 
-But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as
-uni-directional 300GBps so we get about 78% of the theoretical speed with 16GiB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
+But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as uni-directional 300GBps so we get about 78% of the theoretical speed with 16GiB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
 
 We can also run [p2pBandwidthLatencyTest](benchmarks/README.md#p2pbandwidthlatencytest) which performs a low-level p2p benchmark.
 

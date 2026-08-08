@@ -170,8 +170,7 @@ If either one or both of these mismatch then you can't make a fair comparison.
 
 Unfortunately, most of the time papers and blog posts just report the MFU number w/o a link to how it was calculated.
 
-But, do not fear, if you have trouble comparing your results with competing results, remember the measurement artifacts described above.
-These artifacts do not improve the bottom-line throughput, thus, as long as you consistently use whatever way you choose to calculate TFLOPS, you will immediately see when your application's performance has improved or degraded, as relative numbers are most important for you.
+But, do not fear, if you have trouble comparing your results with competing results, remember the measurement artifacts described above. These artifacts do not improve the bottom-line throughput, thus, as long as you consistently use whatever way you choose to calculate TFLOPS, you will immediately see when your application's performance has improved or degraded, as relative numbers are most important for you.
 
 #### MFU is a very rough approximation
 
@@ -364,8 +363,7 @@ For **inference**, the math is very similar to training, minus optimizer states 
 
 See [Model Weights in the inference chapter](../../inference/README.md#model-weights) for lower-precision and quantized formats, including fp8, fp6, fp4, integer quantization, and MX formats.
 
-Another excellent resource that takes you through the memory needs and other requirements is
-[Transformer Math 101](https://blog.eleuther.ai/transformer-math/).
+Another excellent resource that takes you through the memory needs and other requirements is [Transformer Math 101](https://blog.eleuther.ai/transformer-math/).
 
 The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [calculation scripts](https://github.com/EleutherAI/cookbook/tree/main/calc) that can output the theoretical memory overhead for a given training or inference calculation run based on your configuration and setup.
 
@@ -447,8 +445,7 @@ So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) too
 
 As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GiB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
-Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://docs.pytorch.org/docs/stable/notes/cuda.html#memory-management).
-I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
+Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://docs.pytorch.org/docs/stable/notes/cuda.html#memory-management). I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
 
 
 
@@ -560,8 +557,7 @@ The most common optimizer is Adam. It and its derivatives all use 8 bytes per pa
 
 - There are quantized solutions like `bnb.optim.Adam8bit` which uses only 2 bytes instead of 8 (1 byte per momentum).  You can get it from [here](https://github.com/bitsandbytes-foundation/bitsandbytes). Once installed, if you're using HF Trainer, you can enable it on with just passing `--optim adamw_bnb_8bit`!
 
-For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101)
-Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
+For speed comparisons see [this benchmark](https://github.com/huggingface/transformers/issues/22101) Speed-wise:`apex`'s `apex.optimizers.FusedAdam` optimizer is so far the fastest implementation of Adam. Since pytorch-2.0 [torch.optim.AdamW](https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html) added support for `fused=True` option, which brings it almost on par with `apex.optimizers.FusedAdam`.
 
 
 
@@ -578,8 +574,7 @@ In this chapter we discussed the theoretical math of how much this or that featu
 
 You'd want to use some sort of memory profiler for that purpose. There are various memory profilers out there.
 
-One useful tool that I developed for quick and easy profiling of each line or block of code is
-[IPyExperiments](https://github.com/stas00/ipyexperiments). You just need to load your code into a jupyter notebook and it'll automatically tell you how much CPU/GPU memory each block allocates/frees. So e.g. if you want to see how much memory loading a model took, and then how much extra memory a single inference step took - including peak memory reporting.
+One useful tool that I developed for quick and easy profiling of each line or block of code is [IPyExperiments](https://github.com/stas00/ipyexperiments). You just need to load your code into a jupyter notebook and it'll automatically tell you how much CPU/GPU memory each block allocates/frees. So e.g. if you want to see how much memory loading a model took, and then how much extra memory a single inference step took - including peak memory reporting.
 
 
 
@@ -589,8 +584,7 @@ The paper, [The Case for Co-Designing Model Architectures with Hardware](https:/
 
 One gets the most efficient performance when batch sizes and input/output neuron counts are divisible by a certain number, which typically starts at 8, but can be much higher as well. That number varies a lot depending on the specific hardware being used and the dtype of the model.
 
-For fully connected layers (which correspond to GEMMs), NVIDIA provides recommendations for [input/output neuron counts](
-https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#input-features) and [batch size](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#batch-size).
+For fully connected layers (which correspond to GEMMs), NVIDIA provides recommendations for [input/output neuron counts]( https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#input-features) and [batch size](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html#batch-size).
 
 [Tensor Core Requirements](https://docs.nvidia.com/deeplearning/performance/dl-performance-matrix-multiplication/index.html#requirements-tc) define the multiplier based on the dtype and the hardware. For example, for fp16 a multiple of 8 is recommended, but on A100 it's 64!
 
@@ -746,8 +740,7 @@ The full recommendations are:
 
 ## NUMA affinity
 
-[Non-uniform memory access (NUMA)](https://en.wikipedia.org/wiki/Non-uniform_memory_access) is a computer memory design used in multiprocessing, where the memory access time depends on the memory location relative to the processor.
-As modern servers have more than one CPU to get the best performance accelerators residing in the same NUMA node as the corresponding CPU should have the processes bound to that same NUMA node.
+[Non-uniform memory access (NUMA)](https://en.wikipedia.org/wiki/Non-uniform_memory_access) is a computer memory design used in multiprocessing, where the memory access time depends on the memory location relative to the processor. As modern servers have more than one CPU to get the best performance accelerators residing in the same NUMA node as the corresponding CPU should have the processes bound to that same NUMA node.
 
 First, let's understand what do NUMA nodes signify.
 
@@ -873,8 +866,7 @@ if "CUDA_VISIBLE_DEVICES" in os.environ:
     gpu_index = ids[gpu_index] # remap
 ```
 
-The other gotcha can be `CUDA_DEVICE_ORDER` which typically defaults to `PCI_BUS_ID`, but one could also set it to
-`CUDA_DEVICE_ORDER=FASTEST_FIRST` if you have mixed GPUs, but it's very very unlikely that you will run into this in a high end server setup, so you can safely ignore this.
+The other gotcha can be `CUDA_DEVICE_ORDER` which typically defaults to `PCI_BUS_ID`, but one could also set it to `CUDA_DEVICE_ORDER=FASTEST_FIRST` if you have mixed GPUs, but it's very very unlikely that you will run into this in a high end server setup, so you can safely ignore this.
 
 
 #### srun

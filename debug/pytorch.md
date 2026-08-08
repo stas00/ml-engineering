@@ -397,8 +397,7 @@ new_tokenizer = tokenizer.train_new_from_iterator(training_corpus, vocab_size=vo
 new_tokenizer.save_pretrained("small-tokenizer")
 ```
 
-which is almost perfect, except it now doesn't have any information about the frequency for each word/char (that's how most tokenizers compute their vocab, which if you need this info you can fix by
-having each key appearing `len(vocab) - ID times`, i.e.:
+which is almost perfect, except it now doesn't have any information about the frequency for each word/char (that's how most tokenizers compute their vocab, which if you need this info you can fix by having each key appearing `len(vocab) - ID times`, i.e.:
 
 ```
 training_corpus = [ (k for i in range(vocab_len-v)) for k,v in vocab.items() ]
@@ -485,15 +484,13 @@ tokenizer_fast_tiny.save_pretrained(".")
 
 So now you can shrink the vocab size to as small as the tokenizer allows, that is you need to have at least enough tokens to cover the target alphabet and special characters, and usually 3-5k tokens is more than enough.  Sometimes you could make it even small, after all the original ASCII charset has only 128 characters.
 
-If we continue the MT5 code from earlier in this chapter and add the tokenizer shrinking code from the previous section, we end up with this script [mt5-make-tiny-model.py](https://huggingface.co/stas/mt5-tiny-random/blob/main/mt5-make-tiny-model.py)
-and when we run it - our end model file is truly tiny - 3.34MB in size! As you can see the script also has code to validate that the model can actually work with the modified tokenizer. The results will be garbage, but the intention is to test that the new model and the tokenizer are functional.
+If we continue the MT5 code from earlier in this chapter and add the tokenizer shrinking code from the previous section, we end up with this script [mt5-make-tiny-model.py](https://huggingface.co/stas/mt5-tiny-random/blob/main/mt5-make-tiny-model.py) and when we run it - our end model file is truly tiny - 3.34MB in size! As you can see the script also has code to validate that the model can actually work with the modified tokenizer. The results will be garbage, but the intention is to test that the new model and the tokenizer are functional.
 
 Here is another example  [fsmt-make-super-tiny-model.py](https://huggingface.co/stas/tiny-wmt19-en-ru/blob/main/fsmt-make-super-tiny-model.py) - here you can see I'm creating a totally new tiny vocab from scratch.
 
 I also recommend to always store the building scripts with the model, so that you could quickly fix things or make similar versions of the model.
 
-Also be aware that since HF `transformers` needs tiny models for their testing, you are very likely to already find one for each architecture available mostly from
-https://huggingface.co/hf-internal-testing (except they didn't include the code of how they were made, but you can now figure it out based on these notes).
+Also be aware that since HF `transformers` needs tiny models for their testing, you are very likely to already find one for each architecture available mostly from https://huggingface.co/hf-internal-testing (except they didn't include the code of how they were made, but you can now figure it out based on these notes).
 
 Another hint: if you need a slightly different tiny model, you can also start with an already existing tiny model and adapt it instead. Since it's random it's really only about getting the right dimensions. For example if the tiny model you found has 2 layers but you need 8, just resave it with this larger dimension and you're done.
 
@@ -1575,9 +1572,7 @@ You can see it in context [here](https://github.com/deepspeedai/DeepSpeed/blob/d
 
 For this section we are going to use the [underflow_overflow](./underflow_overflow.py) library.
 
-If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in
-activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily
-you can accomplish that easily by activating a special module that will do the detection automatically.
+If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily you can accomplish that easily by activating a special module that will do the detection automatically.
 
 Let's use a `t5-large` model for this demonstration.
 
@@ -1589,10 +1584,7 @@ model = AutoModel.from_pretrained("t5-large")
 debug_overflow = DebugUnderflowOverflow(model)
 ```
 
-[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each
-forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or
-`nan` is detected in at least one element of the activations or weights, the program will assert and print a report
-like this (this was caught with `google/mt5-small` under fp16 mixed precision):
+[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or `nan` is detected in at least one element of the activations or weights, the program will assert and print a report like this (this was caught with `google/mt5-small` under fp16 mixed precision):
 
 ```
 Detected inf/nan during batch_number=0
@@ -1636,16 +1628,11 @@ abs min  abs max  metadata
 
 The example output has been trimmed in the middle for brevity.
 
-The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames,
-the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very
-last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under
-`fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with
-large activations is going to lead to a numerical overflow condition.
+The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames, the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under `fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with large activations is going to lead to a numerical overflow condition.
 
 At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
 
-Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting
-for. For example, consider this frame:
+Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting for. For example, consider this frame:
 
 ```
                   encoder.block.2.layer.1.layer_norm T5LayerNorm
@@ -1654,8 +1641,7 @@ for. For example, consider this frame:
 1.79e-06 4.65e+00 output
 ```
 
-Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the
-encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
+Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
 
 Let's look at the last few frames of that report:
 
@@ -1684,18 +1670,11 @@ abs min  abs max  metadata
 0.00e+00      inf output
 ```
 
-The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the
-only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see
-that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest
-input elements was `6.27e+04` and same for the output was `inf`.
+The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest input elements was `6.27e+04` and same for the output was `inf`.
 
-You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was
-around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes
-the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an
-overflow (`inf`).
+You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an overflow (`inf`).
 
-As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16
-numbers.
+As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16 numbers.
 
 Let's match the report to the code from [`models/t5/modeling_t5.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py):
 
@@ -1721,13 +1700,9 @@ class T5DenseGatedGeluDense(nn.Module):
 
 Now it's easy to see the `dropout` call, and all the previous calls as well.
 
-Since the detection is happening in a forward hook, these reports are printed immediately after each `forward`
-returns.
+Since the detection is happening in a forward hook, these reports are printed immediately after each `forward` returns.
 
-Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers
-started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied
-or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's
-enabled, after moving the original `forward` into a helper wrapper, like so:
+Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's enabled, after moving the original `forward` into a helper wrapper, like so:
 
 ```python
 import torch
@@ -1748,9 +1723,7 @@ def forward(self, hidden_states):
         return self._forward(hidden_states)
 ```
 
-Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may
-want to analyse the intermediary stages of any specific `forward` function as well. In such a case you can use the
-`detect_overflow` helper function to inject the detector where you want it, for example:
+Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may want to analyse the intermediary stages of any specific `forward` function as well. In such a case you can use the `detect_overflow` helper function to inject the detector where you want it, for example:
 
 ```python
 from underflow_overflow import detect_overflow
@@ -1767,14 +1740,11 @@ class T5LayerFF(nn.Module):
         return hidden_states + self.dropout(forwarded_states)
 ```
 
-You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected
-somewhere in between.
+You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected somewhere in between.
 
-Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but
-let's say if you had some local direct calculations this is how you'd do that.
+Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but let's say if you had some local direct calculations this is how you'd do that.
 
-Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from
-its default, e.g.:
+Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from its default, e.g.:
 
 ```python
 from .underflow_overflow import DebugUnderflowOverflow
@@ -1786,8 +1756,7 @@ debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
 
 The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
 
-Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given
-batch, and only do that for batches 1 and 3. Then you instantiate this class as:
+Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given batch, and only do that for batches 1 and 3. Then you instantiate this class as:
 
 ```python
 debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3])
@@ -1797,8 +1766,7 @@ And now full batches 1 and 3 will be traced using the same format as the underfl
 
 Batches are 0-indexed.
 
-This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward
-right to that area. Here is a sample truncated output for such configuration:
+This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward right to that area. Here is a sample truncated output for such configuration:
 
 ```
                   *** Starting batch number=1 ***
@@ -1829,10 +1797,7 @@ abs min  abs max  metadata
 [...]
 ```
 
-Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may
-not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if
-a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where
-numbers started to diverge.
+Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where numbers started to diverge.
 
 You can also specify the batch number after which to stop the training, with:
 
@@ -2399,8 +2364,7 @@ Here `ib` typically tells us it's an InfiniBand card, but really it can be any o
 
 If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
 
-Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes.
-For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
+Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes. For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
 
 In terminal A:
 
@@ -2727,8 +2691,7 @@ Note: [NCCL==2.14.3 coming with `pytorch==1.13` hangs](https://github.com/NVIDIA
 
 ### segfaults and getting a backtrace from a core file
 
-It's not uncommon for a complex pytorch program to segfault and drop a core file. Especially if
-you're using complex extensions like NCCL.
+It's not uncommon for a complex pytorch program to segfault and drop a core file. Especially if you're using complex extensions like NCCL.
 
 The corefile is what the program generates when it crashes on a low-level - e.g. when using a python extension - such as a CUDA kernel or really any library that is coded directly in some variant of C or another language and made accessible in python through some binding API. The most common cause of a segfault is when such software accesses memory it has not allocated. For example, a program may try to free memory it hasn't allocated. But there could be many other reasons.
 
@@ -3435,13 +3398,11 @@ On some systems like Ubuntu the core files are hijacked by `apport`, check the c
 sudo sysctl -w kernel.core_pattern=/tmp/core-%e.%p.%h.%t
 ```
 
-Change the directory if you want to, but make sure that the user the program is running under can write to that directory.
-To make this change permanent edit `/etc/sysctl.conf` and add `kernel.core_pattern=/tmp/core-%e.%p.%h.%t` (or modify if it's already there).
+Change the directory if you want to, but make sure that the user the program is running under can write to that directory. To make this change permanent edit `/etc/sysctl.conf` and add `kernel.core_pattern=/tmp/core-%e.%p.%h.%t` (or modify if it's already there).
 
 footnote: see `man core` for all the different templates available
 
-If on Ubuntu by default it sends core files to `apport`, which may save the core to `/var/lib/apport/coredump` or
-`/var/crash`. But you can change this as explained above.
+If on Ubuntu by default it sends core files to `apport`, which may save the core to `/var/lib/apport/coredump` or `/var/crash`. But you can change this as explained above.
 
 A quick way to test if your setup can generate a core file is:
 ```

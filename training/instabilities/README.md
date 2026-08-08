@@ -56,8 +56,7 @@ Proposal: move the `norm_factor` inward, so Q and K are scaled down before matri
         attention_scores = matmul_result.view(*output_size)
 ```
 
-To make the operation mathematically equivalent, moving the norm factor inward requires taking sqrt again
-if n is a scalar, A and B matrices:
+To make the operation mathematically equivalent, moving the norm factor inward requires taking sqrt again if n is a scalar, A and B matrices:
 ```
 n * (A dot B) === (sqrt(n) * A) dot (sqrt(n) * B)
 ```
@@ -81,7 +80,6 @@ PaLM team observed dozens of loss spikes at "highly irregular intervals" when tr
 
 ## Time-domain correlation divergence in Adam
 
-[A Theory on Adam Instability in Large-Scale Machine Learning](https://arxiv.org/abs/2304.09871) performs a rigorous study of divergence spikes while training LLMs at up to 546B parameters - and suggests that the time-domain correlation leads to divergence of Adam. This is triggered by the epsilon value not being small enough and gradient
-estimation components become similar to the epsilon.
+[A Theory on Adam Instability in Large-Scale Machine Learning](https://arxiv.org/abs/2304.09871) performs a rigorous study of divergence spikes while training LLMs at up to 546B parameters - and suggests that the time-domain correlation leads to divergence of Adam. This is triggered by the epsilon value not being small enough and gradient estimation components become similar to the epsilon.
 
 In section 7.1 they propose practical suggestions, the most interesting one of them is setting epsilon to 0 and possibly dealing with division by zero condition.
