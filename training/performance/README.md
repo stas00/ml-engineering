@@ -627,6 +627,54 @@ An example of this for 32 attention heads:
 More powers of 2 in `h/a` helps!
 
 
+### Do more SMs give more TFLOPS?
+
+Take two accelerators identical for a given dtype - same matmul units per SM, same [FMAs](../../compute/accelerator/README.md#how-to-calculate-theoretical-tflops) per clock, same clock - where one has more SMs. Theoretical peak scales linearly with the count, because that is how it is derived - `clock * FMAs_per_clock_cycle_per_compute_unit * 2 * num_compute_units` - and that last term is a fixed multiple of the SM count: 4 Tensor Cores per SM on NVIDIA's Ampere, Hopper and Blackwell, with AMD and Intel counting their own units. Only the fixedness matters here. Achievable throughput does *not* scale linearly, and the gap is wave quantization.
+
+A GEMM decomposes into `C` thread blocks, `C = ceil(m/Tm) * ceil(n/Tn)` for a `Tm x Tn` tile. On `S` SMs that takes `W = ceil(C/S)` waves, and since a wave costs the same whether it is full or not, time is proportional to `W`. So for `S1 < S2` the speedup is not `S2/S1` but:
+
+```
+speedup = ceil(C/S1) / ceil(C/S2)
+```
+
+gives us a plot, which is a staircase, not a line. For example, B300 ships in at least two SKUs, with **148** and **152** SMs - same silicon, same clock, an SM ratio of `152/148` = **1.027**:
+
+| thread blocks | waves @148 | waves @152 | speedup | what happens                              |
+| ------------: | ---------: | ---------: | ------: | :---------------------------------------- |
+|           148 |          1 |          1 |  1.000x | one wave on both - 4 SMs idle             |
+|           152 |          2 |          1 |  2.000x | crossover - 2x from 2.7% more SMs         |
+|           296 |          2 |          2 |  1.000x | no gain - 296 = 2 x 148 fills 148 exactly |
+|           304 |          3 |          2 |  1.500x | crossover again                           |
+|          3584 |         25 |         24 |  1.042x | a real transformer MLP shape, see below   |
+|         50000 |        338 |        329 |  1.027x | asymptote at the 1.027x SM ratio          |
+
+footnote: thread blocks are also known as Cooperative Thread Array (CTA)
+
+2.7% more SMs buys anywhere from **nothing** to **2x**, on shape alone. Below one wave the extra SMs have no work. At a crossover the narrower part pays for a nearly-empty second wave and loses by up to 2x. Once both need the same wave count they tie again, and now the *wider* part wastes more: at `C = 296` the 148-SM part packs two waves exactly while the 152-SM part idles 8 slots in its second. Only as `C` grows does the advantage settle on the SM ratio - still 1.4% off at 3584, within 0.03% by 50000 - which is why vendors quote peak on enormous matmuls, the one place the staircase is flat.
+
+The `3584` row is a shape you actually run: the MLP up-projection of a Llama-3.1-8B forward pass at 8K tokens. `hidden_size=4096` and `intermediate_size=14336` give an `8192 x 14336` output, which over a `128 x 256` tile is `64 * 56` = 3584 blocks, once per layer for 32 layers. It lands *above* the 1.027x ratio - the staircase straddles the ratio rather than approaching it from below.
+
+So **an SM count does not tell you a throughput advantage** without your shapes, and a shape tuned on one part can land on the wrong side of a crossover on another. To place yourself, count your blocks and divide by your own SM count.
+
+A published peak is an **aggregate over the whole part**, never a per-SM rate: B300's 2250 TFLOPS bf16 is what all 148 SMs deliver together, about 15.2 each. A single-wave matmul is bounded by that per-SM rate alone.
+
+**And the count is SKU-dependent, so the published peak moves with it.** NVIDIA gives 160 SMs for "the full GPU implementation", with the caveat that "available SM count and HBM capacity varies by SKU" - the same gap the [cache table](../../compute/accelerator/README.md#caches) records a generation back, `GH100 full implementation` at 144 against `H100 SXM`'s 132. Both measured B300 SKUs ship below the full die, and a B200 SKU also reads 148. Dividing each published figure by 148 and scaling to 152 gives what the other SKU is entitled to publish:
+
+| dtype | published | per SM (/148) | at 152 SMs |
+| :---- | --------: | ------------: | ---------: |
+| bf16  |      2250 |         15.20 |       2311 |
+| fp8   |      4500 |         30.41 |       4622 |
+| fp4   |     12600 |         85.14 |      12941 |
+| nvfp4 |     15000 |        101.35 |      15405 |
+
+Every dtype moves by that same 1.027x, which leaves a corollary: **NVIDIA publishes one set of numbers for `B300 SXM`, and two real SKUs cannot both match them.** If 2250 belongs to the 148-SM part then the 152-SM part is entitled to 2311; if it belongs to the 152-SM part then the 148-SM one reaches only 2191. So a peak quoted without its SM count is approximate for at least one of the parts sold under that name. Note the asymmetry: that 2.7% gap in *published* peak is exact, while the gap in *achievable* throughput is the staircase above - nothing, 2x, or 2.7% depending entirely on shape.
+
+To get the SM count of your accelerator:
+
+```bash
+python -c "import torch; p=torch.cuda.get_device_properties(0); print(p.name, p.multi_processor_count)"
+```
+
 ### Number and size of attention heads
 
 Generally, it's most computationally efficient to keep the ratio of `h/a` as large as possible without accuracy degradation. A good figure from [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) showing this effect is:
@@ -636,29 +684,13 @@ Generally, it's most computationally efficient to keep the ratio of `h/a` as lar
 
 ### Flash attention
 
-If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention), good news! These
-MHA sizing constraints are taken care of for you. Your only constraint is to have a large enough
-ratio of `h/a` to saturate your GPU cores:
+If you're using [Flash Attention](https://github.com/Dao-AILab/flash-attention), good news! These MHA sizing constraints are taken care of for you. Your only constraint is to have a large enough ratio of `h/a` to saturate your GPU cores:
 
 ![flash attention](images/flash-attention.png)
 
-Which *version* you run matters as much as whether you run it at all, because each major version
-targets an accelerator generation - FA3 for Hopper, FA4 for Blackwell - and an older version on
-newer hardware leaves the new architecture's features unused. This book measures the difference: on
-an 8B causal attention shape, FA4 on B200 against FA3 on H200 gives **1.88x on `forward`+`backward`
-at 8K sequence length, rising to 1.95x at 32K**, against a 2.28x hardware ratio - so attention is
-close to the ceiling and is *not* what limits that particular upgrade. See
-[FA3 vs FA4](../../insights/when-to-upgrade-gpus/README.md#worked-example-meta-llamallama-31-8b-training-step-fa3-vs-fa4)
-for the full comparison and the scripts that produce it.
+Which *version* you run matters as much as whether you run it at all, because each major version targets an accelerator generation - FA3 for Hopper, FA4 for Blackwell - and an older version on newer hardware leaves the new architecture's features unused. This book measures the difference: on an 8B causal attention shape, FA4 on B200 against FA3 on H200 gives **1.88x on `forward`+`backward` at 8K sequence length, rising to 1.95x at 32K**, against a 2.28x hardware ratio - so attention is close to the ceiling and is *not* what limits that particular upgrade. See [FA3 vs FA4](../../insights/when-to-upgrade-gpus/README.md#worked-example-meta-llamallama-31-8b-training-step-fa3-vs-fa4) for the full comparison and the scripts that produce it.
 
-The trap is the gap between silicon and kernels. A fully usable FA4 took many months to appear -
-it was still beta when the measurement above was taken - and until then the fallback was FA2, which
-is very slow on Blackwell precisely because it cannot exploit the new architecture. So a new
-accelerator can be sitting in the rack while its attention kernel is not ready, which makes the
-version you can actually run a constraint on the upgrade rather than a detail of it;
-[Software support: the cost of switching too early](../../insights/when-to-upgrade-gpus/README.md#software-support-the-cost-of-switching-too-early)
-treats this as a hard gate. HF Transformers auto-selects the backend per accelerator through
-`attn_implementation`, so check which version it actually chose instead of assuming the newest.
+The trap is the gap between silicon and kernels. A fully usable FA4 took many months to appear - it was still beta when the measurement above was taken - and until then the fallback was FA2, which is very slow on Blackwell precisely because it cannot exploit the new architecture. So a new accelerator can be sitting in the rack while its attention kernel is not ready, which makes the version you can actually run a constraint on the upgrade rather than a detail of it; [Software support: the cost of switching too early](../../insights/when-to-upgrade-gpus/README.md#software-support-the-cost-of-switching-too-early) treats this as a hard gate. HF Transformers auto-selects the backend per accelerator through `attn_implementation`, so check which version it actually chose instead of assuming the newest.
 
 ### SwiGLU-based MLP
 
@@ -935,52 +967,25 @@ Notes:
 
 ## torch.compile
 
-`torch.compile` speeds up both training and inference by tracing your model into a graph and
-generating fused kernels for it. It shipped in PyTorch 2.0 and as of 2026-08 much of the
-ecosystem runs it by default, but getting a good speedup on an arbitrary model is still not
-automatic - the tracer has to be able to see your code, and that is where the work is.
+`torch.compile` speeds up both training and inference by tracing your model into a graph and generating fused kernels for it. It shipped in PyTorch 2.0 and as of 2026-08 much of the ecosystem runs it by default, but getting a good speedup on an arbitrary model is still not automatic - the tracer has to be able to see your code, and that is where the work is.
 
 ### Where it pays off
 
-Look back at the three groups in [Anatomy of Model's Operations](#anatomy-of-models-operations),
-because they behave very differently under compilation:
+Look back at the three groups in [Anatomy of Model's Operations](#anatomy-of-models-operations), because they behave very differently under compilation:
 
-1. **Tensor contractions** already dispatch to vendor GEMM libraries running near the hardware
-limit, so there is little here for a compiler to win. `mode="max-autotune"` will search Triton
-matmul variants and can occasionally beat the vendor library, but this is the least promising group.
+1. **Tensor contractions** already dispatch to vendor GEMM libraries running near the hardware limit, so there is little here for a compiler to win. `mode="max-autotune"` will search Triton matmul variants and can occasionally beat the vendor library, but this is the least promising group.
 
-2. **Statistical normalizations** and 3. **element-wise operators** are where the wins are. These
-are memory-bandwidth-bound rather than compute-bound: each reads its input from HBM, does very
-little arithmetic, and writes the result back. Eager mode pays that round-trip once per operation.
-Fusing a chain of them into a single kernel pays it once for the whole chain. That is the bulk of
-what `torch.compile` does to a transformer, and it is why a model made of many small operations
-gains more than one dominated by large matmuls.
+2. **Statistical normalizations** and 3. **element-wise operators** are where the wins are. These are memory-bandwidth-bound rather than compute-bound: each reads its input from HBM, does very little arithmetic, and writes the result back. Eager mode pays that round-trip once per operation. Fusing a chain of them into a single kernel pays it once for the whole chain. That is the bulk of what `torch.compile` does to a transformer, and it is why a model made of many small operations gains more than one dominated by large matmuls.
 
-So the speedup to expect is a function of how much of your step time sits in group 2 and 3 work.
-Profile first with the [memory profiler tools](#memory-profiler-tools), then compile.
+So the speedup to expect is a function of how much of your step time sits in group 2 and 3 work. Profile first with the [memory profiler tools](#memory-profiler-tools), then compile.
 
-A separate win applies when you are launch-bound rather than bandwidth-bound:
-`mode="reduce-overhead"` captures the step into CUDA graphs and replays one launch sequence
-instead of issuing thousands of individual kernel launches. This matters most at small batch
-sizes and in low-latency inference decode, where the accelerator sits idle waiting for the CPU to
-feed it. It costs memory, since the captured graph pins its buffers, and it needs static shapes.
+A separate win applies when you are launch-bound rather than bandwidth-bound: `mode="reduce-overhead"` captures the step into CUDA graphs and replays one launch sequence instead of issuing thousands of individual kernel launches. This matters most at small batch sizes and in low-latency inference decode, where the accelerator sits idle waiting for the CPU to feed it. It costs memory, since the captured graph pins its buffers, and it needs static shapes.
 
 ### What makes it hard
 
-The tracer has to turn your `forward` into a graph, and anything it cannot trace becomes a
-**graph break** - it compiles what it can, falls back to eager for the untraceable part, then
-starts a new graph. Every break is also a fusion boundary, so a model with many breaks can
-"work" under `torch.compile` and gain almost nothing. Data-dependent control flow, `.item()`,
-`print` and unsupported operations all break the graph.
+The tracer has to turn your `forward` into a graph, and anything it cannot trace becomes a **graph break** - it compiles what it can, falls back to eager for the untraceable part, then starts a new graph. Every break is also a fusion boundary, so a model with many breaks can "work" under `torch.compile` and gain almost nothing. Data-dependent control flow, `.item()`, `print` and unsupported operations all break the graph.
 
-The other trap is **recompilation**. A compiled graph is specialized to the shapes it was traced
-on, so a new sequence length triggers a recompile, and that only happens a bounded number of times
-(`torch._dynamo.config.recompile_limit`, 8 by default) before the compiler gives up on that
-function and runs it eager from then on. Variable-length batches are the usual cause, and they are
-common - so if your inputs vary in shape, `torch.compile(model, dynamic=True)` is the normal
-answer. It compiles one shape-agnostic graph up front, giving up some peak performance in exchange
-for never recompiling. Reach for it as the default when shapes vary, rather than as a fix after
-you notice the recompiles.
+The other trap is **recompilation**. A compiled graph is specialized to the shapes it was traced on, so a new sequence length triggers a recompile, and that only happens a bounded number of times (`torch._dynamo.config.recompile_limit`, 8 by default) before the compiler gives up on that function and runs it eager from then on. Variable-length batches are the usual cause, and they are common - so if your inputs vary in shape, `torch.compile(model, dynamic=True)` is the normal answer. It compiles one shape-agnostic graph up front, giving up some peak performance in exchange for never recompiling. Reach for it as the default when shapes vary, rather than as a fix after you notice the recompiles.
 
 Neither trap is mysterious - both are printable:
 
@@ -988,21 +993,15 @@ Neither trap is mysterious - both are printable:
 TORCH_LOGS="graph_breaks,recompiles" python train.py
 ```
 
-which reports each break against the line of your code that caused it, and each recompile against
-the guard that failed. `torch.compile(model, fullgraph=True)` promotes breaks to errors, which is
-the quickest way to find all of them at once.
+which reports each break against the line of your code that caused it, and each recompile against the guard that failed. `torch.compile(model, fullgraph=True)` promotes breaks to errors, which is the quickest way to find all of them at once.
 
-Compilation itself costs wall-clock time on the first step, and again after any change that
-invalidates the cache. When the model is one block repeated `n` times, compiling the block instead
-of the whole model cuts that cost sharply, because the compiler does the work once and reuses it
-for every layer.
+Compilation itself costs wall-clock time on the first step, and again after any change that invalidates the cache. When the model is one block repeated `n` times, compiling the block instead of the whole model cuts that cost sharply, because the compiler does the work once and reuses it for every layer.
 
 If you tried it and things don't work you:
 1. may report it to the PyTorch team, ideally with a small reproducible example
 2. can work through PyTorch's own [torch.compile troubleshooting guide](https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/torch.compiler_troubleshooting.html), which is maintained alongside the compiler and has sections for each of the failure modes above, and you might be able to make some things work, and may still need to report some issues to PyTorch
 
-Use a recent PyTorch release - the compiler improves substantially between versions, and a problem
-you hit on an older one may not exist on the current stable.
+Use a recent PyTorch release - the compiler improves substantially between versions, and a problem you hit on an older one may not exist on the current stable.
 
 ## Automatic garbage collection
 
