@@ -740,3 +740,4 @@ Besides general purpose accelerators some vendors have been working special ASIC
 ## Resources
 
 - [A Survey on Efficient Inference for Large Language Models (2024)](https://arxiv.org/abs/2404.14294)
+- [AMD Strix Halo Local LLM Guide](https://github.com/hogeheer499-commits/strix-halo-guide) - a reproducible consumer unified-memory inference case study covering Ubuntu, llama.cpp, Ollama, Vulkan/RADV, ROCm, model and quantization choices, benchmark methodology, raw evidence, and failed routes.
