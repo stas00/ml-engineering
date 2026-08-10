@@ -297,7 +297,7 @@ For example, if your PyTorch application calls `torch.mm` - it should work every
 
 - NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda/toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
-- AMD MI250/MI3**X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
+- AMD MI250/MI3xx: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
 - Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
@@ -326,7 +326,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation. NVLink 5.0 doubled the speed over NVLink 4.0 so it catches up a little bit with the compute speed ups. But the speed up is still insufficient.
 
-- Moreover, the first 4 generations of NVLink use identical NICs of the same 25GBps unidirectional bandwidth. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
+- Moreover, each NVLink generation raised both the per-link bandwidth (2.5 → 3.125 → 6.25 → 12.5 GBps for NVLink 1–4, then 25 GBps for NVLink 5) and, in most generations, the number of links, so per-GPU bandwidth climbed from 80 GBps (P100) to 450 GBps (H100) to 900 GBps (B200).
 
 - The inter-node situation isn't any better with most NICs there doing 100 or 200Gbps, and some 400Gbps are starting to emerge. (correspondingly in GBps: 12.5, 25 and 50). It's the same story here, some solutions provide dozens of NICs to get to higher speeds.
 
@@ -343,15 +343,13 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 NVIDIA:
 
-- NVIDIA-based compute nodes come with 50GBps duplex NVLink
-
 - Some have a lot of NVLinks, others less, but typically plenty with 1800GBps (14.4Tbps) unidirectional bandwidth for Rubin,
 900GBps (7.2Tbps) for B200/B300,
 450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes.
 
 Intel Gaudi2:
 
-- 8 x 21 NICs of 100GbE RoCE v2 RDMA for a total of 2.1TBps
+- 300Gbps card-to-card (100GbE RoCE v2 RDMA; same NICs also serve inter-node)
 
 [More details](../network/README.md#intra-node-networking)
 
