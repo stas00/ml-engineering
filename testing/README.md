@@ -418,6 +418,8 @@ pytest --color=no tests/utils/test_logging.py
 
 ### Sending test report to online pastebin service
 
+As of pytest 9.1.0 this flag lives in the separate `pytest-pastebin` plugin (`pip install pytest-pastebin`).
+
 Creating a URL for each test failure:
 
 ```bash
@@ -699,13 +701,15 @@ def test_feature_x():
         pytest.skip("unsupported configuration")
 ```
 
-or the whole module:
+or the whole module (via an autouse fixture — `pytest.config` was removed in pytest 4.0):
 
 ```python
 import pytest
 
-if not pytest.config.getoption("--custom-flag"):
-    pytest.skip("--custom-flag is missing, skipping tests", allow_module_level=True)
+@pytest.fixture(scope="module", autouse=True)
+def _require_custom_flag(pytestconfig):
+    if not pytestconfig.getoption("--custom-flag", default=False):
+        pytest.skip("--custom-flag is missing, skipping tests")
 ```
 
 or the `xfail` way:
@@ -914,32 +918,7 @@ This helper method creates a copy of the `os.environ` object, so the original re
 
 ### Getting reproducible results
 
-In some situations you may want to remove randomness for your tests. To get identical reproducible results set, you will need to fix the seed:
-
-```python
-seed = 42
-
-# python RNG
-import random
-
-random.seed(seed)
-
-# pytorch RNGs
-import torch
-
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(seed)
-
-# numpy RNG
-import numpy as np
-
-np.random.seed(seed)
-
-# tf RNG
-tf.random.set_seed(seed)
-```
+When a test needs identical results across runs, fix the RNGs and the GPU determinism knobs - seeding alone is not enough on CUDA. The full recipe lives in [Achieve determinism in randomness based software](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software); call that chapter's `enforce_reproducibility(seed)` (or the equivalent settings it documents) from the test rather than maintaining a second, incomplete copy here.
 
 ## Debugging tests
 

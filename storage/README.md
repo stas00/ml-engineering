@@ -31,6 +31,88 @@ If you do KV-cache offloading to disk, this would be another important IO use-ca
 - NSD: Network Shared Disk
 
 
+## Concepts
+
+Here are a few key storage-related concepts that you likely need to be familiar with:
+
+### Queue Depth
+
+**Queue depth** (or **IO depth**) is the number of IO requests that can be queued at one time on a storage device controller. If more IO requests than the controller can queue are being sent the OS will usually put those into its own queue.
+
+On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
+
+Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
+
+### Direct vs Buffered IO
+
+**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
+
+The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
+
+When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
+
+In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
+
+And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
+
+- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
+- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
+- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
+
+For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
+
+Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
+```
+
+Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
+```
+
+Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
+
+`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
+
+
+### Synchronous vs asynchronous IO
+
+In synchronous IO the client submits an IO request and wait for it to be finished before submitting the next IO request to the same target device.
+
+In asynchronous IO the client may submit multiple IO requests one after another without waiting for any to finish first. This requires that the target device can [queue up multiple IO requests](#queue-depth).
+
+
+### Sequential vs Random access IO
+
+**Sequential access** IO is when you read blocks of data one by one sequentially (think a movie). Here are some examples:
+- reading or writing a model's checkpoint file all at once
+- loading a python program
+- installing a package
+
+**Random access** IO is when you're accessing part of a file at random. Here are some examples:
+- database querying
+- reading samples from a pre-processed dataset in a random fashion
+- moving around a file using `seek`
+
+
+### Misreported file size
+
+I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
+
+If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
+
+If you have to force re-hydration you can run something like:
+
+```bash
+find /mountpoint/ -type f -exec cat {} >/dev/null \;
+```
+and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
+
+If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
+
 
 ## Which file system to choose
 
@@ -162,90 +244,6 @@ As I discover specific solution that have this unintuitive behavior I will add p
 When you sync data to and from the cloud make sure to research whether the tool you use checks the checksums, otherwise you may end up with corrupt during transmission data. Some tools do it automatically, others you have to enable this feature (since it usually comes at additional compute cost and transmission slowdown). Better slow, but safe.
 
 These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your environment is safe, but if you want the additional security do SHA256 checksums.
-
-
-
-## Concepts
-
-Here are a few key storage-related concepts that you likely need to be familiar with:
-
-### Queue Depth
-
-**Queue depth** (or **IO depth**) is the number of IO requests that can be queued at one time on a storage device controller. If more IO requests than the controller can queue are being sent the OS will usually put those into its own queue.
-
-On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
-
-Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
-
-### Direct vs Buffered IO
-
-**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
-
-The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
-
-When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
-
-In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
-
-And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
-
-- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
-- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
-- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
-
-For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
-
-Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
-
-```bash
-{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
-```
-
-Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
-
-```bash
-{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
-```
-
-Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
-
-`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
-
-
-### Synchronous vs asynchronous IO
-
-In synchronous IO the client submits an IO request and wait for it to be finished before submitting the next IO request to the same target device.
-
-In asynchronous IO the client may submit multiple IO requests one after another without waiting for any to finish first. This requires that the target device can [queue up multiple IO requests](#queue-depth).
-
-
-### Sequential vs Random access IO
-
-**Sequential access** IO is when you read blocks of data one by one sequentially (think a movie). Here are some examples:
-- reading or writing a model's checkpoint file all at once
-- loading a python program
-- installing a package
-
-**Random access** IO is when you're accessing part of a file at random. Here are some examples:
-- database querying
-- reading samples from a pre-processed dataset in a random fashion
-- moving around a file using `seek`
-
-
-### Misreported file size
-
-I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
-
-If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
-
-If you have to force re-hydration you can run something like:
-
-```bash
-find /mountpoint/ -type f -exec cat {} >/dev/null \;
-```
-and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
-
-If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
 
 
 ## Benchmarks
@@ -588,21 +586,25 @@ pip install -U "huggingface_hub"
 hf cache prune
 ```
 
-`hf cache prune` deletes every revision that no longer has a branch or a tag pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. It shows you the damage and asks first:
+`hf cache prune` deletes every revision that no longer has a branch, tag, or pull-request ref pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. Start with `--dry-run` to see the damage without deleting anything:
 
 ```bash
-$ hf cache prune
-About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
-  - model/t5-small:
-      1c610f6b [refs/pr/1] 820.1M
-      d4ec9b72 [(detached)] 640.5M
-  - dataset/google/fleurs:
-      2b91c8dd [(detached)] 937.6M
-Proceed? [y/N]: y
-Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
+$ hf cache prune --dry-run
+About to delete 30 unreferenced revision(s) and 9 incomplete download(s) (180.9G total).
+  - dataset/fan-shu/instruct2thinking:
+      4c8e57ed5f06425ce0d743cf168b906646f0a338 [(detached)] 609.7M
+      ce82e962df666fc85657a3a871443009ec825b5f [(detached)] 259.7M
+      d5a3ba55f8ac010ee0f1ac86314b49475a1e300a [(detached)] 226.2M
+  - dataset/fan-shu/swe-instruct-trajectories-empty-think-inserted:
+      84d55e1f36605fe990feb61a1a705032f0620015 [(detached)] 12.1G
+  - model/Qwen/Qwen3.5-27B:
+      b7ca741b86de18df552fd2cc952861e04621a4bd [(detached)] 55.6G
+  - model/zai-org/GLM-5.2:
+      f2263102df303b2faa54a6861a29d1770ce846c0 [(detached)] 1.5T
+✓ Dry run: no files were deleted.
 ```
 
-Add `--dry-run` to see what would go without deleting it, and `--yes` to skip the prompt when you run this from a cron job.
+The total is reclaimable space after shared blobs are counted once; the per-revision sizes above can sum to much more. Without `--dry-run` it asks for confirmation before deleting; add `--yes` to skip the prompt when you run this from a cron job.
 
 To find out where the space went before deleting anything, `hf cache ls` gives you per-repo totals and `hf cache ls --revisions` breaks it down per revision. It takes filters, which understand human sizes and durations, so you can go hunting for the big and the forgotten:
 
@@ -662,7 +664,7 @@ rm -rf ~/.cache/pip
 rm -rf ~/anaconda3/pkgs/
 ```
 
-Make sure edit the last command if your conda is installed elsewhere.
+Make sure to edit the last command if your conda is installed elsewhere.
 
 
 ### Share caches in group environments
