@@ -18,7 +18,11 @@ sinfo -p dev
 sinfo -p prod
 ```
 
-SLURM configuration is at `/opt/slurm/etc/slurm.conf`.
+The path to `slurm.conf` is site-dependent (often under `/etc/slurm/` or `/opt/slurm/etc/`); to see where this cluster loads it from:
+
+```bash
+scontrol show config | grep -i slurmconf
+```
 
 To see the configuration of all partitions:
 
@@ -778,7 +782,7 @@ Now let's create a driver slurm script. Use a few minutes time for this test so 
 #SBATCH --output=%x-%j.out           # output file name
 #SBATCH --partition=prod
 
-source $six_ALL_CCFRWORK/start-prod
+source $six_ALL_CCFRWORK/start-prod   # edit me - site-specific env setup
 srun --jobid $SLURM_JOBID ./test-nodes.py
 ```
 Once it runs check the logs to see if any reported `False`, those are the nodes you want to exclude.
@@ -788,8 +792,6 @@ Now once the faulty node(s) is found, feed it to `sbatch`:
 sbatch --exclude=hostname1,hostname2 ...
 ```
 and `sbatch` will exclude the bad nodes from the allocation.
-
-Additionally please report the faulty nodes to `#science-support` so that they get replaced
 
 Here are a few more situations and how to find the bad nodes in those cases:
 
@@ -808,7 +810,7 @@ If you're testing something that requires distributed setup, it's a bit more com
 #SBATCH --output=%x-%j.out           # output file name
 #SBATCH --partition=prod
 
-source $six_ALL_CCFRWORK/start-prod
+source $six_ALL_CCFRWORK/start-prod   # edit me - site-specific env setup
 
 NNODES=2
 
@@ -917,7 +919,7 @@ nslookup 10.148.3.247
 247.3.148.10.in-addr.arpa       name = r10i6n5.ib0.xa.idris.fr.
 ```
 
-Add `--exclude=r10i6n5` to your `sbatch` command and report it to JZ admins.
+Add `--exclude=r10i6n5` to your `sbatch` command and report the faulty node to your cluster's admins.
 
 
 ### Run py-spy or any other monitor program across all nodes
