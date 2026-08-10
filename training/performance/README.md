@@ -92,8 +92,9 @@ perl -le '$ng=64; $ms=52; $gbs=1024; $sp=127; $seqlen=2048; print $ms*4*2*$seqle
 
 Here is the same formula using `bash` env vars and which breaks down GBS into `MBS*DP*GAS` (GAS in this case corresponded to `pp_chunks` which was the number of chunks in the pipeline, but normally GAS just stands for Gradient Accumulation Steps):
 ```bash
-echo "($MSIZE*4*2*SEQLEN*$MICRO_BATCH_SIZE*$DP_SIZE*$GAS)/($THROUGHPUT*$NNODES*4*1000)" | bc -l
+echo "($MSIZE*4*2*SEQLEN*$MICRO_BATCH_SIZE*$DP_SIZE*$GAS)/($THROUGHPUT*$NNODES*$GPUS_PER_NODE*1000)" | bc -l
 ```
+(`$GPUS_PER_NODE` = accelerators per node, so `$NNODES*$GPUS_PER_NODE` is total GPUs - the same role as `$ng` in the Perl one-liner above)
 
 The exact formula is in Equation 3 of Section 5.1 of the [Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM](https://arxiv.org/abs/2104.04473) paper. You can see the code [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/pull/251).
 
@@ -960,7 +961,7 @@ Look back at the three groups in [Anatomy of Model's Operations](#anatomy-of-mod
 
 2. **Statistical normalizations** and 3. **element-wise operators** are where the wins are. These are memory-bandwidth-bound rather than compute-bound: each reads its input from HBM, does very little arithmetic, and writes the result back. Eager mode pays that round-trip once per operation. Fusing a chain of them into a single kernel pays it once for the whole chain. That is the bulk of what `torch.compile` does to a transformer, and it is why a model made of many small operations gains more than one dominated by large matmuls.
 
-So the speedup to expect is a function of how much of your step time sits in group 2 and 3 work. Profile first with the [memory profiler tools](#memory-profiler-tools), then compile.
+So the speedup to expect is a function of how much of your step time sits in group 2 and 3 work. Profile first with the [PyTorch performance profilers](../../debug/pytorch.md#profilers), then compile.
 
 A separate win applies when you are launch-bound rather than bandwidth-bound: `mode="reduce-overhead"` captures the step into CUDA graphs and replays one launch sequence instead of issuing thousands of individual kernel launches. This matters most at small batch sizes and in low-latency inference decode, where the accelerator sits idle waiting for the CPU to feed it. It costs memory, since the captured graph pins its buffers, and it needs static shapes.
 
