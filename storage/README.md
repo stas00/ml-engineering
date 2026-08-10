@@ -401,26 +401,26 @@ Step 2. Measure conda install time (write test)
 
 Time the creation of a new conda environment:
 ```bash
-time conda create -y -n install-test python=3.9
+time conda create -y -n install-test python=3.12
 ```
 
 ```
-real    0m29.657s
-user    0m9.141s
-sys     0m2.861s
+real    0m22.790s
+user    0m12.911s
+sys     0m4.941s
 ```
 
 Time the installation of some heavy pip packages:
 ```bash
 conda deactivate
 conda activate install-test
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 
 ```
-real    2m10.355s
-user    0m50.547s
-sys     0m12.144s
+real    0m50.596s
+user    0m28.060s
+sys     0m4.398s
 ```
 
 Please note that this test is somewhat skewed since it also includes the packages download in it and depending on your incoming network speed it could be super fast or super slow and could impact the outcome. But once the downloaded packages are cached, in the case of conda they are also untarred, so if you try to install the packages the 2nd time the benchmark will no longer be fair as on a slow shared file system the untarring could be very slow and we want to catch that.
@@ -436,12 +436,12 @@ find $target_partition_path/miniconda3/pkgs -mindepth 1 -type d -exec rm -rf {} 
 in the case of `pip` it doesn't untar anything, but just caches the wheels it downloaded, so the `time pip install` benchmark can definitely be more precise if you run it the 2nd time (the first time it's downloaded, cached and installed, the second time it's installed from cache. So you could do:
 
 ```bash
-conda create -y -n install-test python=3.9
+conda create -y -n install-test python=3.12
 conda activate install-test
-pip install torch torchvision torchaudio
-conda create -y -n install-test2 python=3.9
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+conda create -y -n install-test2 python=3.12
 conda activate install-test2
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 As you can see here we time only the 2nd time we install the pip packages.
 
@@ -463,26 +463,26 @@ Here is how to see the caching effect:
 ```bash
 $ time python -c "import torch"
 
-real    0m5.404s
-user    0m1.761s
-sys     0m0.751s
+real    0m2.107s
+user    0m8.115s
+sys     0m0.362s
 
 $ time python -c "import torch"
 
-real    0m1.977s
-user    0m1.623s
-sys     0m0.519s
+real    0m1.217s
+user    0m8.022s
+sys     0m0.235s
 
 $ sudo sync
 $ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m5.698s
-user    0m1.712s
-sys     0m0.734s
+real    0m2.127s
+user    0m8.133s
+sys     0m0.348s
 ```
 
-You can see that the first time it wasn't cached and took ~3x longer, then when I ran it the second time it was much faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
+You can see that the first time it wasn't cached and took longer, then when I ran it the second time it was faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was slow again.
 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
 
