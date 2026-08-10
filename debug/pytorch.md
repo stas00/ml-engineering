@@ -989,8 +989,8 @@ So let's run a little program that allocates a tensor, copies it to cpu, frees i
 ```python
     device = "cuda" if torch.cuda.is_available() else "cpu"
     see_memory_usage("before alloc", force=True)
-    t1 = torch.zeros(100000,10000, device=device)
-    t2 = torch.zeros(100000,10000, device=device)
+    t1 = torch.zeros(10_0000,10_000, device=device)
+    t2 = torch.zeros(10_0000,10_000, device=device)
     del t2
     see_memory_usage("after alloc", force=True)
     c1 = t1.cpu()
@@ -1007,17 +1007,15 @@ Let's look at the output. The above program is at the bottom of the `see-mem-usa
 ```bash
 $ python see-mem-usage.py
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
-[0] mp: before alloc2
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
 Legend:
@@ -1027,30 +1025,30 @@ Legend:
 - `CA `: `torch.cuda.memory_reserved()`
 - `Max_CA`: `torch.cuda.max_memory_reserved()`
 - `NV`: current total memory usage like `nvidia-smi` report, which is almost always more than what's reported by torch.cuda (the `MA` column)
-- `CPU Virtual Memory`: CPU stats - RSS and percentage of total cpu memory
+- `CPU mem`: two point-in-time CPU RAM readings from `psutil` - `proc` is *this* process's resident memory (RSS, `psutil.Process().memory_info().rss`), which is what you usually want when debugging your own program, and `node` is host-wide RAM in use (`total - available`) with its `percent` of total. Both are snapshots, not peaks - for peak CPU usage see [Getting program's CPU peak memory usage](#getting-programs-cpu-peak-memory-usage)
 
 Now that we know what each column stands for let's analyze the output of the program.
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.86 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 ```
 
-If you look at the `NV` column you can see the gpu was already using 0.59GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros.
+If you look at the `NV` column you can see the gpu was already using 0.71GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros. On the CPU side `proc` is 0.51GiB, which is just the resident memory of the Python process after `import torch`.
 
 Then we execute:
 ```
-    t1 = torch.zeros(100000,10000, device=device)
-    t2 = torch.zeros(100000,10000, device=device)
+    t1 = torch.zeros(10_0000,10_000, device=device)
+    t2 = torch.zeros(10_0000,10_000, device=device)
     del t2
 ```
 and the corresponding log around it is:
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.76 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.87 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
 ```
 
@@ -1064,11 +1062,11 @@ torch.cuda.empty_cache()
 
 to prevent caching getting in the way of accounting, but this one is definitely going to slow things down. The snippet is in `see_memory_usage`, but commented out.
 
-But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the last row of the report snippet above you can see that while `torch.cuda` reports only 3.73GiB of the actual memory usage, `NV` is 8.65GiB, because some of the memory got cached, but it doesn't check out.
+But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the `after alloc` row above you can see that while `torch.cuda` reports only 3.73GiB of actively allocated memory (`MA`), `NV` is 8.87GiB, because some of the memory got cached (`CA` 7.45GiB), but even that doesn't fully check out.
 
-`8.65-7.45=1.2` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.59GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
+`8.87-7.45=1.42` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.71GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
 
-What happened here is most likely PyTorch `torch.zero` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
+What happened here is most likely PyTorch `torch.zeros` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
 
 Next, we copy one tensor to cpu memory:
 ```
@@ -1077,15 +1075,11 @@ Next, we copy one tensor to cpu memory:
 which gives us:
 ```
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 ```
-we see the `torch.cuda` and NV counters remain the same but CPU memory counters have gone up.
-
-Do note that the CPU memory report here isn't as informative as gpu memory reports, but what matters here is the delta wrt previous call.
-
-When I want to debug just GPU memory I often remove the cpu memory reports altogether.
+we see the `torch.cuda` and NV counters remain the same but the CPU `proc` reading jumped from 0.70GiB to 4.42GiB - a delta of ~3.73GiB, exactly the size of the tensor we just copied to CPU (`100_000*10_000*4 bytes = 3.73GiB` in fp32). This is the payoff of tracking process RSS rather than host-wide memory: the delta is your program's own allocation, clean of whatever else is running on the node. The `node` column moved too (84.26 -> 88.02GiB), but it's noisier - it drifts with every other process on the box.
 
 One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
 
@@ -1093,23 +1087,23 @@ Next we delete the remaining tensor on CUDA (`t1`):
 
 ```
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 ```
 
-and we see that `MA` has gone to 0, which is what we would expect, CUDA no longer has any active tensors. Note that the peak memory isn't zero, since there was exactly the size of that tensor allocation since the last time that counter was reset in `see_mem_usage` call.
+and we see that `MA` has gone to 0, which is what we would expect, CUDA no longer has any active tensors. Note that the peak memory isn't zero, since there was exactly the size of that tensor allocation since the last time that counter was reset in `see_mem_usage` call. The CPU `proc` reading stays at 4.42GiB - we freed the GPU tensor but the CPU copy `c1` is still resident.
 
 Finally we free the tensor on cpu:
 
 ```
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
-we can see that CPU memory report went back to numbers which are very close to the very first report, so we can see more or less all memory has been released on cpu.
+and now the CPU `proc` reading drops from 4.42GiB back to 0.70GiB - releasing `c1` returned exactly the ~3.73GiB it had taken, landing back at the post-`import` baseline. The `node` column also came down, though not all the way to its starting value, since it tracks the whole host and other processes moved in the meantime.
 
 The CUDA memory caches are still there as can be seen from `CA` and `Max_CA` columns, and `NV` reflects that plus some other non-CUDA allocation as discussed earlier.
 
@@ -1122,12 +1116,12 @@ see_memory_usage("after empty cache", force=True)
 we would see:
 ```
 [0] mp: after empty cache
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 7.45 GiB | NV 1.19 GiB | CPU Virtual Memory:  used = 82.8 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 7.45 GiB | NV 1.42 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
 Note how the `CA` columns is now 0, `Max_CA` column is still non-zero because it was still reporting peak, if we call `see_memory_usage` yet another time, it'd go to 0 as well.
 
-But the interesting other number here is `NV 1.19 GiB` which tells us that there was 1.2GiB of memory allocated outside of the purview of `torch.cuda`. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
+But the interesting other number here is `NV 1.42 GiB` which tells us that there was 1.42GiB of memory allocated outside of the purview of `torch.cuda` - and it matches the `NV - CA` delta of `8.87-7.45=1.42`GiB we spotted back in the `after alloc` row, now that the cache is emptied and no longer hiding it. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
 
 You can't imagine how often I use this debug utility in my day-to-day work.  Every so often I sprinkle these calls around the strategic places I suspect and start mapping out block by block and then narrowing down to the suspect areas. Foe example, one useful use case is to run this report before `forward`, `backward` and `step` and observe if each training iteration leaks a bit of memory and where:
 
@@ -1163,7 +1157,7 @@ In the world of ML, you're likely to encounter this issue if you're doing massiv
 
 #### Getting program's CPU peak memory usage
 
-One way was discussed in [Strategic memory allocation tracing](#strategic-memory-allocation-tracing) where you inject `see_memory_usage` during the program execution, but that's invasive and is not always easily doable, especially what if it's not a Python program that is causing the problem. Besides it doesn't tell you the actual CPU peak memory usage, only GPU peak memory usage.
+One way was discussed in [Strategic memory allocation tracing](#strategic-memory-allocation-tracing) where you inject `see_memory_usage` during the program execution, but that's invasive and is not always easily doable, especially what if it's not a Python program that is causing the problem. Besides, its CPU `proc`/`node` columns are point-in-time snapshots, not peaks - only the GPU `Max_*` columns track peak usage (since the last reset), so unless a call happens to land exactly on the high-water mark it won't tell you the actual CPU peak.
 
 So let's look at tools that report CPU peak memory usage, w/o needing to use full blown memory profiler.
 
@@ -1365,16 +1359,16 @@ Sometimes the default 4 decimal places isn't enough, so we can ask for 6 with `p
 
 ```bash
 $ python -c "import torch; t = torch.rand(100,100); torch.set_printoptions(precision=6); print(t)"
-tensor([[5.7340e-01, 6.1205e-02, 5.5568e-01,  ..., 9.7872e-01, 6.3079e-01, 1.4958e-01],
-        [6.5187e-01, 7.1725e-01, 7.4311e-01,  ..., 1.6829e-01, 2.9124e-01, 9.6725e-01],
-        [2.0276e-01, 7.1093e-01, 1.5570e-01,  ..., 8.5468e-01, 3.3631e-02, 7.2699e-01],
+tensor([[0.496257, 0.768222, 0.088477,  ..., 0.604651, 0.109958, 0.212090],
+        [0.970375, 0.836909, 0.281987,  ..., 0.670873, 0.202043, 0.489091],
+        [0.521034, 0.822312, 0.122040,  ..., 0.127788, 0.704833, 0.331873],
         ...,
-        [1.3556e-01, 4.1345e-02, 1.1752e-01,  ..., 5.0029e-01, 9.4572e-01, 1.4204e-01],
-        [8.9816e-01, 1.4840e-01, 7.5320e-01,  ..., 2.6070e-01, 8.3193e-01, 9.8864e-01],
-        [2.9861e-01, 8.4406e-01, 6.4992e-01,  ..., 2.2556e-01, 7.4448e-01, 1.7672e-01]])
+        [0.871615, 0.080840, 0.672732,  ..., 0.029196, 0.967139, 0.003688],
+        [0.296027, 0.953120, 0.260675,  ..., 0.031883, 0.182623, 0.509600],
+        [0.273938, 0.079908, 0.413711,  ..., 0.252290, 0.399835, 0.980202]])
 ```
 
-As you can see now all numbers are on the same scale, so it's very easy to tell a tiny number from a huge number because you can just look at the exponent part.
+As you can see each entry now shows 6 digits after the decimal instead of the default 4 - useful when two tensors look identical at 4 places but differ further out.
 
 In all the examples so far most entries were removed and only the first and the last 3 rows and columns were dumped. But sometimes when the tensor is small we might want to see more data, so let's get 4 entries on each edge:
 
@@ -1752,7 +1746,7 @@ from .underflow_overflow import DebugUnderflowOverflow
 debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
 ```
 
-#### Specific batch absolute mix and max value tracing
+#### Specific batch absolute min and max value tracing
 
 The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
 
@@ -1855,7 +1849,7 @@ If you're curious where I pulled this code from - this is a simplified reduction
 
 ```python
 class LlamaRotaryEmbedding(nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+    def __init__(self, dim, max_position_embeddings=2048, base=10_000, device=None):
         super().__init__()
 
         self.dim = dim
@@ -2113,7 +2107,7 @@ autograd_meta_from=None, data=None)
 ```
 That's a lot of attributes! But it's missing attributes like `t.data_ptr` and probably others.
 
-Remember `torch.printoptions` from earlier? Another secret private attribute dumping approach is this context manager:
+Remember `torch.set_printoptions` from earlier? Another secret private attribute dumping approach is this context manager:
 
 ```python
 with torch._tensor_str.printoptions(threshold=0, edgeitems=0): print(x)
@@ -2143,7 +2137,7 @@ When you do:
 t = torch.rand((2,3))
 print(t)
 ```
-behind the scenes, `tensor.Torch.__repr__` is called - which is a special method python calls on an object if it's available before printing a custom representation of the object. This prints:
+behind the scenes, `torch.Tensor.__repr__` is called - which is a special method python calls on an object if it's available before printing a custom representation of the object. This prints:
 ```
 tensor([[0.6220, 0.7673, 0.9156],
         [0.8413, 0.4410, 0.9822]])
@@ -2440,7 +2434,7 @@ $ cat hostfile
 ```
 and to run, it's just:
 ```bash
-$ mpirun --hostfile  -np 16 -map-by ppr:8:node python my-program.py
+$ mpirun --hostfile hostfile -np 16 -map-by ppr:8:node python my-program.py
 ```
 
 Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
@@ -2557,7 +2551,7 @@ and when it's dozens of frames over 8 nodes it can't be made sense of, but the a
 and you can `grep` this output for just one `host:rank` prefix, which gives us:
 
 ```bash
-$ grep "[host1:0]" log.txt
+$ grep -F '[host1:0]' log.txt
 [host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
 [host1:0]    if self.dataset_proba.sum() != 1:
 [host1:0]AttributeError: 'list' object has no attribute 'sum'
@@ -2591,7 +2585,7 @@ Here is how you accomplish the same feat with other launchers:
 
 ### Invoke pdb on a specific rank in multi-node training
 
-Once pytorch 2.2 is released you will have a new handy debug feature:
+Since PyTorch 2.2 you have a handy debug feature:
 
 ```python
 import torch.distributed as dist
@@ -3087,7 +3081,7 @@ PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'pgrep -P $(pgrep -o python) | xargs -
 but as you're likely to need to have the `~/.bashrc` run, you will need to clone it into `~/.pdshrc`, reduce that clone to what is needed to be run (e.g. modify `PATH`, `activate conda`) and then `source` it, like:
 
 ```bash
-PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
+PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}'
 ```
 
 The reason you need a startup script is because usually `~/.bashrc` starts with:
@@ -3285,13 +3279,13 @@ You can find it here: [NicerTrace](./NicerTrace.py)
 I added multiple additional flags to the constructor and made the output much more useful. You fill find a full working example in that same file, just run:
 
 ```bash
-python trace/NicerTrace.py
+python NicerTrace.py
 ```
 and you should see:
 
 ```
-        trace/NicerTrace.py:1 <module>
-0:00:00 <string>:     1:         trace/NicerTrace.py:185 main
+        NicerTrace.py:1 <module>
+0:00:00 <string>:     1:         NicerTrace.py:185 main
 0:00:00 NicerTrace.py:   186:     img = Image.new("RGB", (4, 4))
         PIL.Image:2896 new
 0:00:00 Image.py:  2912:     _check_size(size)
@@ -3427,8 +3421,8 @@ it's possible that one process hangs in the first iteration, and another process
 In such situations unroll the loop to be:
 ```
 d_iter = iter(data)
-some_hanging_call(next(d_iter)
-some_hanging_call(next(d_iter)
+some_hanging_call(next(d_iter))
+some_hanging_call(next(d_iter))
 ```
 and now when you run `py-spy` the line numbers will be correct. The processes hanging in the first iteration will report the first `some_hanging_call` and those in the second iteration in the second call - as each now has its own line.
 
@@ -3578,7 +3572,7 @@ Self CPU time total: 2.796ms
 Self CUDA time total: 694.467us
 ```
 
-From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 692.898us, which accounted for 97% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...`.
+From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 692.898us, which accounted for 99.77% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...`.
 
 Since kernel names tend to include dtype and shapes they can be pretty long, so if you'd like to see the full name, you can make `max_name_column_width` longer, for example:
 ```diff
@@ -3601,7 +3595,7 @@ Additionally, here is [an excellent introduction to `torch.profiler` from the Hu
 
 #### When torch.profiler isn't enough
 
-In the introduction it was stated that cProfile isn't the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.
+In the introduction it was stated that cProfile is the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.
 
 Recently I have been diagnosing a strange ~1 sec overhead in forward and backward calls, the `torch.profile` forward measurement would take about 100 msec but the total wallclock timer would be around 1 sec. I was getting no help from torch.profile and decided to run cProfile instead. I immediately saw the issue - it was a triton kernel recompilation that was taking about 1 sec. As I was working with a flattened 2D padded input into 1D unpadded input, the final unpadded tensors was different on many steps and was triggering a kernel recompilation which was written to work with specific input length.
 
@@ -3805,6 +3799,6 @@ We can quickly understand that the weird libc calls came from Liger Kernel using
 
 Now, normally it's perfectly fine that the first call is likely to run some optimizations (e.g. `torch.compile`) which could take longer than the subsequent calls, but in case of the older versions of liger-kernel there was a bug that recompiled and cached the `RMSNorm` kernel for every new sequence length, which massively impacted the end-to-end performance (moreover it'd do it twice for `forward` and `backward` since those are 2 different kernels).
 
-So if you install `pip install liger-kernel==0.6.1` you will see this problem if your sequence length changes from step to step. I found that installing `liger-kerne>=0.8.0` fixes the problem.
+So if you install `pip install liger-kernel==0.6.1` you will see this problem if your sequence length changes from step to step. I found that installing `liger-kernel>=0.8.0` fixes the problem.
 
 In general when you benchmark code you need a warmup phase where the code is exercised first and you start benchmarking things after step 2 or even later at times, but in this case I wanted to demonstrate how cProfile can still be useful when you profile seemingly pure PyTorch code and you observe that it's underperforming, and it was enough to do it in the very first step. But it'd work just as fine in step 2 and onwards.
