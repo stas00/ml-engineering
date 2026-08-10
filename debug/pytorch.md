@@ -1491,374 +1491,6 @@ $ python -c "import torch, rich; t = torch.rand(2,3); rich.inspect(t)"
 This allows you to quickly peek inside the tensor object. Except there might be too much information.
 
 
-### Detecting problematic tensor values
-
-See also [Numerical instabilities](../training/instabilities/README.md#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
-
-#### Inf
-
-Infinity in the context of Machine Learning typically happens where as a result of a computation one or more elements of the tensor overflow.
-
-Let's use fp16 floating point representation for demonstrating how we end up with Infinity numbers. 65504 is the largest normal floating point number that can be represented in the fp16 precision. This is slightly below `2**16` due to how this 16 bit number is represented. For details see [this](https://en.wikipedia.org/wiki/Half-precision_floating-point_format).
-
-Thus we can observe:
-```bash
-$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16))"
-tensor(65504., dtype=torch.float16)
-$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16) + 50)"
-tensor(inf, dtype=torch.float16)
-```
-The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why [bf16 superseded fp16](../training/dtype.md#ml-dtype-progression), since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
-
-To create an `inf` value on demand:
-```bash
-$ python -c "import torch; print(torch.tensor(float('inf')))"
-tensor(inf)
-```
-
-To check whether a tensor contains `inf` values:
-```python
-torch.isinf(t).any() # at least one Inf
-torch.isinf(t).all() # all values are Inf
-```
-
-I created a special tool for helping to detect Overflow and Underflow values layer by layer, which can be found at [Underflow and Overflow Detection](#underflow-and-overflow-detection).
-
-#### NaN
-
-`NaN` stands for not-a-number - you're most likely to see this in the loss during model training, typically this happens when the learning rate is too high, or the data is really bad, the optimizer fails to do its work and the loss literally breaks becoming a `NaN`.
-
-In the previous section we explained that when a floating point number overflows it becomes an `inf`. `inf` and `nan` are very related, because `inf` turns into `nan` quite easily, e.g. multiplying `0` by `inf`:
-```bash
-$ python -c "import torch; print(0*torch.tensor(float('inf')))"
-tensor(nan)
-```
-Most of the time `nan` happens to one or more gradient values during `backward` pass, and once `loss` becomes a NaN it's impossible to recover from it.
-
-To check whether a tensor contains `nan` values:
-```python
-torch.isnan(t).any() # at least one NaN
-torch.isnan(t).all() # all values are NaN
-```
-
-So to debug one would need to find which layer and model parameters hit `nan` gradients. But in some situation it's the loss function that fails. Here is an example:
-
-```python
-from transformers import AutoModelForCausalLM
-model = AutoModelForCausalLM.from_pretrained("gpt2")
-loss = model.loss_function(
-    logits=torch.rand(3, 100),
-    labels=torch.tensor([-100, -100, -100]),
-    vocab_size=100,
-)
-```
-As of `transformers==4.57.1` the above will give you `loss=tensor(nan)`. The issue here is that the special `-100` label masks tokens to be excluded from the loss calculation and in the above example, we have 0 tokens that aren't masked, since all labels are `-100`. And unfortunately the loss function fails and returns a NaN, instead of `0` - this is most likely a bug in the loss function implementation which makes an assumption that a sample has at least one unmasked token. But if you do sequence sharding and you use SFT you may have huge parts of the sample masked out and you can easily end up with a sample shard where all tokens are masked out. I have run into this problem when developing [Arctic Long Sequence Training](https://arxiv.org/abs/2506.13996). The original solution I used was:
-```python
-if all((shift_labels == -100).squeeze()):
-    loss = (logits.sum() * 0.0).float()
-```
-
-Here we prevent `loss=NaN` situation and instead create an artificial loss `0`, which will also set all the grads to `0` in `backward` - the effect of this is akin to a perfect score where the model needs no adjustment since grads will be all zeros.
-
-You can see it in context [here](https://github.com/deepspeedai/DeepSpeed/blob/df59f203f40c8a292dd019ae68c9e6c88f107026/deepspeed/runtime/sequence_parallel/ulysses_sp.py#L1184-L1186). Though the code has evolved since then, and you can find a more elaborate version [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/#part-1-ulysses-sequence-parallelism-for-hf-transformers) in the loss calculation across sequence parallel ranks section.
-
-### Underflow and Overflow Detection
-
-For this section we are going to use the [underflow_overflow](./underflow_overflow.py) library.
-
-If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily you can accomplish that easily by activating a special module that will do the detection automatically.
-
-Let's use a `t5-large` model for this demonstration.
-
-```python
-from .underflow_overflow import DebugUnderflowOverflow
-from transformers import AutoModel
-
-model = AutoModel.from_pretrained("t5-large")
-debug_overflow = DebugUnderflowOverflow(model)
-```
-
-[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or `nan` is detected in at least one element of the activations or weights, the program will assert and print a report like this (this was caught with `google/mt5-small` under fp16 mixed precision):
-
-```
-Detected inf/nan during batch_number=0
-Last 21 forward frames:
-abs min  abs max  metadata
-                  encoder.block.1.layer.1.DenseReluDense.dropout Dropout
-0.00e+00 2.57e+02 input[0]
-0.00e+00 2.85e+02 output
-[...]
-                  encoder.block.2.layer.0 T5LayerSelfAttention
-6.78e-04 3.15e+03 input[0]
-2.65e-04 3.42e+03 output[0]
-             None output[1]
-2.25e-01 1.00e+04 output[2]
-                  encoder.block.2.layer.1.layer_norm T5LayerNorm
-8.69e-02 4.18e-01 weight
-2.65e-04 3.42e+03 input[0]
-1.79e-06 4.65e+00 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
-2.17e-07 4.50e+00 weight
-1.79e-06 4.65e+00 input[0]
-2.68e-06 3.70e+01 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
-8.08e-07 2.66e+01 weight
-1.79e-06 4.65e+00 input[0]
-1.27e-04 2.37e+02 output
-                  encoder.block.2.layer.1.DenseReluDense.dropout Dropout
-0.00e+00 8.76e+03 input[0]
-0.00e+00 9.74e+03 output
-                  encoder.block.2.layer.1.DenseReluDense.wo Linear
-1.01e-06 6.44e+00 weight
-0.00e+00 9.74e+03 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
-1.79e-06 4.65e+00 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.dropout Dropout
-3.18e-04 6.27e+04 input[0]
-0.00e+00      inf output
-```
-
-The example output has been trimmed in the middle for brevity.
-
-The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames, the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under `fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with large activations is going to lead to a numerical overflow condition.
-
-At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
-
-Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting for. For example, consider this frame:
-
-```
-                  encoder.block.2.layer.1.layer_norm T5LayerNorm
-8.69e-02 4.18e-01 weight
-2.65e-04 3.42e+03 input[0]
-1.79e-06 4.65e+00 output
-```
-
-Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
-
-Let's look at the last few frames of that report:
-
-```
-Detected inf/nan during batch_number=0
-Last 21 forward frames:
-abs min  abs max  metadata
-[...]
-                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
-2.17e-07 4.50e+00 weight
-1.79e-06 4.65e+00 input[0]
-2.68e-06 3.70e+01 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
-8.08e-07 2.66e+01 weight
-1.79e-06 4.65e+00 input[0]
-1.27e-04 2.37e+02 output
-                  encoder.block.2.layer.1.DenseReluDense.wo Linear
-1.01e-06 6.44e+00 weight
-0.00e+00 9.74e+03 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
-1.79e-06 4.65e+00 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.dropout Dropout
-3.18e-04 6.27e+04 input[0]
-0.00e+00      inf output
-```
-
-The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest input elements was `6.27e+04` and same for the output was `inf`.
-
-You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an overflow (`inf`).
-
-As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16 numbers.
-
-Let's match the report to the code from [`models/t5/modeling_t5.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py):
-
-
-```python
-class T5DenseGatedGeluDense(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
-        self.gelu_act = ACT2FN["gelu_new"]
-
-    def forward(self, hidden_states):
-        hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
-        hidden_linear = self.wi_1(hidden_states)
-        hidden_states = hidden_gelu * hidden_linear
-        hidden_states = self.dropout(hidden_states)
-        hidden_states = self.wo(hidden_states)
-        return hidden_states
-```
-
-Now it's easy to see the `dropout` call, and all the previous calls as well.
-
-Since the detection is happening in a forward hook, these reports are printed immediately after each `forward` returns.
-
-Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's enabled, after moving the original `forward` into a helper wrapper, like so:
-
-```python
-import torch
-
-def _forward(self, hidden_states):
-    hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
-    hidden_linear = self.wi_1(hidden_states)
-    hidden_states = hidden_gelu * hidden_linear
-    hidden_states = self.dropout(hidden_states)
-    hidden_states = self.wo(hidden_states)
-    return hidden_states
-
-def forward(self, hidden_states):
-    if torch.is_autocast_enabled():
-        with torch.cuda.amp.autocast(enabled=False):
-            return self._forward(hidden_states)
-    else:
-        return self._forward(hidden_states)
-```
-
-Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may want to analyse the intermediary stages of any specific `forward` function as well. In such a case you can use the `detect_overflow` helper function to inject the detector where you want it, for example:
-
-```python
-from underflow_overflow import detect_overflow
-
-
-class T5LayerFF(nn.Module):
-    [...]
-
-    def forward(self, hidden_states):
-        forwarded_states = self.layer_norm(hidden_states)
-        detect_overflow(forwarded_states, "after layer_norm")
-        forwarded_states = self.DenseReluDense(forwarded_states)
-        detect_overflow(forwarded_states, "after DenseReluDense")
-        return hidden_states + self.dropout(forwarded_states)
-```
-
-You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected somewhere in between.
-
-Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but let's say if you had some local direct calculations this is how you'd do that.
-
-Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from its default, e.g.:
-
-```python
-from .underflow_overflow import DebugUnderflowOverflow
-
-debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
-```
-
-#### Specific batch absolute min and max value tracing
-
-The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
-
-Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given batch, and only do that for batches 1 and 3. Then you instantiate this class as:
-
-```python
-debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3])
-```
-
-And now full batches 1 and 3 will be traced using the same format as the underflow/overflow detector does.
-
-Batches are 0-indexed.
-
-This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward right to that area. Here is a sample truncated output for such configuration:
-
-```
-                  *** Starting batch number=1 ***
-abs min  abs max  metadata
-                  shared Embedding
-1.01e-06 7.92e+02 weight
-0.00e+00 2.47e+04 input[0]
-5.36e-05 7.92e+02 output
-[...]
-                  decoder.dropout Dropout
-1.60e-07 2.27e+01 input[0]
-0.00e+00 2.52e+01 output
-                  decoder T5Stack
-     not a tensor output
-                  lm_head Linear
-1.01e-06 7.92e+02 weight
-0.00e+00 1.11e+00 input[0]
-6.06e-02 8.39e+01 output
-                   T5ForConditionalGeneration
-     not a tensor output
-
-                  *** Starting batch number=3 ***
-abs min  abs max  metadata
-                  shared Embedding
-1.01e-06 7.92e+02 weight
-0.00e+00 2.78e+04 input[0]
-5.36e-05 7.92e+02 output
-[...]
-```
-
-Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where numbers started to diverge.
-
-You can also specify the batch number after which to stop the training, with:
-
-```python
-debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_after_batch_num=3)
-```
-
-### Floating point math discrepancies on different devices
-
-See also [Reproducibility](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
-
-It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
-
-Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
-
-```python
-import torch
-
-def do_math(device):
-    inv_freq = (10 ** (torch.arange(0, 10, device=device) / 10))
-    print(f"{inv_freq[9]:.20f}")
-    return inv_freq.cpu()
-
-a = do_math(torch.device("cpu"))
-b = do_math(torch.device("cuda"))
-
-torch.testing.assert_close(a, b, rtol=0.0, atol=0.0)
-```
-when we run it we get 2 out of 10 elements mismatch:
-```
-7.94328212738037109375
-7.94328308105468750000
-[...]
-AssertionError: Tensor-likes are not equal!
-
-Mismatched elements: 2 / 10 (20.0%)
-Greatest absolute difference: 9.5367431640625e-07 at index (9,)
-Greatest relative difference: 1.200604771156577e-07 at index (9,)
-```
-
-
-This was a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
-
-Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
-
-For example, see this [discussion](https://github.com/deepspeedai/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about DeepSpeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
-
-It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device.
-
-![](images/math-fp-discrepancy-outcome-lizard.png)
-
-This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
-
-If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
-
-```python
-class LlamaRotaryEmbedding(nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10_000, device=None):
-        super().__init__()
-
-        self.dim = dim
-        self.max_position_embeddings = max_position_embeddings
-        self.base = base
-        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
-```
-
 ### Getting tensor attributes
 
 #### shape
@@ -2254,381 +1886,373 @@ tensor[2, 2] n=4 x∈[0.184, 0.831] μ=0.500 σ=0.353 grad={ x∈[1.000, 1.000] 
 
 It has a lot of functionality for working with image tensors as well.
 
-## Debugging multi-node training
+### Detecting problematic tensor values
 
-For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+See also [Numerical instabilities](../training/instabilities/README.md#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
 
-### Getting nodes to talk to each other
+#### Inf
 
-Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
+Infinity in the context of Machine Learning typically happens where as a result of a computation one or more elements of the tensor overflow.
 
-In this section we will discuss a very simple case of just 2 nodes (with 8 GPUs each) talking to each other and which can then be easily extended to as many nodes as needed. Let's say that these nodes have the IP addresses 10.0.0.1 and 10.0.0.2.
+Let's use fp16 floating point representation for demonstrating how we end up with Infinity numbers. 65504 is the largest normal floating point number that can be represented in the fp16 precision. This is slightly below `2**16` due to how this 16 bit number is represented. For details see [this](https://en.wikipedia.org/wiki/Half-precision_floating-point_format).
 
-Once we have the IP addresses we then need to choose a port for communications.
-
-In Unix there are 64k ports. The first 1k are reserved for common services so that any computer on the Internet could connect to any other computer knowing ahead of time which port to connect to. For example, port 22 is reserved for SSH. So that whenever you do `ssh example.com` in fact the program open a connection to `example.com:22`.
-
-As there are thousands of services out there, the reserved 1k ports is not enough, and so various services could use pretty much any port. But fear not, when you get your Linux box on the cloud or an HPC, you're unlikely to have many preinstalled services that could use a high number port, so most ports should be available.
-
-Therefore let's choose port 6000.
-
-Now we have: `10.0.0.1:6000` and `10.0.0.2:6000` that we want to be able to communicate with each other.
-
-The first thing to do is to open port `6000` for incoming and outgoing connections on both nodes. It might be open already or you might have to read up the instructions of your particular setup on how to open a given port.
-
-Here are multiple ways that you could use to test whether port 6000 is already open.
-
+Thus we can observe:
 ```bash
-telnet localhost:6000
-nmap -p 6000 localhost
-nc -zv localhost 6000
-curl -v telnet://localhost:6000
+$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16))"
+tensor(65504., dtype=torch.float16)
+$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16) + 50)"
+tensor(inf, dtype=torch.float16)
 ```
+The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why [bf16 superseded fp16](../training/dtype.md#ml-dtype-progression), since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
 
-Most of these should be available via `apt install` or whatever your package manager uses.
-
-Let's use `nmap` in this example. If I run:
-
+To create an `inf` value on demand:
 ```bash
-$ nmap -p 22 localhost
-[...]
-PORT   STATE SERVICE
-22/tcp open  ssh
+$ python -c "import torch; print(torch.tensor(float('inf')))"
+tensor(inf)
 ```
-We can see the port is open and it tells us which protocol and service is allocated as a bonus.
 
-Now let's run:
+To check whether a tensor contains `inf` values:
+```python
+torch.isinf(t).any() # at least one Inf
+torch.isinf(t).all() # all values are Inf
+```
+
+I created a special tool for helping to detect Overflow and Underflow values layer by layer, which can be found at [Underflow and Overflow Detection](#underflow-and-overflow-detection).
+
+#### NaN
+
+`NaN` stands for not-a-number - you're most likely to see this in the loss during model training, typically this happens when the learning rate is too high, or the data is really bad, the optimizer fails to do its work and the loss literally breaks becoming a `NaN`.
+
+In the previous section we explained that when a floating point number overflows it becomes an `inf`. `inf` and `nan` are very related, because `inf` turns into `nan` quite easily, e.g. multiplying `0` by `inf`:
 ```bash
-$ nmap -p 6000 localhost
-[...]
-
-PORT     STATE  SERVICE
-6000/tcp closed X11
+$ python -c "import torch; print(0*torch.tensor(float('inf')))"
+tensor(nan)
 ```
-Here you can see port 6000 is closed.
+Most of the time `nan` happens to one or more gradient values during `backward` pass, and once `loss` becomes a NaN it's impossible to recover from it.
 
-Now that you understand how to test, you can proceed to test the `10.0.0.1:6000` and `10.0.0.2:6000`.
-
-First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
-
-```bash
-ssh 10.0.0.1
-nmap -p 6000 10.0.0.2
-```
-if all is good, then in terminal B ssh to the second node and do the same check in reverse:
-
-```bash
-ssh 10.0.0.2
-nmap -p 6000 10.0.0.1
+To check whether a tensor contains `nan` values:
+```python
+torch.isnan(t).any() # at least one NaN
+torch.isnan(t).all() # all values are NaN
 ```
 
-If both ports are open you can now use this port. If either or both are closed you have to open these ports. Since most clouds use a proprietary solution, simply search the Internet for "open port" and the name of your cloud provider.
-
-The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
-
-```bash
-$ sudo ifconfig
-```
-
-One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
-
-Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network/README.md#inter-node-networking)). There could be one or dozens of those interfaces.
-
-Here are some examples of `ifconfig`'s output:
-
-```bash
-$ sudo ifconfig
-enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
-        [...]
-```
-I removed most of the output showing only some of the info. Here the key information is the IP address that is listed after `inet`. In the example above it's `10.0.0.23`. This is the IP address of interface `enp5s0`.
-
-If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or something of sorts - the last segment will be the one with a different number.
-
-Let's look at another example:
-
-```bash
-$ sudo ifconfig
-ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
-        inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
-        [...]
-```
-Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network/README.md#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
-
-If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
-
-Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes. For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
-
-In terminal A:
-
-```bash
-$ ssh 10.0.0.1
-$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
-```
-
-In terminal B:
-
-```bash
-$ ssh 10.0.0.2
-$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
-```
-
-Note that I'm using the same `--master_addr 10.0.0.1 --master_port 6000` in both cases because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host.
-
-This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
-
-**pdsh**
-
-`pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
-
-```bash
-PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
-"torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
-```
-
-You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument.
-
-
-**SLURM**
-
-If you use SLURM, it's almost certain that whoever set things up already have all the ports opened for you, so it should just work. But if it doesn't the information in this section should help debug things.
-
-Here is how you'd use this with SLURM.
-
-```bash
-#!/bin/bash
-#SBATCH --job-name=test-nodes        # name
-#SBATCH --nodes=2                    # nodes
-#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
-#SBATCH --cpus-per-task=10           # number of cores per tasks
-#SBATCH --gres=gpu:8                 # number of gpus
-#SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
-#SBATCH --output=%x-%j.out           # output file name
-#
-export GPUS_PER_NODE=8
-export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-export MASTER_PORT=6000
-#
-srun --jobid $SLURM_JOBID bash -c 'torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
-torch-distributed-gpu-test.py'
-```
-If you have more than 2 nodes you just need to change the number of nodes and the above script will automatically work for any number of them.
-
-
-**MPI**:
-
-Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
-
-To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
-
-```bash
-$ cat hostfile
-10.0.0.1:8
-10.0.0.2:8
-```
-and to run, it's just:
-```bash
-$ mpirun --hostfile hostfile -np 16 -map-by ppr:8:node python my-program.py
-```
-
-Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
-
-Nuances:
-- You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
-- You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
-
-`mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
-
-
-#### Solving the InfiniBand connection between multiple nodes
-
-In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
-
-```bash
-NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
-```
-I saw in the debug messages that InfiniBand interfaces got detected:
-```
-node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
-```
-But the connection would then time out with the message:
-```
-node-2:5776:5902 [0] transport/net_ib.cc:1296 NCCL WARN NET/IB : Got completion from peer 10.2.0.5<33092> with error 12, opcode 0, len
-0, vendor err 129 (Recv)
-node-2:5776:5902 [0] NCCL INFO transport/net.cc:1134 -> 6
-node-2:5776:5902 [0] NCCL INFO proxy.cc:679 -> 6
-node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
-```
-and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
-
-There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
-
-Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
-
-The individual nodes are often not meant for inter-node communication and often the clouds have the concept of clusters, which are designed for allocating multiple nodes as a group and are already preconfigured to work together.
-
-
-### Prefixing logs with `node:rank`, interleaved asserts
-
-In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
-
-When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
-
-```bash
-torchrun --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
-torch-distributed-gpu-test.py
-```
-
-Now each log line will be prefixed with `[hostname:rank]`
-
-Note that the colon is important.
-
-If you're in a SLURM environment the above command line becomes:
-
-```bash
-srun --jobid $SLURM_JOBID bash -c 'torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
---role $(hostname -s): --tee 3 \
-torch-distributed-gpu-test.py'
-```
-
-Of course adjust your environment variables to match, this was just an example.
-
-Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
-
-```bash
-srun --jobid $SLURM_JOBID bash -c "torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
---role \$(hostname -s): --tee 3 \
-torch-distributed-gpu-test.py"
-```
-
-`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the command.
-
-This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved tracebacks that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
-
-For example, if you get a traceback that looks like:
-
-```
-  File "/path/to/training/dataset.py", line 785, in __init__
-  File "/path/to/training/dataset.py", line 785, in __init__
-    if self.dataset_proba.sum() != 1:
-AttributeError: 'list' object has no attribute 'sum'
-    if self.dataset_proba.sum() != 1:
-  File "/path/to/training/dataset.py", line 785, in __init__
-  File "/path/to/training/dataset.py", line 785, in __init__
-    if self.dataset_proba.sum() != 1:
-    if self.dataset_proba.sum() != 1:
-AttributeError: 'list' object has no attribute 'sum'
-AttributeError: 'list' object has no attribute 'sum'
-AttributeError: 'list' object has no attribute 'sum'
-```
-
-and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` addition will generate:
-
-```
-[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:1]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:0]    if self.dataset_proba.sum() != 1:
-[host1:0]AttributeError: 'list' object has no attribute 'sum'
-[host1:1]    if self.dataset_proba.sum() != 1:
-[host1:2]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:3]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:3]    if self.dataset_proba.sum() != 1:
-[host1:2]    if self.dataset_proba.sum() != 1:
-[host1:1]AttributeError: 'list' object has no attribute 'sum'
-[host1:2]AttributeError: 'list' object has no attribute 'sum'
-[host1:3]AttributeError: 'list' object has no attribute 'sum'
-```
-and you can `grep` this output for just one `host:rank` prefix, which gives us:
-
-```bash
-$ grep -F '[host1:0]' log.txt
-[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:0]    if self.dataset_proba.sum() != 1:
-[host1:0]AttributeError: 'list' object has no attribute 'sum'
-```
-
-and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a hundred to thousands of interleaved traceback lines there.
-
-Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
-
-If `hostname -s` is too long, but you have each host with its own sequence number like:
-```
-[really-really-really-long-hostname-5:0]
-[really-really-really-long-hostname-5:1]
-[really-really-really-long-hostname-5:2]
-```
-you can of course make it shorter by replacing `hostname -s` with `hostname -s | tr -dc '0-9'`, which would lead to much shorter prefixes:
-```
-[5:0]
-[5:1]
-[5:2]
-```
-
-And, of course, if you're doing debug prints, then to solve this exact issue you can use [`printflock`](#good-old-print).
-
-Here is how you accomplish the same feat with other launchers:
-
-- `srun` in SLURM: add `--label`
-- `openmpi`: add `--tag-output`
-- `accelerate`: you can just pass the same `-tee` + `--role` flags as in `torchrun`
-
-
-### Invoke pdb on a specific rank in multi-node training
-
-Since PyTorch 2.2 you have a handy debug feature:
+So to debug one would need to find which layer and model parameters hit `nan` gradients. But in some situation it's the loss function that fails. Here is an example:
 
 ```python
-import torch.distributed as dist
-[...]
-
-def mycode(...):
-
-   dist.breakpoint(0)
-
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+loss = model.loss_function(
+    logits=torch.rand(3, 100),
+    labels=torch.tensor([-100, -100, -100]),
+    vocab_size=100,
+)
+```
+As of `transformers==4.57.1` the above will give you `loss=tensor(nan)`. The issue here is that the special `-100` label masks tokens to be excluded from the loss calculation and in the above example, we have 0 tokens that aren't masked, since all labels are `-100`. And unfortunately the loss function fails and returns a NaN, instead of `0` - this is most likely a bug in the loss function implementation which makes an assumption that a sample has at least one unmasked token. But if you do sequence sharding and you use SFT you may have huge parts of the sample masked out and you can easily end up with a sample shard where all tokens are masked out. I have run into this problem when developing [Arctic Long Sequence Training](https://arxiv.org/abs/2506.13996). The original solution I used was:
+```python
+if all((shift_labels == -100).squeeze()):
+    loss = (logits.sum() * 0.0).float()
 ```
 
-This is the same as `ForkedPdb` (below) but will automatically break for you on the rank of your choice - rank0 in the example above. Just make sure to call `up;;n` right away when the breakpoint hits to get into your normal code.
+Here we prevent `loss=NaN` situation and instead create an artificial loss `0`, which will also set all the grads to `0` in `backward` - the effect of this is akin to a perfect score where the model needs no adjustment since grads will be all zeros.
 
-Here is what it does underneath:
+You can see it in context [here](https://github.com/deepspeedai/DeepSpeed/blob/df59f203f40c8a292dd019ae68c9e6c88f107026/deepspeed/runtime/sequence_parallel/ulysses_sp.py#L1184-L1186). Though the code has evolved since then, and you can find a more elaborate version [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/#part-1-ulysses-sequence-parallelism-for-hf-transformers) in the loss calculation across sequence parallel ranks section.
+
+### Underflow and Overflow Detection
+
+For this section we are going to use the [underflow_overflow](./underflow_overflow.py) library.
+
+If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily you can accomplish that easily by activating a special module that will do the detection automatically.
+
+Let's use a `t5-large` model for this demonstration.
 
 ```python
-import sys
-import pdb
+from .underflow_overflow import DebugUnderflowOverflow
+from transformers import AutoModel
 
-class ForkedPdb(pdb.Pdb):
-    """
-    PDB Subclass for debugging multi-processed code
-    Suggested in: https://stackoverflow.com/questions/4716533/how-to-attach-debugger-to-a-python-subproccess
-    """
-    def interaction(self, *args, **kwargs):
-        _stdin = sys.stdin
-        try:
-            sys.stdin = open('/dev/stdin')
-            pdb.Pdb.interaction(self, *args, **kwargs)
-        finally:
-            sys.stdin = _stdin
+model = AutoModel.from_pretrained("t5-large")
+debug_overflow = DebugUnderflowOverflow(model)
+```
 
-
-def mycode():
-
-    if dist.get_rank() == 0:
-        ForkedPdb().set_trace()
-    dist.barrier()
+[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or `nan` is detected in at least one element of the activations or weights, the program will assert and print a report like this (this was caught with `google/mt5-small` under fp16 mixed precision):
 
 ```
-so you can code it yourself as well.
+Detected inf/nan during batch_number=0
+Last 21 forward frames:
+abs min  abs max  metadata
+                  encoder.block.1.layer.1.DenseReluDense.dropout Dropout
+0.00e+00 2.57e+02 input[0]
+0.00e+00 2.85e+02 output
+[...]
+                  encoder.block.2.layer.0 T5LayerSelfAttention
+6.78e-04 3.15e+03 input[0]
+2.65e-04 3.42e+03 output[0]
+             None output[1]
+2.25e-01 1.00e+04 output[2]
+                  encoder.block.2.layer.1.layer_norm T5LayerNorm
+8.69e-02 4.18e-01 weight
+2.65e-04 3.42e+03 input[0]
+1.79e-06 4.65e+00 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
+2.17e-07 4.50e+00 weight
+1.79e-06 4.65e+00 input[0]
+2.68e-06 3.70e+01 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
+8.08e-07 2.66e+01 weight
+1.79e-06 4.65e+00 input[0]
+1.27e-04 2.37e+02 output
+                  encoder.block.2.layer.1.DenseReluDense.dropout Dropout
+0.00e+00 8.76e+03 input[0]
+0.00e+00 9.74e+03 output
+                  encoder.block.2.layer.1.DenseReluDense.wo Linear
+1.01e-06 6.44e+00 weight
+0.00e+00 9.74e+03 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
+1.79e-06 4.65e+00 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.dropout Dropout
+3.18e-04 6.27e+04 input[0]
+0.00e+00      inf output
+```
 
-And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
+The example output has been trimmed in the middle for brevity.
+
+The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames, the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under `fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with large activations is going to lead to a numerical overflow condition.
+
+At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
+
+Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting for. For example, consider this frame:
+
+```
+                  encoder.block.2.layer.1.layer_norm T5LayerNorm
+8.69e-02 4.18e-01 weight
+2.65e-04 3.42e+03 input[0]
+1.79e-06 4.65e+00 output
+```
+
+Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
+
+Let's look at the last few frames of that report:
+
+```
+Detected inf/nan during batch_number=0
+Last 21 forward frames:
+abs min  abs max  metadata
+[...]
+                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
+2.17e-07 4.50e+00 weight
+1.79e-06 4.65e+00 input[0]
+2.68e-06 3.70e+01 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
+8.08e-07 2.66e+01 weight
+1.79e-06 4.65e+00 input[0]
+1.27e-04 2.37e+02 output
+                  encoder.block.2.layer.1.DenseReluDense.wo Linear
+1.01e-06 6.44e+00 weight
+0.00e+00 9.74e+03 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
+1.79e-06 4.65e+00 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.dropout Dropout
+3.18e-04 6.27e+04 input[0]
+0.00e+00      inf output
+```
+
+The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest input elements was `6.27e+04` and same for the output was `inf`.
+
+You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an overflow (`inf`).
+
+As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16 numbers.
+
+Let's match the report to the code from [`models/t5/modeling_t5.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py):
+
+
+```python
+class T5DenseGatedGeluDense(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
+        self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
+        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.gelu_act = ACT2FN["gelu_new"]
+
+    def forward(self, hidden_states):
+        hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
+        hidden_linear = self.wi_1(hidden_states)
+        hidden_states = hidden_gelu * hidden_linear
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.wo(hidden_states)
+        return hidden_states
+```
+
+Now it's easy to see the `dropout` call, and all the previous calls as well.
+
+Since the detection is happening in a forward hook, these reports are printed immediately after each `forward` returns.
+
+Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's enabled, after moving the original `forward` into a helper wrapper, like so:
+
+```python
+import torch
+
+def _forward(self, hidden_states):
+    hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
+    hidden_linear = self.wi_1(hidden_states)
+    hidden_states = hidden_gelu * hidden_linear
+    hidden_states = self.dropout(hidden_states)
+    hidden_states = self.wo(hidden_states)
+    return hidden_states
+
+def forward(self, hidden_states):
+    if torch.is_autocast_enabled():
+        with torch.cuda.amp.autocast(enabled=False):
+            return self._forward(hidden_states)
+    else:
+        return self._forward(hidden_states)
+```
+
+Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may want to analyse the intermediary stages of any specific `forward` function as well. In such a case you can use the `detect_overflow` helper function to inject the detector where you want it, for example:
+
+```python
+from underflow_overflow import detect_overflow
+
+
+class T5LayerFF(nn.Module):
+    [...]
+
+    def forward(self, hidden_states):
+        forwarded_states = self.layer_norm(hidden_states)
+        detect_overflow(forwarded_states, "after layer_norm")
+        forwarded_states = self.DenseReluDense(forwarded_states)
+        detect_overflow(forwarded_states, "after DenseReluDense")
+        return hidden_states + self.dropout(forwarded_states)
+```
+
+You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected somewhere in between.
+
+Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but let's say if you had some local direct calculations this is how you'd do that.
+
+Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from its default, e.g.:
+
+```python
+from .underflow_overflow import DebugUnderflowOverflow
+
+debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
+```
+
+#### Specific batch absolute min and max value tracing
+
+The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
+
+Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given batch, and only do that for batches 1 and 3. Then you instantiate this class as:
+
+```python
+debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3])
+```
+
+And now full batches 1 and 3 will be traced using the same format as the underflow/overflow detector does.
+
+Batches are 0-indexed.
+
+This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward right to that area. Here is a sample truncated output for such configuration:
+
+```
+                  *** Starting batch number=1 ***
+abs min  abs max  metadata
+                  shared Embedding
+1.01e-06 7.92e+02 weight
+0.00e+00 2.47e+04 input[0]
+5.36e-05 7.92e+02 output
+[...]
+                  decoder.dropout Dropout
+1.60e-07 2.27e+01 input[0]
+0.00e+00 2.52e+01 output
+                  decoder T5Stack
+     not a tensor output
+                  lm_head Linear
+1.01e-06 7.92e+02 weight
+0.00e+00 1.11e+00 input[0]
+6.06e-02 8.39e+01 output
+                   T5ForConditionalGeneration
+     not a tensor output
+
+                  *** Starting batch number=3 ***
+abs min  abs max  metadata
+                  shared Embedding
+1.01e-06 7.92e+02 weight
+0.00e+00 2.78e+04 input[0]
+5.36e-05 7.92e+02 output
+[...]
+```
+
+Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where numbers started to diverge.
+
+You can also specify the batch number after which to stop the training, with:
+
+```python
+debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_after_batch_num=3)
+```
+
+### Floating point math discrepancies on different devices
+
+See also [Reproducibility](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
+
+It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
+
+Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
+
+```python
+import torch
+
+def do_math(device):
+    inv_freq = (10 ** (torch.arange(0, 10, device=device) / 10))
+    print(f"{inv_freq[9]:.20f}")
+    return inv_freq.cpu()
+
+a = do_math(torch.device("cpu"))
+b = do_math(torch.device("cuda"))
+
+torch.testing.assert_close(a, b, rtol=0.0, atol=0.0)
+```
+when we run it we get 2 out of 10 elements mismatch:
+```
+7.94328212738037109375
+7.94328308105468750000
+[...]
+AssertionError: Tensor-likes are not equal!
+
+Mismatched elements: 2 / 10 (20.0%)
+Greatest absolute difference: 9.5367431640625e-07 at index (9,)
+Greatest relative difference: 1.200604771156577e-07 at index (9,)
+```
+
+
+This was a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
+
+Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
+
+For example, see this [discussion](https://github.com/deepspeedai/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about DeepSpeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
+
+It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device.
+
+![](images/math-fp-discrepancy-outcome-lizard.png)
+
+This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
+
+If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
+
+```python
+class LlamaRotaryEmbedding(nn.Module):
+    def __init__(self, dim, max_position_embeddings=2048, base=10_000, device=None):
+        super().__init__()
+
+        self.dim = dim
+        self.max_position_embeddings = max_position_embeddings
+        self.base = base
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+```
 
 ## Diagnosing crashes, hangs and tracing execution
 
@@ -3438,6 +3062,382 @@ GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
 in `/etc/default/grub` (the grub config file could be elsewhere depending on the OS).
 
 Disabling is `GRUB_CMDLINE_LINUX="amd_iommu=off"`
+
+## Debugging multi-node training
+
+For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+
+### Getting nodes to talk to each other
+
+Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
+
+In this section we will discuss a very simple case of just 2 nodes (with 8 GPUs each) talking to each other and which can then be easily extended to as many nodes as needed. Let's say that these nodes have the IP addresses 10.0.0.1 and 10.0.0.2.
+
+Once we have the IP addresses we then need to choose a port for communications.
+
+In Unix there are 64k ports. The first 1k are reserved for common services so that any computer on the Internet could connect to any other computer knowing ahead of time which port to connect to. For example, port 22 is reserved for SSH. So that whenever you do `ssh example.com` in fact the program open a connection to `example.com:22`.
+
+As there are thousands of services out there, the reserved 1k ports is not enough, and so various services could use pretty much any port. But fear not, when you get your Linux box on the cloud or an HPC, you're unlikely to have many preinstalled services that could use a high number port, so most ports should be available.
+
+Therefore let's choose port 6000.
+
+Now we have: `10.0.0.1:6000` and `10.0.0.2:6000` that we want to be able to communicate with each other.
+
+The first thing to do is to open port `6000` for incoming and outgoing connections on both nodes. It might be open already or you might have to read up the instructions of your particular setup on how to open a given port.
+
+Here are multiple ways that you could use to test whether port 6000 is already open.
+
+```bash
+telnet localhost:6000
+nmap -p 6000 localhost
+nc -zv localhost 6000
+curl -v telnet://localhost:6000
+```
+
+Most of these should be available via `apt install` or whatever your package manager uses.
+
+Let's use `nmap` in this example. If I run:
+
+```bash
+$ nmap -p 22 localhost
+[...]
+PORT   STATE SERVICE
+22/tcp open  ssh
+```
+We can see the port is open and it tells us which protocol and service is allocated as a bonus.
+
+Now let's run:
+```bash
+$ nmap -p 6000 localhost
+[...]
+
+PORT     STATE  SERVICE
+6000/tcp closed X11
+```
+Here you can see port 6000 is closed.
+
+Now that you understand how to test, you can proceed to test the `10.0.0.1:6000` and `10.0.0.2:6000`.
+
+First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
+
+```bash
+ssh 10.0.0.1
+nmap -p 6000 10.0.0.2
+```
+if all is good, then in terminal B ssh to the second node and do the same check in reverse:
+
+```bash
+ssh 10.0.0.2
+nmap -p 6000 10.0.0.1
+```
+
+If both ports are open you can now use this port. If either or both are closed you have to open these ports. Since most clouds use a proprietary solution, simply search the Internet for "open port" and the name of your cloud provider.
+
+The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
+
+```bash
+$ sudo ifconfig
+```
+
+One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
+
+Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network/README.md#inter-node-networking)). There could be one or dozens of those interfaces.
+
+Here are some examples of `ifconfig`'s output:
+
+```bash
+$ sudo ifconfig
+enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
+        [...]
+```
+I removed most of the output showing only some of the info. Here the key information is the IP address that is listed after `inet`. In the example above it's `10.0.0.23`. This is the IP address of interface `enp5s0`.
+
+If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or something of sorts - the last segment will be the one with a different number.
+
+Let's look at another example:
+
+```bash
+$ sudo ifconfig
+ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+        inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
+        [...]
+```
+Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network/README.md#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
+
+If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
+
+Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes. For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
+
+In terminal A:
+
+```bash
+$ ssh 10.0.0.1
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+```
+
+In terminal B:
+
+```bash
+$ ssh 10.0.0.2
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+```
+
+Note that I'm using the same `--master_addr 10.0.0.1 --master_port 6000` in both cases because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host.
+
+This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
+
+**pdsh**
+
+`pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
+
+```bash
+PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
+"torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
+```
+
+You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument.
+
+
+**SLURM**
+
+If you use SLURM, it's almost certain that whoever set things up already have all the ports opened for you, so it should just work. But if it doesn't the information in this section should help debug things.
+
+Here is how you'd use this with SLURM.
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=test-nodes        # name
+#SBATCH --nodes=2                    # nodes
+#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
+#SBATCH --cpus-per-task=10           # number of cores per tasks
+#SBATCH --gres=gpu:8                 # number of gpus
+#SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
+#SBATCH --output=%x-%j.out           # output file name
+#
+export GPUS_PER_NODE=8
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=6000
+#
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+torch-distributed-gpu-test.py'
+```
+If you have more than 2 nodes you just need to change the number of nodes and the above script will automatically work for any number of them.
+
+
+**MPI**:
+
+Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
+
+To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
+
+```bash
+$ cat hostfile
+10.0.0.1:8
+10.0.0.2:8
+```
+and to run, it's just:
+```bash
+$ mpirun --hostfile hostfile -np 16 -map-by ppr:8:node python my-program.py
+```
+
+Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
+
+Nuances:
+- You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
+- You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
+
+`mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
+
+
+#### Solving the InfiniBand connection between multiple nodes
+
+In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
+
+```bash
+NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
+```
+I saw in the debug messages that InfiniBand interfaces got detected:
+```
+node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
+```
+But the connection would then time out with the message:
+```
+node-2:5776:5902 [0] transport/net_ib.cc:1296 NCCL WARN NET/IB : Got completion from peer 10.2.0.5<33092> with error 12, opcode 0, len
+0, vendor err 129 (Recv)
+node-2:5776:5902 [0] NCCL INFO transport/net.cc:1134 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:679 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
+```
+and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
+
+There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
+
+Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
+
+The individual nodes are often not meant for inter-node communication and often the clouds have the concept of clusters, which are designed for allocating multiple nodes as a group and are already preconfigured to work together.
+
+
+### Prefixing logs with `node:rank`, interleaved asserts
+
+In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
+
+When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
+
+```bash
+torchrun --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
+torch-distributed-gpu-test.py
+```
+
+Now each log line will be prefixed with `[hostname:rank]`
+
+Note that the colon is important.
+
+If you're in a SLURM environment the above command line becomes:
+
+```bash
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role $(hostname -s): --tee 3 \
+torch-distributed-gpu-test.py'
+```
+
+Of course adjust your environment variables to match, this was just an example.
+
+Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
+
+```bash
+srun --jobid $SLURM_JOBID bash -c "torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role \$(hostname -s): --tee 3 \
+torch-distributed-gpu-test.py"
+```
+
+`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the command.
+
+This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved tracebacks that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+
+For example, if you get a traceback that looks like:
+
+```
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+    if self.dataset_proba.sum() != 1:
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+```
+
+and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` addition will generate:
+
+```
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:1]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+[host1:1]    if self.dataset_proba.sum() != 1:
+[host1:2]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]    if self.dataset_proba.sum() != 1:
+[host1:2]    if self.dataset_proba.sum() != 1:
+[host1:1]AttributeError: 'list' object has no attribute 'sum'
+[host1:2]AttributeError: 'list' object has no attribute 'sum'
+[host1:3]AttributeError: 'list' object has no attribute 'sum'
+```
+and you can `grep` this output for just one `host:rank` prefix, which gives us:
+
+```bash
+$ grep -F '[host1:0]' log.txt
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+```
+
+and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a hundred to thousands of interleaved traceback lines there.
+
+Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
+
+If `hostname -s` is too long, but you have each host with its own sequence number like:
+```
+[really-really-really-long-hostname-5:0]
+[really-really-really-long-hostname-5:1]
+[really-really-really-long-hostname-5:2]
+```
+you can of course make it shorter by replacing `hostname -s` with `hostname -s | tr -dc '0-9'`, which would lead to much shorter prefixes:
+```
+[5:0]
+[5:1]
+[5:2]
+```
+
+And, of course, if you're doing debug prints, then to solve this exact issue you can use [`printflock`](#good-old-print).
+
+Here is how you accomplish the same feat with other launchers:
+
+- `srun` in SLURM: add `--label`
+- `openmpi`: add `--tag-output`
+- `accelerate`: you can just pass the same `-tee` + `--role` flags as in `torchrun`
+
+
+### Invoke pdb on a specific rank in multi-node training
+
+Since PyTorch 2.2 you have a handy debug feature:
+
+```python
+import torch.distributed as dist
+[...]
+
+def mycode(...):
+
+   dist.breakpoint(0)
+
+```
+
+This is the same as `ForkedPdb` (below) but will automatically break for you on the rank of your choice - rank0 in the example above. Just make sure to call `up;;n` right away when the breakpoint hits to get into your normal code.
+
+Here is what it does underneath:
+
+```python
+import sys
+import pdb
+
+class ForkedPdb(pdb.Pdb):
+    """
+    PDB Subclass for debugging multi-processed code
+    Suggested in: https://stackoverflow.com/questions/4716533/how-to-attach-debugger-to-a-python-subproccess
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+
+def mycode():
+
+    if dist.get_rank() == 0:
+        ForkedPdb().set_trace()
+    dist.barrier()
+
+```
+so you can code it yourself as well.
+
+And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
 
 ## Performance and profiling
 
