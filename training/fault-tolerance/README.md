@@ -52,9 +52,9 @@ So if your launched job looked like this:
 ```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
+       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-64]
 ```
-You will not that the current's `JOBID=87` and now you can use it in:
+You will note that the current's `JOBID=87` and now you can use it in:
 ```bash
 sbatch --array=1-10%1 --dependency=87 train.slurm
 ```
@@ -62,10 +62,10 @@ and then the new status will appear as:
 ```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
- 88_[10%1]   prod    my-training-10b  PENDING       0:00 1-16:00:00   64                    N/A (Dependency)
+       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-64]
+ 88_[1-10%1]   prod    my-training-10b  PENDING       0:00 1-16:00:00   64                    N/A (Dependency)
 ```
-So you can see that an array of 10 jobs (`88_[10%1]`) was appended to be started immediately after the current job (`87`) completes or fails.
+So you can see that an array of 10 jobs (`88_[1-10%1]`) was appended to be started immediately after the current job (`87`) completes or fails.
 
 Granted that if the condition that lead to the crash is still there the subsequent job will fail as well. For example, if the storage device is full, no amount of restarts will allow the training to proceed. And we will discuss shortly how to avoid this situation.
 
@@ -112,14 +112,14 @@ Depending on your checkpointing methodology and the speed of your IO storage par
 
 The math is quite simple - measure the amount of time it takes to save the checkpoint, multiply it by how many times you'd want to save it and see how much of an additional delay the checkpoint saving will contribute to the total training time.
 
-Use case: While training BLOOM-176B we had an incredibly fast GPFS over NVME filesystem and it took only 40 seconds to save a 2.3TB checkpoint written concurrently on 384 processes. We saved a checkpoint approximately every 3 hours. As we trained for about 3 months, that means that we saved about 720 checkpoints (`90 days * 24h / 3h`) - that is an additional 8 hours was spent just saving the checkpoints (`720 times * 40 secs / 3600 secs`) - or ~0.37% of the total training time (`8h / (90 days * 24 hours)`. Now say if the IO were to be 5 times slower, which is not uncommon on the cloud unless one pays for premium IO, that would have become 2% of the training time, which would be quite significant.
+Use case: While training BLOOM-176B we had an incredibly fast GPFS over NVME filesystem and it took only 40 seconds to save a 2.3TB checkpoint written concurrently on 384 processes. We saved a checkpoint approximately every 3 hours. As we trained for about 3 months, that means that we saved about 720 checkpoints (`90 days * 24h / 3h`) - that is an additional 8 hours was spent just saving the checkpoints (`720 times * 40 secs / 3600 secs`) - or ~0.37% of the total training time (`8h / (90 days * 24 hours)`). Now say if the IO were to be 5 times slower, which is not uncommon on the cloud unless one pays for premium IO, that would have become 2% of the training time, which would be quite significant.
 
 footnote: If you don't have a large local storage and you have to offload the checkpoints to the cloud, make sure that the 2 most frequent checkpoints remain local to allow for a quick resume. The reason for 2 and not 1, is that it's possible that the very last checkpoint got corrupted or didn't finish saving if a crash occurred during its saving.
 
-While this method introduces an overhead to the training, having training checkpoints is a hugely useful. Because these allow you to rollback many steps back should there be a divergence, are useful for analysis of various events and many trainings these day switch from in-training single loss measuring eval, which provide little useful signal to a full blown dataset-based evaluation on multiple benchmarks applied to each checkpoint during training. The latter can be done on additional nodes w/o slowing down the training for in-training evals.
+While this method introduces an overhead to the training, having training checkpoints is hugely useful. Because these allow you to rollback many steps back should there be a divergence, are useful for analysis of various events and many trainings these day switch from in-training single loss measuring eval, which provide little useful signal to a full blown dataset-based evaluation on multiple benchmarks applied to each checkpoint during training. The latter can be done on additional nodes w/o slowing down the training for in-training evals.
 
 
-## Mutli-Replica-based fault tolerance
+## Multi-Replica-based fault tolerance
 
 There is another approach to dealing with accelerator crashes which involves no checkpoint saving. This approach only works in situations where at least two model replicas are used during training.
 
@@ -138,7 +138,9 @@ Of course, on a large scale training you're likely to have a hundred active node
 
 This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing you may lose hundreds of iterations.
 
-I'm not aware of any open source implementations of this advanced fault tolerance method, but we know some of the big companies use this approach internally.
+The open-source library that lands closest to this idea is [`torchft`](https://github.com/meta-pytorch/torchft) (Meta / PyTorch). It treats each training step as a fault boundary across replica groups, coordinates health with a lighthouse/quorum service, and can heal a failed group by live state transfer from a healthy peer instead of rolling back to a filesystem checkpoint. Out of the box it covers fault-tolerant DDP and HSDP, and [`torchtitan`](https://github.com/pytorch/torchtitan) wires it into an end-to-end HSDP training loop - see its [`torchft` experiment docs](https://github.com/pytorch/torchtitan/tree/main/torchtitan/experiments/torchft) and the [PyTorch blog write-up of a checkpoint-free run under synthetic failures](https://pytorch.org/blog/fault-tolerant-llama-training-with-2000-synthetic-failures-every-15-seconds-and-no-checkpoints-on-crusoe-l40s/). The failure domain is a whole replica group rather than a single GPU, and the healing path is peer recovery through torchft's checkpoint transports rather than the RDMA-copy-onto-a-dedicated-standby sketch above - same goal (lose at most a step, keep training), different machinery.
+
+Related research systems attack the same problem from other angles. [`Oobleck`](https://github.com/SymbioticLab/Oobleck) (SOSP'23) keeps logically equivalent pipeline replicas and recovers by re-instantiating precomputed pipeline templates after failures, again without a full checkpoint restart. Earlier spot-instance work such as [Bamboo](https://www.usenix.org/system/files/nsdi23-thorpe.pdf) (redundant computation scheduled into pipeline bubbles; NSDI'23) and [Varuna](https://github.com/microsoft/varuna) (elastic PP+DP reconfiguration) is in the same family; those codebases are largely dormant now and are useful mainly as design references. Commercial infrastructure layers also exist that migrate a failed GPU onto a spare without changing the training script - a different trade-off (per-GPU failure domain, outside the framework) rather than another torchft clone.
 
 
 
@@ -215,7 +217,7 @@ and the current status report shows:
 ```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
   JOBID    PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-    87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-63]
+    87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-64]
 ```
 then all is good. But if `my-training-10b` job doesn't show the alert will be sent.
 
@@ -228,7 +230,7 @@ If the application is doing `torch.distributed` or alike and a hanging occurs du
 
 However, if the hanging happens during another syscall which may have no timeout, e.g. reading from the disk, the application could easily hang there for hours and nobody will be the wiser.
 
-Most applications do periodic logging, e.g., most training log the stats of the last N steps every few minutes. Then one could check if the log file has been updated during the expected time-frame - and if it didn't - send an alert. You could write your own, or use [io-watchdog](https://github.com/grondo/io-watchdog) for that.
+Most applications do periodic logging, e.g., most training log the stats of the last N steps every few minutes. Then one could check if the log file has been updated during the expected time-frame - and if it didn't - send an alert. You could write your own, or use [io-watchdog](https://github.com/grondo/io-watchdog) for that (no commit since 2019 - treat as functional-but-unmaintained rather than actively developed).
 
 
 

@@ -75,11 +75,11 @@ So a general rule of thumb for when you prepare for a massive model training - a
 
 footnote: For 80GB A100s in 2022 that was 155, in 2023 it has been pushed to about 180TFLOPS.
 
-footnote: When calculating TFLOPS it's important to remember that the math is different if [Gradient checkpointing](#gradient-checkpointing) are enabled, since when it's activated more compute is used and it needs to be taken into an account. Usually the cost is of an additional forward path, but recently better methods have been found that saves some of that recomputation.
+footnote: When calculating TFLOPS it's important to remember that the math is different if [Gradient checkpointing](#gradient-checkpointing) is enabled, since when it's activated more compute is used and it needs to be taken into an account. Usually the cost is of an additional forward path, but recently better methods have been found that saves some of that recomputation.
 
 For decoder transformer models the following is an estimation formula which slightly under-reports the real TFLOPS:
 
-TFLOPS: `model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)`
+TFLOPS: `model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_iteration * total_gpus * 1e3)`
 
 The factor of 4 is used with activation/gradient checkpointing, otherwise it will be 3. For 100B+ models, activation checkpointing will almost always be on.
 
@@ -88,7 +88,7 @@ So the `3*2` is often called "model FLOPs" and `4*2` - "hardware FLOPs", correla
 ```bash
 perl -le '$ng=64; $ms=52; $gbs=1024; $sp=127; $seqlen=2048; print $ms*4*2*$seqlen*$gbs / ( $sp * $ng * 1e3)'
 ```
-(ng = total gpus, ms = model size in B, gbs = global batch size, sp = throughput in seconds)
+(ng = total gpus, ms = model size in B, gbs = global batch size, sp = seconds per iteration)
 
 Here is the same formula using `bash` env vars and which breaks down GBS into `MBS*DP*GAS` (GAS in this case corresponded to `pp_chunks` which was the number of chunks in the pipeline, but normally GAS just stands for Gradient Accumulation Steps):
 ```bash
@@ -134,7 +134,7 @@ MFU = Estimated_Achieved_FLOPS / Theoretical_FLOPS
 HFU = Actual_Achieved_FLOPS / Theoretical_FLOPS
 ```
 
-HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recompution](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and is thus less accurate.
+HFU measures the actual FLOPS. For example, the technique of [Gradient checkpointing/Activation Recomputation](#gradient-checkpointing) repeats all or some parts of the `forward` pass a second time, so factually more FLOS (FLoating point OperationS) are used. Whereas MFU ignores implementation details and accounts only for the theoretical needs of the computation and is thus less accurate.
 
 [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) is a good paper to read about these concepts.
 
@@ -281,7 +281,7 @@ And `dtype_size * bs * seqlen * hidden_size` is the size of the `hidden_states` 
 In the following explanation let's use the Llama-3 architecture and its [8B configuration](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/config.json):
 ```
 hidden_size=4096
-num_layer=32
+num_layers=32
 vocab_size=128256
 ```
 
@@ -445,7 +445,7 @@ So you can see that the [CUDA kernels](#preloaded-cuda-kernels-memory-usage) too
 
 As the model allocates and frees tensors, the GPU memory could fragment. That is there could be enough free memory to allocate, say, 1GiB of contiguous memory, but it could be available in 100s of small segments spread out through the memory and thus even though the memory is available it can't be used unless very small allocations are made.
 
-Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://docs.pytorch.org/docs/stable/notes/cuda.html#memory-management). I found `PYTORCH_ALLOC_CONF=expandable_segments` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
+Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replace the default memory allocation mechanisms with more efficient ones. For more information see [Memory management](https://docs.pytorch.org/docs/stable/notes/cuda.html#memory-management). I found `PYTORCH_ALLOC_CONF=expandable_segments:True` to be extremely helpful when the code performs a lot of tensor reshaping, which would normally massively fragment the GPU memory.
 
 
 
@@ -531,7 +531,7 @@ When [data parallelism](../../training/model-parallelism/README.md#data-parallel
 
 ### Gradient Checkpointing
 
-**Gradient Checkpointing** is also known as **Activation Recompution** and **Activation Checkpointing**.
+**Gradient Checkpointing** is also known as **Activation Recomputation** and **Activation Checkpointing**.
 
 This methodology is only relevant for training, and not during inference.
 
@@ -566,16 +566,6 @@ For speed comparisons see [this benchmark](https://github.com/huggingface/transf
 ### `forward` vs `backward` Execution Speed
 
 For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, `gradOutput` and output of the forward, and writes once, `gradInput`).
-
-
-## Memory profiler tools
-
-In this chapter we discussed the theoretical math of how much this or that feature should consume in MBs of memory. But often in reality things aren't exactly the same. So you plan for a certain model size and batch sizes but when you come to use it suddenly there is not enough memory. So you need to work with your actual code and model and see which part takes how much memory and where things got either miscalculated or some additional missed overhead hasn't been accounted for.
-
-You'd want to use some sort of memory profiler for that purpose. There are various memory profilers out there.
-
-One useful tool that I developed for quick and easy profiling of each line or block of code is [IPyExperiments](https://github.com/stas00/ipyexperiments). You just need to load your code into a jupyter notebook and it'll automatically tell you how much CPU/GPU memory each block allocates/frees. So e.g. if you want to see how much memory loading a model took, and then how much extra memory a single inference step took - including peak memory reporting.
-
 
 
 ## Vector and matrix size divisibility
@@ -650,7 +640,7 @@ The `3584` row is a shape you actually run: the MLP up-projection of a Llama-3.1
 
 So **an SM count does not tell you a throughput advantage** without your shapes, and a shape tuned on one part can land on the wrong side of a crossover on another. To place yourself, count your blocks and divide by your own SM count.
 
-A published peak is an **aggregate over the whole part**, never a per-SM rate: B300's 2250 TFLOPS bf16 is what all 148 SMs deliver together, about 15.2 each. A single-wave matmul is bounded by that per-SM rate alone.
+A published peak is an **aggregate over the whole part**, never a per-SM rate: B300's 2250TFLOPS bf16 is what all 148 SMs deliver together, about 15.2 each. A single-wave matmul is bounded by that per-SM rate alone.
 
 **And the count is SKU-dependent, so the published peak moves with it.** NVIDIA gives 160 SMs for "the full GPU implementation", with the caveat that "available SM count and HBM capacity varies by SKU" - the same gap the [cache table](../../compute/accelerator/README.md#caches) records a generation back, `GH100 full implementation` at 144 against `H100 SXM`'s 132. Both measured B300 SKUs ship below the full die, and a B200 SKU also reads 148. Dividing each published figure by 148 and scaling to 152 gives what the other SKU is entitled to publish:
 
@@ -848,12 +838,13 @@ So now we just need to figure out how to programmatically get the right cpu sets
 
 #### pynvml
 
-If you're using NVIDIA GPUs, `pynvml` (`pip install pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use it to tell us the correct CPU affinity given a GPU index.
+If you're using NVIDIA GPUs, `pynvml` (`pip install nvidia-ml-py` - the module is still imported as `pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use it to tell us the correct CPU affinity given a GPU index.
 
 In [numa-set-pynvml.py](benchmarks/numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
-```
-local_rank = torh.distributed.get_rank()
-set_numa_affinity(0, verbose=True)
+```python
+import os
+gpu_index = int(os.environ.get("LOCAL_RANK", 0))
+set_numa_affinity(gpu_index, verbose=True)
 ```
 call it before `DataLoader` is initialized to get the workers use the right cpu-cores!
 
@@ -918,7 +909,7 @@ num_workers=4: average time: 0.875
 
 So you can see that in this particular case the speed was dramatically improving up to 3 workers. If the `DataLoader` is very light and does very little the difference will be much smaller, but 0 workers will always lead to the biggest overhead.
 
-By measuring the performance of your workload you can finetune this number by trying lower and higher values. But remember that each one of the workers may consume a lot of CPU memory. So on a node of 8 accelerators with 2 workers, that would be 16 additional processes. Nowadays, the compute nodes have often hundreds of cpu cores and a TBs of CPU memory so there should be plenty of resources for many workers to be supported. In the past it was a different story.
+By measuring the performance of your workload you can finetune this number by trying lower and higher values. But remember that each one of the workers may consume a lot of CPU memory. So on a node of 8 accelerators with 2 workers, that would be 16 additional processes. Nowadays, the compute nodes have often hundreds of cpu cores and TBs of CPU memory so there should be plenty of resources for many workers to be supported. In the past it was a different story.
 
 Also note that because any data transforms are applied asynchronously and ahead of time, the CPU and memory speed don't matter much in this case. e.g. with 2 workers as long as the next iteration data preparation takes less than 2 compute iterations the `DataLoader` shouldn't be a bottleneck.
 
@@ -973,6 +964,30 @@ So the speedup to expect is a function of how much of your step time sits in gro
 
 A separate win applies when you are launch-bound rather than bandwidth-bound: `mode="reduce-overhead"` captures the step into CUDA graphs and replays one launch sequence instead of issuing thousands of individual kernel launches. This matters most at small batch sizes and in low-latency inference decode, where the accelerator sits idle waiting for the CPU to feed it. It costs memory, since the captured graph pins its buffers, and it needs static shapes.
 
+Two measurements on a single NVIDIA B200 with `torch=2.13.0+cu130`, taken 2026-08-09, bracket the range; in both, the `forward` row is inference under `no_grad` while the two backward rows enable gradient checkpointing, which is standard practice at this size and is what keeps the 8B step within one GPU's memory. The first is a small model at a short sequence - Llama 3.2 1B (`NousResearch/Llama-3.2-1B`), bf16, SDPA, batch 1 x sequence 512 - where each step is a handful of milliseconds and is therefore dominated by kernel-launch overhead and the memory-bandwidth-bound work of groups 2 and 3. This is `torch.compile` at its most flattering. Steady-state step time after warmup, ratio against eager in parentheses:
+
+| workload         | eager  | `torch.compile()` | `mode="reduce-overhead"` | `mode="max-autotune"` |
+| :--------------- | -----: | ----------------: | -----------------------: | --------------------: |
+| forward (infer)  |  8.1ms |      3.4ms (2.4x) |             1.9ms (4.2x) |          2.0ms (4.1x) |
+| forward+backward | 48.8ms |     12.6ms (3.9x) |             8.1ms (6.0x) |          8.0ms (6.1x) |
+| + AdamW step     | 58.8ms |     18.7ms (3.1x) |            17.6ms (3.3x) |         17.5ms (3.4x) |
+
+The second is a large model at a long sequence - Llama 3.1 8B (`meta-llama/Llama-3.1-8B`), same dtype and attention backend, batch 1 x sequence 8192 - where each step is hundreds of milliseconds and almost all of that time sits in large matmuls (group 1) that already run near the hardware limit on the vendor GEMM library:
+
+| workload         | eager   | `torch.compile()` | `mode="reduce-overhead"` | `mode="max-autotune"` |
+| :--------------- | ------: | ----------------: | -----------------------: | --------------------: |
+| forward (infer)  | 152.4ms |   155.6ms (0.98x) |          155.8ms (0.98x) |       154.8ms (0.98x) |
+| forward+backward | 590.7ms |   630.2ms (0.94x) |          629.2ms (0.94x) |       633.7ms (0.93x) |
+| + AdamW step     | 637.3ms |   673.8ms (0.95x) |          671.4ms (0.95x) |       680.0ms (0.94x) |
+
+The gap between the two tables is the whole lesson. The small overhead-bound model gains up to about 6x; the large compute-bound one gains nothing - every compiled mode lands within a few percent of eager, and here on the slow side of it. Compilation did not fail; there was simply nothing for it to remove. Two effects stack on the 1B model. First, its plain step is launch- and bandwidth-bound, so fusing the many small kernels is a large win by itself. Second, the two backward rows enable gradient checkpointing, which discards activations and recomputes the whole forward during the backward - so each of those steps runs the forward twice. On a tiny model that extra forward is itself launch-bound, and compile fuses the recomputed kernels just as cheaply as the originals, absorbing most of it - which is why the `forward+backward` and `+ AdamW` rows show a larger speedup than the `forward`-only row.
+
+On the 8B step at this sequence length neither effect exists: the GEMMs already run at cuBLAS peak and dominate, the checkpointing recompute is just more of those same peak-bound matmuls, and the launch gaps compile would close are a rounding error against half-second kernels. That is why all three compiled modes collapse onto the same ~0.94x - `max-autotune`'s Triton matmul search cannot beat cuBLAS on these shapes, and `reduce-overhead`'s CUDA graphs remove a launch overhead that is already negligible. So the speedup to expect tracks how bandwidth- or launch-bound your step is, which is exactly what the profiling in [Where it pays off](#where-it-pays-off) is meant to tell you: a model of many small operations, or any model run at a small batch and short sequence, gains the most, while a dense-matmul workload at a large shape gains the least - sometimes less than nothing.
+
+The cold-start cost is real and, when the steady-state gain is small or absent, is what decides whether compiling is worth it at all. With a fresh Inductor cache the first `forward+backward` step took about 22s (1B) and 47s (8B) under default compile, rising to 83s (1B) and 168s (8B) under `max-autotune`. On the 1B model that buys back quickly: default compile saves ~35ms per step, so it breaks even against eager in roughly 600 steps and everything after is profit. On the 8B/8192 case there is no steady-state saving to amortize - the compiled step is a hair slower - so the compile time is pure cost and never pays back on this shape, the sharpest possible version of "fatal for a ten-step smoke test." The optimizer step does not add to the compile bill: compiling the model is the cost, and once the forward/backward graphs exist, folding `opt.step()` into the timed region does not recompile - note the near-zero cold column on the `+ AdamW step` rows, where the graph was already built by the `forward+backward` case earlier in the same run. Compilation also improves between PyTorch releases, so treat the absolute milliseconds - and the sign of the 8B result - as dated to this toolchain rather than as a permanent property of the models.
+
+If you want to experiment yourself, both tables come from [torch-compile-bench.py](benchmarks/torch-compile-bench.py): a single loop over the workloads and modes that builds a fresh model per cell, enables gradient checkpointing on the backward workloads (which also keeps the 8B/8192 step within one GPU's memory), times the first step as the cold-start cost and the mean of the following steps as the steady state, and prints one row per mode with the ratio against eager. Model, sequence length, batch, seed, and the mode list are variables at the top of the file (`SEED = 42`); the 8B figures above are the defaults, and the 1B table comes from uncommenting the two `NousResearch/Llama-3.2-1B` / `SEQ = 512` lines (batch stays 1). The seed pins the random input tokens so re-runs see the same data.
+
 ### What makes it hard
 
 The tracer has to turn your `forward` into a graph, and anything it cannot trace becomes a **graph break** - it compiles what it can, falls back to eager for the untraceable part, then starts a new graph. Every break is also a fusion boundary, so a model with many breaks can "work" under `torch.compile` and gain almost nothing. Data-dependent control flow, `.item()`, `print` and unsupported operations all break the graph.
@@ -1013,3 +1028,13 @@ gc.collect()
 ```
 
 Refer to [`gc`'s manpage](https://docs.python.org/3/library/gc.html) for more nuances.
+
+
+## Memory profiler tools
+
+In this chapter we discussed the theoretical math of how much this or that feature should consume in MBs of memory. But often in reality things aren't exactly the same. So you plan for a certain model size and batch sizes but when you come to use it suddenly there is not enough memory. So you need to work with your actual code and model and see which part takes how much memory and where things got either miscalculated or some additional missed overhead hasn't been accounted for.
+
+You'd want to use some sort of memory profiler for that purpose. There are various memory profilers out there.
+
+One useful tool that I developed for quick and easy profiling of each line or block of code is [IPyExperiments](https://github.com/stas00/ipyexperiments). You just need to load your code into a jupyter notebook and it'll automatically tell you how much CPU/GPU memory each block allocates/frees. So e.g. if you want to see how much memory loading a model took, and then how much extra memory a single inference step took - including peak memory reporting.
+

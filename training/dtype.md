@@ -49,7 +49,7 @@ Integer formats used in quantization:
 
 - int8 - 8 bits
 - int4 - 4 bits
-- int1 - 1 bits
+- int1 - 1 bit
 
 ## ML dtype progression
 
@@ -87,9 +87,9 @@ int8 is TOPS rather than TFLOPS, since those are integer ops.
 
 Some of these dates mark when a dtype became usable rather than when it became fast. P100 could do fp16 arithmetic at 2x the fp32 rate, but it took V100's tensor cores in 2017 to make fp16 `matmul`s fast. Pascal's int8 was the `DP4A` dot-product instruction; int8 tensor cores arrived with Turing in 2018.
 
-The doubling holds all the way down to fp8 - each halving of the element width buys about 2x the throughput. Then it stops: fp6 runs at the same 4500 TFLOPS as fp8, so it buys you memory and bandwidth but no compute. fp4 doubles again over fp8, and on GB300 it's 3x (15000 vs 5000). So don't assume the pattern continues - check the spec for the dtype you're actually planning to use.
+The doubling holds all the way down to fp8 - each halving of the element width buys about 2x the throughput. Then it stops: fp6 runs at the same 4500TFLOPS as fp8, so it buys you memory and bandwidth but no compute. fp4 doubles again over fp8, and on GB300 it's 3x (15000 vs 5000). So don't assume the pattern continues - check the spec for the dtype you're actually planning to use.
 
-In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) which provides many 4 and 8-bit quantization solutions. DeepSpeed also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
+In parallel with the mixed training regime the ML community started coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) which provides many 4 and 8-bit quantization solutions. DeepSpeed also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
 
 ## TF32
 
@@ -138,8 +138,7 @@ Here are some examples:
 
 * when adding a tiny gradient to a large number, that addition is often nullified therefore typically fp32 master weights and fp32 optim states are used.
 
-* f16 master weights and optim states can be used when using [Kahan Summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)
-or [Stochastic rounding](https://en.wikipedia.org/wiki/Rounding) (introduced in [Revisiting BFloat16 Training](https://arxiv.org/abs/2010.06192)).
+* fp16 master weights and optim states can be used when using [Kahan Summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) or [Stochastic rounding](https://en.wikipedia.org/wiki/Rounding) (introduced in [Revisiting BFloat16 Training](https://arxiv.org/abs/2010.06192)).
 
 For an example of the latter see: [AnyPrecision optimizer](https://github.com/pytorch/torchdistx/pull/52) with the latest version found [here](https://github.com/facebookresearch/multimodal/blob/6bf3779a064dc72cde48793521a5be151695fc62/torchmultimodal/modules/optimizers/anyprecision.py#L17).
 
