@@ -868,7 +868,9 @@ case study: I used this technology at JeanZay HPC in France in 2022. It was only
 
 [Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now - and until 2025 this was the only Omni-Path generation that shipped, since Intel cancelled the planned 200Gbps `OPA 200` series in July 2019. At 100Gbps per NIC you were unlikely to see Omni-Path offered for ML workloads unless someone installed many NICs per node.
 
-[CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [adapter table](#network-adapters). One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+[CN5000](https://www.cornelis.com/product/cornelis-cn5000-omni-path-adapters) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [adapter table](#network-adapters). One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+
+footnote: Cornelis's marketing pages sometimes say "400Gbps bidirectional", but the [product-family docs](http://docs.cornelis.com/en/cn5000-product-family-descriptions/fabric-hardware-components/cn5000-supernic.html) state "400 Gbps (4 x 100 Gbps) bandwidth **in each direction**" - so this chapter treats 400Gbps as unidirectional, the same way it treats ConnectX-7 NDR / EFA 400G.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
@@ -907,7 +909,7 @@ The SHARP hardware, that is part of the NVSwitch or InfiniBand switches and also
 case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GiB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo, which engaged NVLink SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
 
 To take advantage of this great feature:
-- the collective has to engage more than 4 GPUs - see the measurements below for how the gain scales with the number of GPUs.
+- the collective has to engage enough GPUs that NCCL actually selects `NVLS` - see the measurements below; the switch is above 4 on H200 and above 5 on B200, so measure yours rather than assuming either number.
 - ensure that the env var `NCCL_NVLS_ENABLE` is either unset or set to `1`.
 
 Measured on an 8x H200 node at an 8GiB payload with `nccl-tests`, running each GPU count twice - once as-is and once with `NCCL_NVLS_ENABLE=0` to force the ring - so the last column isolates what SHARP is actually contributing:
@@ -922,15 +924,27 @@ Measured on an 8x H200 node at an 8GiB payload with `nccl-tests`, running each G
 
 So it isn't a cliff at 8 GPUs, it's a ramp that starts above 4. At 4 GPUs NCCL doesn't even select `NVLS`, and the ring number is identical either way - exactly 1.00x. From 5 GPUs up it selects `NVLS` and the gain grows with each accelerator added. Admittedly a 5- or 7-GPU collective is an odd thing to run, but it does mean a partial-node job gets a partial benefit rather than none.
 
-NVIDIA's own documentation draws the line in the same place, though it takes one step to see why: NVLink SHARP is implemented with multicast - the switch reduces and then fans the result back out to every participant - which is why NCCL's setup log for `NVLS` literally reads `Created Multicast group`. So a statement about multicast is a statement about SHARP, and the [GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) says that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same 4-GPU boundary the measurements above land on.
+The same sweep on an 8x B200 `p6-b200.48xlarge` node (`nccl=2.27.7`, 8GiB, measured 2026-08-09) shows the ramp is not portable across generations - NCCL stays on `Ring` at 5 GPUs and only switches to `NVLS` from 6 up, confirmed with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`:
 
-footnote: the multicast group itself is created regardless - `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=NVLS` reports `NVLS Created Multicast group` at 4 GPUs just as it does at 8, along with the same 16 nvls channels. What changes above 4 GPUs is that NCCL starts *using* the `NVLS` algorithm. So "is a multicast group set up" and "is SHARP doing anything for you" are separate questions.
+| GPUs | algo NCCL picks | busbw     | busbw, NVLS off | gain from SHARP |
+| ---: | :-------------- | --------: | --------------: | --------------: |
+|    4 | Ring            | 673.2GBps |       673.8GBps |           1.00x |
+|    5 | Ring            | 677.8GBps |       677.8GBps |           1.00x |
+|    6 | NVLS            | 778.2GBps |       677.8GBps |           1.15x |
+|    7 | NVLS            | 811.2GBps |       680.5GBps |           1.19x |
+|    8 | NVLS            | 838.0GBps |       682.2GBps |           1.23x |
+
+At full node the gain is still real - 1.23x here against H200's 1.29x - but a 5-GPU job on this B200 node gets none of it. The chooser on this box is AWS's `NCCL_TUNER_PLUGIN=ofi`, whose log line reads `base Tuner is chosen for platform: p6-b200.48xlarge`, so do not read the H200 threshold across to a different instance type.
+
+NVIDIA's own documentation draws a 4-GPU line, though it takes one step to see why: NVLink SHARP is implemented with multicast - the switch reduces and then fans the result back out to every participant - which is why NCCL's setup log for `NVLS` literally reads `Created Multicast group`. So a statement about multicast is a statement about SHARP, and the [GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) says that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - matching the H200 boundary above, and sitting one GPU below the B200 one.
+
+footnote: the multicast group itself is created regardless - `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=NVLS` reports `NVLS Created Multicast group` at 4 GPUs just as it does at 8, along with the same 16 nvls channels. What changes above the threshold is that NCCL starts *using* the `NVLS` algorithm. So "is a multicast group set up" and "is SHARP doing anything for you" are separate questions.
 
 footnote: don't confuse the GPU count with `multicastGroupsLimit`, which the same guide says "must be 0 or a multiple of 4". That one is the number of multicast *teams* reserved to a partition out of the 1,024 the system provides - a fabric-manager resource allocation, unrelated to how many GPUs your collective engages.
 
-In the case of NVL36, NVL72 and others bigger than NVL8 the granularity is likely 4 GPUs rather than 8, since a compute tray holds 2 GB200 modules and each module is 1 Grace CPU + 2 Blackwell GPUs. The [NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) points the same way: its partition sizing examples step in fours (72, 68 and 64 GPUs), and it states that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same threshold measured above on an 8-GPU node. Multi-cast is a requirement for NVLink SHARP to work; for more clarity on why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042).
+In the case of NVL36, NVL72 and others bigger than NVL8 the granularity is likely 4 GPUs rather than 8, since a compute tray holds 2 GB200 modules and each module is 1 Grace CPU + 2 Blackwell GPUs. The [NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) points the same way: its partition sizing examples step in fours (72, 68 and 64 GPUs), and it states that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast". Multi-cast is a requirement for NVLink SHARP to work; for more clarity on why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042).
 
-**This one needs validating on real NVL hardware.** The 4-GPU threshold above was measured on an 8x H200 HGX node, and the guide's statements concern fabric-level partitioning rather than which algorithm NCCL selects inside a partition - the two could diverge. So read the 4-GPU granularity as the likely case rather than an established one, until someone runs the sweep on an NVL36 or NVL72 system.
+**This one still needs validating on real NVL hardware.** The two HGX sweeps above already disagree with each other (H200 switches at 5, B200 at 6), and the guide's statements concern fabric-level partitioning rather than which algorithm NCCL selects inside a partition - so the NVL case could land on either, or on neither. Read the 4-GPU granularity as the likely case from the docs rather than an established one, until someone runs the sweep on an NVL36 or NVL72 system.
 
 Part of what makes this murky is that the GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200 - and reading that "4x" as a minimum partition size is an easy way to arrive at a granularity of 8 GPUs when the tray itself holds only 4.
 
@@ -960,7 +974,7 @@ The GPU count is only one of the two conditions. The other is the collective its
 | all-gather                       | Ring | 361.4GBps |          80% |
 | reduce-scatter                   | Ring | 362.9GBps |          81% |
 
-The second row is the same collective at the same width with SHARP switched off, and it is the one that makes the other two readable: `all-gather` and `reduce-scatter` are not slow collectives, they are simply running the ring path that `all-reduce` also falls back to. All three land at 80-82% of the unidirectional spec - the ordinary NVLink efficiency you would expect from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex). Which means `~80%` is the normal case and the 107% is the exception, reachable only by an `all-reduce` over more than 4 accelerators.
+The second row is the same collective at the same width with SHARP switched off, and it is the one that makes the other two readable: `all-gather` and `reduce-scatter` are not slow collectives, they are simply running the ring path that `all-reduce` also falls back to. All three land at 80-82% of the unidirectional spec - the ordinary NVLink efficiency you would expect from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex). Which means `~80%` is the normal case and the 107% is the exception, reachable only by an `all-reduce` wide enough that NCCL selects `NVLS`.
 
 If you want to reproduce these numbers use [nccl-tests](benchmarks/README.md#nccl-tests):
 
@@ -1091,7 +1105,7 @@ For GPT-family of decoder transformers models we can use the math described in t
 
 Here is how many TFLOP are processed per second:
 ```
-tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)
+tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_iteration * total_gpus * 1e3)
 ```
 
 This formula assume one uses [activation recomputation](../training/performance/README.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
@@ -1515,6 +1529,7 @@ When you plan to eventually have a large cluster but starting small make sure th
 Here are the cloud-specific ways of accomplishing node proximity:
 
 - Azure: [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
+- AWS: [cluster placement groups](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
 - GCP: [compact placement policies](https://docs.cloud.google.com/compute/docs/instances/use-compact-placement-policies)
 
 Depending on the type of package you have or what type of machines you rent - you may or may not be able to use those.

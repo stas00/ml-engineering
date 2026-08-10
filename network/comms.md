@@ -117,7 +117,7 @@ For example, this collective is used in [ZeRO](../training/model-parallelism/REA
 
 PyTorch API example:
 
-`reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
+`dist.reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
 
 
 
@@ -169,7 +169,7 @@ The total time to broadcast `N` bytes to `k` GPUs will take:
 
 `S*N/(S*B) + (k − 2)*N/(S*B) = N*(S + k − 2)/(S*B)`
 
-and if split messages are very small so that`S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`.
+and if split messages are very small so that `S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`.
 
 
 
