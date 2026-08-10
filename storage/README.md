@@ -543,8 +543,8 @@ The deprecated `HUGGINGFACE_HUB_CACHE` and library-specific variables such as `T
 
 The other solution that requires no environment variables, is to symlink your cache to another partition. You could do it for all of your caches:
 ```bash
-mkdir -p ~/.cache
-mv ~/.cache /some/path/
+mkdir -p /some/path
+mv -nT ~/.cache /some/path/.cache
 ln -s /some/path/.cache ~/.cache
 ```
 

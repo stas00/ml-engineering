@@ -2665,7 +2665,7 @@ As mentioned before if you want just the main processes you'd use this instead:
 ```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}' || echo "failed"
 ```
-Adjust `python` if need be as explained in the multi-gpu section above.
+Adjust `python` if need be as explained in the [multi-process py-spy](#multi-process-py-spy) section.
 
 The previous longer command will deliver traces for all python processes.
 

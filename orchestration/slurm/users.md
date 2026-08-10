@@ -1043,7 +1043,7 @@ This is it, these jobs will now self-perpetuate and usually you don't need to th
 
 Now whenever you want some job to run once a day, you simply create a slurm job and put it into the `$WORK/cron/cron.daily` dir.
 
-Here is an example job that runs daily to update the `mlocate` file index:
+Here is an example job that runs daily to rebuild a file index of `$WORK` with `updatedb` (on current distributions that is usually `plocate`'s `updatedb`; older systems had `mlocate`):
 ```bash
 $ cat $WORK/cron/cron.daily/mlocate-update.slurm
 #!/bin/bash
@@ -1058,7 +1058,7 @@ $ cat $WORK/cron/cron.daily/mlocate-update.slurm
 
 set -e
 date
-echo "updating mlocate db"
+echo "updating file index db"
 /usr/bin/updatedb -o $WORK/lib/mlocate/work.db -U $WORK --require-visibility 0
 ```
 

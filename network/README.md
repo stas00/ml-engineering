@@ -60,16 +60,15 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - XGS: the cross-datacenter variant of Spectrum-X
 
 Speed-related:
-- Unidirectional: a transmission from one point to another in one direction A -> B
-- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
-- GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
-- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
-- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
-- Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
+- Adaptive Routing: improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
 - algbw: algorithm bandwidth - payload size divided by elapsed time
+- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x the one-direction (unidirectional) rate
+- Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
 - busbw: bus bandwidth - `algbw` scaled by a per-collective correction factor so it reflects the hardware bottleneck rather than the rank count
-- Adaptive Routing improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
-- [Remote Direct Memory Access](#rdma-networking)
+- GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
+- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
+- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
+- Unidirectional: a transmission from one point to another in one direction A -> B
 
 footnote: In the following sections pay close attention that 1GBps = 8Gbps.
 
