@@ -25,11 +25,11 @@ You can take it as a self-guided course, or teach it to others yourself!
 <!-- no toc -->
 1. [Storage and File Systems](#1-storage-and-file-systems)
 2. [Network and Interconnects](#2-network-and-interconnects)
-3. [Training Performance and Throughput](#3-training-performance-and-throughput)
-4. [DataLoaders](#4-dataloaders)
-5. [Fault Tolerance and Reliability](#5-fault-tolerance-and-reliability)
-6. [Training Stability](#6-training-stability)
-7. [Compute, Accelerators and Memory](#7-compute-accelerators-and-memory)
+3. [Compute, Accelerators and Memory](#3-compute-accelerators-and-memory)
+4. [Training Performance and Throughput](#4-training-performance-and-throughput)
+5. [DataLoaders](#5-dataloaders)
+6. [Fault Tolerance and Reliability](#6-fault-tolerance-and-reliability)
+7. [Training Stability](#7-training-stability)
 8. [Cloud Providers and Procurement](#8-cloud-providers-and-procurement)
 9. [Debugging Methodology](#9-debugging-methodology)
 
@@ -104,133 +104,9 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [Shared internode network](../../network/README.md#shared-internode-network) + [Crucial reproducibility requirements](../../network/benchmarks/README.md#crucial-reproducibility-requirements)
 
-## 3. Training Performance and Throughput
+## 3. Compute, Accelerators and Memory
 
-- 3.1. **Spec sheets provide unachievable numbers - always benchmark matmul on your own hardware.**
-  - Theoretical peak TFLOPS assume perfectly-shaped matrices, no memory movement overhead, and boost clocks that hold indefinitely - none of which happens in real training.
-  - **Example:** an NVIDIA B200 SXM may only reach ~1745.0TFLOPS (BF16) out of a 2250TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
-  - This is why "Maximum Achievable Matmul FLOPS" (MAMF) exists as a metric distinct from the theoretical spec: it's obtained by brute-force searching matmul shapes on your actual hardware/software with `mamf-finder.py`, giving you the realistic ceiling to optimize against.
-  - Once your measured training TFLOPS get close to your own MAMF number (not the theoretical peak), it's time to stop optimizing and start training.
-
-  📖 [Maximum Achievable Matmul FLOPS comparison table](../../compute/accelerator/README.md#maximum-achievable-matmul-flops-comparison-table)
-
-- 3.2. **Throughput optimization is a journey with diminishing returns, not a fixed destination you arrive at instantly.**
-  - During BLOOM-176B's tuning phase, the team started below 100TFLOPS and, over a few weeks, worked up to 150TFLOPS by launch - no single silver bullet, just accumulated smaller wins.
-  - **Know when to stop:** once there was no more meaningful headroom relative to what similar setups achieved at the time (~155TFLOPS ceiling for 80GB A100s in 2022), the team deliberately stopped optimizing and began training.
-  - Budget explicit calendar time for this tuning phase before the real launch - treating it as an afterthought means either wasting compute at low efficiency for months, or endlessly delaying the launch trying to "perfect" the setup.
-
-  📖 [TFLOPS as a performance metric](../../training/performance/README.md#tflops-as-a-performance-metric)
-
-- 3.3. **Global batch size ramp-up matters far more than intuition suggests, especially with Pipeline Parallelism.**
-  - For BLOOM-176B, starting too small was disastrous: GBS=16 measured only 8TFLOPS, because with Pipeline Parallelism a small GBS creates a large proportional "pipeline bubble" of idle GPU time.
-  - The team instead started at GBS=192 (73TFLOPS) and ramped up by 16 every ~9.77M samples, eventually reaching GBS=2048 at 150TFLOPS.
-  - **Why ramp at all:** early training is essentially random and doesn't benefit yet from large, highly-refined batches, so there's no point paying the pipeline-bubble cost of a small batch during that phase either.
-  - If you use Pipeline Parallelism, benchmark your actual achieved TFLOPS at a few candidate starting GBS values before committing to a ramp schedule.
-
-  📖 [Global Batch Size Ramp Up](../../training/hparams.md#global-batch-size-ramp-up)
-
-## 4. DataLoaders
-
-- 4.1. **Multiple DataLoaders in the same process can hang randomly, and the workaround may simply be to not use one of them.**
-  - During BLOOM-176B, the training DataLoader ran fine with `num_workers=2`, but adding an evaluation DataLoader alongside it caused random hangs - a known class of long-unresolved PyTorch multi-worker-DataLoader bugs.
-  - **The workaround:** set `num_workers=0` for the eval loader specifically (accepting slower, blocking IO since eval ran far less often), and eventually drop in-training eval entirely in favor of asynchronous lm-harness-style evaluation on saved checkpoints.
-  - **Bonus:** removing the in-loop eval also sped up the main training loop, since it no longer shared resources with a second DataLoader at all.
-
-  📖 [Asynchronous DataLoader](../../training/performance/README.md#asynchronous-dataloader)
-
-- 4.2. **Streaming DataLoaders can silently become your hard bottleneck if per-worker memory use is high and CPU RAM is limited.**
-  - During IDEFICS-80B training, the streaming DataLoader for the multimodal dataset consumed huge, constantly-spiking memory per worker, and with only ~1TiB of CPU RAM per node the team couldn't spawn enough workers to keep the pipeline fed.
-  - Unlike a GPU-memory bottleneck (which usually throws a clear error immediately), an under-provisioned DataLoader just quietly caps throughput below what the accelerators are capable of, without necessarily crashing anything.
-  - There wasn't time to engineer a better solution, so the team finished the run accepting that DataLoader-bound ceiling.
-  - If you use multimodal or otherwise memory-hungry streaming pipelines, budget CPU RAM headroom for DataLoader workers as carefully as you budget GPU memory for the model.
-
-  📖 [Asynchronous DataLoader](../../training/performance/README.md#asynchronous-dataloader)
-
-## 5. Fault Tolerance and Reliability
-
-- 5.1. **Beware of newly minted GPUs: a fresh batch of accelerators often has a 3-10% failure rate, and it's worse for the earliest units of a brand-new GPU generation.**
-  - This is a well-known enough pattern that burn-in practices exist to catch it before hardware reaches customers: OEMs typically run a 3-4 week burn-in, and cloud providers then run an additional 2-3 day acceptance test - though not every provider does this rigorously (or discloses whether they did).
-  - **Standard practical response:** plan for spare/redundant nodes (5-10% extra isn't unreasonable), and make sure your scheduler can automatically drain and replace bad nodes without manual intervention.
-  - Once you've spent weeks filtering good accelerators from bad ones, insist on a **fixed** allocation so those good nodes stay yours on reboot instead of going back into a shared pool.
-  - It's worth explicitly asking any cloud provider how long, and how rigorously, your specific nodes were burned in before you took possession - "we burned them in" without a duration is not a useful answer.
-
-  📖 [Always plan to have more nodes than needed](../../training/fault-tolerance/README.md#always-plan-to-have-more-nodes-than-needed) + [Accelerators need to be burned in](../../insights/how-to-choose-cloud-provider.md#accelerators-need-to-be-burned-in) + [Ensure you keep your good accelerators on reboot](../../insights/how-to-choose-cloud-provider.md#ensure-you-keep-your-good-accelerators-on-reboot)
-
-- 5.2. **Checkpoint overhead scales inversely with your IO speed.**
-  - BLOOM-176B's checkpoints were fast: 2.3TB in 40 seconds, every ~3 hours across a ~3-month run - about 720 checkpoints and only ~8 total hours of overhead, a mere ~0.37% tax on wall-clock time.
-  - The same cadence, run on IO that's 5x slower (a normal gap between premium and standard cloud storage tiers), balloons to roughly 2% of total training time - a genuinely significant cost at scale.
-  - **The math:** measure your actual save duration, multiply by how many times you intend to save, and compare that total to your expected training duration.
-  - If you must offload checkpoints off-node to the cloud, always keep the two most recent checkpoints locally for a fast resume, since the very latest one might be corrupted from a mid-save crash.
-
-  📖 [Frequent checkpoint saving](../../training/fault-tolerance/README.md#frequent-checkpoint-saving)
-
-- 5.3. **Build a kill-switch, because SLURM has no concept of group job ownership and this becomes a real operational problem.**
-  - In an HPC environment, if a colleague launches a long job (or a SLURM job array) and goes to sleep, you literally cannot stop or modify it without `sudo` access - SLURM's permission model is per-user, not per-team.
-  - **BLOOM-176B's fix:** a file-poll kill-switch. The training loop checks for a specific file before each new iteration, and if found, saves a checkpoint and exits cleanly, letting *any* team member intervene.
-  - An additional poll at the very start of `main()` means a long queued job array from a sleeping teammate can be "burned through" almost instantly, rather than each job running its full duration first.
-  - Small amount of code, large amount of operational safety - worth building into any shared multi-user training setup from day one.
-
-  📖 [Kill switch](../../training/fault-tolerance/README.md#kill-switch)
-
-- 5.4. **Watch the watchers: a scheduled job-status watchdog is what actually catches "the training silently stopped running and nobody noticed."**
-  - During BLOOM-176B, a `slurm-status.py` script ran roughly hourly (via crontab-emulation on SLURM, since real `crontab` usually isn't available there) and checked whether the named job was running or at least queued.
-  - If neither condition held, it emailed an alert and also piped the check into the main training log for a paper trail.
-  - This costs almost nothing to run, and it catches an entire category of expensive failures (hours or days of silently-idle compute) that would otherwise only surface when a human happened to check manually.
-  - **Principle:** don't just build the training loop - build the thing that watches the training loop.
-
-  📖 [Is-job-running watchdog](../../training/fault-tolerance/README.md#is-job-running-watchdog)
-
-- 5.5. **Monitor disk usage (and inode usage) aggressively, because checkpoint-heavy training can eat storage far faster than intuition suggests.**
-  - BLOOM-176B's checkpointing consumed ~18.4TB of disk *per day*, and on a shared cluster with other jobs also writing data, that burn rate can blow through a "should be plenty" allocation fast.
-  - The `fs-watchdog.py` tool monitored both raw disk usage percentage *and* inode usage across every relevant partition, since these are two independent ways to run out of "space."
-  - Alert thresholds need to be tuned per-partition, not set to a single blanket percentage - what matters is translating the percentage into "how many days of runway at my current daily burn rate."
-  - This is what turns "we ran out of disk space at 3am and lost the run" into "we got an email three days ago and were able to add more storage in time."
-
-  📖 [Low disk space alerts](../../training/fault-tolerance/README.md#low-disk-space-alerts)
-
-- 5.6. **80% can be the new 100% on some distributed filesystems, so `df` showing free space is not a reliable safety guarantee.**
-  - Distributed storage is built from many physical disks (each typically only 0.3-2TB); if rebalancing isn't performed often enough, any single disk can hit 100% full and reject writes even while aggregate `df` reports a comfortable 80% used.
-  - This precise failure mode was hit during IDEFICS-80B training, where 80% genuinely became the practical ceiling on that filesystem.
-  - It varies by technology: Lustre is known to have this issue (80% reliable), GPFS providers claim they don't have it.
-  - **Safe move:** ask your storage provider what percentage of nominal capacity they consider reliably usable, and provision with that real ceiling in mind.
-
-  📖 [Low disk space alerts](../../training/fault-tolerance/README.md#low-disk-space-alerts)
-
-- 5.7. **Sometimes the right engineering decision is to work around a leak instead of chasing it to its root cause, especially under time pressure.**
-  - During IDEFICS-80B, a slow CPU memory leak took multiple days to build up to an OOM crash - a timescale that makes root-causing painfully slow to iterate on.
-  - Instead of halting training to hunt for the source, the team built an in-loop watchdog that monitored resident memory and voluntarily exited once a threshold was crossed, letting the next queued job resume with memory reclaimed.
-  - **Concrete pattern:** check `psutil.virtual_memory().percent` (or the GPU equivalent via `torch.cuda.mem_get_info()` after `gc.collect()` + `torch.cuda.empty_cache()`) once per iteration, and exit early past a threshold - cheap insurance worth adding regardless of whether you currently suspect a leak.
-
-  📖 [Dealing with slow memory leaks](../../training/fault-tolerance/README.md#dealing-with-slow-memory-leaks)
-
-- 5.8. **Handle forced preemption gracefully: know exactly how much runway your program needs to save-and-exit, and tell it that number up front.**
-  - SLURM jobs on shared HPC clusters have hard time limits (a common one is ~20 hours, though BLOOM-176B's jobs ran up to 100 hours), and just letting the job get killed wastes steps since the last checkpoint.
-  - **BLOOM-176B's Approach A** (via `--exit-duration-in-mins`): tell the program at launch exactly how many minutes it has. It starts an internal timer and checks before each iteration (via an `all_reduce`-synchronized flag across all ranks) whether the budget is exceeded - if so, it saves and exits cleanly before SLURM's hard kill.
-  - **Sizing the budget:** know how long one iteration takes and how long a checkpoint save takes, sum those, then double for safety margin - exiting early costs nothing, exiting late costs the whole checkpoint.
-  - **Approach B:** a signal-based approach (`--signal=B:USR1@<seconds>`, trapped directly or relayed through the launcher for `torchrun`/`accelerate`/`deepspeed`), useful when a fixed time budget can't be cleanly computed in advance.
-
-  📖 [Approach A: tell the program at launch time when to start exiting](../../training/fault-tolerance/README.md#approach-a-tell-the-program-at-launch-time-when-it-should-start-the-exiting-process)
-
-## 6. Training Stability
-
-- 6.1. **Initialization std matters enormously for stability, and getting it wrong can make a large model simply unable to get past the first few thousand iterations.**
-  - In the pre-BLOOM 104B experiments, the team couldn't break past early training until they realized Megatron-LM's default at that time `--init-method-std` of 0.02 was far too large for a model of that hidden size.
-  - Two published formulas were considered: "Transformers without Tears" (`sqrt(2/(NHIDDEN*5))`) and the 530B paper (`sqrt(1/(NHIDDEN*3))`) - the team deliberately chose the smaller (530B) value as the more conservative option.
-  - For BLOOM-176B's `NHIDDEN=14336`, that formula gives `std=0.00482` - a tiny, easy-to-get-wrong number that was one of the key reasons the 176B run never suffered a full divergence.
-  - **Lesson:** initialization std should scale with hidden size via a published formula, not be copy-pasted as a fixed constant from a smaller model's config.
-
-  📖 [STD Init](../../training/instabilities/README.md#std-init)
-
-- 6.2. **Learn from a failed training rather than just abandoning it: the pre-BLOOM 104B experiments' repeated divergence directly produced the recipe that made BLOOM-176B succeed.**
-  - Those 104B attempts kept diverging early on, and post-mortem pointed to two suspects: fp16 (narrower dynamic range, prone to overflow) and training data with a lot of uncleaned web-scraped garbage.
-  - For BLOOM-176B, the team changed three things at once: switched fp16 → bf16, used much cleaner data, and added an embedding layer-norm. The combination "made all the difference," yielding an almost perfectly smooth loss curve (one spike, recovered in 200 steps).
-  - The point isn't just "use bf16" - a genuinely failed multi-months experiment, properly analyzed rather than written off, directly produced the fix for the next, larger attempt.
-
-  📖 [A very failed training](../../training/instabilities/training-loss-patterns.md#a-very-failed-training)
-
-## 7. Compute, Accelerators and Memory
-
-- 7.1. **Coherent (unified) memory hardware has genuinely unpredictable behavior, and the fix is a driver-level mode switch, not a code change.**
+- 3.1. **Coherent (unified) memory hardware has genuinely unpredictable behavior, and the fix is a driver-level mode switch, not a code change.**
   - On NVIDIA's coherent-memory platforms (DGX Station, DGX Spark, GH200, GB300), Linux can transparently borrow from GPU HBM when it runs out of CPU RAM - but not the reverse - and `nvidia-smi` may not even report this borrowing.
   - While tuning max sequence length for Qwen3-32B post-training on a DGX Station (optimizer states offloaded to CPU RAM), the team hit maddening, seemingly random alternation between CPU-OOM and GPU-OOM, depending on whatever background daemons happened to be running.
   - **The fix** was not a code change at all, but a system setting: switching from the default NUMA coherent memory mode to CDMM ("driver") mode via `/etc/modprobe.d/nvidia-openrm.conf` and a reboot, after which CPU and GPU memory stopped silently cross-borrowing.
@@ -238,7 +114,7 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [Overcoming the coherent memory uncertain behavior](../../debug/pytorch.md#overcoming-the-coherent-memory-uncertain-behavior)
 
-- 7.2. **Cryptic async CUDA errors sometimes need the "debug" flag turned on permanently, and that flag can be free.**
+- 3.2. **Cryptic async CUDA errors sometimes need the "debug" flag turned on permanently, and that flag can be free.**
   - CUDA is async by default, so by the time an error manifests, the program's context has already moved on - producing tracebacks that point nowhere useful, or NCCL messages that outright refuse to generate one.
   - `CUDA_LAUNCH_BLOCKING=1` forces synchronous execution, normally at a real performance cost, but it also means you finally get an accurate, in-context traceback when something breaks.
   - BLOOM-176B ran its *entire* training under this flag (because training would otherwise hang for an undiagnosed reason), and surprisingly saw zero measurable throughput impact.
@@ -246,7 +122,7 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [Dealing with Async CUDA bugs](../../debug/pytorch.md#dealing-with-async-cuda-bugs)
 
-- 7.3. **Memory profilers catch real leaks that are otherwise nearly invisible in code review.**
+- 3.3. **Memory profilers catch real leaks that are otherwise nearly invisible in code review.**
   - While implementing a tricky custom `TiledMLP` `torch.autograd.Function`, a leak was hiding in the implementation and only became obvious once rendered visually via PyTorch's memory profiler (`torch.cuda.memory._record_memory_history()` + `_dump_snapshot()`, viewed at pytorch.org/memory_viz).
   - Most allocations show up as bars that start and get freed. The leaked tensors showed up as continuous bars that started at one layer's forward pass and never ended, repeating on every subsequent layer.
   - You can click any bar to get the Python-level traceback to the exact allocating line, turning "there's a leak somewhere" into "line X in file Y" in minutes.
@@ -254,7 +130,7 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [PyTorch memory profiler](../../debug/pytorch.md#pytorch-memory-profiler)
 
-- 7.4. **Strategic, precisely-placed memory allocation tracing finds framework bugs too, not just bugs in your own code.**
+- 3.4. **Strategic, precisely-placed memory allocation tracing finds framework bugs too, not just bugs in your own code.**
   - Having explicit control over exactly *when* you sample GPU/CPU memory (a "sample now" call at strategic points, via a helper derived from DeepSpeed's `see_memory_usage`) can isolate a leak that a passive profiler might miss.
   - Using this technique, strategic tracing exposed a genuine leak inside PyTorch's own `all_gather_object` (since fixed, along with several other PyTorch-internal leaks found the same way).
   - **Nuance:** releasing a Python variable doesn't necessarily free the tensor immediately, since Python garbage collection runs on its own schedule. Call `gc.collect()` before sampling, or you'll see phantom "still allocated" numbers.
@@ -262,7 +138,7 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [Strategic memory allocation tracing](../../debug/pytorch.md#strategic-memory-allocation-tracing)
 
-- 7.5. **Hyper-Threads can wreck network throughput on some hardware, and the only way to know is to actually benchmark both settings on your specific setup.**
+- 3.5. **Hyper-Threads can wreck network throughput on some hardware, and the only way to know is to actually benchmark both settings on your specific setup.**
   - On AWS p4 nodes, enabling Hyper-Threading (normally thought of as "free" extra CPU parallelism) dropped network throughput to roughly a quarter of its non-HT value.
   - Because of this specific, measured result, HT was deliberately kept disabled on that setup from then on, rather than left at the (often HT-enabled-by-default) SLURM configuration.
   - This is not universal in either direction - on some *other* setups the opposite is true, and disabling HT (`--hint=nomultithread`) is what degrades throughput.
@@ -270,6 +146,130 @@ You can take it as a self-guided course, or teach it to others yourself!
 
   📖 [To enable Hyper-Threads or not](../../orchestration/slurm/performance.md#to-enable-hyper-threads-or-not)
 
+
+## 4. Training Performance and Throughput
+
+- 4.1. **Spec sheets provide unachievable numbers - always benchmark matmul on your own hardware.**
+  - Theoretical peak TFLOPS assume perfectly-shaped matrices, no memory movement overhead, and boost clocks that hold indefinitely - none of which happens in real training.
+  - **Example:** an NVIDIA B200 SXM may only reach ~1745.0TFLOPS (BF16) out of a 2250TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
+  - This is why "Maximum Achievable Matmul FLOPS" (MAMF) exists as a metric distinct from the theoretical spec: it's obtained by brute-force searching matmul shapes on your actual hardware/software with `mamf-finder.py`, giving you the realistic ceiling to optimize against.
+  - Once your measured training TFLOPS get close to your own MAMF number (not the theoretical peak), it's time to stop optimizing and start training.
+
+  📖 [Maximum Achievable Matmul FLOPS comparison table](../../compute/accelerator/README.md#maximum-achievable-matmul-flops-comparison-table)
+
+- 4.2. **Throughput optimization is a journey with diminishing returns, not a fixed destination you arrive at instantly.**
+  - During BLOOM-176B's tuning phase, the team started below 100TFLOPS and, over a few weeks, worked up to 150TFLOPS by launch - no single silver bullet, just accumulated smaller wins.
+  - **Know when to stop:** once there was no more meaningful headroom relative to what similar setups achieved at the time (~155TFLOPS ceiling for 80GB A100s in 2022), the team deliberately stopped optimizing and began training.
+  - Budget explicit calendar time for this tuning phase before the real launch - treating it as an afterthought means either wasting compute at low efficiency for months, or endlessly delaying the launch trying to "perfect" the setup.
+
+  📖 [TFLOPS as a performance metric](../../training/performance/README.md#tflops-as-a-performance-metric)
+
+- 4.3. **Global batch size ramp-up matters far more than intuition suggests, especially with Pipeline Parallelism.**
+  - For BLOOM-176B, starting too small was disastrous: GBS=16 measured only 8TFLOPS, because with Pipeline Parallelism a small GBS creates a large proportional "pipeline bubble" of idle GPU time.
+  - The team instead started at GBS=192 (73TFLOPS) and ramped up by 16 every ~9.77M samples, eventually reaching GBS=2048 at 150TFLOPS.
+  - **Why ramp at all:** early training is essentially random and doesn't benefit yet from large, highly-refined batches, so there's no point paying the pipeline-bubble cost of a small batch during that phase either.
+  - If you use Pipeline Parallelism, benchmark your actual achieved TFLOPS at a few candidate starting GBS values before committing to a ramp schedule.
+
+  📖 [Global Batch Size Ramp Up](../../training/hparams.md#global-batch-size-ramp-up)
+
+## 5. DataLoaders
+
+- 5.1. **Multiple DataLoaders in the same process can hang randomly, and the workaround may simply be to not use one of them.**
+  - During BLOOM-176B, the training DataLoader ran fine with `num_workers=2`, but adding an evaluation DataLoader alongside it caused random hangs - a known class of long-unresolved PyTorch multi-worker-DataLoader bugs.
+  - **The workaround:** set `num_workers=0` for the eval loader specifically (accepting slower, blocking IO since eval ran far less often), and eventually drop in-training eval entirely in favor of asynchronous lm-harness-style evaluation on saved checkpoints.
+  - **Bonus:** removing the in-loop eval also sped up the main training loop, since it no longer shared resources with a second DataLoader at all.
+
+  📖 [Asynchronous DataLoader](../../training/performance/README.md#asynchronous-dataloader)
+
+- 5.2. **Streaming DataLoaders can silently become your hard bottleneck if per-worker memory use is high and CPU RAM is limited.**
+  - During IDEFICS-80B training, the streaming DataLoader for the multimodal dataset consumed huge, constantly-spiking memory per worker, and with only ~1TiB of CPU RAM per node the team couldn't spawn enough workers to keep the pipeline fed.
+  - Unlike a GPU-memory bottleneck (which usually throws a clear error immediately), an under-provisioned DataLoader just quietly caps throughput below what the accelerators are capable of, without necessarily crashing anything.
+  - There wasn't time to engineer a better solution, so the team finished the run accepting that DataLoader-bound ceiling.
+  - If you use multimodal or otherwise memory-hungry streaming pipelines, budget CPU RAM headroom for DataLoader workers as carefully as you budget GPU memory for the model.
+
+  📖 [Asynchronous DataLoader](../../training/performance/README.md#asynchronous-dataloader)
+
+## 6. Fault Tolerance and Reliability
+
+- 6.1. **Beware of newly minted GPUs: a fresh batch of accelerators often has a 3-10% failure rate, and it's worse for the earliest units of a brand-new GPU generation.**
+  - This is a well-known enough pattern that burn-in practices exist to catch it before hardware reaches customers: OEMs typically run a 3-4 week burn-in, and cloud providers then run an additional 2-3 day acceptance test - though not every provider does this rigorously (or discloses whether they did).
+  - **Standard practical response:** plan for spare/redundant nodes (5-10% extra isn't unreasonable), and make sure your scheduler can automatically drain and replace bad nodes without manual intervention.
+  - Once you've spent weeks filtering good accelerators from bad ones, insist on a **fixed** allocation so those good nodes stay yours on reboot instead of going back into a shared pool.
+  - It's worth explicitly asking any cloud provider how long, and how rigorously, your specific nodes were burned in before you took possession - "we burned them in" without a duration is not a useful answer.
+
+  📖 [Always plan to have more nodes than needed](../../training/fault-tolerance/README.md#always-plan-to-have-more-nodes-than-needed) + [Accelerators need to be burned in](../../insights/how-to-choose-cloud-provider.md#accelerators-need-to-be-burned-in) + [Ensure you keep your good accelerators on reboot](../../insights/how-to-choose-cloud-provider.md#ensure-you-keep-your-good-accelerators-on-reboot)
+
+- 6.2. **Checkpoint overhead scales inversely with your IO speed.**
+  - BLOOM-176B's checkpoints were fast: 2.3TB in 40 seconds, every ~3 hours across a ~3-month run - about 720 checkpoints and only ~8 total hours of overhead, a mere ~0.37% tax on wall-clock time.
+  - The same cadence, run on IO that's 5x slower (a normal gap between premium and standard cloud storage tiers), balloons to roughly 2% of total training time - a genuinely significant cost at scale.
+  - **The math:** measure your actual save duration, multiply by how many times you intend to save, and compare that total to your expected training duration.
+  - If you must offload checkpoints off-node to the cloud, always keep the two most recent checkpoints locally for a fast resume, since the very latest one might be corrupted from a mid-save crash.
+
+  📖 [Frequent checkpoint saving](../../training/fault-tolerance/README.md#frequent-checkpoint-saving)
+
+- 6.3. **Build a kill-switch, because SLURM has no concept of group job ownership and this becomes a real operational problem.**
+  - In an HPC environment, if a colleague launches a long job (or a SLURM job array) and goes to sleep, you literally cannot stop or modify it without `sudo` access - SLURM's permission model is per-user, not per-team.
+  - **BLOOM-176B's fix:** a file-poll kill-switch. The training loop checks for a specific file before each new iteration, and if found, saves a checkpoint and exits cleanly, letting *any* team member intervene.
+  - An additional poll at the very start of `main()` means a long queued job array from a sleeping teammate can be "burned through" almost instantly, rather than each job running its full duration first.
+  - Small amount of code, large amount of operational safety - worth building into any shared multi-user training setup from day one.
+
+  📖 [Kill switch](../../training/fault-tolerance/README.md#kill-switch)
+
+- 6.4. **Watch the watchers: a scheduled job-status watchdog is what actually catches "the training silently stopped running and nobody noticed."**
+  - During BLOOM-176B, a `slurm-status.py` script ran roughly hourly (via crontab-emulation on SLURM, since real `crontab` usually isn't available there) and checked whether the named job was running or at least queued.
+  - If neither condition held, it emailed an alert and also piped the check into the main training log for a paper trail.
+  - This costs almost nothing to run, and it catches an entire category of expensive failures (hours or days of silently-idle compute) that would otherwise only surface when a human happened to check manually.
+  - **Principle:** don't just build the training loop - build the thing that watches the training loop.
+
+  📖 [Is-job-running watchdog](../../training/fault-tolerance/README.md#is-job-running-watchdog)
+
+- 6.5. **Monitor disk usage (and inode usage) aggressively, because checkpoint-heavy training can eat storage far faster than intuition suggests.**
+  - BLOOM-176B's checkpointing consumed ~18.4TB of disk *per day*, and on a shared cluster with other jobs also writing data, that burn rate can blow through a "should be plenty" allocation fast.
+  - The `fs-watchdog.py` tool monitored both raw disk usage percentage *and* inode usage across every relevant partition, since these are two independent ways to run out of "space."
+  - Alert thresholds need to be tuned per-partition, not set to a single blanket percentage - what matters is translating the percentage into "how many days of runway at my current daily burn rate."
+  - This is what turns "we ran out of disk space at 3am and lost the run" into "we got an email three days ago and were able to add more storage in time."
+
+  📖 [Low disk space alerts](../../training/fault-tolerance/README.md#low-disk-space-alerts)
+
+- 6.6. **80% can be the new 100% on some distributed filesystems, so `df` showing free space is not a reliable safety guarantee.**
+  - Distributed storage is built from many physical disks (each typically only 0.3-2TB); if rebalancing isn't performed often enough, any single disk can hit 100% full and reject writes even while aggregate `df` reports a comfortable 80% used.
+  - This precise failure mode was hit during IDEFICS-80B training, where 80% genuinely became the practical ceiling on that filesystem.
+  - It varies by technology: Lustre is known to have this issue (80% reliable), GPFS providers claim they don't have it.
+  - **Safe move:** ask your storage provider what percentage of nominal capacity they consider reliably usable, and provision with that real ceiling in mind.
+
+  📖 [Low disk space alerts](../../training/fault-tolerance/README.md#low-disk-space-alerts)
+
+- 6.7. **Sometimes the right engineering decision is to work around a leak instead of chasing it to its root cause, especially under time pressure.**
+  - During IDEFICS-80B, a slow CPU memory leak took multiple days to build up to an OOM crash - a timescale that makes root-causing painfully slow to iterate on.
+  - Instead of halting training to hunt for the source, the team built an in-loop watchdog that monitored resident memory and voluntarily exited once a threshold was crossed, letting the next queued job resume with memory reclaimed.
+  - **Concrete pattern:** check `psutil.virtual_memory().percent` (or the GPU equivalent via `torch.cuda.mem_get_info()` after `gc.collect()` + `torch.cuda.empty_cache()`) once per iteration, and exit early past a threshold - cheap insurance worth adding regardless of whether you currently suspect a leak.
+
+  📖 [Dealing with slow memory leaks](../../training/fault-tolerance/README.md#dealing-with-slow-memory-leaks)
+
+- 6.8. **Handle forced preemption gracefully: know exactly how much runway your program needs to save-and-exit, and tell it that number up front.**
+  - SLURM jobs on shared HPC clusters have hard time limits (a common one is ~20 hours, though BLOOM-176B's jobs ran up to 100 hours), and just letting the job get killed wastes steps since the last checkpoint.
+  - **BLOOM-176B's Approach A** (via `--exit-duration-in-mins`): tell the program at launch exactly how many minutes it has. It starts an internal timer and checks before each iteration (via an `all_reduce`-synchronized flag across all ranks) whether the budget is exceeded - if so, it saves and exits cleanly before SLURM's hard kill.
+  - **Sizing the budget:** know how long one iteration takes and how long a checkpoint save takes, sum those, then double for safety margin - exiting early costs nothing, exiting late costs the whole checkpoint.
+  - **Approach B:** a signal-based approach (`--signal=B:USR1@<seconds>`, trapped directly or relayed through the launcher for `torchrun`/`accelerate`/`deepspeed`), useful when a fixed time budget can't be cleanly computed in advance.
+
+  📖 [Approach A: tell the program at launch time when to start exiting](../../training/fault-tolerance/README.md#approach-a-tell-the-program-at-launch-time-when-it-should-start-the-exiting-process)
+
+## 7. Training Stability
+
+- 7.1. **Initialization std matters enormously for stability, and getting it wrong can make a large model simply unable to get past the first few thousand iterations.**
+  - In the pre-BLOOM 104B experiments, the team couldn't break past early training until they realized Megatron-LM's default at that time `--init-method-std` of 0.02 was far too large for a model of that hidden size.
+  - Two published formulas were considered: "Transformers without Tears" (`sqrt(2/(NHIDDEN*5))`) and the 530B paper (`sqrt(1/(NHIDDEN*3))`) - the team deliberately chose the smaller (530B) value as the more conservative option.
+  - For BLOOM-176B's `NHIDDEN=14336`, that formula gives `std=0.00482` - a tiny, easy-to-get-wrong number that was one of the key reasons the 176B run never suffered a full divergence.
+  - **Lesson:** initialization std should scale with hidden size via a published formula, not be copy-pasted as a fixed constant from a smaller model's config.
+
+  📖 [STD Init](../../training/instabilities/README.md#std-init)
+
+- 7.2. **Learn from a failed training rather than just abandoning it: the pre-BLOOM 104B experiments' repeated divergence directly produced the recipe that made BLOOM-176B succeed.**
+  - Those 104B attempts kept diverging early on, and post-mortem pointed to two suspects: fp16 (narrower dynamic range, prone to overflow) and training data with a lot of uncleaned web-scraped garbage.
+  - For BLOOM-176B, the team changed three things at once: switched fp16 → bf16, used much cleaner data, and added an embedding layer-norm. The combination "made all the difference," yielding an almost perfectly smooth loss curve (one spike, recovered in 200 steps).
+  - The point isn't just "use bf16" - a genuinely failed multi-months experiment, properly analyzed rather than written off, directly produced the fix for the next, larger attempt.
+
+  📖 [A very failed training](../../training/instabilities/training-loss-patterns.md#a-very-failed-training)
 
 ## 8. Cloud Providers and Procurement
 
