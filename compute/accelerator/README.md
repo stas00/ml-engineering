@@ -283,6 +283,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | :------------------- | ----: | -----: | ---: | ---: | ----: | ---: | ----: | ----: | ----: | ----: |
 | AMD MI455X           | 315.0 |      ? | 5000 | 5000 | 10000 | 5000 | 10000 | 20000 |     X |    27 |
 | NVIDIA Rubin SXM     | 130.0 | 2000.0 | 4000 | 4000 | 17500 | 2500 | 17500 | 35000 | 35000 |    26 |
+| Huawei Ascend 950DT  |     X |      X |  486 |  486 |   919 |    X |     X |  1783 |     X |    28 |
 
 Notes and sources - the `Notes` column of both tables points here. Numbers run from the oldest hardware upward, so anything new gets the next number and lands at the end of this list:
 
@@ -313,6 +314,7 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 25. [Google Cloud TPU v7x documentation](https://docs.cloud.google.com/tpu/docs/tpu7x) - Google calls it "the latest TPU available on Google Cloud" and documents using it through GKE or Compute Engine, so it is treated as available like every other TPU here, all of which are rent-only and capacity-gated. Only fp16, bf16 and fp8 are published; the rest of the row is `?` because Google has not stated those numbers.
 26. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) - pre-release, so these are announced figures rather than a shipped part's spec sheet
 27. AMD's MI455X figures come from its [product page](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html), read on 2026-08-06. `fp32` 315, `fp16` 5000, `bf16` 5000 and `int8` 5000 are AMD's own dense numbers. `fp8`, `fp6` and `fp4` are halved from the 20100, 20100 and 40300 that AMD publishes, because those three are almost certainly with-sparsity figures that AMD did not declare as such: it labels the sparsity variants of FP16, BF16 and INT8 explicitly on the same page, all at 10100, and taking the three unlabelled numbers at face value would make fp8 4x bf16 where every other accelerator here is 2x - MI355X runs 2500, 5000, 10100. Halving restores that doubling exactly. AMD publishes no TF32 figure for this part, hence `?`. All of it remains AMD Performance Labs projections carrying "Results subject to change when products are released in market".
+28. Ascend 950DT figures are from the Atlas 950 SuperPoD product-spec table on [Ascend Community](https://www.hiascend.com/en/hardware/cluster?tag=950) (read 2026-08-10): `114.1 / 58.8 / 31.1` PFLOPS @ `mxFP4` / `mxFP8/HiF8` / `FP16/BF16` for **64×** Ascend 950DT, divided by 64 → **1783 / 919 / 486**. Do not mix with the 1024-card SuperPoD totals on the Chinese page (those give ~1953 / 977 mxFP4/mxFP8 and no bf16). The `fp8` column is Huawei's single published `mxFP8/HiF8` rate; [HiF8](https://arxiv.org/abs/2409.16626) is tapered-precision, not OCP E4M3/E5M2, so the chapter's `e`/`m` dtype decoder does not apply to it. Unpublished columns are `X`.
 General notes:
 
 * int8 is measured in TeraOperations as it's not a floating operation.
@@ -493,6 +495,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | :-------------------- | -------------: | :---- | --------------------------: |
 | AMD MI455X            |            432 | HBM4  |                       23.30 |
 | NVIDIA Rubin SXM      |            288 | HBM4  |                       22.00 |
+| Huawei Ascend 950DT   |             96 | ?     |                        4.00 |
 
 
 Notes:
@@ -980,7 +983,7 @@ As of 2026-08 Huawei's Chinese pages carry the full specification table where th
 
 Divided out over the 1024 accelerators, that is roughly 977TFLOPS mxFP8 and 1953TFLOPS mxFP4 per Ascend 950DT, with 96GB at 4.0TBps and 840GBps of unidirectional [UB Link](../../network/README.md#ub-link-unifiedbus) scale-up bandwidth each - which would place it just below NVLink 5. Unlike the English page, this division is safe rather than inferred: the accelerator count is stated, and it cross-checks twice over - 1024 accelerators across the stated 16 compute cabinets is 64 per cabinet exactly as the bandwidth line says, and 1024 x 1.68TBps is the 1.72PBps total the same page claims.
 
-Two things to be careful about. The smaller 64-card Atlas 950 configuration works out to about 1783TFLOPS mxFP4 per accelerator rather than 1953, so the two configurations are not simply the same part scaled - don't mix figures between them. And `HiF8` is quoted alongside `mxFP8` rather than instead of it, so a single "fp8" column can't represent both.
+Two things to be careful about. The TFLOPS and memory comparison-table rows for Ascend 950DT use the **64-card** Atlas 950 SuperPoD product-spec table on the English Ascend Community page (`114.1 / 58.8 / 31.1` PFLOPS @ mxFP4 / mxFP8-HiF8 / FP16-BF16, and `64 × 96GB` on-chip memory at 4.0TBps) - divided per accelerator - not the 1024-card SuperPoD totals on the Chinese page (~1953 / 977 mxFP4/mxFP8, no bf16). The two configurations are not simply the same part scaled; don't mix figures between them. Memory type is `?` in the table because Huawei publishes "On-chip Memory" / 片上内存 without an HBM generation. And `HiF8` is quoted alongside `mxFP8` as one published rate, so the `fp8` column carries that pair - HiF8 itself is tapered-precision ([arxiv:2409.16626](https://arxiv.org/abs/2409.16626)), not an OCP `E4M3`/`E5M2`, and the chapter's dtype decoder does not apply to it.
 
 Specs: [Ascend Community](https://www.hiascend.com/en). Be aware that both Huawei sites are JavaScript applications that serve only a page shell to a plain downloader - `e.huawei.com` returns 255KB of HTML containing not one occurrence of `PFLOPS`, `TB/s` or even `Ascend`. The Ascend Community site happens to inline enough text to read the Atlas 950 spec off; the product pages do not. So these figures are harder to confirm than any other vendor's here, and a second-hand UB Link or Ascend number should be treated as unverified until traced back to Huawei.
 
