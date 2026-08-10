@@ -43,6 +43,90 @@ Which stage matters most depends on the workload and metric. TTFT is sensitive t
 See [NVIDIA's inference optimization overview](https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/) and [LLM benchmarking metric definitions](https://developer.nvidia.com/blog/llm-benchmarking-fundamental-concepts/).
 
 
+### Anatomy of Model's Memory Usage
+
+The inference memory usage is quite different from [training](../training/performance/README.md#anatomy-of-models-memory-usage). Here we have:
+
+1. Model weights
+2. KV cache - crucial to not need to recalculate past tokens for each new generated token
+3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
+
+#### Model Weights
+
+Bytes per parameter for each [dtype](../training/dtype.md):
+
+- 4 bytes * number of parameters for fp32
+- 2 bytes * number of parameters for fp16/bf16
+- 1 byte  * number of parameters for fp8/int8
+- 0.75 bytes * number of parameters for fp6 or 6-bit quantization
+- 0.625 bytes * number of parameters for 5-bit quantization
+- 0.5 bytes * number of parameters for fp4/int4
+- 0.375 bytes * number of parameters for 3-bit quantization
+- 0.25 bytes * number of parameters for 2-bit quantization
+- 0.125 bytes * number of parameters for 1-bit quantization
+
+These are densely packed payload sizes. Actual weight storage can be higher because quantized formats may store scales, zero points, codebooks, padding/alignment, and selected tensors in a wider format.
+
+The [OCP microscaling (MX) formats](https://github.com/openxla/xla/discussions/18085) use one 8-bit E8M0 scale per block of 32 values. Including the shared scale, their packed payload sizes are:
+
+- 1.03125 bytes * number of parameters for MXFP8/MXINT8
+- 0.78125 bytes * number of parameters for MXFP6
+- 0.53125 bytes * number of parameters for MXFP4
+
+Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
+
+
+#### KV Caching
+
+It'd be very expensive to recalculate all the previous KV (Key Value) values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
+
+![computation process with caching inference](images/infer-kv-cache.png)
+
+([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
+
+KV cache size is directly proportional to the input sequence length and batch size. Past query values aren't used in the attention mechanism and thus don't need to be cached.
+
+A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
+
+notes:
+- `dtype_bytes` is bytes per dtype: 4 bytes for fp32, 2 bytes for bf16/fp16, etc.
+- `2` stands for keys + values as there are 2 of them.
+- `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
+
+You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different. e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
+
+Examples:
+
+1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 4096 (hidden_size) * 8 (num_key_value_heads) / 32 (num_attention_heads)  / 10**6 = 0.131MB`. This model uses GQA so it uses 1/4th of the vanilla MHA.
+
+A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
+
+A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
+
+The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from the MHA/GQA/MQA/MLA diagram further below.
+
+In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
+
+[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
+
+Here is the diagram that shows the difference between MHA/GQA/MQA/MLA:
+
+![mha-gqa-mqa-mla](images/mha-gqa-mqa-mla.png)
+
+[source](https://arxiv.org/abs/2405.04434)
+
+[SwiftKV](https://arxiv.org/abs/2410.03960) was invented to deal with the common situation of 10:1 ratio of prefill vs decode use-cases, reducing inference computation during prompt processing rather than just compressing memory. By combining model rewiring and knowledge-preserving self-distillation, SwiftKV achieves substantial reductions in computational overhead during inference with minimal accuracy loss, leading to transformative improvements in throughput, latency and cost efficiency for enterprise LLM workloads by up to 2x.
+
+KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
+
+> 2.3. Memory-Bound and Compute-Bound Operations
+>
+> Every operation performed with a GPU accelerator, such as General Matrix Multiply (GEMM), is either memory-bound or compute-bound. In the former case, the overall runtime is dominated by high bandwidth memory (HBM) access, while in the latter by the actual computations. Auto-regressive generation with Transformer LLMs, where the sequence length for every forward pass is n = 1, tends to be memory-bound rather than compute-bound. The vast majority of a forward pass is spent either processing linear layers (in MHSA, Feed-Forward, and output vocabulary projection) or calculating attention scores and outputs from Equation (4). For linear layers, the ratio of FLOPS to memory accesses improves as the batch size increases, and more FLOPS are performed with the set of layer weights retrieved from the HBM. Eventually, with a large enough batch size, linear layers become compute-bound. On the other hand, for the calculation of Equation (4) inside MHSA layers during auto-regressive inference, the ratio of FLOPS to input size remains constant, and MHSA layers are memory-bound regardless of the batch size. It follows that for those layers, latency scales linearly with the size of the KV cache.
+
+* Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
+
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies (token dropping), memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
+
 
 ### Online vs Offline inference
 
@@ -51,36 +135,6 @@ When you have users that send queries in real time - this is Online inference, a
 When you have a file with hundreds or thousands of prompts that you need to run inference on - this is Offline inference, also known as batch inference. Examples: benchmark evaluation and synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
 The 2 main use cases are often optimized for different performance metrics - the online inference use case requires a very low TTFT and low latency, whereas the offline inference requires high throughput. The combined prefill and decode token processing throughput is the key metric for any type of inference because it defines the total cost of the inference service. In the case of online inference, the better the combined throughput the more users can be served with the same hardware. For offline inference, it's clear that the faster the inference is done, the smaller the compute costs will be.
-
-
-### Grounding
-
-It's the process of giving the pre-trained model additional information that wasn't available during its training. For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
-
-Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
-
-Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
-
-Grounding can be thought of as providing context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
-
-In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
-
-
-### Tasks
-
-
-#### Input-grounded tasks
-
-Input-grounded tasks are those where the generated response is derived mainly from the prompt, i.e. the main source of knowledge is contained in the prompt. These include:
-
-- Translation
-- Summarization
-- Document QA
-- Multi-turn chat
-- Code editing
-- Speech recognition (audio transcription)
-
-
 
 
 ### Batching
@@ -320,6 +374,33 @@ The other important thing about PP inference is that unlike training, there is n
 And as with training you may find that some mix of TP and PP will lead to the best outcome (e.g. TP=4 + PP=4 for Llama 405B). So make sure to experiment and measure different configurations and pick the one that meets your needs.
 
 
+### Grounding
+
+It's the process of giving the pre-trained model additional information that wasn't available during its training. For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
+
+Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
+
+Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
+
+Grounding can be thought of as providing context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
+
+In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
+
+
+### Tasks
+
+
+#### Input-grounded tasks
+
+Input-grounded tasks are those where the generated response is derived mainly from the prompt, i.e. the main source of knowledge is contained in the prompt. These include:
+
+- Translation
+- Summarization
+- Document QA
+- Multi-turn chat
+- Code editing
+- Speech recognition (audio transcription)
+
 
 ## Key inference performance metrics
 
@@ -540,7 +621,6 @@ Here are some good starting points for load testing:
 
 - https://github.com/vllm-project/vllm/blob/main/benchmarks/benchmark_throughput.py - my favorite tool so far
 - https://github.com/grafana/k6 - useful for load testing to simulate multiple concurrent clients - uses JavaScript clients.
-- https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
 
 
 What I'm missing right now is a tool to measure the highest concurrency the server can handle.
@@ -548,92 +628,6 @@ What I'm missing right now is a tool to measure the highest concurrency the serv
 
 
 
-
-
-
-## Anatomy of Model's Memory Usage
-
-The inference memory usage is quite different from [training](../training/performance/README.md#anatomy-of-models-memory-usage). Here we have:
-
-1. Model weights
-2. KV cache - crucial to not need to recalculate past tokens for each new generated token
-3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
-
-### Model Weights
-
-Bytes per parameter for each [dtype](../training/dtype.md):
-
-- 4 bytes * number of parameters for fp32
-- 2 bytes * number of parameters for fp16/bf16
-- 1 byte  * number of parameters for fp8/int8
-- 0.75 bytes * number of parameters for fp6 or 6-bit quantization
-- 0.625 bytes * number of parameters for 5-bit quantization
-- 0.5 bytes * number of parameters for fp4/int4
-- 0.375 bytes * number of parameters for 3-bit quantization
-- 0.25 bytes * number of parameters for 2-bit quantization
-- 0.125 bytes * number of parameters for 1-bit quantization
-
-These are densely packed payload sizes. Actual weight storage can be higher because quantized formats may store scales, zero points, codebooks, padding/alignment, and selected tensors in a wider format.
-
-The [OCP microscaling (MX) formats](https://github.com/openxla/xla/discussions/18085) use one 8-bit E8M0 scale per block of 32 values. Including the shared scale, their packed payload sizes are:
-
-- 1.03125 bytes * number of parameters for MXFP8/MXINT8
-- 0.78125 bytes * number of parameters for MXFP6
-- 0.53125 bytes * number of parameters for MXFP4
-
-Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
-
-
-### KV Caching
-
-It'd be very expensive to recalculate all the previous KV (Key Value) values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
-
-![computation process with caching inference](images/infer-kv-cache.png)
-
-([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
-
-KV cache size is directly proportional to the input sequence length and batch size. Past query values aren't used in the attention mechanism and thus don't need to be cached.
-
-A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
-
-notes:
-- `dtype_bytes` is bytes per dtype: 4 bytes for fp32, 2 bytes for bf16/fp16, etc.
-- `2` stands for keys + values as there are 2 of them.
-- `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
-
-You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different. e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
-
-Examples:
-
-1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 4096 (hidden_size) * 8 (num_key_value_heads) / 32 (num_attention_heads)  / 10**6 = 0.131MB`. This model uses GQA so it uses 1/4th of the vanilla MHA.
-
-A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
-
-A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
-
-The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from the MHA/GQA/MQA/MLA diagram further below.
-
-In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
-
-[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
-
-Here is the diagram that shows the difference between MHA/GQA/MQA/MLA:
-
-![mha-gqa-mqa-mla](images/mha-gqa-mqa-mla.png)
-
-[source](https://arxiv.org/abs/2405.04434)
-
-[SwiftKV](https://arxiv.org/abs/2410.03960) was invented to deal with the common situation of 10:1 ratio of prefill vs decode use-cases, reducing inference computation during prompt processing rather than just compressing memory. By combining model rewiring and knowledge-preserving self-distillation, SwiftKV achieves substantial reductions in computational overhead during inference with minimal accuracy loss, leading to transformative improvements in throughput, latency and cost efficiency for enterprise LLM workloads by up to 2x.
-
-KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
-
-> 2.3. Memory-Bound and Compute-Bound Operations
->
-> Every operation performed with a GPU accelerator, such as General Matrix Multiply (GEMM), is either memory-bound or compute-bound. In the former case, the overall runtime is dominated by high bandwidth memory (HBM) access, while in the latter by the actual computations. Auto-regressive generation with Transformer LLMs, where the sequence length for every forward pass is n = 1, tends to be memory-bound rather than compute-bound. The vast majority of a forward pass is spent either processing linear layers (in MHSA, Feed-Forward, and output vocabulary projection) or calculating attention scores and outputs from Equation (4). For linear layers, the ratio of FLOPS to memory accesses improves as the batch size increases, and more FLOPS are performed with the set of layer weights retrieved from the HBM. Eventually, with a large enough batch size, linear layers become compute-bound. On the other hand, for the calculation of Equation (4) inside MHSA layers during auto-regressive inference, the ratio of FLOPS to input size remains constant, and MHSA layers are memory-bound regardless of the batch size. It follows that for those layers, latency scales linearly with the size of the KV cache.
-
-* Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
-
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies (token dropping), memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
 
 
 
@@ -658,17 +652,13 @@ This section is trying hard to be neutral and not recommend any particular frame
 
 Supports only NVIDIA gpus.
 
-### TGI
-
-[TGI](https://github.com/huggingface/text-generation-inference)
-
 ### SGLang
 
 [SGLang](https://github.com/sgl-project/sglang)
 
-### OpenPPL
+### llama.cpp
 
-[OpenPPL](https://github.com/OpenPPL/ppl.nn)
+[llama.cpp](https://github.com/ggml-org/llama.cpp) - local / single-box serving (CPU, CUDA including datacenter GPUs, Metal, …); not a multi-tenant production peer to vLLM/SGLang.
 
 ### LightLLM
 
@@ -701,7 +691,7 @@ The main accelerator-specific software stacks are:
 
 Because accelerator support increasingly ships as a plugin to a mainstream framework, always check whether your framework of choice already supports your accelerator before reaching for a vendor-specific stack.
 
-Finally, some vendors expose inference only as a hosted service on their own hardware, rather than as an installable framework - e.g. [Cerebras Inference](https://www.cerebras.ai/inference), Groq (now part of NVIDIA) and [SambaNova](https://sambanova.ai/).
+Finally, some vendors expose inference only as a hosted service on their own hardware, rather than as an installable framework - e.g. [Cerebras Inference](https://www.cerebras.ai/inference), Groq and [SambaNova](https://sambanova.ai/).
 
 
 
@@ -710,11 +700,11 @@ Finally, some vendors expose inference only as a hosted service on their own har
 To choose the most suitable inference framework you need to answer at least the following questions:
 
 1. Does the framework have the features that you need? Be careful here, some frameworks list that they support feature A, but when you try to use it, it's not well integrated or works really slowly.
-2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example HF's TGI tried to charge for commercial use and it backfired - so its license got reverted to the original Apache 2.0 license and now they are trying to recover from being shunned by the community.
+2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example, HF's TGI tried to charge for commercial use and it backfired - their licenses got reverted under community pressure, but TGI has never recovered and the development has stopped.
 3. Does the framework have a thriving community of contributors? Go to the framework's github repo and check how many contributors it has - if it's very few I'd be concerned as thriving frameworks usually tend to invite contributions and that means that even if the core contributors don't have the time some feature, some contributors might do it for you.
 4. Does the framework have a high adoption? github stars are often a good indication, but sometimes it can be hyped up via smart marketing moves. So seek out other signals - e.g. `Used by` count on the framework's repo's main page on github - these are real numbers. Lots of PRs and Issues is another flag. Then search the web for how many articles are written about the given framework.
 5. Are the framework maintainers responsive to Issues and PRs? Some frameworks will ignore many Issues and even PRs. Check the count of how many PRs and Issues not being addressed. A high outstanding open Issues is a difficult signal - from one side it means this is a popular project, from the other side it means the developer team and contributors can't cope with the needs of its users.
-6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, TGI's big chunk is written in Rust). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
+6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, llama.cpp is C++/CUDA). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
 7. The other issue you may run into is that some frameworks don't want your PRs where you implemented missing features or made improvements and then you will end up maintaining a fork, which can be extremely difficult if you want to continue syncing with the upstream and cause a lot of pain to your developers.
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
 9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator/README.md#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
