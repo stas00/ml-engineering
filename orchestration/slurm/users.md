@@ -52,7 +52,7 @@ Using `--dependency` may lead to shorter wait times that using `--begin`, since 
 
 To postpone making the allocation for a given time, use:
 ```bash
-salloc --begin HH:MM MM/DD/YY
+salloc --begin=YYYY-MM-DDTHH:MM:SS
 ```
 
 Same for `sbatch`.
@@ -171,7 +171,7 @@ or via: `#SBATCH --exclude ...`
 To use specific nodes:
 
 ```bash
-sbatch --nodelist= nodeA,nodeB
+sbatch --nodelist=nodeA,nodeB
 ```
 can also use the short `-w` instead of `--nodelist`
 
@@ -207,15 +207,15 @@ This command is also useful to discover if you have any `srun` jobs already runn
 
 To see more details:
 ```bash
-sacct -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct --format=jobid,start,end,state,exitcode,nodelist%300 -j JOBID
 sacct -j JOBID --long
 ```
 
 Or to see all jobs with their sub-steps while limiting the listing to a specific partition and only for your own user:
 
 ```bash
-sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300
-sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=dev  --format=jobid,start,end,state,exitcode,nodelist%300
+sacct -u `whoami` --partition=prod --format=jobid,start,end,state,exitcode,nodelist%300
 ```
 
 To see how a particular job was launched and all of its `srun` sub-step command lines:
@@ -273,7 +273,7 @@ So this is a great tool for analysing past events.
 For example, to see which nodes were used to run recent gpu jobs:
 
 ```bash
-sacct -u `whoami` --partition=dev -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=dev --format=jobid,start,end,state,exitcode,nodelist%300
 ```
 
 `%300` here tells it to use a 300 char width for the output, so that it's not truncated.
@@ -315,9 +315,7 @@ If we need to separate logs to different log files per node add `%N` (for short 
 #SBATCH --output=%x-%j-%N.out
 ```
 
-That way we can tell if a specific node misbehaves - e.g. has a corrupt GPU. This is because currently pytorch doesn't log which node / gpu rank triggered an exception.
-
-Hoping it'll be a built-in feature of pytorch https://github.com/pytorch/pytorch/issues/63174 and then one won't need to make things complicated on the logging side.
+That way we can tell if a specific node misbehaves - e.g. has a corrupt GPU. `torchrun` can attribute the first failure to a host/rank when the entry point is wrapped with `@record`, but undecorated scripts still get a bare traceback, and a single summary does not replace having one log file per node.
 
 
 ## Show the state of nodes
@@ -657,17 +655,20 @@ Now the launcher will always work and the users will only need to tweak the `PRO
 With `torchrun`:
 
 ```bash
-export $GPUS_PER_NODE=8
+GPUS_PER_NODE=8
+NNODES=$SLURM_NNODES
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=3333
+# note `\$SLURM_PROCID` and `\$(hostname ...)` - interpolate at `srun` time, not here
 LAUNCHER="python -u -m torch.distributed.run \
     --nproc_per_node $GPUS_PER_NODE \
     --nnodes $NNODES \
-    --node_rank \$SLURM_PROCID
+    --node_rank \$SLURM_PROCID \
     --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
     --rdzv_backend c10d \
     --max_restarts 0 \
-    --role `hostname -s`:--tee 3 \
+    --role \$(hostname -s|tr -dc '0-9'): \
+    --tee 3 \
     "
 ```
 
@@ -879,7 +880,7 @@ try:
     torch.ones((gbs*2**28)).cuda(local_rank).contiguous() # alloc on cpu, then move to gpu
     print(f"{local_rank} {hostname} is OK")
 except:
-    print(f"{local_rank} {hostname} failed to allocate {gbs}GB DRAM")
+    print(f"{local_rank} {hostname} failed to allocate {gbs}GiB of accelerator memory")
     pass
 
 time.sleep(5)
@@ -955,19 +956,16 @@ Don't forget to manually release the allocation when this process is done.
 
 ## Convert SLURM_JOB_NODELIST into a hostfile
 
-Some multi-node launchers require a `hostfile` - here is how to generate one:
+Some multi-node launchers require a `hostfile` - here is how to generate one. Expansion uses `scontrol show hostnames`, the same tool as [Convert compact node list to expanded node list](#convert-compact-node-list-to-expanded-node-list), so mixed forms like `node-[42,49-51]` work:
 
 ```bash
-# autogenerate the hostfile for deepspeed
-# 1. deals with: SLURM_JOB_NODELIST in either of 2 formats:
-# r10i1n8,r10i2n0
-# r10i1n[7-8]
-# 2. and relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
-#
 # usage:
 # makehostfile > hostfile
+# relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
 function makehostfile() {
-perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST"}; if (/^(.*?)\[(\d+)-(\d+)\]/) { print map { "$1$_ slots=$slots\n" } $2..$3} elsif (/,/) { print map { "$1$_ slots=$slots\n" } split /,/ } '
+  local slots
+  slots=$(perl -F, -lane 'print scalar @F' <<<"${SLURM_STEP_GPUS:-0}")
+  scontrol show hostnames "$SLURM_JOB_NODELIST" | perl -slne 'print "$_ slots=$s"' -- -s="$slots"
 }
 ```
 
@@ -1019,7 +1017,7 @@ $ sbatch cron-hourly.slurm
 $ sbatch cron-daily.slurm
 ```
 
-This is it, these jobs will now self-perpetuate and usually you don't need to think about it again unless there is an even that makes SLURM lose all its jobs.
+This is it, these jobs will now self-perpetuate and usually you don't need to think about it again unless there is an event that makes SLURM lose all its jobs.
 
 
 ### 2. Daily and Hourly Cronjobs
@@ -1073,7 +1071,7 @@ Please note that it's set to only delete files that are older than 7 days, in ca
 
 ### Nuances
 
-The scheduler runs with Unix permissions of the person who launched the SLRUM cron scheduler job and so all other SLURM scripts launched by that cron job.
+The scheduler runs with Unix permissions of the person who launched the SLURM cron scheduler job and so all other SLURM scripts launched by that cron job.
 
 ## Self-perpetuating SLURM jobs
 

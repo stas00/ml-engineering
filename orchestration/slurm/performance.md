@@ -27,7 +27,7 @@ footnote: I tested with SLURM@22.05.09 and the old behavior was still true, but 
 
 So if you leave things as is, now the program will receive just 1 cpu-core (unless the `srun` default has been modified).
 
-You can easily test if your SLURM setup is affected, using `os.sched_getaffinity(0))`, as it shows which cpu-cores are eligible to be used by the current process. So it should be easy to count those with `len(os.sched_getaffinity(0))`.
+You can easily test if your SLURM setup is affected, using `os.sched_getaffinity(0)`, as it shows which cpu-cores are eligible to be used by the current process. So it should be easy to count those with `len(os.sched_getaffinity(0))`.
 
 Here is how you can test if you're affected:
 ```bash
@@ -67,7 +67,7 @@ or:
 #SBATCH --cpus-per-task=48
 [...]
 
-SRUN_CPUS_PER_TASK=48
+export SRUN_CPUS_PER_TASK=48
 srun myprogram
 ```
 
@@ -76,7 +76,7 @@ or automate it with write-once-and-forget:
 #SBATCH --cpus-per-task=48
 [...]
 
-SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
+export SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 srun myprogram
 ```
 

@@ -78,7 +78,7 @@ scontrol update nodename=node-5 state=idle
 
 To remove a node from the SLURM's pool:
 ```bash
-scontrol update nodename=node-5 state=drain
+scontrol update nodename=node-5 state=drain reason="maintenance"
 ```
 
 
@@ -88,7 +88,7 @@ Sometimes processes are slow to exit when a job has been cancelled. If the SLURM
 
 So here is how to automate it.
 
-The keys is to get the list of nodes that are drained due to `"Kill task failed"`, which is retrieved with:
+The key is to get the list of nodes that are drained due to `"Kill task failed"`, which is retrieved with:
 
 ```bash
 sinfo -R | grep "Kill task failed"
