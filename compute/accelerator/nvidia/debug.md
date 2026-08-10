@@ -108,7 +108,7 @@ For example it suggests:
 
 > If associated with XID 94, the application that encountered the error needs to be restarted. All other applications on the system can keep running as is until there is a convenient time to reboot for row remapping to activate.
 
-If after a reboot the same condition occur for the same memory address, it means that memory remapping has failed and Xid 64 will be emitted again. If this continues it means you have a hardware issue that can't be auto-corrected and the GPU needs to RMA'ed.
+If after a reboot the same condition occurs for the same memory address, memory remapping has failed and Xid 64 is emitted. If it keeps happening after reboot, the GPU needs to be RMA'ed.
 
 At other times you may get Xid 63 or 64 and the application will crash, which usually generates additional Xid errors, but most of the time it means that the error was uncorrectable (i.e. it was a DBE sort of an error and then it'll be Xid 48).
 
@@ -164,7 +164,7 @@ Now when it comes to Aggregate SRAM Uncorrectable errors, if you have more than 
 
 ### Running diagnostics
 
-If you suspect one or mode NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
+If you suspect one or more NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
 
 NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
 
@@ -183,7 +183,7 @@ $ cat dcgmi-1n.slurm
 
 set -x -e
 echo "START TIME: $(date)"
-srun --output=%x-%j-%N.out dcgmi diag -r 3
+srun --cpus-per-task=$SLURM_CPUS_PER_TASK --output=%x-%j-%N.out dcgmi diag -r 3
 echo "END TIME: $(date)"
 ```
 
@@ -234,7 +234,7 @@ But, actually, I found that most of the time `-r 2` already detects faulty GPUs.
 
 The `dcgmi` tool contains various other levels of diagnostics, some of which complete in a matter of a few minutes and can be run as a quick diagnostic in the epilogue of SLURM jobs to ensure that the node is ready to work for the next SLURM job, rather than discovering that after the user started their job and it crashed.
 
-When filing an RMA report you will be asked to run `nvidia-bug-report` script, the output of which you will need to submit with the RMA request.
+When filing an RMA report you will be asked to run `nvidia-bug-report.sh` script, the output of which you will need to submit with the RMA request.
 
 I usually save the log as well for posterity using one of:
 ```bash
@@ -324,7 +324,7 @@ cat << 'EOT' >> test-gpu-count.sh
 set -e
 
 # test the node has 8 gpus
-test $(nvidia-smi -q | grep UUID | wc -l) != 8 && echo "broken node: less than 8 gpus" && false
+test $(nvidia-smi -q | grep UUID | wc -l) != 8 && echo "broken node: not exactly 8 gpus" && false
 EOT
 ```
 and then:

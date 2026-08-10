@@ -6,13 +6,27 @@ As most of us are well familiar with NVIDIA tools, I will try to provide the map
 
 ## Tools
 
-### ROCR_VISIBLE_DEVICES
+### HIP_VISIBLE_DEVICES / CUDA_VISIBLE_DEVICES / ROCR_VISIBLE_DEVICES
 
-To select a specific gpu (`CUDA_VISIBLE_DEVICES` equivalent):
+ROCm has more than one “visible devices” knob because isolation can happen at different layers of the stack. For PyTorch on ROCm the usual CUDA-style choice is HIP-level:
+
+```bash
+HIP_VISIBLE_DEVICES=0,1 python my-program.py
+```
+
+`CUDA_VISIBLE_DEVICES` is honored the same way (CUDA-compat alias for HIP on AMD).
+
+That only filters what the **HIP** runtime exposes. ROCr can still initialize every GPU, and non-HIP clients sitting on ROCr (OpenCL, AOMP, UCX, …) are unaffected.
+
+To hide devices from the whole user-mode ROCm stack, filter at **ROCr**:
 
 ```bash
 ROCR_VISIBLE_DEVICES=0,1 python my-program.py
 ```
+
+`ROCR_VISIBLE_DEVICES` also accepts UUID strings (HIP’s list is indices only). If both are set, HIP sees only the devices ROCr left visible, so HIP indices are relative to that filtered set.
+
+On Linux, AMD’s isolation docs lean on `ROCR_VISIBLE_DEVICES` when you want stack-wide isolation; for ordinary single-framework PyTorch work, `HIP_VISIBLE_DEVICES` / `CUDA_VISIBLE_DEVICES` is enough. See [GPU isolation techniques](https://rocm.docs.amd.com/en/latest/reference/system-optimization/gpu-isolation.html).
 
 ### rocm-smi
 
