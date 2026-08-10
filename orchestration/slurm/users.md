@@ -189,7 +189,7 @@ Since each SLURM run has a limited time span, it can be configured to send a sig
 ```
 --signal=[[R][B]:]<sig_num>[@<sig_time>]
 ```
-TODO: need to experiment with this to help training finish gracefully and not start a new cycle after saving the last checkpoint.
+For the worked pattern - trap `SIGUSR1` (or similar) a few minutes before the wall-clock limit, finish the step, save a checkpoint, and exit without starting another cycle - see [Sending a custom signal X minutes before the end](../../training/fault-tolerance/README.md#approach-b1-sending-a-custom-signal-x-minutes-before-the-end) in the fault-tolerance chapter.
 
 
 
