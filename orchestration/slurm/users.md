@@ -971,18 +971,35 @@ function makehostfile() {
 
 ## Environment variables
 
-You can always do:
+`#SBATCH --export=...` controls which variables from the **submission shell** are copied into the job. On stock Slurm the default is `ALL` (some sites override that via `SBATCH_EXPORT` / `SLURM_EXPORT_ENV` or a cli_filter). `SLURM_*` variables are always present regardless of the mode. Anything you `export KEY=value` inside the job script itself is also always visible to the launched program - that is independent of `--export`, which only governs what is inherited from the submit shell. The four useful forms:
 
-```bash
-export SOMEKEY=value
-```
-from the slurm script to get a desired environment variable passed to the program launched from it.
+1. **Full submit-shell environment (default):**
 
-And you can also add to the top of the slurm script:
 ```
 #SBATCH --export=ALL
 ```
-The launched program will see all the environment variables visible in the shell where it was launched from.
+Same as omitting `--export` on stock Slurm - writing this line alone is a no-op there. Use it only when you need to undo a site default of `NONE`, or when combining with extras as in (4).
+
+2. **Minimal environment:**
+
+```
+#SBATCH --export=NONE
+```
+Drops the submit-shell environment. Useful when you want a reproducible job that does not inherit whatever happened to be exported in the login shell.
+
+3. **Only these variables (replacement list):**
+
+```
+#SBATCH --export=KEY1,KEY2=value
+```
+Propagates **only** the named variables (here: current value of `KEY1`, and `KEY2` set to `value`). Everything else from the submit shell is dropped - this is not an add-on to `ALL`.
+
+4. **Full environment plus set/override:**
+
+```
+#SBATCH --export=ALL,KEY=value
+```
+Keeps the full submit-shell environment **and** sets or overrides `KEY`. If you want both “everything” and an extra var at submit time, `ALL` must appear in the list - without it you get case (3).
 
 
 

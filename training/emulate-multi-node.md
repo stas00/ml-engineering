@@ -58,6 +58,7 @@ local_rank = int(os.environ.get("LOCAL_RANK"))
 print(f'{dist.get_rank()=}, {local_rank=}')
 
 x = torch.ones(2**30, device=f"cuda:{local_rank}")
+print(x)
 time.sleep(100)
 ```
 
@@ -78,8 +79,8 @@ worker-1: [2022-09-08 12:02:16,518] [INFO] [launch.py:142:main] nnodes=2, num_lo
 worker-1: [2022-09-08 12:02:16,518] [INFO] [launch.py:155:main] global_rank_mapping=defaultdict(<class 'list'>, {'worker-0': [0], 'worker-1': [1]})
 worker-1: [2022-09-08 12:02:16,518] [INFO] [launch.py:156:main] dist_world_size=2
 worker-1: [2022-09-08 12:02:16,518] [INFO] [launch.py:158:main] Setting CUDA_VISIBLE_DEVICES=0
-worker-1: torch.distributed.get_rank()=1, local_rank=0
-worker-0: torch.distributed.get_rank()=0, local_rank=0
+worker-1: dist.get_rank()=1, local_rank=0
+worker-0: dist.get_rank()=0, local_rank=0
 worker-1: tensor([1., 1., 1.,  ..., 1., 1., 1.], device='cuda:0')
 worker-0: tensor([1., 1., 1.,  ..., 1., 1., 1.], device='cuda:0')
 ```
