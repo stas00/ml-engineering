@@ -197,6 +197,8 @@ wget --user-agent="Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:39.0) Geck
 ```
 
 10. A guessed URL that returns a page is not necessarily the page you wanted - check the title and body before quoting it. If a guess lands on a listing or tag page, follow the site's own links, or read its `/specifications`-style index, to reach the document itself.
+11. **Do not propose adding an unmaintained GitHub repository** (archived, README says "not actively maintained" / "research artifact only", last meaningful commit years stale with no successor named). Prefer the live successor when one exists - e.g. Alpa is out; [Shardy](https://github.com/openxla/shardy) / XLA auto-sharding is the current path. Repos already cited in the book are left alone unless the author asks; do not sweep them out on this rule alone.
+12. **Do not propose adding a GitHub repository with fewer than ~500 stars** as a "notable" tool or framework - stars are a coarse importance filter, not a quality score. Below that bar, mention only if the author asks or the project is already in the book. Existing citations are not swept out on this rule alone.
 
 ## External link rot
 

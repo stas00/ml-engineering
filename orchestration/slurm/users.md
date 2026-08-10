@@ -245,6 +245,81 @@ Show jobs of a specific partition:
 squeue --partition=dev
 ```
 
+## Getting information about the job
+
+From within the slurm file one can access information about the current job's allocations.
+
+Getting allocated hostnames and useful derivations based on that:
+```bash
+export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
+export NUM_NODES=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
+export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+```
+
+## Environment variables
+
+`#SBATCH --export=...` controls which variables from the **submission shell** are copied into the job. On stock Slurm the default is `ALL` (some sites override that via `SBATCH_EXPORT` / `SLURM_EXPORT_ENV` or a cli_filter). `SLURM_*` variables are always present regardless of the mode. Anything you `export KEY=value` inside the job script itself is also always visible to the launched program - that is independent of `--export`, which only governs what is inherited from the submit shell. The four useful forms:
+
+1. **Full submit-shell environment (default):**
+
+```
+#SBATCH --export=ALL
+```
+Same as omitting `--export` on stock Slurm - writing this line alone is a no-op there. Use it only when you need to undo a site default of `NONE`, or when combining with extras as in (4).
+
+2. **Minimal environment:**
+
+```
+#SBATCH --export=NONE
+```
+Drops the submit-shell environment. Useful when you want a reproducible job that does not inherit whatever happened to be exported in the login shell.
+
+3. **Only these variables (replacement list):**
+
+```
+#SBATCH --export=KEY1,KEY2=value
+```
+Propagates **only** the named variables (here: current value of `KEY1`, and `KEY2` set to `value`). Everything else from the submit shell is dropped - this is not an add-on to `ALL`.
+
+4. **Full environment plus set/override:**
+
+```
+#SBATCH --export=ALL,KEY=value
+```
+Keeps the full submit-shell environment **and** sets or overrides `KEY`. If you want both “everything” and an extra var at submit time, `ALL` must appear in the list - without it you get case (3).
+
+## Convert compact node list to expanded node list
+
+Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
+
+```bash
+$ scontrol show hostnames node-[42,49-51]
+node-42
+node-49
+node-50
+node-51
+```
+Voila!
+
+case study: this is for example useful if you want get a list of nodes that were drained because the job was too slow to exit, but really there is no real problem with the nodes. So this one-liner will give you the list of such nodes in an expanded format which you can then script to loop over this list to undrain these nodes after perhaps checking that the processes have died by this time:
+```bash
+sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
+```
+
+## Convert SLURM_JOB_NODELIST into a hostfile
+
+Some multi-node launchers require a `hostfile` - here is how to generate one. Expansion uses `scontrol show hostnames`, the same tool as [Convert compact node list to expanded node list](#convert-compact-node-list-to-expanded-node-list) above, so mixed forms like `node-[42,49-51]` work:
+
+```bash
+# usage:
+# makehostfile > hostfile
+# relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
+function makehostfile() {
+  local slots
+  slots=$(perl -F, -lane 'print scalar @F' <<<"${SLURM_STEP_GPUS:-0}")
+  scontrol show hostnames "$SLURM_JOB_NODELIST" | perl -slne 'print "$_ slots=$s"' -- -s="$slots"
+}
+```
 
 ## Aliases
 
@@ -956,55 +1031,6 @@ Also the assumption is that some conda env that has `py-spy` installed got activ
 
 Don't forget to manually release the allocation when this process is done.
 
-## Convert SLURM_JOB_NODELIST into a hostfile
-
-Some multi-node launchers require a `hostfile` - here is how to generate one. Expansion uses `scontrol show hostnames`, the same tool as [Convert compact node list to expanded node list](#convert-compact-node-list-to-expanded-node-list), so mixed forms like `node-[42,49-51]` work:
-
-```bash
-# usage:
-# makehostfile > hostfile
-# relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
-function makehostfile() {
-  local slots
-  slots=$(perl -F, -lane 'print scalar @F' <<<"${SLURM_STEP_GPUS:-0}")
-  scontrol show hostnames "$SLURM_JOB_NODELIST" | perl -slne 'print "$_ slots=$s"' -- -s="$slots"
-}
-```
-
-## Environment variables
-
-`#SBATCH --export=...` controls which variables from the **submission shell** are copied into the job. On stock Slurm the default is `ALL` (some sites override that via `SBATCH_EXPORT` / `SLURM_EXPORT_ENV` or a cli_filter). `SLURM_*` variables are always present regardless of the mode. Anything you `export KEY=value` inside the job script itself is also always visible to the launched program - that is independent of `--export`, which only governs what is inherited from the submit shell. The four useful forms:
-
-1. **Full submit-shell environment (default):**
-
-```
-#SBATCH --export=ALL
-```
-Same as omitting `--export` on stock Slurm - writing this line alone is a no-op there. Use it only when you need to undo a site default of `NONE`, or when combining with extras as in (4).
-
-2. **Minimal environment:**
-
-```
-#SBATCH --export=NONE
-```
-Drops the submit-shell environment. Useful when you want a reproducible job that does not inherit whatever happened to be exported in the login shell.
-
-3. **Only these variables (replacement list):**
-
-```
-#SBATCH --export=KEY1,KEY2=value
-```
-Propagates **only** the named variables (here: current value of `KEY1`, and `KEY2` set to `value`). Everything else from the submit shell is dropped - this is not an add-on to `ALL`.
-
-4. **Full environment plus set/override:**
-
-```
-#SBATCH --export=ALL,KEY=value
-```
-Keeps the full submit-shell environment **and** sets or overrides `KEY`. If you want both “everything” and an extra var at submit time, `ALL` must appear in the list - without it you get case (3).
-
-
-
 ## Crontab Emulation
 
 One of the most important Unix tools is the crontab, which is essential for being able to schedule various jobs. It however usually is absent from SLURM environment. Therefore one must emulate it. Here is how.
@@ -1121,37 +1147,6 @@ This then will immediately schedule itself to be run 1 hour from the launch time
 
 As the majority of SLURM environment in addition to the expensive GPU nodes also provide much cheaper CPU-only nodes, you should choose a CPU-only SLURM partition for any jobs that don't require GPUs to run.
 
-
-## Getting information about the job
-
-From within the slurm file one can access information about the current job's allocations.
-
-Getting allocated hostnames and useful derivations based on that:
-```bash
-export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-export NUM_NODES=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
-export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
-```
-
-
-
-## Convert compact node list to expanded node list
-
-Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
-
-```bash
-$ scontrol show hostnames node-[42,49-51]
-node-42
-node-49
-node-50
-node-51
-```
-Voila!
-
-case study: this is for example useful if you want get a list of nodes that were drained because the job was too slow to exit, but really there is no real problem with the nodes. So this one-liner will give you the list of such nodes in an expanded format which you can then script to loop over this list to undrain these nodes after perhaps checking that the processes have died by this time:
-```bash
-sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
-```
 
 ## Overcoming the lack of group SLURM job ownership
 
