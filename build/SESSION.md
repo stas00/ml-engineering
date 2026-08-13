@@ -2,6 +2,7 @@
 
 ## Change approval
 
+0. **NEVER apply anything without an explicit, in-this-turn instruction to apply. This is the single most-violated rule in this collaboration - the user has had to stop the assistant mid-apply repeatedly.** "Anything" means every file without exception: source chapters, code/scripts, `build/SESSION.md`, the review and update reports, everything. Presenting a proposal is not approval. A previous similar edit being approved is not approval. The user answering a clarifying question, refining wording, or asking to `check`/`verify` something is not approval. Reading `next`, `status`, or `re-audit` is not approval. Approval is per-edit and per-turn and looks like `yes`, `apply`, `go`, `go for it`, `do N`, `apply all`. When there is any doubt, present the proposal and STOP - do not edit. Verifying a proposal (compiling, testing, researching) is allowed and encouraged, but the moment it would write to a file, stop and wait.
 1. Always present a concrete proposal before editing source content.
 2. Do not apply a proposed correction, addition, or table change until the user explicitly approves it.
 3. A request phrased `do N` treats suggestion `N` and any qualifiers in the request as the concrete approved proposal for immediate implementation; do not request a second approval.
@@ -138,6 +139,8 @@ When the author approves and you apply a fix, immediately present the next open 
 When the author asks you to fix or change something in a proposal you already showed, re-show the **whole** corrected block, not just the changed fragment. A diff-style snippet of only the edited part forces the author to mentally reassemble the result and hides formatting damage in the surrounding lines. Re-render the entire item as it would land, every time it changes.
 
 When a proposed block is itself Markdown that contains fenced code, do not wrap the whole proposal in an outer ```` ```markdown ```` fence - the inner fence closes the outer one early and mangles the render. Present such a block as normal message content (its own fences render as intended), or describe it without nesting fences.
+
+The user cannot read long unwrapped lines in chat. Treat this as a hard pre-send gate, not a preference: before sending any reply that shows proposed file text, scan the drafted message and hard-wrap every line inside code fences and block quotes to <=72 characters, rewrapping any that exceed it. This is independent of how the text lands in the file - file content stays one line per paragraph per [Source line layout](#source-line-layout), while the chat *preview* of that same text must be wrapped. Conflating the two (sending the file's one-line-per-paragraph form verbatim into chat) is the recurring failure.
 
 ## Update opportunities report
 

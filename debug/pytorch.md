@@ -319,7 +319,9 @@ But the concept is still very simple:
 
 1. Clone the full dataset git repo
 2. Replace its full data tarball with a tiny one that contains just a few samples
-3. Save it - Done!
+3. Publish the tiny result as data files the Hub can load without a custom script (Parquet, Arrow, JSON/JSONL, CSV, or an image/text folder) plus a dataset card - Done!
+
+footnote: as of [`datasets` 4.0](https://github.com/huggingface/datasets/releases/tag/4.0.0), Hub-hosted Python loading scripts are no longer executed by `load_dataset`. Keep any builder/unpacker `.py` in the repo as documentation of how the tiny set was made and for local regeneration, but what remote users load must be the data files themselves. See [Dataset repository structure](https://huggingface.co/docs/datasets/repository_structure).
 
 Here are some examples:
 
@@ -373,9 +375,9 @@ tar -cvzf data.tar.gz data
 echo "This dataset is designed to be used in testing. It's derived from general-pmd/localized_narratives__ADE20k \
 dataset" >> README.md
 
-# test dataset
+# test dataset - it must load from plain data files, with no remote loading script
 cd ..
-datasets-cli test general-pmd-synthetic-testing/general-pmd-synthetic-testing.py --all_configs
+python -c 'from datasets import load_dataset; print(load_dataset("general-pmd-synthetic-testing"))'
 ```
 
 I also recommend to always store the building scripts with the dataset, so that you could quickly fix things or make similar versions of the dataset.
@@ -3025,10 +3027,10 @@ If on Ubuntu by default it sends core files to `apport`, which may save the core
 A quick way to test if your setup can generate a core file is:
 ```
 sleep 10 &
-killall -SIGSEGV sleep
+kill -SEGV $!
 ```
 
-Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hanging program, because `SIGSEGV` is likely to launch a sighandler, but for this test it's good enough.
+Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hanging program, because `SIGSEGV` is likely to launch a sighandler, but for this test it's good enough. (`$!` is the PID of the `sleep` we just backgrounded, so only that process is signalled.)
 
 
 #### Code loops
@@ -3588,7 +3590,7 @@ The other interesting parts of the report are the end-to-end timings:
 Self CPU time total: 2.796ms
 Self CUDA time total: 694.467us
 ```
-thus you can see that in total about 2.8 msec were spent on CPU and 0.7 ms msec on CUDA.
+thus you can see that in total about 2.8 msec were spent on CPU and 0.7 msec on CUDA.
 
 Of course, once you profile a whole model, rather than a single Linear layer you will see a lot more kernels in the profiler output and that's where things become interesting.
 
@@ -3600,7 +3602,7 @@ Additionally, here is [an excellent introduction to `torch.profiler` from the Hu
 
 In the introduction it was stated that cProfile is the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.
 
-Recently I have been diagnosing a strange ~1 sec overhead in forward and backward calls, the `torch.profile` forward measurement would take about 100 msec but the total wallclock timer would be around 1 sec. I was getting no help from torch.profile and decided to run cProfile instead. I immediately saw the issue - it was a triton kernel recompilation that was taking about 1 sec. As I was working with a flattened 2D padded input into 1D unpadded input, the final unpadded tensors was different on many steps and was triggering a kernel recompilation which was written to work with specific input length.
+Recently I have been diagnosing a strange ~1 sec overhead in forward and backward calls, the `torch.profiler` forward measurement would take about 100 msec but the total wallclock timer would be around 1 sec. I was getting no help from torch.profiler and decided to run cProfile instead. I immediately saw the issue - it was a triton kernel recompilation that was taking about 1 sec. As I was working with a flattened 2D padded input into 1D unpadded input, the final unpadded tensors was different on many steps and was triggering a kernel recompilation which was written to work with specific input length.
 
 Let's reproduce this use case and work with different debug tools to understand the situation.
 
@@ -3672,7 +3674,7 @@ class ProfilerContext:
 
     def report(self):
         if self.torch:
-            print(f"*** torch.profile {self.name} ***")
+            print(f"*** torch.profiler {self.name} ***")
             print(self.ctx.key_averages().table(sort_by="cuda_time_total", row_limit=20))
         elif self.c:
             print(f"*** cProfile {self.name} ***")
@@ -3718,8 +3720,8 @@ for i in range(2):
 
 When we run it we get this discrepancy I mentioned earlier:
 ```bash
-$ pytest liger-kernel-varlen-recompile.py
-*** torch.profile FWD 0 ***
+$ python liger-kernel-varlen-recompile.py
+*** torch.profiler FWD 0 ***
 [...]
 Self CPU time total: 119.385ms
 Self CUDA time total: 25.041ms
@@ -3730,7 +3732,7 @@ wallclock duration: 1003.727 msecs
 You can see that the difference between CPU/CUDA time reports and the measured wallclock duration is huge, but on the second step the difference is much smaller:
 
 ```
-*** torch.profile FWD 1 ***
+*** torch.profiler FWD 1 ***
 [...]
 Self CPU time total: 59.184ms
 Self CUDA time total: 25.011ms
@@ -3740,7 +3742,7 @@ wallclock duration: 228.978 msecs
 
 I trimmed out most of the profiling report to show just the relevant for this discussion parts.
 
-Now why does the first forward call takes much longer than PyTorch's `forward` call? Is it because something happens that is not PyTorch related? So let's use the same script but switch from `torch.profile` to `cProfile`, but just editing the script to:
+Now why does the first forward call takes much longer than PyTorch's `forward` call? Is it because something happens that is not PyTorch related? So let's use the same script but switch from `torch.profiler` to `cProfile`, but just editing the script to:
 ```
 PROFILER_TYPE = "c"
 #PROFILER_TYPE = "torch"
