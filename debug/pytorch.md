@@ -2739,7 +2739,7 @@ for every new node you haven't logged into yet, you can disable this check with:
 echo "Host *" >> ~/.ssh/config
 echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 ```
-Here I assume you're on an isolated cluster so you don't need to worry about security issues and thus bypassing such check is most likely OK.
+Here I assume you're on an isolated cluster where replaced nodes routinely change their host keys, so you don't need to worry about security issues and thus bypassing such check is most likely OK.
 
 
 ##### multi-node py-spy via ds_ssh
