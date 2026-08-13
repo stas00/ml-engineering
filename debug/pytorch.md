@@ -3807,3 +3807,5 @@ Now, normally it's perfectly fine that the first call is likely to run some opti
 So if you install `pip install liger-kernel==0.6.1` you will see this problem if your sequence length changes from step to step. I found that installing `liger-kernel>=0.8.0` fixes the problem.
 
 In general when you benchmark code you need a warmup phase where the code is exercised first and you start benchmarking things after step 2 or even later at times, but in this case I wanted to demonstrate how cProfile can still be useful when you profile seemingly pure PyTorch code and you observe that it's underperforming, and it was enough to do it in the very first step. But it'd work just as fine in step 2 and onwards.
+
+footnote: since the culprit here was `torch.compile`, you could also have spotted the recompilation directly with `TORCH_LOGS=recompiles` (and `TORCH_LOGS=graph_breaks` for eager fallbacks); see [PyTorch compiler troubleshooting](https://docs.pytorch.org/docs/stable/torch.compiler_troubleshooting.html).
