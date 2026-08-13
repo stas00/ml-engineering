@@ -3053,15 +3053,9 @@ and now when you run `py-spy` the line numbers will be correct. The processes ha
 
 ### Hardware-specific issues
 
-#### AMD/ROCm hangs or slow with IOMMU enabled
+#### AMD/ROCm hangs or slow with IOMMU
 
-AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/ml-engineering/issues/1#issuecomment-1076830400) or set it to:
-```bash
-GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
-```
-in `/etc/default/grub` (the grub config file could be elsewhere depending on the OS).
-
-Disabling is `GRUB_CMDLINE_LINUX="amd_iommu=off"`
+See [Troubleshooting AMD GPUs](../compute/accelerator/amd/debug.md#hangs-or-slow-multi-gpu-runs-and-iommu).
 
 ## Debugging multi-node training
 

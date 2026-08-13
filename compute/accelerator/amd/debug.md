@@ -242,3 +242,15 @@ Agent 1
         z                        4294967295(0xffffffff)
       FBarrier Max Size:       32
 ```
+
+## Hangs or slow multi-GPU runs and IOMMU
+
+If a multi-GPU ROCm run hangs or crawls, the host's IOMMU configuration is a common culprit. The correct setting is platform-specific - match your hardware instead of blindly disabling it:
+
+- **Modern Instinct (MI300X, MI325X, MI350X, MI355X)**: AMD's system-acceptance guides want the IOMMU **enabled** in BIOS and running in pass-through mode on the kernel command line - `iommu=pt` together with `amd_iommu=on` (or `intel_iommu=on` on Intel hosts). MI350X/MI355X (ROCm 7.0.1+) explicitly list `IOMMU enabled` + `iommu=pt`.
+- **MI100 / MI200 (MI210/MI250/MI250X)**: AMD's qualified BIOS tables typically set the NBIO **IOMMU to Disable**, with `iommu=pt` called out only for hosts with 256+ logical CPUs (so X2APIC can address every core).
+- **Legacy last resort**: on older systems where neither pass-through nor the BIOS default helped, fully disabling it via `amd_iommu=off` (or the softer `iommu=soft`) was the historical workaround - see AMD's [IOMMU advisory for multi-GPU environments](https://community.amd.com/t5/knowledge-base/iommu-advisory-for-multi-gpu-environments/ta-p/477468) and this [issue report](https://github.com/stas00/ml-engineering/issues/1#issuecomment-1076830400) (that particular case was actually on NVIDIA A6000s). This is an invasive, system-wide boot change, and current AMD guidance prefers pass-through over a full disable.
+
+These are boot-time kernel parameters set in `/etc/default/grub` (e.g. `GRUB_CMDLINE_LINUX="... iommu=pt"`; the grub config path varies by OS), followed by regenerating grub and rebooting - so they need admin access.
+
+The per-GPU `IOMMU Support` line in the `rocminfo` output above reflects what the runtime actually sees.
