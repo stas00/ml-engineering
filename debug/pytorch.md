@@ -3174,7 +3174,7 @@ In terminal A:
 ```bash
 $ ssh 10.0.0.1
 $ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py
 ```
 
 In terminal B:
@@ -3182,10 +3182,10 @@ In terminal B:
 ```bash
 $ ssh 10.0.0.2
 $ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py
 ```
 
-Note that I'm using the same `--master_addr 10.0.0.1 --master_port 6000` in both cases because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host.
+Note that both sides use the same `--rdzv_endpoint 10.0.0.1:6000` because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host. With `c10d` rendezvous, ranks are assigned automatically, so there is no need for `--node_rank` / `--master_addr` / `--master_port`.
 
 This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
 
@@ -3195,11 +3195,11 @@ This approach of running things manually from each node is painful and so there 
 
 ```bash
 PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
-"torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
+'torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py'
 ```
 
-You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument.
+You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument. (Single quotes matter here so that `$(hostname -s)` expands on each remote host rather than on the launcher.)
 
 
 **SLURM**
