@@ -3241,6 +3241,15 @@ $ cat hostfile
 10.0.0.1:8
 10.0.0.2:8
 ```
+
+This `host:N` hostfile syntax is the MPICH/Hydra (and Intel MPI / MVAPICH) form. Hostfiles are not standardized across MPI implementations - pick the matching line for your `mpirun`:
+
+| Implementation                    | Per-host count syntax   |
+| --------------------------------- | ----------------------- |
+| Open MPI                          | `10.0.0.1 slots=8`      |
+| MPICH / Hydra, Intel MPI, MVAPICH | `10.0.0.1:8`            |
+| MS-MPI                            | `10.0.0.1 8`            |
+
 and to run, it's just:
 ```bash
 $ mpirun --hostfile hostfile -np 16 -map-by ppr:8:node python my-program.py
