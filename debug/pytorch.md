@@ -2309,6 +2309,148 @@ So, yes, when you switch from async to sync nature, often it can hide some subtl
 Note: [NCCL==2.14.3 coming with `pytorch==1.13` hangs](https://github.com/NVIDIA/nccl/issues/750) when `CUDA_LAUNCH_BLOCKING=1` is used. So don't use it with that version of pytorch. The issue has been fixed in `nccl>=2.17` which should be included in `pytorch==2.0`.
 
 
+### Debugging CUDA kernel memory errors with `compute-sanitizer`
+
+`CUDA_VISIBLE_DEVICES=""` and `CUDA_LAUNCH_BLOCKING=1` from the previous section give you an in-context Python traceback that points at *which* operator failed - but they can't see *inside* a CUDA kernel. When the bug is a bad memory access, a race, or use of uninitialized device memory, NVIDIA's `compute-sanitizer` (ships with the CUDA toolkit; it replaced the old `cuda-memcheck`) instruments the kernel and reports the offending access.
+
+It has four sub-tools, selected with `--tool`:
+- `memcheck` (the default) - out-of-bounds and misaligned device memory accesses, and leaks.
+- `racecheck` - shared-memory data races between threads of a block.
+- `initcheck` - reads of uninitialized device global memory.
+- `synccheck` - invalid `__syncthreads()` / barrier use.
+
+It runs on any process that launches CUDA kernels, `python` included - just prefix your normal command:
+
+```bash
+compute-sanitizer --tool memcheck python my-program.py
+```
+
+Every kernel is instrumented, so expect a large slowdown; narrow to a single reproducing step and use `--launch-count`/`--launch-skip` to check only the suspect launches.
+
+First, when you *don't* need it: modern PyTorch's own indexing / gather / scatter / take kernels bounds-check on the device and `assert`, so a stray index aborts with a clear message, e.g.
+
+```
+.../IndexKernel.cu:339: ... Assertion `idx < numel ... index out of bounds` failed.
+```
+
+For those, `CUDA_LAUNCH_BLOCKING=1` plus the assert already name the op and (with blocking) your exact Python line - no sanitizer needed (the wording and PyTorch source location vary by version). Reach for `compute-sanitizer` when the kernel *doesn't* self-check: your own or a third-party extension that silently corrupts memory and only crashes later somewhere unrelated.
+
+We'll use one tiny buggy kernel, built two ways. It writes with 8 threads into a 4-int buffer, so threads 4-7 run off the end ([kernel_oob.cu](code/kernel_oob.cu)):
+
+```cpp
+#include <torch/extension.h>
+#include <cuda_runtime.h>
+
+__global__ void write_oob(int *p)
+{
+    int i = threadIdx.x;
+    p[i] = i;   // 8 threads, 4-int buffer -> threads 4-7 run off the end
+}
+
+void run()
+{
+    int *d;
+    cudaMalloc(&d, 4 * sizeof(int));   // tight 16-byte allocation
+    write_oob<<<1, 8>>>(d);
+    cudaDeviceSynchronize();
+    cudaFree(d);
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+{
+    m.def("run", &run, "launch the buggy kernel");
+}
+```
+
+#### When you don't have the kernel source
+
+The usual case: the kernel is inside a prebuilt wheel - a release build with no line info, and you don't have the `.cu`. To see exactly what that looks like, build our kernel the way wheels ship it - *without* `-lineinfo` ([kernel_oob_prebuilt.py](code/kernel_oob_prebuilt.py)):
+
+```python
+#!/usr/bin/env python
+import torch
+from torch.utils.cpp_extension import load
+
+# built the way a PyPI wheel ships: release, NO -lineinfo / -G
+ext = load(
+    name="kernel_oob_prebuilt",
+    sources=["kernel_oob.cu"],
+    verbose=False,
+)
+ext.run()
+torch.cuda.synchronize()
+```
+
+```bash
+compute-sanitizer --tool memcheck python kernel_oob_prebuilt.py
+```
+
+memcheck still catches the bad write and pins it to the kernel and to your Python call site - but with no source line inside the kernel:
+
+```
+========= Invalid __global__ write of size 4 bytes
+=========     at write_oob(int *)+0x50
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Access to 0x7f...10 is out of bounds
+=========     and is 1 bytes after the nearest allocation at 0x7f...00 of size 16 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: run() in kernel_oob_prebuilt.so
+=========         [ ... pybind frames ... ]
+=========         Host Frame: <module> in kernel_oob_prebuilt.py:11
+========= ERROR SUMMARY: 8 errors
+```
+
+You get the kernel (`write_oob(int *)+0x50`), the exact overrun (1 byte past a 16-byte allocation), and your Python launch site (`kernel_oob_prebuilt.py:11`) - just not a line *inside* the kernel, which is impossible without a build you don't have. For a real third-party op that's usually enough: which kernel, which of your tensors, which call - then fix the inputs or file a bug upstream.
+
+One PyTorch-specific gotcha: if the overrun is on a normal `torch` tensor, the caching allocator hands out sub-regions of a big `cudaMalloc` slab, so a small overrun stays *inside* the slab and memcheck sees nothing. Disable caching so it can:
+
+```bash
+PYTORCH_NO_CUDA_MEMORY_CACHING=1 compute-sanitizer --tool memcheck python my-program.py
+```
+
+(Our demo allocates its buffer with a raw `cudaMalloc`, so it fires without this - you'll need it for OOBs on real tensors.)
+
+#### When you have the kernel source
+
+If the kernel is *yours*, you control the build, so add `-lineinfo` and memcheck will additionally name the exact offending line ([kernel_oob.py](code/kernel_oob.py)):
+
+```python
+#!/usr/bin/env python
+import torch
+from torch.utils.cpp_extension import load
+
+ext = load(
+    name="kernel_oob",
+    sources=["kernel_oob.cu"],
+    extra_cuda_cflags=["-lineinfo"],
+    verbose=True,
+)
+ext.run()
+torch.cuda.synchronize()
+```
+
+```bash
+compute-sanitizer --tool memcheck python kernel_oob.py
+```
+
+Same report, now with the source line:
+
+```
+========= Invalid __global__ write of size 4 bytes
+=========     at write_oob(int *)+0x50 in kernel_oob.cu:7
+=========     Access to 0x7f...10 is out of bounds
+=========     and is 1 bytes after the nearest allocation at 0x7f...00 of size 16 bytes
+=========         Host Frame: run() in kernel_oob.so
+=========         [ ... pybind frames ... ]
+=========         Host Frame: <module> in kernel_oob.py:11
+========= ERROR SUMMARY: 8 errors
+```
+
+The only difference from the prebuilt run is `in kernel_oob.cu:7` - the exact store. Use `-lineinfo` (keeps optimizations) or `-G` for a full debug build (disables optimizations, much slower). Triton kernels work too and emit line info by default.
+
+Primary reference: [NVIDIA Compute Sanitizer](https://docs.nvidia.com/compute-sanitizer/).
+
+
 ### segfaults and getting a backtrace from a core file
 
 It's not uncommon for a complex pytorch program to segfault and drop a core file. Especially if you're using complex extensions like NCCL.
