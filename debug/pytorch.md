@@ -2108,7 +2108,7 @@ def _forward(self, hidden_states):
 
 def forward(self, hidden_states):
     if torch.is_autocast_enabled():
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast("cuda", enabled=False):
             return self._forward(hidden_states)
     else:
         return self._forward(hidden_states)
