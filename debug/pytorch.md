@@ -3684,6 +3684,29 @@ so you can code it yourself as well.
 
 And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
 
+#### Attaching pdb to an already-running process
+
+`dist.breakpoint()` and `ForkedPdb` above both require you to plant the breakpoint in the source before the run. Python 3.14 adds the missing case: attaching to a process that is *already running* and that you did not prepare in advance, given nothing but its PID ([PEP 768](https://peps.python.org/pep-0768/)):
+```bash
+python -m pdb -p PID
+```
+Both the target and the interpreter you attach with must be Python 3.14+, since it relies on the new safe remote-debugging hook. It drops you at a `(Pdb)` prompt controlling the target wherever it happens to be:
+```
+$ python -m pdb -p 2916
+> /tmp/target.py(6)<module>()
+-> time.sleep(0.2)
+(Pdb) p counter
+8
+(Pdb) c
+```
+From there the usual commands work - `p`/`pp` to inspect, `bt` for the stack, `w` for the current frame. `c` resumes the process; closing the session detaches without killing it (in the run above the target continued and finished normally afterwards). There is no `detach` command - use `c` or quit the debugger.
+
+This is the standard-library counterpart to `py-spy dump`: `py-spy` samples a stack read-only and never stops the target, whereas `python -m pdb -p PID` actually stops the process and lets you evaluate expressions inside it. For a wedged rank in a multi-GPU job that means you can inspect live state even though you never planted a `dist.breakpoint()`. Keep `dist.breakpoint(rank)` as the rank-coordinated path when you *can* edit the source and want a clean, all-ranks-aware stop.
+
+A few caveats: you can normally only attach to your own processes; some systems restrict `ptrace` (the same `kernel.yama.ptrace_scope` consideration as in the py-spy section applies); the target can opt out entirely with `-X disable-remote-debug` or `PYTHON_DISABLE_REMOTE_DEBUG=1`; and a rank blocked inside a C call will not break until that call returns.
+
+Primary reference: [Python 3.14 pdb](https://docs.python.org/3.14/library/pdb.html).
+
 ## Performance and profiling
 
 ### Measuring durations
