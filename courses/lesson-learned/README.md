@@ -340,7 +340,7 @@ From [The Art of Debugging](https://github.com/stas00/the-art-of-debugging):
   - Use this live-attach technique for "spinning" or fully-hung processes, versus the core-file technique above for processes that already crashed.
   - If it's hanging inside Python, `py-spy` is a lifesaver!
 
-  📖 [Get the backtrace from the still running process](https://github.com/stas00/the-art-of-debugging/blob/master/compiled-programs/README.md#get-the-backtrace-from-the-still-running-process) + [py-spy](https://github.com/stas00/the-art-of-debugging/blob/master/pytorch/README.md#py-spy)
+  📖 [Get the backtrace from the still running process](https://github.com/stas00/the-art-of-debugging/blob/master/compiled-programs/README.md#get-the-backtrace-from-the-still-running-process) + [py-spy](https://github.com/stas00/the-art-of-debugging/tree/master/pytorch#py-spy)
 
 - 9.5. **Run flaky or segfaulting tests directly under gdb rather than trying to reproduce the crash blind.**
   - For an intermittently-segfaulting `pytest` test, launch the whole invocation under gdb from the start (`gdb -ex r --args python -m pytest -sv tests/test_failing.py`) rather than trying to catch it separately afterward.
