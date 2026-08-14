@@ -2628,6 +2628,34 @@ poll([{fd=3, events=POLLIN}], 1, 10000) = 1 ([{fd=3, revents=POLLIN}])
 
 You can see where that again it uses FD 3 but this time it opens a INET6 socket instead of a file. You can see that it then connects to that socket, polls, reads and writes from it.
 
+A failing syscall also answers "which file?" when the exception won't. A "No space left on device" traceback names the line that wrote, but not what it was writing to:
+
+```
+Traceback (most recent call last):
+  File "save.py", line 10, in <module>
+    save("x" * 100000)
+  File "save.py", line 8, in save
+    f.write(data)
+OSError: [Errno 28] No space left on device
+```
+
+The path was computed at run time, so it appears nowhere in the traceback. Re-run under `strace` with `-y`, which annotates every file descriptor with the file it points at, and filter down to the calls that matter:
+
+```bash
+strace -y -e trace=openat,write -o strace.txt python save.py
+grep ENOSPC strace.txt
+```
+
+```
+write(3</dev/full>, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"..., 100000) = -1 ENOSPC (No space left on device)
+```
+
+and there is the culprit. (This example writes to `/dev/full`, a device that always reports `ENOSPC`, so you can reproduce the failure without actually filling a disk.)
+
+`-y` needs a reasonably recent `strace`. Without it you get a bare `write(3, ...)` and have to scan backwards for the `openat` that returned FD 3 - the same FD-to-path exercise as above.
+
+If you want to reproduce a disk-full failure on demand rather than wait for one, see [emulating an almost full disk partition](https://github.com/stas00/the-art-of-debugging/tree/master/methodology#emulating-an-almost-full-disk-partition).
+
 There are many other super useful understandings one can derive from using this tool.
 
 BTW, if you don't want to scroll up-down, you can also save the output to a file:
