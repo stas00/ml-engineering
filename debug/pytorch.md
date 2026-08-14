@@ -2775,6 +2775,104 @@ Notes:
 - you might need to `export PDSH_RCMD_TYPE=ssh` if you get `rcmd: socket: Permission denied` error
 
 
+#### Diagnosing NCCL collective hangs
+
+When a multi-GPU run hangs, `py-spy` shows *where* each rank's Python is parked - but that's usually every rank blocked inside the same NCCL wait, which doesn't reveal what went wrong. The useful questions are *which* collective failed to match across ranks and *where in your code* it was issued. PyTorch's ProcessGroupNCCL watchdog answers both, in two escalating steps: a *desync report* that names the rank and collective that fell out of step, and a *flight recorder* that dumps the full per-rank history of recent collectives, each with the Python call stack that issued it. Start with the first; reach for the second only when you need more.
+
+##### The desync report
+
+For most hangs the desync report is enough. Enable it before launching the program with:
+```bash
+export TORCH_NCCL_DESYNC_DEBUG=1
+export TORCH_FR_BUFFER_SIZE=2000
+```
+`TORCH_NCCL_DESYNC_DEBUG=1` makes the watchdog, at timeout, name which collective and which rank fell out of step, and `TORCH_FR_BUFFER_SIZE` (any non-zero value turns the flight recorder on) is what adds the source stack trace of the stuck call to that report.
+
+Let's write a buggy script [collective_mismatch.py](collective_mismatch.py) where rank 0 issues one extra `all_reduce` that the other rank never joins, so every rank blocks until the watchdog fires. Run it with:
+```bash
+torchrun --standalone --nproc_per_node=2 collective_mismatch.py
+```
+after setting the environment variables above.
+
+The repro deliberately passes a short `timeout=timedelta(seconds=8)` to `init_process_group`, which is why the watchdog fires after 8s. If `default_pg_nccl_timeout` is not overridden the default for NCCL is 10 minutes, so the watchdog won't fire until then. When you're actively chasing a hang, lower it to seconds or a few minutes so the report lands promptly but remember to then undo it before going into production.
+
+On timeout the watchdog names the culprit and prints the call stack of the stuck collective:
+```
+[Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=2, OpType=ALLREDUCE, NumelIn=4, NumelOut=4, Timeout(ms)=8000) ran for 8097 milliseconds before timing out.
+ - [0] Timeout at collective: ALLREDUCE, #3
+ - To our best knowledge, the lagging/dead/mismatched ranks that caused the desync are:
+     [1] finished collective #2, but didn't join collective #3 (count from 1)
+Stack trace of the failed collective:
+#2 buggy from collective_mismatch.py:8
+#3 main from collective_mismatch.py:15
+#4 <module> from collective_mismatch.py:18
+```
+That already points at `collective_mismatch.py:8` - the stray `all_reduce` - and, crucially, at `main:15` that called `buggy`, so you learn *how* the bad call was reached, not just that it happened. This is usually enough to locate and fix the bug.
+
+##### The flight recorder trace
+
+If you need a more detailed picture, the flight recorder keeps the full per-rank history - enable the recorder environment variables:
+```bash
+export TORCH_FR_BUFFER_SIZE=2000
+export TORCH_NCCL_DUMP_ON_TIMEOUT=1
+export TORCH_FR_DUMP_TEMP_FILE=/tmp/fr
+```
+- `TORCH_NCCL_DUMP_ON_TIMEOUT=1` - dump the buffer to disk automatically when the watchdog fires; without it the recorder still runs but nothing is written out.
+- `TORCH_FR_DUMP_TEMP_FILE=/tmp/fr` - path prefix for the dump; each rank appends its own rank number, so you get `/tmp/fr0`, `/tmp/fr1`, and so on.
+- `TORCH_FR_BUFFER_SIZE` is explained in the previous section.
+
+and now re-run:
+```bash
+torchrun --standalone --nproc_per_node=2 collective_mismatch.py
+```
+
+footnote: `TORCH_FR_BUFFER_SIZE` and `TORCH_FR_DUMP_TEMP_FILE` were named `TORCH_NCCL_TRACE_BUFFER_SIZE` and `TORCH_NCCL_DEBUG_INFO_TEMP_FILE` before PyTorch 2.9; the old names still work but warn. These `TORCH_NCCL_*`/`TORCH_FR_*` variables are PyTorch-level controls, distinct from NCCL's own `NCCL_*` variables such as `NCCL_DEBUG`.
+
+On timeout each rank writes `/tmp/fr<rank>`. The helper script [collective_mismatch_analyze.py](collective_mismatch_analyze.py) loads the pickle file and, for each collective that did not complete, prints its call site and callers with torch's own frames stripped out:
+```python
+#!/usr/bin/env python
+import pickle, glob, os, torch
+
+SHOW_ALL   = False   # False: only collectives that hung; True: every collective
+NUM_FRAMES = 2       # user frames to show: the actual call site + who called it
+
+TORCH_DIR = os.path.dirname(torch.__file__)      # wherever torch actually lives
+def is_user(frame):                              # skip torch's own collective plumbing
+    return not frame["filename"].startswith(TORCH_DIR)
+
+d = pickle.load(open(sorted(glob.glob("/tmp/fr*"))[0], "rb"))
+for e in d["entries"]:
+    if SHOW_ALL or e["state"] != "completed":
+        print(e["state"], e["profiling_name"])
+        user = [f for f in e["frames"] if is_user(f)]   # innermost first
+        for f in user[:NUM_FRAMES]:                      # call site, then its caller
+            print("   ", f["name"], os.path.basename(f["filename"]) + ":" + str(f["line"]))
+```
+```
+started nccl:all_reduce
+    buggy collective_mismatch.py:8
+    main collective_mismatch.py:15
+scheduled nccl:all_reduce_barrier
+    main collective_mismatch.py:16
+    <module> collective_mismatch.py:18
+```
+The entry left in `started` (or `scheduled`) rather than `completed` is the hang, and its first non-torch frame is the offending call - here `collective_mismatch.py:8`. If you need you can raise `NUM_FRAMES` to a higher number. Set `SHOW_ALL = True` to print the whole timeline, including the collectives that completed before the divergence:
+```
+completed nccl:all_reduce
+    buggy collective_mismatch.py:6
+    main collective_mismatch.py:15
+started nccl:all_reduce
+    buggy collective_mismatch.py:8
+    main collective_mismatch.py:15
+scheduled nccl:all_reduce_barrier
+    main collective_mismatch.py:16
+    <module> collective_mismatch.py:18
+```
+This is usually faster than reading raw stacks because it surfaces the ordering mismatch between ranks - mismatched sizes, a different collective order, or a collective one rank skipped - that causes most NCCL hangs.
+
+Primary reference: [ProcessGroupNCCL environment variables](https://docs.pytorch.org/docs/stable/torch_nccl_environment_variables.html).
+
+
 #### Network-level hanging
 
 The hanging could be happening at the network level. `NCCL_DEBUG=INFO` can help here.

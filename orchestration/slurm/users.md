@@ -1166,7 +1166,7 @@ Of course, don't forget to remove it when you're done stopping the jobs.
 rm $WORK/tmp/training17-kill-switch
 ```
 
-Now, this doesn't always work. If the job is hanging, it'll never come to the point of checking for kill-switch and the only solution here is to contact the sysadmins to kill the job for you. Sometimes if the hanging is a simple case pytorch's distributed setup will typically auto-exit after 30min of preset timeout time, but it doesn't always work.
+Now, this doesn't always work. If the job is hanging, it'll never come to the point of checking for kill-switch and the only solution here is to contact the sysadmins to kill the job for you. Sometimes if the hanging is a simple case pytorch's distributed setup will typically auto-exit after 10min of preset timeout time, but it doesn't always work.
 
 
 ## How to gracefully exit on SLURM job preemption
