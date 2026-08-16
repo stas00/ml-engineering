@@ -568,6 +568,10 @@ For speed comparisons see [this benchmark](https://github.com/huggingface/transf
 
 For convolutions and linear layers there are 2x flops in the backward compared to the forward, which generally translates into ~2x slower (sometimes more, because sizes in the backward tend to be more awkward). Activations are usually bandwidth-limited, and it’s typical for an activation to have to read more data in the backward than in the forward (e.g. activation forward reads once, writes once, activation backward reads twice, `gradOutput` and output of the forward, and writes once, `gradInput`).
 
+### Input data affects measured speed
+
+Measured step time depends on the *values* in the tensors, not only on their shapes. High-entropy inputs flip more transistors per cycle, draw more power, and can pull the boost clock down under the same power / thermal envelope that low-entropy or all-zero inputs leave alone - so an identical kernel may complete its compute at different times than on low-entropy or all-zero inputs of the same shape. For a training or inference bench this means: seed the RNG that builds the inputs (`torch.manual_seed(...)`), and feed a realistic distribution rather than zeros. The effect is small when the distribution is held fixed, but it is not zero. Full write-up, including the power and denormal mechanisms and the citations, under [Input data affects measured performance](../../compute/accelerator/benchmarks/README.md#input-data-affects-measured-performance). This is about *timing* conditions; for *numerical* determinism see [Reproducibility](../reproducibility/README.md).
+
 
 ## Vector and matrix size divisibility
 
