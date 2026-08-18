@@ -2560,6 +2560,34 @@ lr-x------ 1 stas stas 64 Mar  1 17:22 9 -> /dev/nvidia-caps/nvidia-cap2
 ```
 so you can see that a device `/dev/null` is open as FD (file descriptor) 5, `/dev/urandom` as FD 6, etc.
 
+`lsof` gives you the same mapping without going through `/proc`, and adds the file type and the access mode:
+
+```bash
+$ lsof -p PID
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF        NODE NAME
+python  1876037 stas  cwd    DIR  9,127      143 22548711123 /tmp/enospc
+python  1876037 stas  rtd    DIR  0,285     4096 12884906136 /
+python  1876037 stas  txt    REG  0,285 30598912 19864359926 /home/stas/envs/dev/bin/python3.12
+python  1876037 stas    0r   CHR    1,3      0t0           6 /dev/null
+python  1876037 stas    1w  FIFO   0,15      0t0  2216140539 pipe
+python  1876037 stas    2w  FIFO   0,15      0t0  2216140540 pipe
+python  1876037 stas    3w   REG  9,127        1 22548711151 /tmp/enospc/holdme.txt
+python  1876037 stas    4r   CHR    1,9      0t0          11 /dev/urandom
+...
+```
+
+The `FD` column carries the mode - `3w` is FD 3 open for writing, `4r` is FD 4 open for reading - and the special entries `cwd`, `rtd` and `txt` are the working directory, the root directory and the executable itself. Add `-n` to skip hostname lookups and `-P` to skip port-name lookups, both of which make it noticeably faster on a busy machine.
+
+It also answers the question `/proc` can't - *who* has this file open:
+
+```bash
+$ lsof /tmp/enospc/holdme.txt
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF        NODE NAME
+python  1876037 stas    3w   REG  9,127        1 22548711151 /tmp/enospc/holdme.txt
+```
+
+which is how you find the process still holding a deleted-but-not-freed file, or the one keeping a mount busy.
+
 Now let's go look at another snippet from our `strace` run.
 
 ```
