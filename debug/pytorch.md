@@ -1151,7 +1151,7 @@ Once Resident cpu memory (RSS in `top`) hits the preset limit the program will g
 Killed
 ```
 
-which is very difficult to notice. This is typically performed by an `oom-kill` via [cgroups](https://docs.kernel.org/admin-guide/cgroup-v2.html). The `SIGKILL` is not trappable and there is no way to analyze what happens.
+which is very difficult to notice. This is typically performed by an `oom-kill` via [cgroups](https://docs.kernel.org/admin-guide/cgroup-v2.html). The `SIGKILL` is not trappable, so the program itself can't report anything - but the kernel does: see [dmesg](https://github.com/stas00/the-art-of-debugging/tree/master/unix#dmesg) in the companion book for the entry naming the process it killed, how much memory it was holding and which limit it hit, plus the cgroup counters that record the kill without needing `sudo`.
 
 note: Moreover in some situations, as in recent kubernetes implementations, the user gets kicked out from the job allocation, which makes it even more difficult to debug. [Kubernetes Silent Pod Killer](https://itnext.io/kubernetes-silent-pod-killer-104e7c8054d9). This k8s "feature" makes no sense to me.
 
