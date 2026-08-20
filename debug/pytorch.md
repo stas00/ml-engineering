@@ -435,7 +435,7 @@ user    2m9.101s
 sys     2m29.587s
 ```
 
-Looking at the `real` entry (wallclock time) we have 6 minutes loading for the full model vs 20 seconds for the shrunk 2-layer model - that's 18x times faster and ~5.5 minutes of waiting time saved!
+Looking at the `real` entry (wallclock time) we have 6 minutes loading for the full model vs 20 seconds for the shrunk 2-layer model - that's 18x times faster and ~5.5 minutes of waiting time saved! `real` is what matters for this kind of benchmark, since it's the waiting you actually do; the `user` and `sys` figures dwarf it because they count CPU time summed over every core that was busy, not elapsed time - [time](#time) later in this chapter explains all three.
 
 There are 3 ways to accomplish that.
 
