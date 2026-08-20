@@ -125,8 +125,8 @@
 2. Group findings by severity.
 3. Use one flat numerical sequence. A number such as `2` must be sufficient; do not require prefixes such as `HIGH-02`.
 4. Make each suggestion independently actionable so suggestions can be applied in any order.
-5. When a suggestion is applied, remove it from the report.
-6. Do not renumber the remaining suggestions. Removing an applied item leaves a gap, and the gap is correct - a number has to stay a durable identifier so that `do 39` in an old transcript still resolves to the same finding. Record applied numbers in the report's historical sections so the gaps read as history rather than as lost items.
+5. When a suggestion is applied, remove it from the report - see [Resolved items](#resolved-items) for what may be kept.
+6. Do not renumber the remaining suggestions. Removing an applied item leaves a gap, and the gap is correct - a number has to stay a durable identifier so that `do 39` in an old transcript still resolves to the same finding. The `Applied` list of numbers and dates is what makes the gaps read as history rather than as lost items.
 7. Renumbering has happened twice, each time on the author's explicit instruction and each time a compaction into `1..N`: on 2026-08-05, after the correctness queue had been reduced from 39 items to a handful and the sequence had become impossible to count, and on 2026-08-07, when the consistency report's one surviving item went from `75` to `1` and the update queue was compacted into file order so that the chapter audit starting that day could number its findings from `N+1`. Neither is a precedent - do not renumber without being told to. If the count is what you need, state it in the `Severity summary` line rather than reshuffling the identifiers. Each report records its own mapping in its preamble, so an old transcript's number still resolves.
 8. Include a numerical correction plan ordered by practical priority.
 
@@ -159,8 +159,18 @@ The user cannot read long unwrapped lines in chat. Treat this as a hard pre-send
 4. While researching any topic, add newly discovered, primary-source-supported update opportunities to this file.
 5. Propose each update before editing source content.
 6. Finish the correctness suggestions before beginning the update queue unless the user explicitly changes that order.
+7. Before claiming the book never explains something, grep for the *explanation*, not for the first occurrence of the thing being explained. A concept is routinely demonstrated early and explained in depth thousands of lines later. When that is what you have found, the defect is ordering, and the fix is a forward cross-link from the early occurrence - never a second explanation.
 
 Use the newest `build/update-suggestions-*.md` file in the current repository unless the user names a different report.
+
+## Resolved items
+
+1. When an item is resolved, delete it and add its number and date to the file's `Applied` list - that list is the only trace it leaves. Do not replace it with an "applied" note that re-narrates the problem, the verification, or the reasoning behind the fix. The book is the record of what shipped and `git log` is the record of when; a tracking file is a queue of outstanding work, and everything else in it is text that every future read has to skim past.
+2. This covers every tracking file: `build/consistency-review-*.md`, `build/update-suggestions-*.md`, `build/stabs-actionable-*.md`, `stabs/incoming.md`, and `todo.md`.
+3. An item closed *without* a change is different: it leaves one line under `Closed without a change (do not re-raise)`, with the reason. These are the findings that look like defects and are not, and they will be re-raised by the next reviewer if the reason is not written down.
+4. Exactly two things may outlive an applied item. A decision that must not be re-litigated becomes one line under the file's `Rejected (do not propose again)` section. A lesson that would change how future work is done becomes a rule in this file. Whatever fits neither dies with the item.
+4. Deleting leaves a numbering gap, and the gap is correct - see [Suggestions report](#suggestions-report). Never renumber to close it.
+5. Recurring failure: an entry that proves a decision nobody is disputing, or explains something the reader can already see in the book. Both mean the item should have been deleted outright.
 
 ## Review scope
 
