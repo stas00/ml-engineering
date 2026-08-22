@@ -39,6 +39,8 @@ FENCE = re.compile(r'^(```|~~~)')
 LIST = re.compile(r'^\s*([-*+]\s|\d+[.)]\s)')
 # not flowing prose: table, heading, quote, html, image, footnote, or indented
 NOT_PROSE = re.compile(r'^(\||#|>|<|!\[|\[!\[|footnote:|\s)')
+# a link row - bare brackets and one-link-per-line entries - where the line break is the layout
+LINK_ROW = re.compile(r'^([\[\]]|\[[^\]]+\]\([^)]+\)\s*\|?)$')
 
 def wrapped_paragraphs(lines):
     """Runs of more than one flowing-prose line.
@@ -46,6 +48,11 @@ def wrapped_paragraphs(lines):
     Unindented lines below a list item are lazy continuations and keep their own line - joining
     those flattened a one-link-per-line list in `resources/README.md` when this was first written.
     A blank line ends list context.
+
+    A link row is exempt for the same reason: the companion book's `methodology/README.md` puts
+    cheatsheet links one per line inside bare `[` `]` lines, so joining them would destroy the layout
+    rather than unwrap a paragraph. Matching the lines themselves rather than tracking bracket state
+    keeps an unclosed `[` from swallowing the rest of the file.
     """
     out, buf, start, fence, in_list = [], 0, 0, False, False
     for n, l in enumerate(lines, 1):
@@ -55,7 +62,7 @@ def wrapped_paragraphs(lines):
             continue
         if fence:
             continue
-        if l.strip() == '' or LIST.match(l) or in_list or NOT_PROSE.match(l):
+        if l.strip() == '' or LIST.match(l) or in_list or NOT_PROSE.match(l) or LINK_ROW.match(l):
             if l.strip() == '': in_list = False
             if LIST.match(l): in_list = True
             if buf > 1: out.append((start, buf))

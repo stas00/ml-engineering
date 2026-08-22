@@ -15,6 +15,12 @@
 10. If restructuring makes existing data difficult to retain in its original location, leave it unchanged and propose a relocation, annotation, or schema adjustment.
 11. When replacing or restructuring a table, account for every original row and explicitly flag any row that cannot be represented faithfully.
 
+## Before applying an edit
+
+1. Read the sections of this file that govern the edit, not the ones that happen to come to mind. Any new number means [Reader-visible grounding](#reader-visible-grounding); prose means [Source line layout](#source-line-layout) and [Unit formatting](#unit-formatting); a table means [Table ordering and source layout](#table-ordering-and-source-layout); a file with a twin means [Companion book sync](#companion-book-sync).
+2. Run the checks instead of eyeballing the result: `make check-style` always, `make fix-tables` when a table changed rather than hand-padding one, and `make check-links-local-fast` when links or headings changed.
+3. The failure this exists to prevent: treating the chat proposal as the artifact and the file write as mere transcription. Everything that exists only in the file - source alignment, line layout, the make targets - gets skipped that way, and a number that read fine in chat goes in without anyone asking whether the reader can derive it.
+
 ## Book style
 
 1. Before proposing or writing content, inspect the surrounding section and representative existing sections of the book for established conventions.
@@ -145,9 +151,9 @@ Always link to the specific source with a clickable `file:line` reference (for e
 
 When the author approves and you apply a fix, immediately present the next open item in the same reply (same Problem / Solution / Proposal format). Do not stop at a bare "done" and wait for them to say `next`.
 
-When the author asks you to fix or change something in a proposal you already showed, re-show the **whole** corrected block, not just the changed fragment. A diff-style snippet of only the edited part forces the author to mentally reassemble the result and hides formatting damage in the surrounding lines. Re-render the entire item as it would land, every time it changes.
+Revisions follow a fixed cycle: present the full proposal, discuss it, and while amendments are being made show **only the paragraph or block that changed**. A short proposal - roughly three short paragraphs or less - is the exception: re-render the whole of it every time, since re-reading that costs the author nothing and seeing it whole is worth more than the brevity. Anything longer becomes unreadable when repeated - the author cannot re-read a long proposal every few seconds, and the repetition buries the one thing that actually changed. When the amendments are settled, render the full proposal once more, and only then ask for approval to apply. Never ask "apply this?" while the author has seen nothing but fragments, because a section they have only read in pieces is a section they cannot judge.
 
-When a proposed block is itself Markdown that contains fenced code, do not wrap the whole proposal in an outer ```` ```markdown ```` fence - the inner fence closes the outer one early and mangles the render. Present such a block as normal message content (its own fences render as intended), or describe it without nesting fences.
+When a proposed block is itself Markdown that contains fenced code, do not wrap the whole proposal in an outer fence of any kind - labelled ```` ```markdown ````, bare ```` ``` ````, or otherwise - since the inner fence closes the outer one early and every comment after it renders as code. Present such a block as normal message content (its own fences render as intended), or describe it without nesting fences.
 
 The user cannot read long unwrapped lines in chat. Treat this as a hard pre-send gate, not a preference: before sending any reply that shows proposed file text, scan the drafted message and hard-wrap every line inside code fences and block quotes to <=72 characters, rewrapping any that exceed it. This is independent of how the text lands in the file - file content stays one line per paragraph per [Source line layout](#source-line-layout), while the chat *preview* of that same text must be wrapped. Conflating the two (sending the file's one-line-per-paragraph form verbatim into chat) is the recurring failure.
 
