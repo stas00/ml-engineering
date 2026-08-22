@@ -445,6 +445,26 @@ time pip install torch torchvision torchaudio --index-url https://download.pytor
 ```
 As you can see here we time only the 2nd time we install the pip packages.
 
+If you want a write test with no download mixed into it, copy a package you already have onto the file system under test and time that. Here is the `torch` package - 1.67GiB spread over 13019 files - copied onto a local NVMe drive and onto a shared Lustre mount:
+
+```bash
+$ export SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
+
+$ time cp -a $SITE_PACKAGES/torch /tmp/torch-copy
+
+real    0m2.026s
+user    0m0.073s
+sys     0m1.133s
+
+$ time cp -a $SITE_PACKAGES/torch $target_partition_path/torch-copy
+
+real    2m35.880s
+user    0m0.266s
+sys     0m9.262s
+```
+
+That is 77x slower, and a repeat run a few minutes earlier gave 2m30.0s, so it isn't a fluke. `user` and `sys` barely move between the two, so nearly all of that time is spent waiting on the file system - most of those 13019 files are small, and each one is a create that the metadata server has to answer.
+
 
 Step 3. Measure loading time after flushing the memory and file system caches (read test)
 
@@ -461,30 +481,56 @@ If you don't have `sudo` access you can skip the command involving `sudo`, also 
 
 Here is how to see the caching effect:
 ```bash
+$ sudo sync
+$ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m2.107s
+real    0m2.438s
 user    0m8.115s
-sys     0m0.362s
+sys     0m0.434s
 
 $ time python -c "import torch"
 
-real    0m1.217s
-user    0m8.022s
-sys     0m0.235s
+real    0m1.333s
+user    0m8.144s
+sys     0m0.214s
 
 $ sudo sync
 $ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m2.127s
-user    0m8.133s
-sys     0m0.348s
+real    0m2.357s
+user    0m8.177s
+sys     0m0.368s
 ```
 
 You can see that the first time it wasn't cached and took longer, then when I ran it the second time it was faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was slow again.
 
+It helps to know what those seconds are made of. Two different kinds of IO go on during an import: a handful of large sequential reads for the shared objects in `torch/lib`, and a couple of thousand tiny operations - one open per module, plus the lookups that fail while Python probes candidate paths for each one. [`strace`](../debug/pytorch.md#strace) counts the second kind:
+
+```bash
+$ strace -cf -e trace=openat python -c "import torch"
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 openat
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 total
+```
+
+Those 2339 opens - 922 of which failed, since Python probes several candidate paths per module - are a property of the package and the version installed. What each one takes is a property of the file system, and the gap is not subtle. Opening and closing a few thousand small files, on the local NVMe of the same node and on its shared Lustre mount:
+
+| open of one small file | local NVMe | Lustre |
+| :--------------------- | ---------: | -----: |
+| succeeds               |       11us |  2.3ms |
+| fails with `ENOENT`    |      2.4us |  1.1ms |
+
+Apply those to the mix an `import torch` actually performs - 1417 opens that succeed and 922 that fail - and the opens alone go from about 0.02s on the local drive to about 4.3s on Lustre. A shared file system with per-open latency in that range is how a 1.3s import turns into the 20s reported in the case studies above. Repeating the Lustre measurement with everything already read changes nothing, either: what is being paid for is a metadata round trip, and the page cache has nothing to offer it.
+
+The opens are an [IOPS](#metrics) question and the bulk reads of the shared objects in `torch/lib` a throughput one, and a file system can be good at one and poor at the other.
+
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
+
+There is one more thing that even a cache-flushed read test doesn't capture. The first import after an installation compiles each `.py` file it touches into bytecode and writes the `.pyc` into `__pycache__`; every import after that reads the `.pyc` and skips the compile. Flushing the caches doesn't undo that, because the `.pyc` files are still on the disk - so a true first run after an install is slower than any of the numbers above, and a single throwaway `python -c "import torch"` is all it takes to leave that compiled state behind.
 
 Another time I noticed that `git status` was taking multiple seconds. I use [bash-git-prompt](https://github.com/magicmonty/bash-git-prompt) and it runs `git status` before every return of the prompt when inside a git repo clone, and it was becoming super sluggish and difficult to work. So I benchmarked `git status`:
 

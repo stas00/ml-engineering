@@ -991,8 +991,8 @@ So let's run a little program that allocates a tensor, copies it to cpu, frees i
 ```python
     device = "cuda" if torch.cuda.is_available() else "cpu"
     see_memory_usage("before alloc", force=True)
-    t1 = torch.zeros(10_0000,10_000, device=device)
-    t2 = torch.zeros(10_0000,10_000, device=device)
+    t1 = torch.zeros(100_000,10_000, device=device)
+    t2 = torch.zeros(100_000,10_000, device=device)
     del t2
     see_memory_usage("after alloc", force=True)
     c1 = t1.cpu()
@@ -1027,7 +1027,7 @@ Legend:
 - `CA `: `torch.cuda.memory_reserved()`
 - `Max_CA`: `torch.cuda.max_memory_reserved()`
 - `NV`: current total memory usage like `nvidia-smi` report, which is almost always more than what's reported by torch.cuda (the `MA` column)
-- `CPU mem`: two point-in-time CPU RAM readings from `psutil` - `proc` is *this* process's resident memory (RSS, `psutil.Process().memory_info().rss`), which is what you usually want when debugging your own program, and `node` is host-wide RAM in use (`total - available`) with its `percent` of total. Both are snapshots, not peaks - for peak CPU usage see [Getting program's CPU peak memory usage](#getting-programs-cpu-peak-memory-usage)
+- `CPU mem`: two point-in-time CPU RAM readings from `psutil` - `proc` is *this* process's resident memory (RSS, `psutil.Process().memory_info().rss`), which is what you usually want when debugging your own program, and `node` is host-wide RAM in use (`total - available`) with its `percent` of total. On a shared node the `node` figure includes everyone else's memory, so watch `proc` for your process and use `node` only to see how close the whole box is to full. Both are snapshots, not peaks - for peak CPU usage see [Getting program's CPU peak memory usage](#getting-programs-cpu-peak-memory-usage)
 
 Now that we know what each column stands for let's analyze the output of the program.
 
@@ -1040,8 +1040,8 @@ If you look at the `NV` column you can see the gpu was already using 0.71GiB of 
 
 Then we execute:
 ```
-    t1 = torch.zeros(10_0000,10_000, device=device)
-    t2 = torch.zeros(10_0000,10_000, device=device)
+    t1 = torch.zeros(100_000,10_000, device=device)
+    t2 = torch.zeros(100_000,10_000, device=device)
     del t2
 ```
 and the corresponding log around it is:
@@ -3789,16 +3789,86 @@ As you may have noticed in the earlier sections of this chapter that there are d
 
 ```bash
 $ time python -c 'import torch'
-real    0m0.943s
-user    0m0.837s
-sys     0m0.104s
+real    0m1.399s
+user    0m8.222s
+sys     0m0.209s
 ```
 Here:
 - `real` signifies the wall clock time - that is if you were to use a stop-watch - this the amount of elapsed time since you launched the program and it has finished its run
 - `user` is the amount of time the program spent performing calls in the user-space - that is your program
 - `sys` is the amount of time performing system calls (operating system / kernel level) - things like IO, networking, memory
 
-While in the above demo `user+sys` time (`.104+.837=0.941`) almost adds up to `real` time (`0.943`), very often it's not the case and `real` time can be both bigger and lower. If, for example, you're doing some very demanding compilation like building PyTorch using `make -j` to use all the cpu-cores, and at the same time you decide to run another program on the same system - the latter is likely to report a bigger `real` time and a smaller `user` plus `sys` time, because your program will be fighting with dozens of copies of `gcc` to get its share of a cpu time, spending a lot of time waiting. Slow or blocking IO (e.g. shared nfs filesystem) is another example of the same discrepancy. Usually if your software isn't competing with another software, then `real` is all you should care about. Analyzing `sys` + `user` is important for those who optimize the low level systems.
+Here `user+sys` (`8.222+0.209=8.431`) is six times bigger than `real` (`1.399`). That's not a contradiction: `real` is what a stop-watch would show, while `user` and `sys` count cpu-time summed over every thread that ran. This compute node has 192 cpu-cores and importing `torch` spins up a thread pool across them, so cpu-seconds pile up much faster than wall clock seconds. Restrict it to a single thread and the cpu-time collapses while the wall clock time stays where it was:
+```bash
+$ time OMP_NUM_THREADS=1 python -c 'import torch'
+real    0m1.377s
+user    0m1.099s
+sys     0m0.258s
+```
+Now `user+sys` (`1.099+0.258=1.357`) does add up to `real` (`1.377`) - and note that the 7 extra cpu-seconds of the first run bought no wall clock time at all. `real` time can also be bigger than `user+sys`, and that happens when the program waits instead of computing. If, for example, you're doing some very demanding compilation like building PyTorch using `make -j` to use all the cpu-cores, and at the same time you decide to run another program on the same system - the latter is likely to report a bigger `real` time and a smaller `user` plus `sys` time, because your program will be fighting with dozens of copies of `gcc` to get its share of a cpu time, spending a lot of time waiting. Slow or blocking IO (e.g. shared nfs filesystem) is another example of the same discrepancy. Usually if your software isn't competing with another software, then `real` is all you should care about. Analyzing `sys` + `user` is important for those who optimize the low level systems.
+
+#### hyperfine
+
+[hyperfine](https://github.com/sharkdp/hyperfine) runs a given command multiple times and reports how long it took to run: the mean, the standard deviation, and the fastest and slowest run. It can also compare two or more commands and report which one is faster and by how much.
+
+If you don't already have it installed do:
+```bash
+sudo apt-get install -y hyperfine
+```
+
+Here it is on the same import that was measured with [`time`](#time):
+```bash
+$ hyperfine 'python -c "import torch"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      1.412 s ±  0.024 s    [User: 8.160 s, System: 0.290 s]
+  Range (min … max):    1.378 s …  1.454 s    10 runs
+```
+It ran the command 10 times, which is the default - use `-r N` to set the number of runs. The `± 0.024 s` is the part `time` can't tell you: repeated runs of the same command differ from each other by about 24ms, so a change that saves 10ms hasn't been shown to save anything.
+
+To compare two commands, pass both of them:
+```bash
+$ hyperfine -w 2 'python -c "import torch"' 'python -c "import transformers"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      1.415 s ±  0.026 s    [User: 8.226 s, System: 0.224 s]
+  Range (min … max):    1.379 s …  1.455 s    10 runs
+
+Benchmark 2: python -c "import transformers"
+  Time (mean ± σ):      1.211 s ±  0.017 s    [User: 8.024 s, System: 0.245 s]
+  Range (min … max):    1.186 s …  1.233 s    10 runs
+
+Summary
+  python -c "import transformers" ran
+    1.17 ± 0.03 times faster than python -c "import torch"
+```
+`-w 2` performs a warmup by running each command twice before it starts measuring. Importing `transformers` is faster than importing `torch`, even though `transformers` needs `torch`, because it doesn't import it:
+```bash
+$ python -c 'import transformers, sys; print("torch" in sys.modules)'
+False
+```
+
+Every measurement above most likely came from the cache - the files being imported were already in the kernel's page cache, put there by earlier runs. When they aren't cached they get read off the disk instead, which can happen for any number of reasons - a new node, a fresh install, the first run of the day, someone flushing the cache or the kernel reclaiming that memory for something else. Use `--prepare` or `-p` to run a command before each timed run, and drop the caches there:
+```bash
+$ hyperfine -p 'sync; echo 3 | sudo tee /proc/sys/vm/drop_caches' 'python -c "import torch"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      2.103 s ±  0.054 s    [User: 8.319 s, System: 0.348 s]
+  Range (min … max):    2.018 s …  2.191 s    10 runs
+```
+The same import takes 1.5x longer with no cache to read from.
+
+It is likely to take much longer than that if the files are on a networked filesystem. Here is the `torch` package copied onto a local NVMe drive and onto a shared Lustre mount, then imported from each:
+
+| package on | from cache     | from the filesystem |
+| :--------- | -------------: | ------------------: |
+| local NVMe | 1.491s ± 0.178 |      2.134s ± 0.035 |
+| Lustre     | 1.681s ± 0.494 |     10.589s ± 0.104 |
+
+With nothing cached, Lustre takes 5.0x as long as the local drive, and 7.1x as long as the local drive reading from cache. This is why installing packages on a shared filesystem and then importing them is so much slower than doing the same thing on a local disk. Writing the package is punished even harder than reading it - copying these same files took 2.026s onto the local drive and 2m35.880s onto Lustre. The cached Lustre figure is unreliable as well - those runs ranged from 1.441s to 2.912s, because the Lustre client doesn't keep a package that size cached for long.
+
+`User` time stays at about 8.3s in all of these runs, so the extra wall clock time is time spent waiting for IO.
+
+What an import actually reads, and how to build a file system benchmark out of timings like these, is covered in [Usability perception IO benchmarks](../storage/README.md#usability-perception-io-benchmarks).
+
+So when you compare two timings, make sure both were taken the same way - both from cache or both not, and both from the same filesystem. Otherwise what you're measuring is the cache and the filesystem, not the change you made.
 
 
 #### Event-based durations
@@ -3872,44 +3942,44 @@ torch.cuda.synchronize()
 with profile(activities=[ProfilerActivity.CUDA], with_stack=True) as prof:
     out = linear(x)
     torch.cuda.synchronize()
-print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=50))
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=27))
 ```
 
 It creates a Linear layer, creates a random input tensor and feeds it to the Linear layer. This is done twice, the first time is the warmup which we ignore and the second time we run the linear layer with `torch.profiler` and then print the profiler report:
 
 ```bash
 $ python torch-profile-linear-example.py
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-                                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...         0.00%       0.000us         0.00%       0.000us       0.000us     692.898us        99.77%     692.898us     692.898us             1
-                                   Memset (Device)         0.00%       0.000us         0.00%       0.000us       0.000us       1.569us         0.23%       1.569us       1.569us             1
-                           Activity Buffer Request        58.16%       1.626ms        58.16%       1.626ms       1.626ms       0.000us         0.00%       0.000us       0.000us             1
-                             cudaStreamIsCapturing         0.20%       5.714us         0.20%       5.714us       5.714us       0.000us         0.00%       0.000us       0.000us             1
-                                        cudaMalloc        15.12%     422.728us        15.12%     422.728us     422.728us       0.000us         0.00%       0.000us       0.000us             1
-                                   cudaMemsetAsync         0.60%      16.840us         0.60%      16.840us      16.840us       0.000us         0.00%       0.000us       0.000us             1
-                             cudaFuncGetAttributes         0.29%       8.029us         0.29%       8.029us       4.014us       0.000us         0.00%       0.000us       0.000us             2
-                               cudaLaunchKernelExC         1.08%      30.300us         1.08%      30.300us      30.300us       0.000us         0.00%       0.000us       0.000us             1
-                             cudaDeviceSynchronize        24.55%     686.310us        24.55%     686.310us     343.155us       0.000us         0.00%       0.000us       0.000us             2
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-Self CPU time total: 2.796ms
-Self CUDA time total: 694.467us
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+                       Name  Self CPU %   Self CPU  CPU total %  CPU total  CPU time avg  Self CUDA  Self CUDA %  CUDA total  CUDA time avg  # of Calls
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+sm90_xmma_gemm_f32f32_tf...       0.00%    0.000us        0.00%    0.000us       0.000us  687.139us       99.80%   687.139us      687.139us           1
+            Memset (Device)       0.00%    0.000us        0.00%    0.000us       0.000us    1.344us        0.20%     1.344us        1.344us           1
+    Activity Buffer Request      69.98%    2.193ms       69.98%    2.193ms       2.193ms    0.000us        0.00%     0.000us        0.000us           1
+      cudaStreamIsCapturing       0.26%    8.203us        0.26%    8.203us       8.203us    0.000us        0.00%     0.000us        0.000us           1
+                 cudaMalloc      10.75%  337.029us       10.75%  337.029us     337.029us    0.000us        0.00%     0.000us        0.000us           1
+            cudaMemsetAsync       0.61%   19.135us        0.61%   19.135us      19.135us    0.000us        0.00%     0.000us        0.000us           1
+      cudaFuncGetAttributes       0.28%    8.769us        0.28%    8.769us       4.385us    0.000us        0.00%     0.000us        0.000us           2
+        cudaLaunchKernelExC       1.23%   38.672us        1.23%   38.672us      38.672us    0.000us        0.00%     0.000us        0.000us           1
+      cudaDeviceSynchronize      16.88%  529.079us       16.88%  529.079us     264.540us    0.000us        0.00%     0.000us        0.000us           2
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+Self CPU time total: 3.134ms
+Self CUDA time total: 688.483us
 ```
 
-From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 692.898us, which accounted for 99.77% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...`.
+From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 687.139us, which accounted for 99.80% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf...`.
 
 Since kernel names tend to include dtype and shapes they can be pretty long, so if you'd like to see the full name, you can make `max_name_column_width` longer, for example:
 ```diff
-- print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=50))
+- print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=27))
 + print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=450))
 ```
 
 The other interesting parts of the report are the end-to-end timings:
 ```
-Self CPU time total: 2.796ms
-Self CUDA time total: 694.467us
+Self CPU time total: 3.134ms
+Self CUDA time total: 688.483us
 ```
-thus you can see that in total about 2.8 msec were spent on CPU and 0.7 msec on CUDA.
+thus you can see that in total about 3.1 msec were spent on CPU and 0.7 msec on CUDA.
 
 Of course, once you profile a whole model, rather than a single Linear layer you will see a lot more kernels in the profiler output and that's where things become interesting.
 
