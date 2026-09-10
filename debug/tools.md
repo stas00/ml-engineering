@@ -5,7 +5,7 @@
 
 ### Useful aliases
 
-Show a diff of all files modified in the current branch against HEAD:
+Show a diff of all files modified in the current branch against the remote default branch:
 ```bash
 alias brdiff="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff origin/\$def_branch..."
 ```
@@ -15,7 +15,7 @@ Same, but ignore white-space differences, adding `--ignore-space-at-eol` or `-w`
 alias brdiff-nows="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff -w origin/\$def_branch..."
 ```
 
-List all the files that were added or modified in the current branch compared to HEAD:
+List all the files that were added or modified in the current branch compared to the remote default branch:
 ```bash
 alias brfiles="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff --name-only origin/\$def_branch..."
 ```
@@ -60,7 +60,7 @@ git bisect start
 
 3. Discover the last known good and the first known bad commits
 
-`git bisect` needs just 2 data points to do its work. It needs to know one earlier commit that is known to work (`good`) and one later commit that is know to break (`bad`). So if you look at the sequence of commits on a given branch it'd have 2 known points and many commits around these that are of an unknown quality:
+`git bisect` needs just 2 data points to do its work. It needs to know one earlier commit that is known to work (`good`) and one later commit that is known to break (`bad`). So if you look at the sequence of commits on a given branch it'd have 2 known points and many commits around these that are of an unknown quality:
 
 ```
 ...... orig_good ..... .... .... .... ..... orig_bad ....
@@ -151,7 +151,7 @@ git bisect visualize --oneline
 
 6. Clean up
 
-So now restore the git repo clone to the same state you started from (most likely `HEAD) with:
+So now restore the git repo clone to the same state you started from (most likely `HEAD`) with:
 ```bash
 git bisect reset
 ```
@@ -169,7 +169,7 @@ If for some reason the current commit cannot be tested - it can be skipped with:
 ```bash
 git bisect skip
 ```
-and it `git bisect` will continue bisecting the remaining commits.
+and `git bisect` will continue bisecting the remaining commits.
 
 This is often helpful if some API has changed in the middle of the commit range and your program starts to fail for a totally different reason.
 
@@ -192,13 +192,15 @@ git bisect start --term-new=fixed --term-old=broken
 git bisect fixed
 git bisect broken 6c94774
 ```
-and then use:
+and then continue marking commits with:
 ```bash
-git fixed / git broken
+git bisect fixed
+git bisect broken
 ```
 instead of:
 ```bash
-git good / git bad
+git bisect good
+git bisect bad
 ```
 
 c. complications

@@ -2,194 +2,6 @@
 
 ## Fast debug of PyTorch models
 
-### Reducing the number of layers for large models
-
-When debugging PyTorch workflows, as explained in [using small payload](https://github.com/stas00/the-art-of-debugging/blob/master/methodology/README.md#2-small-payload) you'd normally try to use tiny random models (see [here how to get and create those](#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets)). But since some problems only appear at scale it's very likely you'd have to use the full-sized model, which may take a very long time to load and run until it gets to the point of interest, where problems appear.
-
-Given the nature of ML model architectures, they typically use a sequence of identical layers that repeat one after another. Therefore, if a model has, say, 48 layers, you can shrink it to just 2 layers, which will dramatically speed up both the loading and running the code. Of course, the qualitative outcome will be bad, but we aren't concerned with quality if the workload hangs or breaks.
-
-Therefore in this section we will discuss how to reduce the model's number of hidden layers from many to just 1-2. If the layers aren't identical (e.g. some MoE models alternate between 2 different block configurations) then ensure you include at least one variation of each. For the purpose of the following demonstrations we will use this MoE model [Qwen/Qwen3-30B-A3B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507). We have 48 hidden layers there as can be seen from its [config file](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/main/config.json).
-
-This model may have 2 alternating types of Transformer blocks, so we need to keep at least 2 layers. (`Qwen/Qwen3-Next-80B-A3B-Instruct` uses a full attention block only once every 4 layers so there you'd need at least 4 layers.)
-
-The config entry that we want to change is [`num_hidden_layers`](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/e67ac5d/config.json#L24)
-
-Let's first run a quick test to demonstrate that even just the model loading time can be much faster, before seeing the huge speedup in the compute time:
-
-```bash
-git clone https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507
-time python -c 'import sys; from transformers import AutoModelForCausalLM; \
-AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
-perl -pi -e 's|"num_hidden_layers": 48|"num_hidden_layers": 2|' Qwen3-30B-A3B-Instruct-2507/config.json
-time python -c 'import sys; from transformers import AutoModelForCausalLM; \
-AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
-```
-
-so here we clone the model locally and then measured how long it took to load the base model:
-```
-real    5m59.857s
-user    128m28.088s
-sys     16m33.861s
-```
-then we reduced the number of layers from 48 to 2 and repeated the model loading. This time we get:
-```
-real    0m20.398s
-user    2m9.101s
-sys     2m29.587s
-```
-
-Looking at the `real` entry (wallclock time) we have 6 minutes loading for the full model vs 20 seconds for the shrunk 2-layer model - that's 18x times faster and ~5.5 minutes of waiting time saved!
-
-There are 3 ways to accomplish that.
-
-In this discussion we presume you're using HF Transformers-based models, but the same methodology could be translated to other modeling frameworks.
-
-#### 1. local clone with config edits
-
-After finding the desired model on https://huggingface.co/, clone its git repo to the local disk, modify the `num_hidden_layers` entry in `config.json`, and then load the model from the local clone (same as we have just shown when measuring model loading time).
-
-```bash
-git clone https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507
-perl -pi -e 's|"num_hidden_layers": 48|"num_hidden_layers": 2|' Qwen3-30B-A3B-Instruct-2507/config.json
-python -c 'import sys; from transformers import AutoModelForCausalLM; \
-AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
-```
-Please make sure that you load the locally cloned version, that is:
-```
-- ... from_pretrained("Qwen/Qwen3-30B-A3B-Instruct-2507")
-+ ... from_pretrained("./Qwen3-30B-A3B-Instruct-2507")
-```
-
-This approach is useful since you don't need to change the user-end code.
-
-#### 2. editing the config object on the fly
-
-The other even simpler approach is to hack the config object on the fly. This requires no local cloning and is probably the easiest solution, though it requires modifying the end user code:
-```bash
-python -c 'import sys; from transformers import AutoModelForCausalLM, AutoConfig; \
-c=AutoConfig.from_pretrained(sys.argv[1]); c.num_hidden_layers=2; \
-m=AutoModelForCausalLM.from_pretrained(sys.argv[1], config=c)' Qwen/Qwen3-30B-A3B-Instruct-2507
-```
-
-And since you will end up with an incomplete model which will generate random outputs anyway, you can also save the overhead of loading the original model weights and just create the model on the fly like so:
-
-```bash
-python -c 'import sys; from transformers import AutoModelForCausalLM, AutoConfig; \
-c=AutoConfig.from_pretrained(sys.argv[1]); c.num_hidden_layers=2; \
-m=AutoModelForCausalLM.from_config(c)' Qwen/Qwen3-30B-A3B-Instruct-2507
-```
-
-#### 3. hacking the architecture modeling code
-
-This approach is most useful if you need to deal with multiple models of the same architecture and you don't want to modify the end user code.
-
-First we clone HF Transformers and install its editable version:
-```
-git clone https://github.com/huggingface/transformers/tree/main/src/transformers
-cd transformers
-pip install -e .[dev]
-```
-Now we can tweak the code under `src/transformers` and it will be immediately visible to the Python environment that is being used.
-
-Continuing the example of working with `Qwen/Qwen3-30B-A3B-Instruct-2507` model, we find the place where its architecture modeling code lives in the HF Transformers code base. For example, we can look at the `architectures` field in the [model's config](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/e67ac5d/config.json#L3), which gives us `Qwen3MoeForCausalLM`. We now find the Python module where it lives in the HF Transformers code base:
-
-```bash
-$ grep -Ir "class Qwen3MoeForCausalLM" src/transformers/models
-src/transformers/models/qwen3_moe/modeling_qwen3_moe.py:class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel, GenerationMixin):
-src/transformers/models/qwen3_moe/modular_qwen3_moe.py:class Qwen3MoeForCausalLM(MixtralForCausalLM):
-```
-
-So we know it's in `src/transformers/models/qwen3_moe/modeling_qwen3_moe.py` (we don't care for `modular_qwen3_moe.py` in this situation, since it's `modeling_qwen3_moe.py` that gets loaded).
-
-Now we open `src/transformers/models/qwen3_moe/modeling_qwen3_moe.py` in the editor and search for `num_hidden_layers` usages to find where the layers are initialized, which in this case is here:
-
-```python
-class Qwen3MoeModel(Qwen3MoePreTrainedModel):
-    def __init__(self, config: Qwen3MoeConfig):
-        super().__init__(config)
-        [...]
-        self.layers = nn.ModuleList(
-            [Qwen3MoeDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
-        )
-```
-
-So now we just hack the value of `num_hidden_layers` and we are done:
-```python
-class Qwen3MoeModel(Qwen3MoePreTrainedModel):
-    def __init__(self, config: Qwen3MoeConfig):
-        super().__init__(config)
-        [...]
-        config.num_hidden_layers = 2
-        self.layers = nn.ModuleList(
-            [Qwen3MoeDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
-        )
-```
-and now as long as this version of HF Transformers is devel-installed (`pip install -e .`) into the running Python environment `Qwen3MoeForCausalLM`-type of models will only use the first 2 layers as if it were the full model.
-
-If you need to load the full model, but only run a few layers, then you can hack the loop over the layers in the model's `forward`. If the original code in `Qwen3MoeModel.forward` was:
-
-```python
-for decoder_layer in self.layers[: self.config.num_hidden_layers]):
-    hidden_states = decoder_layer(...)
-```
-you can change to:
-```python
-KEEP_N_LAYERS = 2
-for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
-    # note: shortcut for much faster completion
-    if idx+1 > KEEP_N_LAYERS: continue
-    hidden_states = decoder_layer(...)
-```
-
-
-#### Additional Notes
-
-When you load a pre-trained model while shortening its layers stack, you're going to see a flurry of warnings telling you that some weights have been ignored.
-
-Also I'm reminding that you will end up with a model which will allow you to perform functional checks and tune ups - memory usage and performance, etc. It will produce garbage and if you measure the loss it'll be very high (though it shouldn't be `NaN`).
-
-You can now measure performance with say 2 and 4 layers and tell how much overhead each layer takes from the difference and extrapolate this to what the full model will need.
-
-Memory usage-wise, unless there is a memory leak, after the first layer finished running, subsequent layers shouldn't consume any additional CPU or GPU memory (other than peak memory) if activation checkpointing is not used and `torch.cuda` memory cache isn't flushed. If activation checkpointing is enabled, then expect each layer to consume the same additional amount of memory as the previous one (of the size of the checkpointed tensor).
-
-#### Other shrink-the-stack use cases
-
-You can apply a similar hack to other components that also have stacks of identical code-wise blocks. For example, you could reduce the number of attention heads and then the attention mechanism will run much faster (but of course producing garbage, which is fine most of the time when we focus on functional debugging) or skipping most attention blocks completely.
-
-When I was debugging 15M sequence length training using [ALST](https://arxiv.org/abs/2506.13996) - I would only run self-attention in the last layer and then skip it in the previous layers - this reduced my testing time from hours to minutes, since very long sequence length using full self-attention has an O(2) quadratic nature with regards to sequence length it attends to.
-
-Let's say we run only attention in the last layer:
-
-In attention `__init__` we set a few flags, let's use `Qwen3MoeAttention`:
-```python
-    def __init__(self, config: Qwen3MoeConfig, layer_idx: int):
-        super().__init__()
-        self.skip_all_but_last_attention_debug_mode = True
-        self.rotating_layer_counter = 0
-```
-
-and then in `Qwen3MoeAttention.forward`, we replace:
-```python
-attn_output, attn_weights = attention_interface((self, query_states, ...)
-```
-
-(note the `...` - most args were trimmed for this exemplification), with:
-```python
-import einops
-if not self.skip_all_but_last_attention_debug_mode:
-    attn_output, attn_weights = attention_interface(self, query_states, ...)
-else:
-    self.rotating_layer_counter = (self.rotating_layer_counter + 1) % self.num_hidden_layers
-    # we detect the last layer by module counting since we know how many layers there are
-    if self.rotating_layer_counter % self.num_hidden_layers == 0:
-        attn_output, attn_weights = attention_interface(self, query_states, ...)
-    else:
-        # this feeds bogus data of the right shape connected to a graph - good enough for debug
-        attn_output = einops.rearrange(query_states, "bs hc sl ... -> bs sl hcl ...")
-        attn_weights = None
-```
-and, of course, install `pip install einops` for the above code to work.
-
 ### Faster Debug and Development with Tiny Models, Tokenizers and Datasets
 
 If you're debugging problems and develop with full sized models and tokenizers you're likely not working in a very efficient way. Not only it's much more difficult to solve problem, the amount of waiting to get the program to restart and to get to the desirable point can be huge - and cumulatively this can be a huge drain on one's motivation and productivity, not talking about the resolution taking much longer, if at all.
@@ -264,6 +76,8 @@ config.update(dict(
 ))
 ```
 
+Note that this encoder-decoder model takes both layer counts. `num_decoder_layers` falls back to `num_layers` only when it isn't set, and a config loaded from a real checkpoint already has it set, so trimming `num_layers` alone would leave the decoder at its full depth. Other encoder-decoder architectures split it differently - BART, Marian, Pegasus and Whisper name the pair `encoder_layers` and `decoder_layers` - but the rule is the same: shrink both.
+
 The original ["google/mt5-small"](https://huggingface.co/google/mt5-small/tree/main) model file was 1.2GB. With the above changes (and vocab shrinking as explained in the following sections) we got it down to 126MB.
 
 If you're dealing with a multi-level nested config, you will have to update each sub-level's config object separately. For example in [IDEFICS](https://huggingface.co/HuggingFaceM4/idefics-9b/blob/main/config.json) we have 1 main and 2 nested objects:
@@ -287,6 +101,26 @@ config.update(dict(
 config.vision_config.update(dict(embed_dim=64))
 ```
 See [idefics-make-tiny-model.py](tiny-scripts/idefics-make-tiny-model.py) for a fully working script (I didn't bother adding the vocab shrinking as I'm just demonstrating how to update nested config objects here).
+
+A related trap: architectures that interleave block types spell the pattern out in a `layer_types` list with one entry per layer. [Qwen/Qwen-AgentWorld-35B-A3B](https://huggingface.co/Qwen/Qwen-AgentWorld-35B-A3B/blob/main/config.json#L19) carries 40 `linear_attention`/`full_attention` entries beside its `"num_hidden_layers": 40`, and the two have to be trimmed together - and, as in the nested case above, both keys live under `text_config`.
+
+A mismatch fails in two different ways. Save the shrunken config and load it back, and it refuses outright:
+
+```
+StrictDataclassClassValidationError: Class validation error for validator 'validate_layer_type':
+    ValueError: `num_hidden_layers` (2) must be equal to the number of `layer_types` (40)
+```
+
+Mutate the config object in memory only, and nothing is raised - the model quietly builds your 2 layers from the first 2 entries of the untouched list, and since this model's full attention block first appears at index 3, you get two linear-attention layers and none of the block you meant to keep. So trim the list in lockstep:
+
+```python
+config.text_config.update(dict(
+    num_hidden_layers=4,
+    layer_types=config.text_config.layer_types[:4],
+))
+```
+
+If you're editing `config.json` directly, you can instead delete the `layer_types` entry and let the config regenerate the pattern from `full_attention_interval` at the new depth. Either way, pick a depth that spans one full period of the pattern - 4 rather than 2 for this model - or the variation you were keeping disappears.
 
 We can then further halve our tiny model size by converting the model to fp16 or bf16 (depending on the goal) before saving it:
 
@@ -507,7 +341,9 @@ But the concept is still very simple:
 
 1. Clone the full dataset git repo
 2. Replace its full data tarball with a tiny one that contains just a few samples
-3. Save it - Done!
+3. Publish the tiny result as data files the Hub can load without a custom script (Parquet, Arrow, JSON/JSONL, CSV, or an image/text folder) plus a dataset card - Done!
+
+footnote: as of [`datasets` 4.0](https://github.com/huggingface/datasets/releases/tag/4.0.0), Hub-hosted Python loading scripts are no longer executed by `load_dataset`. Keep any builder/unpacker `.py` in the repo as documentation of how the tiny set was made and for local regeneration, but what remote users load must be the data files themselves. See [Dataset repository structure](https://huggingface.co/docs/datasets/repository_structure).
 
 Here are some examples:
 
@@ -561,9 +397,9 @@ tar -cvzf data.tar.gz data
 echo "This dataset is designed to be used in testing. It's derived from general-pmd/localized_narratives__ADE20k \
 dataset" >> README.md
 
-# test dataset
+# test dataset - it must load from plain data files, with no remote loading script
 cd ..
-datasets-cli test general-pmd-synthetic-testing/general-pmd-synthetic-testing.py --all_configs
+python -c 'from datasets import load_dataset; print(load_dataset("general-pmd-synthetic-testing"))'
 ```
 
 I also recommend to always store the building scripts with the dataset, so that you could quickly fix things or make similar versions of the dataset.
@@ -584,6 +420,194 @@ note-to-self: to make the latest backup of files linked to in this chapter run:
 ```bash
 perl -lne 'while (/(https.*?.py)\)/g) { $x=$1; $x=~s/blob/raw/; print qq[wget $x] }' make-tiny-models.md
 ```
+
+### Reducing the number of layers for large models
+
+When debugging PyTorch workflows, as explained in [using small payload](https://github.com/stas00/the-art-of-debugging/blob/master/methodology/README.md#2-small-payload) you'd normally try to use tiny random models (as covered [above](#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets)). But since some problems only appear at scale it's very likely you'd have to use the full-sized model, which may take a very long time to load and run until it gets to the point of interest, where problems appear.
+
+Given the nature of ML model architectures, they typically use a sequence of identical layers that repeat one after another. Therefore, if a model has, say, 48 layers, you can shrink it to just 2 layers, which will dramatically speed up both the loading and running the code. Of course, the qualitative outcome will be bad, but we aren't concerned with quality if the workload hangs or breaks.
+
+Therefore in this section we will discuss how to reduce the model's number of hidden layers from many to just 1-2. If the layers aren't identical (e.g. some MoE models alternate between 2 different block configurations) then ensure you include at least one variation of each. For the purpose of the following demonstrations we will use this MoE model [Qwen/Qwen3-30B-A3B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507). We have 48 hidden layers there as can be seen from its [config file](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/main/config.json).
+
+This model may have 2 alternating types of Transformer blocks, so we need to keep at least 2 layers. (`Qwen/Qwen3-Next-80B-A3B-Instruct` uses a full attention block only once every 4 layers so there you'd need at least 4 layers.)
+
+The config entry that we want to change is [`num_hidden_layers`](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/e67ac5d/config.json#L24). Some architectures pair it with a companion entry that has to be trimmed in lockstep - a decoder-side layer count, or a `layer_types` list - see [Making a tiny model](#making-a-tiny-model).
+
+Let's first run a quick test to demonstrate that even just the model loading time can be much faster, before seeing the huge speedup in the compute time:
+
+```bash
+git clone https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507
+time python -c 'import sys; from transformers import AutoModelForCausalLM; \
+AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
+perl -pi -e 's|"num_hidden_layers": 48|"num_hidden_layers": 2|' Qwen3-30B-A3B-Instruct-2507/config.json
+time python -c 'import sys; from transformers import AutoModelForCausalLM; \
+AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
+```
+
+so here we clone the model locally and then measured how long it took to load the base model:
+```
+real    5m59.857s
+user    128m28.088s
+sys     16m33.861s
+```
+then we reduced the number of layers from 48 to 2 and repeated the model loading. This time we get:
+```
+real    0m20.398s
+user    2m9.101s
+sys     2m29.587s
+```
+
+Looking at the `real` entry (wallclock time) we have 6 minutes loading for the full model vs 20 seconds for the shrunk 2-layer model - that's 18x times faster and ~5.5 minutes of waiting time saved! `real` is what matters for this kind of benchmark, since it's the waiting you actually do; the `user` and `sys` figures dwarf it because they count CPU time summed over every core that was busy, not elapsed time - [time](#time) later in this chapter explains all three.
+
+There are 3 ways to accomplish that.
+
+In this discussion we presume you're using HF Transformers-based models, but the same methodology could be translated to other modeling frameworks.
+
+#### 1. local clone with config edits
+
+After finding the desired model on https://huggingface.co/, clone its git repo to the local disk, modify the `num_hidden_layers` entry in `config.json`, and then load the model from the local clone (same as we have just shown when measuring model loading time).
+
+```bash
+git clone https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507
+perl -pi -e 's|"num_hidden_layers": 48|"num_hidden_layers": 2|' Qwen3-30B-A3B-Instruct-2507/config.json
+python -c 'import sys; from transformers import AutoModelForCausalLM; \
+AutoModelForCausalLM.from_pretrained(sys.argv[1])' ./Qwen3-30B-A3B-Instruct-2507
+```
+Please make sure that you load the locally cloned version, that is:
+```
+- ... from_pretrained("Qwen/Qwen3-30B-A3B-Instruct-2507")
++ ... from_pretrained("./Qwen3-30B-A3B-Instruct-2507")
+```
+
+This approach is useful since you don't need to change the user-end code.
+
+#### 2. editing the config object on the fly
+
+The other even simpler approach is to hack the config object on the fly. This requires no local cloning and is probably the easiest solution, though it requires modifying the end user code:
+```bash
+python -c 'import sys; from transformers import AutoModelForCausalLM, AutoConfig; \
+c=AutoConfig.from_pretrained(sys.argv[1]); c.num_hidden_layers=2; \
+m=AutoModelForCausalLM.from_pretrained(sys.argv[1], config=c)' Qwen/Qwen3-30B-A3B-Instruct-2507
+```
+
+And since you will end up with an incomplete model which will generate random outputs anyway, you can also save the overhead of loading the original model weights and just create the model on the fly like so:
+
+```bash
+python -c 'import sys; from transformers import AutoModelForCausalLM, AutoConfig; \
+c=AutoConfig.from_pretrained(sys.argv[1]); c.num_hidden_layers=2; \
+m=AutoModelForCausalLM.from_config(c)' Qwen/Qwen3-30B-A3B-Instruct-2507
+```
+
+#### 3. hacking the architecture modeling code
+
+This approach is most useful if you need to deal with multiple models of the same architecture and you don't want to modify the end user code.
+
+First we clone HF Transformers and install its editable version:
+```
+git clone https://github.com/huggingface/transformers/tree/main/src/transformers
+cd transformers
+pip install -e .[dev]
+```
+Now we can tweak the code under `src/transformers` and it will be immediately visible to the Python environment that is being used.
+
+Continuing the example of working with `Qwen/Qwen3-30B-A3B-Instruct-2507` model, we find the place where its architecture modeling code lives in the HF Transformers code base. For example, we can look at the `architectures` field in the [model's config](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/blob/e67ac5d/config.json#L3), which gives us `Qwen3MoeForCausalLM`. We now find the Python module where it lives in the HF Transformers code base:
+
+```bash
+$ grep -Ir "class Qwen3MoeForCausalLM" src/transformers/models
+src/transformers/models/qwen3_moe/modeling_qwen3_moe.py:class Qwen3MoeForCausalLM(Qwen3MoePreTrainedModel, GenerationMixin):
+src/transformers/models/qwen3_moe/modular_qwen3_moe.py:class Qwen3MoeForCausalLM(MixtralForCausalLM):
+```
+
+So we know it's in `src/transformers/models/qwen3_moe/modeling_qwen3_moe.py` (we don't care for `modular_qwen3_moe.py` in this situation, since it's `modeling_qwen3_moe.py` that gets loaded).
+
+Now we open `src/transformers/models/qwen3_moe/modeling_qwen3_moe.py` in the editor and search for `num_hidden_layers` usages to find where the layers are initialized, which in this case is here:
+
+```python
+class Qwen3MoeModel(Qwen3MoePreTrainedModel):
+    def __init__(self, config: Qwen3MoeConfig):
+        super().__init__(config)
+        [...]
+        self.layers = nn.ModuleList(
+            [Qwen3MoeDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+        )
+```
+
+So now we just hack the value of `num_hidden_layers` and we are done:
+```python
+class Qwen3MoeModel(Qwen3MoePreTrainedModel):
+    def __init__(self, config: Qwen3MoeConfig):
+        super().__init__(config)
+        [...]
+        config.num_hidden_layers = 2
+        self.layers = nn.ModuleList(
+            [Qwen3MoeDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+        )
+```
+and now as long as this version of HF Transformers is devel-installed (`pip install -e .`) into the running Python environment `Qwen3MoeForCausalLM`-type of models will only use the first 2 layers as if it were the full model.
+
+If you need to load the full model, but only run a few layers, then you can hack the loop over the layers in the model's `forward`. If the original code in `Qwen3MoeModel.forward` was:
+
+```python
+for decoder_layer in self.layers[: self.config.num_hidden_layers]):
+    hidden_states = decoder_layer(...)
+```
+you can change to:
+```python
+KEEP_N_LAYERS = 2
+for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
+    # note: shortcut for much faster completion
+    if idx+1 > KEEP_N_LAYERS: continue
+    hidden_states = decoder_layer(...)
+```
+
+
+#### Additional Notes
+
+When you load a pre-trained model while shortening its layers stack, you're going to see a flurry of warnings telling you that some weights have been ignored.
+
+Also I'm reminding that you will end up with a model which will allow you to perform functional checks and tune ups - memory usage and performance, etc. It will produce garbage and if you measure the loss it'll be very high (though it shouldn't be `NaN`).
+
+You can now measure performance with say 2 and 4 layers and tell how much overhead each layer takes from the difference and extrapolate this to what the full model will need.
+
+Memory usage-wise, unless there is a memory leak, after the first layer finished running, subsequent layers shouldn't consume any additional CPU or GPU memory (other than peak memory) if activation checkpointing is not used and `torch.cuda` memory cache isn't flushed. If activation checkpointing is enabled, then expect each layer to consume the same additional amount of memory as the previous one (of the size of the checkpointed tensor).
+
+#### Other shrink-the-stack use cases
+
+You can apply a similar hack to other components that also have stacks of identical code-wise blocks. For example, you could reduce the number of attention heads and then the attention mechanism will run much faster (but of course producing garbage, which is fine most of the time when we focus on functional debugging) or skipping most attention blocks completely.
+
+When I was debugging 15M sequence length training using [ALST](https://arxiv.org/abs/2506.13996) - I would only run self-attention in the last layer and then skip it in the previous layers - this reduced my testing time from hours to minutes, since very long sequence length using full self-attention has an O(2) quadratic nature with regards to sequence length it attends to.
+
+Let's say we run only attention in the last layer:
+
+In attention `__init__` we set a few flags, let's use `Qwen3MoeAttention`:
+```python
+    def __init__(self, config: Qwen3MoeConfig, layer_idx: int):
+        super().__init__()
+        self.skip_all_but_last_attention_debug_mode = True
+        self.rotating_layer_counter = 0
+```
+
+and then in `Qwen3MoeAttention.forward`, we replace:
+```python
+attn_output, attn_weights = attention_interface((self, query_states, ...)
+```
+
+(note the `...` - most args were trimmed for this exemplification), with:
+```python
+import einops
+if not self.skip_all_but_last_attention_debug_mode:
+    attn_output, attn_weights = attention_interface(self, query_states, ...)
+else:
+    self.rotating_layer_counter = (self.rotating_layer_counter + 1) % self.num_hidden_layers
+    # we detect the last layer by module counting since we know how many layers there are
+    if self.rotating_layer_counter % self.num_hidden_layers == 0:
+        attn_output, attn_weights = attention_interface(self, query_states, ...)
+    else:
+        # this feeds bogus data of the right shape connected to a graph - good enough for debug
+        attn_output = einops.rearrange(query_states, "bs hc sl ... -> bs sl hcl ...")
+        attn_weights = None
+```
+and, of course, install `pip install einops` for the above code to work.
 
 ## Memory usage
 
@@ -946,7 +970,7 @@ To get a feeling for what it looks like, here is an example of a memory profile 
 
 ![memory leak](images/torch-mem-profile-mem-leak.png)
 
-You can see those brown- and red-coloured continuous horizontal bars (I pointed to those with black arrows). On the very left edge of those bars are the moments that created 2 large tensors during a single layer's `forward`, but you can see those 2 unlike other colored bars continue all the way into the right edge. The exact same story happen in the next spike, which is just the subsequent layer's memory allocations when it runs its `forward` - and you can see the yellow and orange bars that demonstrate the same leak, because it doesn't get cleared. So each layer's `forward` here leaks a few MBs of memory, which quickly adds up. A very small model has been used here, so that the absolute leak size was small, but once switched to a real model those MBs become GBs and we quickly run out of memory.
+You can see those brown- and red-colored continuous horizontal bars (I pointed to those with black arrows). On the very left edge of those bars are the moments that created 2 large tensors during a single layer's `forward`, but you can see those 2 unlike other colored bars continue all the way into the right edge. The exact same story happen in the next spike, which is just the subsequent layer's memory allocations when it runs its `forward` - and you can see the yellow and orange bars that demonstrate the same leak, because it doesn't get cleared. So each layer's `forward` here leaks a few MBs of memory, which quickly adds up. A very small model has been used here, so that the absolute leak size was small, but once switched to a real model those MBs become GBs and we quickly run out of memory.
 
 You can click on all those bars and the profiler will show you the traceback to the code that created the corresponding memory allocation. Since under the hood, PyTorch runs C++ CUDA code, unless you understand what happens there, it won't help you to understand the location of the leak in the code. But if you trace back up the trace into the Python land, you will actually see references to functions that you'd be familiar with. For example, calls like `torch.zeros()`.
 
@@ -989,8 +1013,8 @@ So let's run a little program that allocates a tensor, copies it to cpu, frees i
 ```python
     device = "cuda" if torch.cuda.is_available() else "cpu"
     see_memory_usage("before alloc", force=True)
-    t1 = torch.zeros(100000,10000, device=device)
-    t2 = torch.zeros(100000,10000, device=device)
+    t1 = torch.zeros(100_000,10_000, device=device)
+    t2 = torch.zeros(100_000,10_000, device=device)
     del t2
     see_memory_usage("after alloc", force=True)
     c1 = t1.cpu()
@@ -1007,17 +1031,15 @@ Let's look at the output. The above program is at the bottom of the `see-mem-usa
 ```bash
 $ python see-mem-usage.py
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
-[0] mp: before alloc2
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.71 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
 Legend:
@@ -1027,30 +1049,30 @@ Legend:
 - `CA `: `torch.cuda.memory_reserved()`
 - `Max_CA`: `torch.cuda.max_memory_reserved()`
 - `NV`: current total memory usage like `nvidia-smi` report, which is almost always more than what's reported by torch.cuda (the `MA` column)
-- `CPU Virtual Memory`: CPU stats - RSS and percentage of total cpu memory
+- `CPU mem`: two point-in-time CPU RAM readings from `psutil` - `proc` is *this* process's resident memory (RSS, `psutil.Process().memory_info().rss`), which is what you usually want when debugging your own program, and `node` is host-wide RAM in use (`total - available`) with its `percent` of total. On a shared node the `node` figure includes everyone else's memory, so watch `proc` for your process and use `node` only to see how close the whole box is to full. Both are snapshots, not peaks - for peak CPU usage see [Getting program's CPU peak memory usage](#getting-programs-cpu-peak-memory-usage)
 
 Now that we know what each column stands for let's analyze the output of the program.
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.86 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 ```
 
-If you look at the `NV` column you can see the gpu was already using 0.59GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros.
+If you look at the `NV` column you can see the gpu was already using 0.71GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros. On the CPU side `proc` is 0.51GiB, which is just the resident memory of the Python process after `import torch`.
 
 Then we execute:
 ```
-    t1 = torch.zeros(100000,10000, device=device)
-    t2 = torch.zeros(100000,10000, device=device)
+    t1 = torch.zeros(100_000,10_000, device=device)
+    t2 = torch.zeros(100_000,10_000, device=device)
     del t2
 ```
 and the corresponding log around it is:
 
 ```
 [0] mp: before alloc
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.59 GiB | CPU Virtual Memory:  used = 82.76 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.87 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
 ```
 
@@ -1064,11 +1086,11 @@ torch.cuda.empty_cache()
 
 to prevent caching getting in the way of accounting, but this one is definitely going to slow things down. The snippet is in `see_memory_usage`, but commented out.
 
-But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the last row of the report snippet above you can see that while `torch.cuda` reports only 3.73GiB of the actual memory usage, `NV` is 8.65GiB, because some of the memory got cached, but it doesn't check out.
+But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the `after alloc` row above you can see that while `torch.cuda` reports only 3.73GiB of actively allocated memory (`MA`), `NV` is 8.87GiB, because some of the memory got cached (`CA` 7.45GiB), but even that doesn't fully check out.
 
-`8.65-7.45=1.2` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.59GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
+`8.87-7.45=1.42` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.71GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
 
-What happened here is most likely PyTorch `torch.zero` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
+What happened here is most likely PyTorch `torch.zeros` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
 
 Next, we copy one tensor to cpu memory:
 ```
@@ -1077,15 +1099,11 @@ Next, we copy one tensor to cpu memory:
 which gives us:
 ```
 [0] mp: after alloc
-[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 3.73 GiB | Max_MA 7.45 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 84.26 GiB (4.2%)
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 ```
-we see the `torch.cuda` and NV counters remain the same but CPU memory counters have gone up.
-
-Do note that the CPU memory report here isn't as informative as gpu memory reports, but what matters here is the delta wrt previous call.
-
-When I want to debug just GPU memory I often remove the cpu memory reports altogether.
+we see the `torch.cuda` and NV counters remain the same but the CPU `proc` reading jumped from 0.70GiB to 4.42GiB - a delta of ~3.73GiB, exactly the size of the tensor we just copied to CPU (`100_000*10_000*4 bytes = 3.73GiB` in fp32). This is the payoff of tracking process RSS rather than host-wide memory: the delta is your program's own allocation, clean of whatever else is running on the node. The `node` column moved too (84.26 -> 88.02GiB), but it's noisier - it drifts with every other process on the box.
 
 One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
 
@@ -1093,23 +1111,23 @@ Next we delete the remaining tensor on CUDA (`t1`):
 
 ```
 [0] mp: after copy to cpu
-[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 3.73 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.02 GiB (4.4%)
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 ```
 
-and we see that `MA` has gone to 0, which is what we would expect, CUDA no longer has any active tensors. Note that the peak memory isn't zero, since there was exactly the size of that tensor allocation since the last time that counter was reset in `see_mem_usage` call.
+and we see that `MA` has gone to 0, which is what we would expect, CUDA no longer has any active tensors. Note that the peak memory isn't zero, since there was exactly the size of that tensor allocation since the last time that counter was reset in `see_mem_usage` call. The CPU `proc` reading stays at 4.42GiB - we freed the GPU tensor but the CPU copy `c1` is still resident.
 
 Finally we free the tensor on cpu:
 
 ```
 [0] mp: after freeing on gpu
-[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 86.55 GiB, percent = 4.3%
+[0] mp: MA 0.00 GiB | Max_MA 3.73 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 4.42 GiB / node 88.01 GiB (4.4%)
 [0] mp: after freeing on cpu
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.65 GiB | CPU Virtual Memory:  used = 82.82 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 7.45 GiB | Max_CA 7.45 GiB | NV 8.87 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
-we can see that CPU memory report went back to numbers which are very close to the very first report, so we can see more or less all memory has been released on cpu.
+and now the CPU `proc` reading drops from 4.42GiB back to 0.70GiB - releasing `c1` returned exactly the ~3.73GiB it had taken, landing back at the post-`import` baseline. The `node` column also came down, though not all the way to its starting value, since it tracks the whole host and other processes moved in the meantime.
 
 The CUDA memory caches are still there as can be seen from `CA` and `Max_CA` columns, and `NV` reflects that plus some other non-CUDA allocation as discussed earlier.
 
@@ -1122,12 +1140,12 @@ see_memory_usage("after empty cache", force=True)
 we would see:
 ```
 [0] mp: after empty cache
-[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 7.45 GiB | NV 1.19 GiB | CPU Virtual Memory:  used = 82.8 GiB, percent = 4.1%
+[0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 7.45 GiB | NV 1.42 GiB | CPU mem: proc 0.70 GiB / node 85.41 GiB (4.3%)
 ```
 
 Note how the `CA` columns is now 0, `Max_CA` column is still non-zero because it was still reporting peak, if we call `see_memory_usage` yet another time, it'd go to 0 as well.
 
-But the interesting other number here is `NV 1.19 GiB` which tells us that there was 1.2GiB of memory allocated outside of the purview of `torch.cuda`. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
+But the interesting other number here is `NV 1.42 GiB` which tells us that there was 1.42GiB of memory allocated outside of the purview of `torch.cuda` - and it matches the `NV - CA` delta of `8.87-7.45=1.42`GiB we spotted back in the `after alloc` row, now that the cache is emptied and no longer hiding it. When I try to debug memory leaks that are inside PyTorch that when I enable `torch.cuda.empty_cache()` inside `see_memory_usage` because then it reports the delta for me and I don't need to do any math.
 
 You can't imagine how often I use this debug utility in my day-to-day work.  Every so often I sprinkle these calls around the strategic places I suspect and start mapping out block by block and then narrowing down to the suspect areas. Foe example, one useful use case is to run this report before `forward`, `backward` and `step` and observe if each training iteration leaks a bit of memory and where:
 
@@ -1155,7 +1173,7 @@ Once Resident cpu memory (RSS in `top`) hits the preset limit the program will g
 Killed
 ```
 
-which is very difficult to notice. This is typically performed by an `oom-kill` via [cgroups](https://docs.kernel.org/admin-guide/cgroup-v2.html). The `SIGKILL` is not trappable and there is no way to analyze what happens.
+which is very difficult to notice. This is typically performed by an `oom-kill` via [cgroups](https://docs.kernel.org/admin-guide/cgroup-v2.html). The `SIGKILL` is not trappable, so the program itself can't report anything - but the kernel does: see [dmesg](https://github.com/stas00/the-art-of-debugging/tree/master/unix#dmesg) in the companion book for the entry naming the process it killed, how much memory it was holding and which limit it hit, plus the cgroup counters that record the kill without needing `sudo`.
 
 note: Moreover in some situations, as in recent kubernetes implementations, the user gets kicked out from the job allocation, which makes it even more difficult to debug. [Kubernetes Silent Pod Killer](https://itnext.io/kubernetes-silent-pod-killer-104e7c8054d9). This k8s "feature" makes no sense to me.
 
@@ -1163,7 +1181,7 @@ In the world of ML, you're likely to encounter this issue if you're doing massiv
 
 #### Getting program's CPU peak memory usage
 
-One way was discussed in [Strategic memory allocation tracing](#strategic-memory-allocation-tracing) where you inject `see_memory_usage` during the program execution, but that's invasive and is not always easily doable, especially what if it's not a Python program that is causing the problem. Besides it doesn't tell you the actual CPU peak memory usage, only GPU peak memory usage.
+One way was discussed in [Strategic memory allocation tracing](#strategic-memory-allocation-tracing) where you inject `see_memory_usage` during the program execution, but that's invasive and is not always easily doable, especially what if it's not a Python program that is causing the problem. Besides, its CPU `proc`/`node` columns are point-in-time snapshots, not peaks - only the GPU `Max_*` columns track peak usage (since the last reset), so unless a call happens to land exactly on the high-water mark it won't tell you the actual CPU peak.
 
 So let's look at tools that report CPU peak memory usage, w/o needing to use full blown memory profiler.
 
@@ -1365,16 +1383,16 @@ Sometimes the default 4 decimal places isn't enough, so we can ask for 6 with `p
 
 ```bash
 $ python -c "import torch; t = torch.rand(100,100); torch.set_printoptions(precision=6); print(t)"
-tensor([[5.7340e-01, 6.1205e-02, 5.5568e-01,  ..., 9.7872e-01, 6.3079e-01, 1.4958e-01],
-        [6.5187e-01, 7.1725e-01, 7.4311e-01,  ..., 1.6829e-01, 2.9124e-01, 9.6725e-01],
-        [2.0276e-01, 7.1093e-01, 1.5570e-01,  ..., 8.5468e-01, 3.3631e-02, 7.2699e-01],
+tensor([[0.496257, 0.768222, 0.088477,  ..., 0.604651, 0.109958, 0.212090],
+        [0.970375, 0.836909, 0.281987,  ..., 0.670873, 0.202043, 0.489091],
+        [0.521034, 0.822312, 0.122040,  ..., 0.127788, 0.704833, 0.331873],
         ...,
-        [1.3556e-01, 4.1345e-02, 1.1752e-01,  ..., 5.0029e-01, 9.4572e-01, 1.4204e-01],
-        [8.9816e-01, 1.4840e-01, 7.5320e-01,  ..., 2.6070e-01, 8.3193e-01, 9.8864e-01],
-        [2.9861e-01, 8.4406e-01, 6.4992e-01,  ..., 2.2556e-01, 7.4448e-01, 1.7672e-01]])
+        [0.871615, 0.080840, 0.672732,  ..., 0.029196, 0.967139, 0.003688],
+        [0.296027, 0.953120, 0.260675,  ..., 0.031883, 0.182623, 0.509600],
+        [0.273938, 0.079908, 0.413711,  ..., 0.252290, 0.399835, 0.980202]])
 ```
 
-As you can see now all numbers are on the same scale, so it's very easy to tell a tiny number from a huge number because you can just look at the exponent part.
+As you can see each entry now shows 6 digits after the decimal instead of the default 4 - useful when two tensors look identical at 4 places but differ further out.
 
 In all the examples so far most entries were removed and only the first and the last 3 rows and columns were dumped. But sometimes when the tensor is small we might want to see more data, so let's get 4 entries on each edge:
 
@@ -1496,374 +1514,6 @@ $ python -c "import torch, rich; t = torch.rand(2,3); rich.inspect(t)"
 ```
 This allows you to quickly peek inside the tensor object. Except there might be too much information.
 
-
-### Detecting problematic tensor values
-
-See also [Numerical instabilities](../training/instabilities/README.md#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
-
-#### Inf
-
-Infinity in the context of Machine Learning typically happens where as a result of a computation one or more elements of the tensor overflow.
-
-Let's use fp16 floating point representation for demonstrating how we end up with Infinity numbers. 65504 is the largest normal floating point number that can be represented in the fp16 precision. This is slightly below `2**16` due to how this 16 bit number is represented. For details see [this](https://en.wikipedia.org/wiki/Half-precision_floating-point_format).
-
-Thus we can observe:
-```bash
-$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16))"
-tensor(65504., dtype=torch.float16)
-$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16) + 50)"
-tensor(inf, dtype=torch.float16)
-```
-The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why [bf16 superseded fp16](../training/dtype.md#ml-dtype-progression), since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
-
-To create an `inf` value on demand:
-```bash
-$ python -c "import torch; print(torch.tensor(float('inf')))"
-tensor(inf)
-```
-
-To check whether a tensor contains `inf` values:
-```python
-torch.isinf(t).any() # at least one Inf
-torch.isinf(t).all() # all values are Inf
-```
-
-I created a special tool for helping to detect Overflow and Underflow values layer by layer, which can be found at [Underflow and Overflow Detection](#underflow-and-overflow-detection).
-
-#### NaN
-
-`NaN` stands for not-a-number - you're most likely to see this in the loss during model training, typically this happens when the learning rate is too high, or the data is really bad, the optimizer fails to do its work and the loss literally breaks becoming a `NaN`.
-
-In the previous section we explained that when a floating point number overflows it becomes an `inf`. `inf` and `nan` are very related, because `inf` turns into `nan` quite easily, e.g. multiplying `0` by `inf`:
-```bash
-$ python -c "import torch; print(0*torch.tensor(float('inf')))"
-tensor(nan)
-```
-Most of the time `nan` happens to one or more gradient values during `backward` pass, and once `loss` becomes a NaN it's impossible to recover from it.
-
-To check whether a tensor contains `nan` values:
-```python
-torch.isnan(t).any() # at least one NaN
-torch.isnan(t).all() # all values are NaN
-```
-
-So to debug one would need to find which layer and model parameters hit `nan` gradients. But in some situation it's the loss function that fails. Here is an example:
-
-```python
-from transformers import AutoModelForCausalLM
-model = AutoModelForCausalLM.from_pretrained("gpt2")
-loss = model.loss_function(
-    logits=torch.rand(3, 100),
-    labels=torch.tensor([-100, -100, -100]),
-    vocab_size=100,
-)
-```
-As of `transformers==4.57.1` the above will give you `loss=tensor(nan)`. The issue here is that the special `-100` label masks tokens to be excluded from the loss calculation and in the above example, we have 0 tokens that aren't masked, since all labels are `-100`. And unfortunately the loss function fails and returns a NaN, instead of `0` - this is most likely a bug in the loss function implementation which makes an assumption that a sample has at least one unmasked token. But if you do sequence sharding and you use SFT you may have huge parts of the sample masked out and you can easily end up with a sample shard where all tokens are masked out. I have run into this problem when developing [Arctic Long Sequence Training](https://arxiv.org/abs/2506.13996). The original solution I used was:
-```python
-if all((shift_labels == -100).squeeze()):
-    loss = (logits.sum() * 0.0).float()
-```
-
-Here we prevent `loss=NaN` situation and instead create an artificial loss `0`, which will also set all the grads to `0` in `backward` - the effect of this is akin to a perfect score where the model needs no adjustment since grads will be all zeros.
-
-You can see it in context [here](https://github.com/deepspeedai/DeepSpeed/blob/df59f203f40c8a292dd019ae68c9e6c88f107026/deepspeed/runtime/sequence_parallel/ulysses_sp.py#L1184-L1186). Though the code has evolved since then, and you can find a more elaborate version [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/#part-1-ulysses-sequence-parallelism-for-hf-transformers) in the loss calculation across sequence parallel ranks section.
-
-### Underflow and Overflow Detection
-
-For this section we are going to use the [underflow_overflow](./underflow_overflow.py) library.
-
-If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily you can accomplish that easily by activating a special module that will do the detection automatically.
-
-Let's use a `t5-large` model for this demonstration.
-
-```python
-from .underflow_overflow import DebugUnderflowOverflow
-from transformers import AutoModel
-
-model = AutoModel.from_pretrained("t5-large")
-debug_overflow = DebugUnderflowOverflow(model)
-```
-
-[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or `nan` is detected in at least one element of the activations or weights, the program will assert and print a report like this (this was caught with `google/mt5-small` under fp16 mixed precision):
-
-```
-Detected inf/nan during batch_number=0
-Last 21 forward frames:
-abs min  abs max  metadata
-                  encoder.block.1.layer.1.DenseReluDense.dropout Dropout
-0.00e+00 2.57e+02 input[0]
-0.00e+00 2.85e+02 output
-[...]
-                  encoder.block.2.layer.0 T5LayerSelfAttention
-6.78e-04 3.15e+03 input[0]
-2.65e-04 3.42e+03 output[0]
-             None output[1]
-2.25e-01 1.00e+04 output[2]
-                  encoder.block.2.layer.1.layer_norm T5LayerNorm
-8.69e-02 4.18e-01 weight
-2.65e-04 3.42e+03 input[0]
-1.79e-06 4.65e+00 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
-2.17e-07 4.50e+00 weight
-1.79e-06 4.65e+00 input[0]
-2.68e-06 3.70e+01 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
-8.08e-07 2.66e+01 weight
-1.79e-06 4.65e+00 input[0]
-1.27e-04 2.37e+02 output
-                  encoder.block.2.layer.1.DenseReluDense.dropout Dropout
-0.00e+00 8.76e+03 input[0]
-0.00e+00 9.74e+03 output
-                  encoder.block.2.layer.1.DenseReluDense.wo Linear
-1.01e-06 6.44e+00 weight
-0.00e+00 9.74e+03 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
-1.79e-06 4.65e+00 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.dropout Dropout
-3.18e-04 6.27e+04 input[0]
-0.00e+00      inf output
-```
-
-The example output has been trimmed in the middle for brevity.
-
-The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames, the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under `fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with large activations is going to lead to a numerical overflow condition.
-
-At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
-
-Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting for. For example, consider this frame:
-
-```
-                  encoder.block.2.layer.1.layer_norm T5LayerNorm
-8.69e-02 4.18e-01 weight
-2.65e-04 3.42e+03 input[0]
-1.79e-06 4.65e+00 output
-```
-
-Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
-
-Let's look at the last few frames of that report:
-
-```
-Detected inf/nan during batch_number=0
-Last 21 forward frames:
-abs min  abs max  metadata
-[...]
-                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
-2.17e-07 4.50e+00 weight
-1.79e-06 4.65e+00 input[0]
-2.68e-06 3.70e+01 output
-                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
-8.08e-07 2.66e+01 weight
-1.79e-06 4.65e+00 input[0]
-1.27e-04 2.37e+02 output
-                  encoder.block.2.layer.1.DenseReluDense.wo Linear
-1.01e-06 6.44e+00 weight
-0.00e+00 9.74e+03 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
-1.79e-06 4.65e+00 input[0]
-3.18e-04 6.27e+04 output
-                  encoder.block.2.layer.1.dropout Dropout
-3.18e-04 6.27e+04 input[0]
-0.00e+00      inf output
-```
-
-The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest input elements was `6.27e+04` and same for the output was `inf`.
-
-You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an overflow (`inf`).
-
-As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16 numbers.
-
-Let's match the report to the code from [`models/t5/modeling_t5.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py):
-
-
-```python
-class T5DenseGatedGeluDense(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
-        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
-        self.dropout = nn.Dropout(config.dropout_rate)
-        self.gelu_act = ACT2FN["gelu_new"]
-
-    def forward(self, hidden_states):
-        hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
-        hidden_linear = self.wi_1(hidden_states)
-        hidden_states = hidden_gelu * hidden_linear
-        hidden_states = self.dropout(hidden_states)
-        hidden_states = self.wo(hidden_states)
-        return hidden_states
-```
-
-Now it's easy to see the `dropout` call, and all the previous calls as well.
-
-Since the detection is happening in a forward hook, these reports are printed immediately after each `forward` returns.
-
-Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's enabled, after moving the original `forward` into a helper wrapper, like so:
-
-```python
-import torch
-
-def _forward(self, hidden_states):
-    hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
-    hidden_linear = self.wi_1(hidden_states)
-    hidden_states = hidden_gelu * hidden_linear
-    hidden_states = self.dropout(hidden_states)
-    hidden_states = self.wo(hidden_states)
-    return hidden_states
-
-def forward(self, hidden_states):
-    if torch.is_autocast_enabled():
-        with torch.cuda.amp.autocast(enabled=False):
-            return self._forward(hidden_states)
-    else:
-        return self._forward(hidden_states)
-```
-
-Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may want to analyse the intermediary stages of any specific `forward` function as well. In such a case you can use the `detect_overflow` helper function to inject the detector where you want it, for example:
-
-```python
-from underflow_overflow import detect_overflow
-
-
-class T5LayerFF(nn.Module):
-    [...]
-
-    def forward(self, hidden_states):
-        forwarded_states = self.layer_norm(hidden_states)
-        detect_overflow(forwarded_states, "after layer_norm")
-        forwarded_states = self.DenseReluDense(forwarded_states)
-        detect_overflow(forwarded_states, "after DenseReluDense")
-        return hidden_states + self.dropout(forwarded_states)
-```
-
-You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected somewhere in between.
-
-Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but let's say if you had some local direct calculations this is how you'd do that.
-
-Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from its default, e.g.:
-
-```python
-from .underflow_overflow import DebugUnderflowOverflow
-
-debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
-```
-
-#### Specific batch absolute mix and max value tracing
-
-The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
-
-Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given batch, and only do that for batches 1 and 3. Then you instantiate this class as:
-
-```python
-debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3])
-```
-
-And now full batches 1 and 3 will be traced using the same format as the underflow/overflow detector does.
-
-Batches are 0-indexed.
-
-This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward right to that area. Here is a sample truncated output for such configuration:
-
-```
-                  *** Starting batch number=1 ***
-abs min  abs max  metadata
-                  shared Embedding
-1.01e-06 7.92e+02 weight
-0.00e+00 2.47e+04 input[0]
-5.36e-05 7.92e+02 output
-[...]
-                  decoder.dropout Dropout
-1.60e-07 2.27e+01 input[0]
-0.00e+00 2.52e+01 output
-                  decoder T5Stack
-     not a tensor output
-                  lm_head Linear
-1.01e-06 7.92e+02 weight
-0.00e+00 1.11e+00 input[0]
-6.06e-02 8.39e+01 output
-                   T5ForConditionalGeneration
-     not a tensor output
-
-                  *** Starting batch number=3 ***
-abs min  abs max  metadata
-                  shared Embedding
-1.01e-06 7.92e+02 weight
-0.00e+00 2.78e+04 input[0]
-5.36e-05 7.92e+02 output
-[...]
-```
-
-Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where numbers started to diverge.
-
-You can also specify the batch number after which to stop the training, with:
-
-```python
-debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_after_batch_num=3)
-```
-
-### Floating point math discrepancies on different devices
-
-See also [Reproducibility](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
-
-It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
-
-Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
-
-```python
-import torch
-
-def do_math(device):
-    inv_freq = (10 ** (torch.arange(0, 10, device=device) / 10))
-    print(f"{inv_freq[9]:.20f}")
-    return inv_freq.cpu()
-
-a = do_math(torch.device("cpu"))
-b = do_math(torch.device("cuda"))
-
-torch.testing.assert_close(a, b, rtol=0.0, atol=0.0)
-```
-when we run it we get 2 out of 10 elements mismatch:
-```
-7.94328212738037109375
-7.94328308105468750000
-[...]
-AssertionError: Tensor-likes are not equal!
-
-Mismatched elements: 2 / 10 (20.0%)
-Greatest absolute difference: 9.5367431640625e-07 at index (9,)
-Greatest relative difference: 1.200604771156577e-07 at index (9,)
-```
-
-
-This was a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
-
-Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
-
-For example, see this [discussion](https://github.com/deepspeedai/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about DeepSpeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
-
-It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device.
-
-![](images/math-fp-discrepancy-outcome-lizard.png)
-
-This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
-
-If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
-
-```python
-class LlamaRotaryEmbedding(nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
-        super().__init__()
-
-        self.dim = dim
-        self.max_position_embeddings = max_position_embeddings
-        self.base = base
-        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
-```
 
 ### Getting tensor attributes
 
@@ -2113,7 +1763,7 @@ autograd_meta_from=None, data=None)
 ```
 That's a lot of attributes! But it's missing attributes like `t.data_ptr` and probably others.
 
-Remember `torch.printoptions` from earlier? Another secret private attribute dumping approach is this context manager:
+Remember `torch.set_printoptions` from earlier? Another secret private attribute dumping approach is this context manager:
 
 ```python
 with torch._tensor_str.printoptions(threshold=0, edgeitems=0): print(x)
@@ -2143,7 +1793,7 @@ When you do:
 t = torch.rand((2,3))
 print(t)
 ```
-behind the scenes, `tensor.Torch.__repr__` is called - which is a special method python calls on an object if it's available before printing a custom representation of the object. This prints:
+behind the scenes, `torch.Tensor.__repr__` is called - which is a special method python calls on an object if it's available before printing a custom representation of the object. This prints:
 ```
 tensor([[0.6220, 0.7673, 0.9156],
         [0.8413, 0.4410, 0.9822]])
@@ -2260,381 +1910,373 @@ tensor[2, 2] n=4 x∈[0.184, 0.831] μ=0.500 σ=0.353 grad={ x∈[1.000, 1.000] 
 
 It has a lot of functionality for working with image tensors as well.
 
-## Debugging multi-node training
+### Detecting problematic tensor values
 
-For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+See also [Numerical instabilities](../training/instabilities/README.md#numerical-instabilities) in the training chapter, which covers training-level causes and remedies for `inf`/`nan` values.
 
-### Getting nodes to talk to each other
+#### Inf
 
-Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
+Infinity in the context of Machine Learning typically happens where as a result of a computation one or more elements of the tensor overflow.
 
-In this section we will discuss a very simple case of just 2 nodes (with 8 GPUs each) talking to each other and which can then be easily extended to as many nodes as needed. Let's say that these nodes have the IP addresses 10.0.0.1 and 10.0.0.2.
+Let's use fp16 floating point representation for demonstrating how we end up with Infinity numbers. 65504 is the largest normal floating point number that can be represented in the fp16 precision. This is slightly below `2**16` due to how this 16 bit number is represented. For details see [this](https://en.wikipedia.org/wiki/Half-precision_floating-point_format).
 
-Once we have the IP addresses we then need to choose a port for communications.
-
-In Unix there are 64k ports. The first 1k are reserved for common services so that any computer on the Internet could connect to any other computer knowing ahead of time which port to connect to. For example, port 22 is reserved for SSH. So that whenever you do `ssh example.com` in fact the program open a connection to `example.com:22`.
-
-As there are thousands of services out there, the reserved 1k ports is not enough, and so various services could use pretty much any port. But fear not, when you get your Linux box on the cloud or an HPC, you're unlikely to have many preinstalled services that could use a high number port, so most ports should be available.
-
-Therefore let's choose port 6000.
-
-Now we have: `10.0.0.1:6000` and `10.0.0.2:6000` that we want to be able to communicate with each other.
-
-The first thing to do is to open port `6000` for incoming and outgoing connections on both nodes. It might be open already or you might have to read up the instructions of your particular setup on how to open a given port.
-
-Here are multiple ways that you could use to test whether port 6000 is already open.
-
+Thus we can observe:
 ```bash
-telnet localhost:6000
-nmap -p 6000 localhost
-nc -zv localhost 6000
-curl -v telnet://localhost:6000
+$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16))"
+tensor(65504., dtype=torch.float16)
+$ python -c "import torch; print(torch.tensor(65504, dtype=torch.float16) + 50)"
+tensor(inf, dtype=torch.float16)
 ```
+The first tensor is fine, but the last one overflows when I added `50` to it and we get `inf`. If you remember back in the day, models were trained in fp16 mixed precision regime and this `inf` happened a lot, thus a special scaler was used to move the numbers into the safe numerical range. And that's the reason why [bf16 superseded fp16](../training/dtype.md#ml-dtype-progression), since while being less precise bf16's dynamic range is almost as big as that of fp32 despite it having only 16 bits vs. 32 bits for fp32.
 
-Most of these should be available via `apt install` or whatever your package manager uses.
-
-Let's use `nmap` in this example. If I run:
-
+To create an `inf` value on demand:
 ```bash
-$ nmap -p 22 localhost
-[...]
-PORT   STATE SERVICE
-22/tcp open  ssh
+$ python -c "import torch; print(torch.tensor(float('inf')))"
+tensor(inf)
 ```
-We can see the port is open and it tells us which protocol and service is allocated as a bonus.
 
-Now let's run:
+To check whether a tensor contains `inf` values:
+```python
+torch.isinf(t).any() # at least one Inf
+torch.isinf(t).all() # all values are Inf
+```
+
+I created a special tool for helping to detect Overflow and Underflow values layer by layer, which can be found at [Underflow and Overflow Detection](#underflow-and-overflow-detection).
+
+#### NaN
+
+`NaN` stands for not-a-number - you're most likely to see this in the loss during model training, typically this happens when the learning rate is too high, or the data is really bad, the optimizer fails to do its work and the loss literally breaks becoming a `NaN`.
+
+In the previous section we explained that when a floating point number overflows it becomes an `inf`. `inf` and `nan` are very related, because `inf` turns into `nan` quite easily, e.g. multiplying `0` by `inf`:
 ```bash
-$ nmap -p 6000 localhost
-[...]
-
-PORT     STATE  SERVICE
-6000/tcp closed X11
+$ python -c "import torch; print(0*torch.tensor(float('inf')))"
+tensor(nan)
 ```
-Here you can see port 6000 is closed.
+Most of the time `nan` happens to one or more gradient values during `backward` pass, and once `loss` becomes a NaN it's impossible to recover from it.
 
-Now that you understand how to test, you can proceed to test the `10.0.0.1:6000` and `10.0.0.2:6000`.
-
-First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
-
-```bash
-ssh 10.0.0.1
-nmap -p 6000 10.0.0.2
-```
-if all is good, then in terminal B ssh to the second node and do the same check in reverse:
-
-```bash
-ssh 10.0.0.2
-nmap -p 6000 10.0.0.1
+To check whether a tensor contains `nan` values:
+```python
+torch.isnan(t).any() # at least one NaN
+torch.isnan(t).all() # all values are NaN
 ```
 
-If both ports are open you can now use this port. If either or both are closed you have to open these ports. Since most clouds use a proprietary solution, simply search the Internet for "open port" and the name of your cloud provider.
-
-The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
-
-```bash
-$ sudo ifconfig
-```
-
-One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
-
-Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network/README.md#inter-node-networking)). There could be one or dozens of those interfaces.
-
-Here are some examples of `ifconfig`'s output:
-
-```bash
-$ sudo ifconfig
-enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
-        [...]
-```
-I removed most of the output showing only some of the info. Here the key information is the IP address that is listed after `inet`. In the example above it's `10.0.0.23`. This is the IP address of interface `enp5s0`.
-
-If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or something of sorts - the last segment will be the one with a different number.
-
-Let's look at another example:
-
-```bash
-$ sudo ifconfig
-ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
-        inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
-        [...]
-```
-Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network/README.md#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
-
-If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
-
-Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes. For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
-
-In terminal A:
-
-```bash
-$ ssh 10.0.0.1
-$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
-```
-
-In terminal B:
-
-```bash
-$ ssh 10.0.0.2
-$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py
-```
-
-Note that I'm using the same `--master_addr 10.0.0.1 --master_port 6000` in both cases because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host.
-
-This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
-
-**pdsh**
-
-`pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
-
-```bash
-PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
-"torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
- --master_addr 10.0.0.1 --master_port 6000 torch-distributed-gpu-test.py"
-```
-
-You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument.
-
-
-**SLURM**
-
-If you use SLURM, it's almost certain that whoever set things up already have all the ports opened for you, so it should just work. But if it doesn't the information in this section should help debug things.
-
-Here is how you'd use this with SLURM.
-
-```bash
-#!/bin/bash
-#SBATCH --job-name=test-nodes        # name
-#SBATCH --nodes=2                    # nodes
-#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
-#SBATCH --cpus-per-task=10           # number of cores per tasks
-#SBATCH --gres=gpu:8                 # number of gpus
-#SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
-#SBATCH --output=%x-%j.out           # output file name
-#
-export GPUS_PER_NODE=8
-export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-export MASTER_PORT=6000
-#
-srun --jobid $SLURM_JOBID bash -c 'torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
-torch-distributed-gpu-test.py'
-```
-If you have more than 2 nodes you just need to change the number of nodes and the above script will automatically work for any number of them.
-
-
-**MPI**:
-
-Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
-
-To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
-
-```bash
-$ cat hostfile
-10.0.0.1:8
-10.0.0.2:8
-```
-and to run, it's just:
-```bash
-$ mpirun --hostfile  -np 16 -map-by ppr:8:node python my-program.py
-```
-
-Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
-
-Nuances:
-- You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
-- You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
-
-`mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
-
-
-#### Solving the InfiniBand connection between multiple nodes
-
-In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
-
-```bash
-NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
-```
-I saw in the debug messages that InfiniBand interfaces got detected:
-```
-node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
-```
-But the connection would then time out with the message:
-```
-node-2:5776:5902 [0] transport/net_ib.cc:1296 NCCL WARN NET/IB : Got completion from peer 10.2.0.5<33092> with error 12, opcode 0, len
-0, vendor err 129 (Recv)
-node-2:5776:5902 [0] NCCL INFO transport/net.cc:1134 -> 6
-node-2:5776:5902 [0] NCCL INFO proxy.cc:679 -> 6
-node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
-```
-and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
-
-There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
-
-Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
-
-The individual nodes are often not meant for inter-node communication and often the clouds have the concept of clusters, which are designed for allocating multiple nodes as a group and are already preconfigured to work together.
-
-
-### Prefixing logs with `node:rank`, interleaved asserts
-
-In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
-
-When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
-
-```bash
-torchrun --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
-torch-distributed-gpu-test.py
-```
-
-Now each log line will be prefixed with `[hostname:rank]`
-
-Note that the colon is important.
-
-If you're in a SLURM environment the above command line becomes:
-
-```bash
-srun --jobid $SLURM_JOBID bash -c 'torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
---role $(hostname -s): --tee 3 \
-torch-distributed-gpu-test.py'
-```
-
-Of course adjust your environment variables to match, this was just an example.
-
-Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
-
-```bash
-srun --jobid $SLURM_JOBID bash -c "torchrun \
---nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
---master_addr $MASTER_ADDR --master_port $MASTER_PORT \
---role \$(hostname -s): --tee 3 \
-torch-distributed-gpu-test.py"
-```
-
-`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the command.
-
-This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved tracebacks that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
-
-For example, if you get a traceback that looks like:
-
-```
-  File "/path/to/training/dataset.py", line 785, in __init__
-  File "/path/to/training/dataset.py", line 785, in __init__
-    if self.dataset_proba.sum() != 1:
-AttributeError: 'list' object has no attribute 'sum'
-    if self.dataset_proba.sum() != 1:
-  File "/path/to/training/dataset.py", line 785, in __init__
-  File "/path/to/training/dataset.py", line 785, in __init__
-    if self.dataset_proba.sum() != 1:
-    if self.dataset_proba.sum() != 1:
-AttributeError: 'list' object has no attribute 'sum'
-AttributeError: 'list' object has no attribute 'sum'
-AttributeError: 'list' object has no attribute 'sum'
-```
-
-and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` addition will generate:
-
-```
-[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:1]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:0]    if self.dataset_proba.sum() != 1:
-[host1:0]AttributeError: 'list' object has no attribute 'sum'
-[host1:1]    if self.dataset_proba.sum() != 1:
-[host1:2]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:3]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:3]    if self.dataset_proba.sum() != 1:
-[host1:2]    if self.dataset_proba.sum() != 1:
-[host1:1]AttributeError: 'list' object has no attribute 'sum'
-[host1:2]AttributeError: 'list' object has no attribute 'sum'
-[host1:3]AttributeError: 'list' object has no attribute 'sum'
-```
-and you can `grep` this output for just one `host:rank` prefix, which gives us:
-
-```bash
-$ grep "[host1:0]" log.txt
-[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
-[host1:0]    if self.dataset_proba.sum() != 1:
-[host1:0]AttributeError: 'list' object has no attribute 'sum'
-```
-
-and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a hundred to thousands of interleaved traceback lines there.
-
-Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
-
-If `hostname -s` is too long, but you have each host with its own sequence number like:
-```
-[really-really-really-long-hostname-5:0]
-[really-really-really-long-hostname-5:1]
-[really-really-really-long-hostname-5:2]
-```
-you can of course make it shorter by replacing `hostname -s` with `hostname -s | tr -dc '0-9'`, which would lead to much shorter prefixes:
-```
-[5:0]
-[5:1]
-[5:2]
-```
-
-And, of course, if you're doing debug prints, then to solve this exact issue you can use [`printflock`](#good-old-print).
-
-Here is how you accomplish the same feat with other launchers:
-
-- `srun` in SLURM: add `--label`
-- `openmpi`: add `--tag-output`
-- `accelerate`: you can just pass the same `-tee` + `--role` flags as in `torchrun`
-
-
-### Invoke pdb on a specific rank in multi-node training
-
-Once pytorch 2.2 is released you will have a new handy debug feature:
+So to debug one would need to find which layer and model parameters hit `nan` gradients. But in some situation it's the loss function that fails. Here is an example:
 
 ```python
-import torch.distributed as dist
-[...]
-
-def mycode(...):
-
-   dist.breakpoint(0)
-
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+loss = model.loss_function(
+    logits=torch.rand(3, 100),
+    labels=torch.tensor([-100, -100, -100]),
+    vocab_size=100,
+)
+```
+As of `transformers==4.57.1` the above will give you `loss=tensor(nan)`. The issue here is that the special `-100` label masks tokens to be excluded from the loss calculation and in the above example, we have 0 tokens that aren't masked, since all labels are `-100`. And unfortunately the loss function fails and returns a NaN, instead of `0` - this is most likely a bug in the loss function implementation which makes an assumption that a sample has at least one unmasked token. But if you do sequence sharding and you use SFT you may have huge parts of the sample masked out and you can easily end up with a sample shard where all tokens are masked out. I have run into this problem when developing [Arctic Long Sequence Training](https://arxiv.org/abs/2506.13996). The original solution I used was:
+```python
+if all((shift_labels == -100).squeeze()):
+    loss = (logits.sum() * 0.0).float()
 ```
 
-This is the same as `ForkedPdb` (below) but will automatically break for you on the rank of your choice - rank0 in the example above. Just make sure to call `up;;n` right away when the breakpoint hits to get into your normal code.
+Here we prevent `loss=NaN` situation and instead create an artificial loss `0`, which will also set all the grads to `0` in `backward` - the effect of this is akin to a perfect score where the model needs no adjustment since grads will be all zeros.
 
-Here is what it does underneath:
+You can see it in context [here](https://github.com/deepspeedai/DeepSpeed/blob/df59f203f40c8a292dd019ae68c9e6c88f107026/deepspeed/runtime/sequence_parallel/ulysses_sp.py#L1184-L1186). Though the code has evolved since then, and you can find a more elaborate version [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/#part-1-ulysses-sequence-parallelism-for-hf-transformers) in the loss calculation across sequence parallel ranks section.
+
+### Underflow and Overflow Detection
+
+For this section we are going to use the [underflow_overflow](./underflow_overflow.py) library.
+
+If you start getting `loss=NaN` or the model inhibits some other abnormal behavior due to `inf` or `nan` in activations or weights one needs to discover where the first underflow or overflow happens and what led to it. Luckily you can accomplish that easily by activating a special module that will do the detection automatically.
+
+Let's use a `t5-large` model for this demonstration.
 
 ```python
-import sys
-import pdb
+from .underflow_overflow import DebugUnderflowOverflow
+from transformers import AutoModel
 
-class ForkedPdb(pdb.Pdb):
-    """
-    PDB Subclass for debugging multi-processed code
-    Suggested in: https://stackoverflow.com/questions/4716533/how-to-attach-debugger-to-a-python-subproccess
-    """
-    def interaction(self, *args, **kwargs):
-        _stdin = sys.stdin
-        try:
-            sys.stdin = open('/dev/stdin')
-            pdb.Pdb.interaction(self, *args, **kwargs)
-        finally:
-            sys.stdin = _stdin
+model = AutoModel.from_pretrained("t5-large")
+debug_overflow = DebugUnderflowOverflow(model)
+```
 
-
-def mycode():
-
-    if dist.get_rank() == 0:
-        ForkedPdb().set_trace()
-    dist.barrier()
+[`underflow_overflow.DebugUnderflowOverflow`] inserts hooks into the model that immediately after each forward call will test input and output variables and also the corresponding module's weights. As soon as `inf` or `nan` is detected in at least one element of the activations or weights, the program will assert and print a report like this (this was caught with `google/mt5-small` under fp16 mixed precision):
 
 ```
-so you can code it yourself as well.
+Detected inf/nan during batch_number=0
+Last 21 forward frames:
+abs min  abs max  metadata
+                  encoder.block.1.layer.1.DenseReluDense.dropout Dropout
+0.00e+00 2.57e+02 input[0]
+0.00e+00 2.85e+02 output
+[...]
+                  encoder.block.2.layer.0 T5LayerSelfAttention
+6.78e-04 3.15e+03 input[0]
+2.65e-04 3.42e+03 output[0]
+             None output[1]
+2.25e-01 1.00e+04 output[2]
+                  encoder.block.2.layer.1.layer_norm T5LayerNorm
+8.69e-02 4.18e-01 weight
+2.65e-04 3.42e+03 input[0]
+1.79e-06 4.65e+00 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
+2.17e-07 4.50e+00 weight
+1.79e-06 4.65e+00 input[0]
+2.68e-06 3.70e+01 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
+8.08e-07 2.66e+01 weight
+1.79e-06 4.65e+00 input[0]
+1.27e-04 2.37e+02 output
+                  encoder.block.2.layer.1.DenseReluDense.dropout Dropout
+0.00e+00 8.76e+03 input[0]
+0.00e+00 9.74e+03 output
+                  encoder.block.2.layer.1.DenseReluDense.wo Linear
+1.01e-06 6.44e+00 weight
+0.00e+00 9.74e+03 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
+1.79e-06 4.65e+00 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.dropout Dropout
+3.18e-04 6.27e+04 input[0]
+0.00e+00      inf output
+```
 
-And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
+The example output has been trimmed in the middle for brevity.
+
+The second column shows the value of the absolute largest element, so if you have a closer look at the last few frames, the inputs and outputs were in the range of `1e4`. So when this training was done under fp16 mixed precision the very last step overflowed (since under `fp16` the largest number before `inf` is `64e3`). To avoid overflows under `fp16` the activations must remain way below `1e4`, because `1e4 * 1e4 = 1e8` so any matrix multiplication with large activations is going to lead to a numerical overflow condition.
+
+At the very start of the trace you can discover at which batch number the problem occurred (here `Detected inf/nan during batch_number=0` means the problem occurred on the first batch).
+
+Each reported frame starts by declaring the fully qualified entry for the corresponding module this frame is reporting for. For example, consider this frame:
+
+```
+                  encoder.block.2.layer.1.layer_norm T5LayerNorm
+8.69e-02 4.18e-01 weight
+2.65e-04 3.42e+03 input[0]
+1.79e-06 4.65e+00 output
+```
+
+Here, `encoder.block.2.layer.1.layer_norm` indicates that it was a layer norm in `layer.1` of `block.2` of the encoder (both are 0-indexed, i.e. the 2nd sub-layer of the 3rd block). And the specific calls of the `forward` is `T5LayerNorm`.
+
+Let's look at the last few frames of that report:
+
+```
+Detected inf/nan during batch_number=0
+Last 21 forward frames:
+abs min  abs max  metadata
+[...]
+                  encoder.block.2.layer.1.DenseReluDense.wi_0 Linear
+2.17e-07 4.50e+00 weight
+1.79e-06 4.65e+00 input[0]
+2.68e-06 3.70e+01 output
+                  encoder.block.2.layer.1.DenseReluDense.wi_1 Linear
+8.08e-07 2.66e+01 weight
+1.79e-06 4.65e+00 input[0]
+1.27e-04 2.37e+02 output
+                  encoder.block.2.layer.1.DenseReluDense.wo Linear
+1.01e-06 6.44e+00 weight
+0.00e+00 9.74e+03 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.DenseReluDense T5DenseGatedGeluDense
+1.79e-06 4.65e+00 input[0]
+3.18e-04 6.27e+04 output
+                  encoder.block.2.layer.1.dropout Dropout
+3.18e-04 6.27e+04 input[0]
+0.00e+00      inf output
+```
+
+The last frame reports for `Dropout.forward` function with the first entry for the only input and the second for the only output. You can see that it was called from an attribute `dropout` inside `DenseReluDense` class. We can see that it happened in `layer.1` of `block.2` (the 2nd sub-layer of the 3rd block), during the very first batch. Finally, the absolute largest input elements was `6.27e+04` and same for the output was `inf`.
+
+You can see here, that `T5DenseGatedGeluDense.forward` resulted in output activations, whose absolute max value was around 62.7K, which is very close to fp16's top limit of 64K. In the next frame we have `Dropout` which renormalizes the weights, after it zeroed some of the elements, which pushes the absolute max value to more than 64K, and we get an overflow (`inf`).
+
+As you can see it's the previous frames that we need to look into when the numbers start going into very large for fp16 numbers.
+
+Let's match the report to the code from [`models/t5/modeling_t5.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/t5/modeling_t5.py):
+
+
+```python
+class T5DenseGatedGeluDense(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=False)
+        self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=False)
+        self.wo = nn.Linear(config.d_ff, config.d_model, bias=False)
+        self.dropout = nn.Dropout(config.dropout_rate)
+        self.gelu_act = ACT2FN["gelu_new"]
+
+    def forward(self, hidden_states):
+        hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
+        hidden_linear = self.wi_1(hidden_states)
+        hidden_states = hidden_gelu * hidden_linear
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.wo(hidden_states)
+        return hidden_states
+```
+
+Now it's easy to see the `dropout` call, and all the previous calls as well.
+
+Since the detection is happening in a forward hook, these reports are printed immediately after each `forward` returns.
+
+Going back to the full report, to act on it and to fix the problem, we need to go a few frames up where the numbers started to go up and most likely switch to the `fp32` mode here, so that the numbers don't overflow when multiplied or summed up. Of course, there might be other solutions. For example, we could turn off `amp` temporarily if it's enabled, after moving the original `forward` into a helper wrapper, like so:
+
+```python
+import torch
+
+def _forward(self, hidden_states):
+    hidden_gelu = self.gelu_act(self.wi_0(hidden_states))
+    hidden_linear = self.wi_1(hidden_states)
+    hidden_states = hidden_gelu * hidden_linear
+    hidden_states = self.dropout(hidden_states)
+    hidden_states = self.wo(hidden_states)
+    return hidden_states
+
+def forward(self, hidden_states):
+    if torch.is_autocast_enabled():
+        with torch.amp.autocast("cuda", enabled=False):
+            return self._forward(hidden_states)
+    else:
+        return self._forward(hidden_states)
+```
+
+Since the automatic detector only reports on inputs and outputs of full frames, once you know where to look, you may want to analyze the intermediary stages of any specific `forward` function as well. In such a case you can use the `detect_overflow` helper function to inject the detector where you want it, for example:
+
+```python
+from underflow_overflow import detect_overflow
+
+
+class T5LayerFF(nn.Module):
+    [...]
+
+    def forward(self, hidden_states):
+        forwarded_states = self.layer_norm(hidden_states)
+        detect_overflow(forwarded_states, "after layer_norm")
+        forwarded_states = self.DenseReluDense(forwarded_states)
+        detect_overflow(forwarded_states, "after DenseReluDense")
+        return hidden_states + self.dropout(forwarded_states)
+```
+
+You can see that we added 2 of these and now we track if `inf` or `nan` for `forwarded_states` was detected somewhere in between.
+
+Actually, the detector already reports these because each of the calls in the example above is a `nn.Module`, but let's say if you had some local direct calculations this is how you'd do that.
+
+Additionally, if you're instantiating the debugger in your own code, you can adjust the number of frames printed from its default, e.g.:
+
+```python
+from .underflow_overflow import DebugUnderflowOverflow
+
+debug_overflow = DebugUnderflowOverflow(model, max_frames_to_save=100)
+```
+
+#### Specific batch absolute min and max value tracing
+
+The same debugging class can be used for per-batch tracing with the underflow/overflow detection feature turned off.
+
+Let's say you want to watch the absolute min and max values for all the ingredients of each `forward` call of a given batch, and only do that for batches 1 and 3. Then you instantiate this class as:
+
+```python
+debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3])
+```
+
+And now full batches 1 and 3 will be traced using the same format as the underflow/overflow detector does.
+
+Batches are 0-indexed.
+
+This is helpful if you know that the program starts misbehaving after a certain batch number, so you can fast-forward right to that area. Here is a sample truncated output for such configuration:
+
+```
+                  *** Starting batch number=1 ***
+abs min  abs max  metadata
+                  shared Embedding
+1.01e-06 7.92e+02 weight
+0.00e+00 2.47e+04 input[0]
+5.36e-05 7.92e+02 output
+[...]
+                  decoder.dropout Dropout
+1.60e-07 2.27e+01 input[0]
+0.00e+00 2.52e+01 output
+                  decoder T5Stack
+     not a tensor output
+                  lm_head Linear
+1.01e-06 7.92e+02 weight
+0.00e+00 1.11e+00 input[0]
+6.06e-02 8.39e+01 output
+                   T5ForConditionalGeneration
+     not a tensor output
+
+                  *** Starting batch number=3 ***
+abs min  abs max  metadata
+                  shared Embedding
+1.01e-06 7.92e+02 weight
+0.00e+00 2.78e+04 input[0]
+5.36e-05 7.92e+02 output
+[...]
+```
+
+Here you will get a huge number of frames dumped - as many as there were forward calls in your model, so it may or may not be what you want, but sometimes it can be easier to use for debugging purposes than a normal debugger. For example, if a problem starts happening at batch number 150. So you can dump traces for batches 149 and 150 and compare where numbers started to diverge.
+
+You can also specify the batch number after which to stop the training, with:
+
+```python
+debug_overflow = DebugUnderflowOverflow(model, trace_batch_nums=[1, 3], abort_after_batch_num=3)
+```
+
+### Floating point math discrepancies on different devices
+
+See also [Reproducibility](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software) for achieving determinism across different software and hardware setups.
+
+It's important to understand that depending on which device the floating point math is performed on the outcomes can be different. For example doing the same floating point operation on a CPU and a GPU may lead to different outcomes, similarly when using 2 different GPU architectures, and even more so if these are 2 different types of accelerators (e.g. NVIDIA vs. AMD GPUs).
+
+Here is an example of discrepancies I was able to get doing the same simple floating point math on an 11 Gen Intel i7 CPU and an NVIDIA A100 80GB (PCIe) GPU:
+
+```python
+import torch
+
+def do_math(device):
+    inv_freq = (10 ** (torch.arange(0, 10, device=device) / 10))
+    print(f"{inv_freq[9]:.20f}")
+    return inv_freq.cpu()
+
+a = do_math(torch.device("cpu"))
+b = do_math(torch.device("cuda"))
+
+torch.testing.assert_close(a, b, rtol=0.0, atol=0.0)
+```
+when we run it we get 2 out of 10 elements mismatch:
+```
+7.94328212738037109375
+7.94328308105468750000
+[...]
+AssertionError: Tensor-likes are not equal!
+
+Mismatched elements: 2 / 10 (20.0%)
+Greatest absolute difference: 9.5367431640625e-07 at index (9,)
+Greatest relative difference: 1.200604771156577e-07 at index (9,)
+```
+
+
+This was a simple low-dimensional example, but in reality the tensors are much bigger and will typically end up having more mismatches.
+
+Now you might say that the `1e-6` discrepancy can be safely ignored. And it's often so as long as this is a final result. If this tensor from the example above is now fed through a 100 layers of `matmul`s, this tiny discrepancy is going to compound and spread out to impact many other elements with the final outcome being quite different from the same action performed on another type of device.
+
+For example, see this [discussion](https://github.com/deepspeedai/DeepSpeed/issues/4932) - the users reported that when doing Llama-2-7b inference they were getting quite different logits depending on how the model was initialized. To clarify the initial discussion was about DeepSpeed potentially being the problem, but in later comments you can see that it was reduced to just which device the model's buffers were initialized on. The trained weights aren't an issue they are loaded from the checkpoint, but the buffers are recreated from scratch when the model is loaded, so that's where the problem emerges.
+
+It's uncommon that small variations make much of a difference, but sometimes the difference can be clearly seen, as in this example where the same image is produced on a CPU and an MPS device.
+
+![](images/math-fp-discrepancy-outcome-lizard.png)
+
+This snapshot and the commentary come from this [PyTorch Issue thread](https://github.com/pytorch/pytorch/issues/84936#issuecomment-1246084645).
+
+If you're curious where I pulled this code from - this is a simplified reduction of this original code in [modeling_llama.py](https://github.com/huggingface/transformers/blob/3f69f415adcbdaedec154ba8eac220ef3276975d/src/transformers/models/llama/modeling_llama.py#L130):
+
+```python
+class LlamaRotaryEmbedding(nn.Module):
+    def __init__(self, dim, max_position_embeddings=2048, base=10_000, device=None):
+        super().__init__()
+
+        self.dim = dim
+        self.max_position_embeddings = max_position_embeddings
+        self.base = base
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+```
 
 ## Diagnosing crashes, hangs and tracing execution
 
@@ -2689,6 +2331,199 @@ So, yes, when you switch from async to sync nature, often it can hide some subtl
 Note: [NCCL==2.14.3 coming with `pytorch==1.13` hangs](https://github.com/NVIDIA/nccl/issues/750) when `CUDA_LAUNCH_BLOCKING=1` is used. So don't use it with that version of pytorch. The issue has been fixed in `nccl>=2.17` which should be included in `pytorch==2.0`.
 
 
+### Debugging CUDA kernel memory errors with `compute-sanitizer`
+
+`CUDA_VISIBLE_DEVICES=""` and `CUDA_LAUNCH_BLOCKING=1` from the previous section give you an in-context Python traceback that points at *which* operator failed - but they can't see *inside* a CUDA kernel. When the bug is a bad memory access, a race, or use of uninitialized device memory, NVIDIA's `compute-sanitizer` (ships with the CUDA toolkit; it replaced the old `cuda-memcheck`) instruments the kernel and reports the offending access.
+
+It has four sub-tools, selected with `--tool`:
+- `memcheck` (the default) - out-of-bounds and misaligned device memory accesses, and, with `--leak-check full`, device memory that was never freed.
+- `racecheck` - shared-memory data races between threads of a block.
+- `initcheck` - reads of uninitialized device global memory.
+- `synccheck` - invalid `__syncthreads()` / barrier use.
+
+It runs on any process that launches CUDA kernels, `python` included - just prefix your normal command:
+
+```bash
+compute-sanitizer --tool memcheck python my-program.py
+```
+
+Every kernel is instrumented, so expect a large slowdown; narrow to a single reproducing step and use `--launch-count`/`--launch-skip` to check only the suspect launches.
+
+Leak reporting is off unless you ask for it, and its absence is indistinguishable from a clean run - without `--leak-check full` a program that allocates a megabyte and never frees it still finishes with `ERROR SUMMARY: 0 errors`. Turning it on comes with a caveat on PyTorch: the caching allocator is still holding its segments when the process exits, and each one is reported as a leak. A correct script that allocates a single small tensor reports `LEAK SUMMARY: 2097156 bytes leaked in 2 allocations` - a 2MiB allocator segment plus a 4-byte block. Dropping your references and calling `torch.cuda.empty_cache()` before exit releases the segment and leaves only the 4 bytes, which is a quick way to tell your own leak from the allocator's bookkeeping.
+
+First, when you *don't* need it: modern PyTorch's own indexing / gather / scatter / take kernels bounds-check on the device and `assert`, so a stray index aborts with a clear message, e.g.
+
+```
+.../IndexKernel.cu:339: ... Assertion `idx < numel ... index out of bounds` failed.
+```
+
+For those, `CUDA_LAUNCH_BLOCKING=1` plus the assert already name the op and (with blocking) your exact Python line - no sanitizer needed (the wording and PyTorch source location vary by version). Reach for `compute-sanitizer` when the kernel *doesn't* self-check: your own or a third-party extension that silently corrupts memory and only crashes later somewhere unrelated.
+
+We'll use one tiny buggy kernel, built two ways. It writes with 8 threads into a 4-int buffer, so threads 4-7 run off the end ([kernel_oob.cu](code/kernel_oob.cu)):
+
+```cpp
+#include <torch/extension.h>
+#include <cuda_runtime.h>
+
+__global__ void write_oob(int *p)
+{
+    int i = threadIdx.x;
+    p[i] = i;   // 8 threads, 4-int buffer -> threads 4-7 run off the end
+}
+
+void run()
+{
+    int *d;
+    cudaMalloc(&d, 4 * sizeof(int));   // tight 16-byte allocation
+    write_oob<<<1, 8>>>(d);
+    cudaDeviceSynchronize();
+    cudaFree(d);
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+{
+    m.def("run", &run, "launch the buggy kernel");
+}
+```
+
+#### When you don't have the kernel source
+
+The usual case: the kernel is inside a prebuilt wheel - a release build with no line info, and you don't have the `.cu`. To see exactly what that looks like, build our kernel the way wheels ship it - *without* `-lineinfo` ([kernel_oob_prebuilt.py](code/kernel_oob_prebuilt.py)):
+
+```python
+#!/usr/bin/env python
+import torch
+from torch.utils.cpp_extension import load
+
+# built the way a PyPI wheel ships: release, NO -lineinfo / -G
+ext = load(
+    name="kernel_oob_prebuilt",
+    sources=["kernel_oob.cu"],
+    verbose=False,
+)
+ext.run()
+torch.cuda.synchronize()
+```
+
+```bash
+compute-sanitizer --tool memcheck python kernel_oob_prebuilt.py
+```
+
+memcheck still catches the bad write and pins it to the kernel and to your Python call site - but with no source line inside the kernel:
+
+```
+========= Invalid __global__ write of size 4 bytes
+=========     at write_oob(int *)+0x50
+=========     by thread (4,0,0) in block (0,0,0)
+=========     Access to 0x7f...10 is out of bounds
+=========     and is 1 bytes after the nearest allocation at 0x7f...00 of size 16 bytes
+=========     Saved host backtrace up to driver entry point at kernel launch time
+=========         Host Frame: run() in kernel_oob_prebuilt.so
+=========         [ ... pybind frames ... ]
+=========         Host Frame: <module> in kernel_oob_prebuilt.py:11
+========= ERROR SUMMARY: 8 errors
+```
+
+You get the kernel (`write_oob(int *)+0x50`), the exact overrun (1 byte past a 16-byte allocation), and your Python launch site (`kernel_oob_prebuilt.py:11`) - just not a line *inside* the kernel, which is impossible without a build you don't have. For a real third-party op that's usually enough: which kernel, which of your tensors, which call - then fix the inputs or file a bug upstream.
+
+One PyTorch-specific gotcha: if the overrun is on a normal `torch` tensor, the caching allocator hands out sub-regions of a big `cudaMalloc` slab, so a small overrun stays *inside* the slab and memcheck sees nothing. Disable caching so it can:
+
+```bash
+PYTORCH_NO_CUDA_MEMORY_CACHING=1 compute-sanitizer --tool memcheck python my-program.py
+```
+
+(Our demo allocates its buffer with a raw `cudaMalloc`, so it fires without this - you'll need it for OOBs on real tensors.)
+
+#### When you have the kernel source
+
+If the kernel is *yours*, you control the build, so add `-lineinfo` and memcheck will additionally name the exact offending line ([kernel_oob.py](code/kernel_oob.py)):
+
+```python
+#!/usr/bin/env python
+import torch
+from torch.utils.cpp_extension import load
+
+ext = load(
+    name="kernel_oob",
+    sources=["kernel_oob.cu"],
+    extra_cuda_cflags=["-lineinfo"],
+    verbose=True,
+)
+ext.run()
+torch.cuda.synchronize()
+```
+
+```bash
+compute-sanitizer --tool memcheck python kernel_oob.py
+```
+
+Same report, now with the source line:
+
+```
+========= Invalid __global__ write of size 4 bytes
+=========     at write_oob(int *)+0x50 in kernel_oob.cu:7
+=========     Access to 0x7f...10 is out of bounds
+=========     and is 1 bytes after the nearest allocation at 0x7f...00 of size 16 bytes
+=========         Host Frame: run() in kernel_oob.so
+=========         [ ... pybind frames ... ]
+=========         Host Frame: <module> in kernel_oob.py:11
+========= ERROR SUMMARY: 8 errors
+```
+
+The only difference from the prebuilt run is `in kernel_oob.cu:7` - the exact store. Use `-lineinfo` (keeps optimizations) or `-G` for a full debug build (disables optimizations, much slower). Triton kernels work too and emit line info by default.
+
+#### Shared-memory races with `racecheck`
+
+memcheck asks whether a kernel touched memory it shouldn't. `racecheck` asks whether two threads of a block touched the same `__shared__` location with nothing ordering them - the bug behind a kernel that returns slightly different numbers on every run instead of crashing. It sees shared memory only, so it is a tool for hand-written kernels; a program that just calls PyTorch ops has no shared memory of its own to check.
+
+[kernel_race.cu](code/kernel_race.cu) makes the classic mistake - each thread publishes a value and reads its neighbor's with no `__syncthreads()` in between (built with `-lineinfo` by [kernel_race.py](code/kernel_race.py), so the report can name lines):
+
+```cpp
+__global__ void race(int *out)
+{
+    __shared__ int s[64];
+    int i = threadIdx.x;
+    s[i] = i;                    // written by thread i ...
+    out[i] = s[(i + 1) % 64];    // ... read by thread i-1, no barrier between
+}
+```
+
+```bash
+compute-sanitizer --tool racecheck python kernel_race.py
+```
+
+```
+========= Error: Race reported between Write access at race(int *)+0xc0 in kernel_race.cu:8
+=========     and Read access at race(int *)+0xf0 in kernel_race.cu:9 [256 hazards]
+========= RACECHECK SUMMARY: 1 hazard displayed (1 error, 0 warnings)
+```
+
+That is the default `analysis` mode - one record per racing pair, with the hazard count behind it. `--racecheck-report hazard` prints those 256 hazards individually instead, each naming the two threads, the shared address and the value seen, plus a host backtrace - so pair it with `--print-limit` to cap the output and `--print-level error` to keep only the hazards crossing a warp boundary (8 of the 256 here); the rest are warnings tagged `(Warp Level Programming)`, since warp-synchronous code sometimes relies on them deliberately. To re-read findings without re-running an instrumented program, `--save race.log` records them and `--read race.log` prints them back; the file name takes `%p` for the pid, so `torchrun` ranks don't overwrite each other.
+
+Primary reference: [NVIDIA Compute Sanitizer](https://docs.nvidia.com/compute-sanitizer/).
+
+
+### Stepping inside a kernel with `cuda-gdb`
+
+`compute-sanitizer` tells you that a kernel did something wrong and where. `cuda-gdb`, from the same toolkit, lets you stop inside it and look around - it is `gdb` with device support: breakpoints in `__global__` functions, per-thread inspection, and reads of device memory.
+
+Build the kernel with `-G` instead of `-lineinfo` - full device debug info with optimizations off ([kernel_oob_gdb.py](code/kernel_oob_gdb.py)) - and put your normal command after `--args`. The wait on the first run is the compile rather than the debugger: this example took 102s the first time and 17s on later runs, once the built extension was cached. One PyTorch-specific wrinkle: `cpp_extension.load` compiles the kernel while the program is already running, so the symbol doesn't exist when the debugger starts and the breakpoint has to be allowed to stay pending:
+
+```bash
+$ cuda-gdb -ex 'set breakpoint pending on' -ex 'break write_oob' -ex run --args python kernel_oob_gdb.py
+Function "write_oob" not defined.
+Breakpoint 1 (write_oob) pending.
+[Switching focus to CUDA kernel 0, grid 1, block (0,0,0), thread (0,0,0), device 0, sm 124, warp 0, lane 0]
+
+CUDA thread hit Breakpoint 1.1, write_oob<<<(1,1,1),(8,1,1)>>> (p=0x7ffc6fe00000) at kernel_oob.cu:6
+6	    int i = threadIdx.x;
+```
+
+From there the usual `gdb` vocabulary works, with device additions: `print p[0]` reads device memory, `info args` shows the kernel's arguments, and `cuda thread (4,0,0)` moves the focus to a specific thread - which is what you want in this kernel, where threads 0-3 are fine and only 4-7 run off the end.
+
+Reference: [NVIDIA cuda-gdb](https://docs.nvidia.com/cuda/cuda-gdb/).
+
+
 ### segfaults and getting a backtrace from a core file
 
 It's not uncommon for a complex pytorch program to segfault and drop a core file. Especially if you're using complex extensions like NCCL.
@@ -2697,7 +2532,7 @@ The corefile is what the program generates when it crashes on a low-level - e.g.
 
 When a segfault event happens Python can't do anything, as the proverbial carpet is pulled out from under its feet, so it can't generate an exception or even write anything to the output.
 
-In these situation one must go and analyse the libC-level calls that lead to the segfault, which is luckily saved in the core file.
+In these situation one must go and analyze the libC-level calls that lead to the segfault, which is luckily saved in the core file.
 
 The general mechanics - enabling core dumps (`ulimit -c unlimited` and `kernel.core_pattern`), loading a core file into `gdb`, and the `bt` / `bt full` / `thread apply all bt` commands - are covered in [Segmentation fault, core files and gdb](https://github.com/stas00/the-art-of-debugging/blob/master/compiled-programs/README.md#segmentation-fault-core-files-and-gdb). Here we focus on the PyTorch-specific nuances.
 
@@ -2798,6 +2633,34 @@ lr-x------ 1 stas stas 64 Mar  1 17:22 9 -> /dev/nvidia-caps/nvidia-cap2
 ```
 so you can see that a device `/dev/null` is open as FD (file descriptor) 5, `/dev/urandom` as FD 6, etc.
 
+`lsof` gives you the same mapping without going through `/proc`, and adds the file type and the access mode:
+
+```bash
+$ lsof -p PID
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF        NODE NAME
+python  1876037 stas  cwd    DIR  9,127      143 22548711123 /tmp/enospc
+python  1876037 stas  rtd    DIR  0,285     4096 12884906136 /
+python  1876037 stas  txt    REG  0,285 30598912 19864359926 /home/stas/envs/dev/bin/python3.12
+python  1876037 stas    0r   CHR    1,3      0t0           6 /dev/null
+python  1876037 stas    1w  FIFO   0,15      0t0  2216140539 pipe
+python  1876037 stas    2w  FIFO   0,15      0t0  2216140540 pipe
+python  1876037 stas    3w   REG  9,127        1 22548711151 /tmp/enospc/holdme.txt
+python  1876037 stas    4r   CHR    1,9      0t0          11 /dev/urandom
+...
+```
+
+The `FD` column carries the mode - `3w` is FD 3 open for writing, `4r` is FD 4 open for reading - and the special entries `cwd`, `rtd` and `txt` are the working directory, the root directory and the executable itself. Add `-n` to skip hostname lookups and `-P` to skip port-name lookups, both of which make it noticeably faster on a busy machine.
+
+It also answers the question `/proc` can't - *who* has this file open:
+
+```bash
+$ lsof /tmp/enospc/holdme.txt
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF        NODE NAME
+python  1876037 stas    3w   REG  9,127        1 22548711151 /tmp/enospc/holdme.txt
+```
+
+which is how you find the process still holding a deleted-but-not-freed file, or the one keeping a mount busy.
+
 Now let's go look at another snippet from our `strace` run.
 
 ```
@@ -2865,6 +2728,34 @@ poll([{fd=3, events=POLLIN}], 1, 10000) = 1 ([{fd=3, revents=POLLIN}])
 ```
 
 You can see where that again it uses FD 3 but this time it opens a INET6 socket instead of a file. You can see that it then connects to that socket, polls, reads and writes from it.
+
+A failing syscall also answers "which file?" when the exception won't. A "No space left on device" traceback names the line that wrote, but not what it was writing to:
+
+```
+Traceback (most recent call last):
+  File "save.py", line 10, in <module>
+    save("x" * 100000)
+  File "save.py", line 8, in save
+    f.write(data)
+OSError: [Errno 28] No space left on device
+```
+
+The path was computed at run time, so it appears nowhere in the traceback. Re-run under `strace` with `-y`, which annotates every file descriptor with the file it points at, and filter down to the calls that matter:
+
+```bash
+strace -y -e trace=openat,write -o strace.txt python save.py
+grep ENOSPC strace.txt
+```
+
+```
+write(3</dev/full>, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"..., 100000) = -1 ENOSPC (No space left on device)
+```
+
+and there is the culprit. (This example writes to `/dev/full`, a device that always reports `ENOSPC`, so you can reproduce the failure without actually filling a disk.)
+
+`-y` needs a reasonably recent `strace`. Without it you get a bare `write(3, ...)` and have to scan backwards for the `openat` that returned FD 3 - the same FD-to-path exercise as above.
+
+If you want to reproduce a disk-full failure on demand rather than wait for one, see [emulating an almost full disk partition](https://github.com/stas00/the-art-of-debugging/tree/master/methodology#emulating-an-almost-full-disk-partition).
 
 There are many other super useful understandings one can derive from using this tool.
 
@@ -2988,7 +2879,7 @@ pgrep -P $(pgrep -o accelerate) | xargs -I {} py-spy dump --pid {}
 
 you get the idea.
 
-This particular approach will only analyse the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 gpus and 8 processes, the above will generate 8 stack traces.
+This particular approach will only analyze the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 gpus and 8 processes, the above will generate 8 stack traces.
 
 Then you can pipe the output into this additional useful filter:
 ```bash
@@ -3047,7 +2938,7 @@ As mentioned before if you want just the main processes you'd use this instead:
 ```bash
 srun --jobid=2180718 --gres=gpu:0 --nodes=40 --tasks-per-node=1 --output=trace-%N.out sh -c 'pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}' || echo "failed"
 ```
-Adjust `python` if need be as explained in the multi-gpu section above.
+Adjust `python` if need be as explained in the [multi-process py-spy](#multi-process-py-spy) section.
 
 The previous longer command will deliver traces for all python processes.
 
@@ -3087,7 +2978,7 @@ PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'pgrep -P $(pgrep -o python) | xargs -
 but as you're likely to need to have the `~/.bashrc` run, you will need to clone it into `~/.pdshrc`, reduce that clone to what is needed to be run (e.g. modify `PATH`, `activate conda`) and then `source` it, like:
 
 ```bash
-PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}"'
+PDSH_RCMD_TYPE=ssh pdsh -w nodename-[5,8] 'source ~/.pdshrc; pgrep -P $(pgrep -o python) | xargs -I {} py-spy dump --pid {}'
 ```
 
 The reason you need a startup script is because usually `~/.bashrc` starts with:
@@ -3121,7 +3012,7 @@ for every new node you haven't logged into yet, you can disable this check with:
 echo "Host *" >> ~/.ssh/config
 echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 ```
-Here I assume you're on an isolated cluster so you don't need to worry about security issues and thus bypassing such check is most likely OK.
+Here I assume you're on an isolated cluster where replaced nodes routinely change their host keys, so you don't need to worry about security issues and thus bypassing such check is most likely OK.
 
 
 ##### multi-node py-spy via ds_ssh
@@ -3153,6 +3044,108 @@ Notes:
 - Put inside `~/.pdshrc` whatever init code that you may need to run. If you don't need any you can remove `source ~/.pdshrc;` from the command line.
 - If you don't have it already `ds_ssh` is installed when you do `pip install deepspeed`.
 - you might need to `export PDSH_RCMD_TYPE=ssh` if you get `rcmd: socket: Permission denied` error
+
+
+#### Diagnosing NCCL collective hangs
+
+When a multi-GPU run hangs, `py-spy` shows *where* each rank's Python is parked - but that's usually every rank blocked inside the same NCCL wait, which doesn't reveal what went wrong. The useful questions are *which* collective failed to match across ranks and *where in your code* it was issued. PyTorch's ProcessGroupNCCL watchdog answers both, in two escalating steps: a *desync report* that names the rank and collective that fell out of step, and a *flight recorder* that dumps the full per-rank history of recent collectives, each with the Python call stack that issued it. Start with the first; reach for the second only when you need more.
+
+This section is about the `nccl` backend's watchdog, which is what produces both reports. Measured on PyTorch 2.14.0: if the process group uses the [`nccl2` implementation](../training/performance/README.md#choosing-between-nccl-nccl2-and-nccl-lazy) instead - selected with `backend="nccl2"`, or with `TORCH_DIST_USE_NCCL2=1` which redirects plain `"nccl"` to it - none of the `TORCH_NCCL_*` and `TORCH_FR_*` variables below do anything. The same hang then reports a single `Operation timed out` line and a Python traceback pointing at the collective the rank was blocked in rather than the one that diverged, with no desync report and no dump file. Reproduce the hang under `nccl` to diagnose it.
+
+footnote: the 2.14 release notes describe a flight recorder that records through process-group hooks rather than only under NCCL. That is not what a stock 2.14.0 wheel does for `nccl2`, which is why the advice above is to switch back rather than to expect a dump.
+
+##### The desync report
+
+For most hangs the desync report is enough. Enable it before launching the program with:
+```bash
+export TORCH_NCCL_DESYNC_DEBUG=1
+export TORCH_FR_BUFFER_SIZE=2000
+```
+`TORCH_NCCL_DESYNC_DEBUG=1` makes the watchdog, at timeout, name which collective and which rank fell out of step, and `TORCH_FR_BUFFER_SIZE` (any non-zero value turns the flight recorder on) is what adds the source stack trace of the stuck call to that report.
+
+Let's write a buggy script [collective_mismatch.py](code/collective_mismatch.py) where rank 0 issues one extra `all_reduce` that the other rank never joins, so every rank blocks until the watchdog fires. Run it with:
+```bash
+torchrun --standalone --nproc_per_node=2 collective_mismatch.py
+```
+after setting the environment variables above.
+
+The repro deliberately passes a short `timeout=timedelta(seconds=8)` to `init_process_group`, which is why the watchdog fires after 8s. If `default_pg_nccl_timeout` is not overridden the default for NCCL is 10 minutes, so the watchdog won't fire until then. When you're actively chasing a hang, lower it to seconds or a few minutes so the report lands promptly but remember to then undo it before going into production. Starting from PyTorch 2.14 you don't have to edit the `init_process_group` call to change it: `dist.set_timeout(timedelta(seconds=8))` applies to the group afterwards, and the same call stretches it back out around something slow like a checkpoint load.
+
+On timeout the watchdog names the culprit and prints the call stack of the stuck collective:
+```
+[Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=2, OpType=ALLREDUCE, NumelIn=4, NumelOut=4, Timeout(ms)=8000) ran for 8097 milliseconds before timing out.
+ - [0] Timeout at collective: ALLREDUCE, #3
+ - To our best knowledge, the lagging/dead/mismatched ranks that caused the desync are:
+     [1] finished collective #2, but didn't join collective #3 (count from 1)
+Stack trace of the failed collective:
+#2 buggy from collective_mismatch.py:8
+#3 main from collective_mismatch.py:15
+#4 <module> from collective_mismatch.py:18
+```
+That already points at `collective_mismatch.py:8` - the stray `all_reduce` - and, crucially, at `main:15` that called `buggy`, so you learn *how* the bad call was reached, not just that it happened. This is usually enough to locate and fix the bug.
+
+##### The flight recorder trace
+
+If you need a more detailed picture, the flight recorder keeps the full per-rank history - enable the recorder environment variables:
+```bash
+export TORCH_FR_BUFFER_SIZE=2000
+export TORCH_NCCL_DUMP_ON_TIMEOUT=1
+export TORCH_FR_DUMP_TEMP_FILE=/tmp/fr
+```
+- `TORCH_NCCL_DUMP_ON_TIMEOUT=1` - dump the buffer to disk automatically when the watchdog fires; without it the recorder still runs but nothing is written out.
+- `TORCH_FR_DUMP_TEMP_FILE=/tmp/fr` - path prefix for the dump; each rank appends its own rank number, so you get `/tmp/fr0`, `/tmp/fr1`, and so on.
+- `TORCH_FR_BUFFER_SIZE` is explained in the previous section.
+
+and now re-run:
+```bash
+torchrun --standalone --nproc_per_node=2 collective_mismatch.py
+```
+
+footnote: `TORCH_FR_BUFFER_SIZE` and `TORCH_FR_DUMP_TEMP_FILE` were named `TORCH_NCCL_TRACE_BUFFER_SIZE` and `TORCH_NCCL_DEBUG_INFO_TEMP_FILE` before PyTorch 2.9; the old names still work but warn. These `TORCH_NCCL_*`/`TORCH_FR_*` variables are PyTorch-level controls, distinct from NCCL's own `NCCL_*` variables such as `NCCL_DEBUG`.
+
+On timeout each rank writes `/tmp/fr<rank>`. The helper script [collective_mismatch_analyze.py](code/collective_mismatch_analyze.py) loads the pickle file and, for each collective that did not complete, prints its call site and callers with torch's own frames stripped out:
+```python
+#!/usr/bin/env python
+import pickle, glob, os, torch
+
+SHOW_ALL   = False   # False: only collectives that hung; True: every collective
+NUM_FRAMES = 2       # user frames to show: the actual call site + who called it
+
+TORCH_DIR = os.path.dirname(torch.__file__)      # wherever torch actually lives
+def is_user(frame):                              # skip torch's own collective plumbing
+    return not frame["filename"].startswith(TORCH_DIR)
+
+d = pickle.load(open(sorted(glob.glob("/tmp/fr*"))[0], "rb"))
+for e in d["entries"]:
+    if SHOW_ALL or e["state"] != "completed":
+        print(e["state"], e["profiling_name"])
+        user = [f for f in e["frames"] if is_user(f)]   # innermost first
+        for f in user[:NUM_FRAMES]:                      # call site, then its caller
+            print("   ", f["name"], os.path.basename(f["filename"]) + ":" + str(f["line"]))
+```
+```
+started nccl:all_reduce
+    buggy collective_mismatch.py:8
+    main collective_mismatch.py:15
+scheduled nccl:all_reduce_barrier
+    main collective_mismatch.py:16
+    <module> collective_mismatch.py:18
+```
+The entry left in `started` (or `scheduled`) rather than `completed` is the hang, and its first non-torch frame is the offending call - here `collective_mismatch.py:8`. If you need you can raise `NUM_FRAMES` to a higher number. Set `SHOW_ALL = True` to print the whole timeline, including the collectives that completed before the divergence:
+```
+completed nccl:all_reduce
+    buggy collective_mismatch.py:6
+    main collective_mismatch.py:15
+started nccl:all_reduce
+    buggy collective_mismatch.py:8
+    main collective_mismatch.py:15
+scheduled nccl:all_reduce_barrier
+    main collective_mismatch.py:16
+    <module> collective_mismatch.py:18
+```
+This is usually faster than reading raw stacks because it surfaces the ordering mismatch between ranks - mismatched sizes, a different collective order, or a collective one rank skipped - that causes most NCCL hangs.
+
+Primary reference: [ProcessGroupNCCL environment variables](https://docs.pytorch.org/docs/stable/torch_nccl_environment_variables.html).
 
 
 #### Network-level hanging
@@ -3285,13 +3278,13 @@ You can find it here: [NicerTrace](./NicerTrace.py)
 I added multiple additional flags to the constructor and made the output much more useful. You fill find a full working example in that same file, just run:
 
 ```bash
-python trace/NicerTrace.py
+python NicerTrace.py
 ```
 and you should see:
 
 ```
-        trace/NicerTrace.py:1 <module>
-0:00:00 <string>:     1:         trace/NicerTrace.py:185 main
+        NicerTrace.py:1 <module>
+0:00:00 <string>:     1:         NicerTrace.py:185 main
 0:00:00 NicerTrace.py:   186:     img = Image.new("RGB", (4, 4))
         PIL.Image:2896 new
 0:00:00 Image.py:  2912:     _check_size(size)
@@ -3312,7 +3305,7 @@ This is a very fresh work-in-progress package, so it's evolving as we are trying
 
 ##### Working with generated trace files
 
-When the per-node-rank trace files has been generated the following might be helpful to quickly analyse the situation:
+When the per-node-rank trace files has been generated the following might be helpful to quickly analyze the situation:
 
 
 - grep for a specific match and also print the file and line number where it was found:
@@ -3407,10 +3400,10 @@ If on Ubuntu by default it sends core files to `apport`, which may save the core
 A quick way to test if your setup can generate a core file is:
 ```
 sleep 10 &
-killall -SIGSEGV sleep
+kill -SEGV $!
 ```
 
-Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hanging program, because `SIGSEGV` is likely to launch a sighandler, but for this test it's good enough.
+Normally `SIGSEGV` isn't recommended for a real situation of diagnosing a hanging program, because `SIGSEGV` is likely to launch a sighandler, but for this test it's good enough. (`$!` is the PID of the `sleep` we just backgrounded, so only that process is signalled.)
 
 
 #### Code loops
@@ -3427,23 +3420,425 @@ it's possible that one process hangs in the first iteration, and another process
 In such situations unroll the loop to be:
 ```
 d_iter = iter(data)
-some_hanging_call(next(d_iter)
-some_hanging_call(next(d_iter)
+some_hanging_call(next(d_iter))
+some_hanging_call(next(d_iter))
 ```
 and now when you run `py-spy` the line numbers will be correct. The processes hanging in the first iteration will report the first `some_hanging_call` and those in the second iteration in the second call - as each now has its own line.
 
 
 ### Hardware-specific issues
 
-#### AMD/ROCm hangs or slow with IOMMU enabled
+#### AMD/ROCm hangs or slow with IOMMU
 
-AMD Instinct users may need to either [Disable IOMMU](https://github.com/stas00/ml-engineering/issues/1#issuecomment-1076830400) or set it to:
+See [Troubleshooting AMD GPUs](../compute/accelerator/amd/debug.md#hangs-or-slow-multi-gpu-runs-and-iommu).
+
+## Debugging multi-node training
+
+For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+
+### Getting nodes to talk to each other
+
+Once you need to use more than one node to scale your training, e.g., if you want to use DDP to train faster, you have to get the nodes to talk to each other, so that communication collectives could send data to each other. This is typically done via a comms library like [NCCL](https://github.com/nVIDIA/nccl). And in our DDP example, at the end of training step all GPUs have to perform an `all_reduce` call to synchronize the gradients across all ranks.
+
+In this section we will discuss a very simple case of just 2 nodes (with 8 GPUs each) talking to each other and which can then be easily extended to as many nodes as needed. Let's say that these nodes have the IP addresses 10.0.0.1 and 10.0.0.2.
+
+Once we have the IP addresses we then need to choose a port for communications.
+
+In Unix there are 64k ports. The first 1k are reserved for common services so that any computer on the Internet could connect to any other computer knowing ahead of time which port to connect to. For example, port 22 is reserved for SSH. So that whenever you do `ssh example.com` in fact the program open a connection to `example.com:22`.
+
+As there are thousands of services out there, the reserved 1k ports is not enough, and so various services could use pretty much any port. But fear not, when you get your Linux box on the cloud or an HPC, you're unlikely to have many preinstalled services that could use a high number port, so most ports should be available.
+
+Therefore let's choose port 6000.
+
+Now we have: `10.0.0.1:6000` and `10.0.0.2:6000` that we want to be able to communicate with each other.
+
+The first thing to do is to open port `6000` for incoming and outgoing connections on both nodes. It might be open already or you might have to read up the instructions of your particular setup on how to open a given port.
+
+Here are multiple ways that you could use to test whether port 6000 is already open.
+
 ```bash
-GRUB_CMDLINE_LINUX_DEFAULT="iommu=soft"
+telnet localhost:6000
+nmap -p 6000 localhost
+nc -zv localhost 6000
+curl -v telnet://localhost:6000
 ```
-in `/etc/default/grub` (the grub config file could be elsewhere depending on the OS).
 
-Disabling is `GRUB_CMDLINE_LINUX="amd_iommu=off"`
+Most of these should be available via `apt install` or whatever your package manager uses.
+
+Let's use `nmap` in this example. If I run:
+
+```bash
+$ nmap -p 22 localhost
+[...]
+PORT   STATE SERVICE
+22/tcp open  ssh
+```
+We can see the port is open and it tells us which protocol and service is allocated as a bonus.
+
+Now let's run:
+```bash
+$ nmap -p 6000 localhost
+[...]
+
+PORT     STATE  SERVICE
+6000/tcp closed X11
+```
+Here you can see port 6000 is closed.
+
+Now that you understand how to test, you can proceed to test the `10.0.0.1:6000` and `10.0.0.2:6000`.
+
+First ssh to the first node in terminal A and test if port 6000 is opened on the second node:
+
+```bash
+ssh 10.0.0.1
+nmap -p 6000 10.0.0.2
+```
+if all is good, then in terminal B ssh to the second node and do the same check in reverse:
+
+```bash
+ssh 10.0.0.2
+nmap -p 6000 10.0.0.1
+```
+
+If both ports are open you can now use this port. If either or both are closed you have to open these ports. Since most clouds use a proprietary solution, simply search the Internet for "open port" and the name of your cloud provider.
+
+The next important thing to understand is that compute nodes will typically have multiple network interface cards (NICs). You discover those interfaces by running:
+
+```bash
+$ sudo ifconfig
+```
+
+One interface is typically used by users to connecting to nodes via ssh or for various other non-compute related services - e.g., sending an email or download some data. Often this interface is called `eth0`, with `eth` standing for Ethernet, but it can be called by other names.
+
+Then there is the inter-node interface which can be InfiniBand, EFA, OPA, HPE Slingshot, etc. ([more information](../network/README.md#inter-node-networking)). There could be one or dozens of those interfaces.
+
+Here are some examples of `ifconfig`'s output:
+
+```bash
+$ sudo ifconfig
+enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.0.23  netmask 255.255.255.0  broadcast 10.0.0.255
+        [...]
+```
+I removed most of the output showing only some of the info. Here the key information is the IP address that is listed after `inet`. In the example above it's `10.0.0.23`. This is the IP address of interface `enp5s0`.
+
+If there is another node, it'll probably be `10.0.0.24` or `10.0.0.21` or something of sorts - the last segment will be the one with a different number.
+
+Let's look at another example:
+
+```bash
+$ sudo ifconfig
+ib0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+        inet addr:172.0.0.50  Bcast: 172.0.0.255  Mask:255.255.255.0
+        [...]
+```
+Here `ib` typically tells us it's an InfiniBand card, but really it can be any other vendor. I have seen [OmniPath](../network/README.md#omni-path) using `ib` for example. Again `inet` tells us the IP of this interface is `172.0.0.50`.
+
+If you lost me, we want the IP addresses so that we could test if ip:port is open on each node in question.
+
+Finally, going back to our pair of `10.0.0.1:6000` and `10.0.0.2:6000` let's do an `all_reduce` test using 2 terminals, where we choose `10.0.0.1` as the master host which will coordinate other nodes. For testing we will use this helper debug program [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py).
+
+In terminal A:
+
+```bash
+$ ssh 10.0.0.1
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py
+```
+
+In terminal B:
+
+```bash
+$ ssh 10.0.0.2
+$ torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py
+```
+
+Note that both sides use the same `--rdzv_endpoint 10.0.0.1:6000` because we checked port 6000 is open and we use `10.0.0.1` as the coordinating host. With `c10d` rendezvous, ranks are assigned automatically, so there is no need for `--node_rank` / `--master_addr` / `--master_port`.
+
+This approach of running things manually from each node is painful and so there are tools that automatically launch the same command on multiple nodes
+
+**pdsh**
+
+`pdsh` is one such solution - which is like `ssh` but will automatically run the same command on multiple nodes:
+
+```bash
+PDSH_RCMD_TYPE=ssh pdsh -w 10.0.0.1,10.0.0.2 \
+'torchrun --role $(hostname -s): --tee 3 --nnodes 2 --nproc_per_node 8 \
+ --rdzv_backend c10d --rdzv_endpoint 10.0.0.1:6000 torch-distributed-gpu-test.py'
+```
+
+You can see how I folded the 2 sets of commands into 1. If you have more nodes, just add more nodes as `-w` argument. (Single quotes matter here so that `$(hostname -s)` expands on each remote host rather than on the launcher.)
+
+
+**SLURM**
+
+If you use SLURM, it's almost certain that whoever set things up already have all the ports opened for you, so it should just work. But if it doesn't the information in this section should help debug things.
+
+Here is how you'd use this with SLURM.
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=test-nodes        # name
+#SBATCH --nodes=2                    # nodes
+#SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
+#SBATCH --cpus-per-task=10           # number of cores per tasks
+#SBATCH --gres=gpu:8                 # number of gpus
+#SBATCH --time 0:05:00               # maximum execution time (HH:MM:SS)
+#SBATCH --output=%x-%j.out           # output file name
+#
+export GPUS_PER_NODE=8
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=6000
+#
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+torch-distributed-gpu-test.py'
+```
+If you have more than 2 nodes you just need to change the number of nodes and the above script will automatically work for any number of them.
+
+
+**MPI**:
+
+Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
+
+To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
+
+```bash
+$ cat hostfile
+10.0.0.1:8
+10.0.0.2:8
+```
+
+This `host:N` hostfile syntax is the MPICH/Hydra (and Intel MPI / MVAPICH) form. Hostfiles are not standardized across MPI implementations - pick the matching line for your `mpirun`:
+
+| Implementation                    | Per-host count syntax   |
+| --------------------------------- | ----------------------- |
+| Open MPI                          | `10.0.0.1 slots=8`      |
+| MPICH / Hydra, Intel MPI, MVAPICH | `10.0.0.1:8`            |
+| MS-MPI                            | `10.0.0.1 8`            |
+
+and to run, it's just:
+```bash
+$ mpirun --hostfile hostfile -np 16 -map-by ppr:8:node python my-program.py
+```
+
+Note that I used `my-program.py` here because [torch-distributed-gpu-test.py](./torch-distributed-gpu-test.py) was written to work with `torch.distributed.run` (also known as `torchrun`). With `mpirun` you will have to check your specific implementation to see which environment variable it uses to pass the rank of the program and replace `LOCAL_RANK` with it, the rest should be mostly the same.
+
+Nuances:
+- You might have to explicitly tell it which interface to use by adding `--mca btl_tcp_if_include 10.0.0.0/24` to match our example. If you have many network interfaces it might use one that isn't open or just the wrong interface.
+- You can also do the reverse and exclude some interfaces. e.g. say you have `docker0` and `lo` interfaces - to exclude those add `--mca btl_tcp_if_exclude docker0,lo`.
+
+`mpirun` has a gazillion of flags and I will recommend reading its manpage for more information. My intention was only to show you how you could use it. Also different `mpirun` implementations may use different CLI options.
+
+
+#### Solving the InfiniBand connection between multiple nodes
+
+In one situation on Azure I got 2 nodes on a shared subnet and when I tried to run the 2 node NCCL test:
+
+```bash
+NCCL_DEBUG=INFO python -u -m torch.distributed.run --nproc_per_node=1 --nnodes 2 --rdzv_endpoint 10.2.0.4:6000  --rdzv_backend c10d torch-distributed-gpu-test.py
+```
+I saw in the debug messages that InfiniBand interfaces got detected:
+```
+node-2:5776:5898 [0] NCCL INFO NET/IB : Using [0]ibP111p0s0:1/IB [1]rdmaP1111p0s2:1/RoCE [RO]; OOB eth0:10.2.0.4<0>
+```
+But the connection would then time out with the message:
+```
+node-2:5776:5902 [0] transport/net_ib.cc:1296 NCCL WARN NET/IB : Got completion from peer 10.2.0.5<33092> with error 12, opcode 0, len
+0, vendor err 129 (Recv)
+node-2:5776:5902 [0] NCCL INFO transport/net.cc:1134 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:679 -> 6
+node-2:5776:5902 [0] NCCL INFO proxy.cc:858 -> 6 [Proxy Thread]
+```
+and nothing works. So here the Ethernet connectivity between 2 nodes works but not the IB interface.
+
+There could be a variety of reason for this failing, but of the most likely one is when you're on the cloud and the 2 nodes weren't provisioned so that their IB is connected. So your Ethernet inter-node connectivity works, but it's too slow. Chances are that you need to re-provision the nodes so that they are allocated together. For example, on Azure this means you have to allocate nodes within a special [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
+
+Going back to our case study, once the nodes were deleted and recreated within an availability set the test worked out of the box.
+
+The individual nodes are often not meant for inter-node communication and often the clouds have the concept of clusters, which are designed for allocating multiple nodes as a group and are already preconfigured to work together.
+
+
+### Prefixing logs with `node:rank`, interleaved asserts
+
+In this section we will use `torchrun` (`torch.distributed.run`) during the demonstration and at the end of this section similar solutions for other launchers will be listed.
+
+When you have warnings and tracebacks (or debug prints), it helps a lot to prefix each log line with its `hostname:rank` prefix, which is done by adding `--role $(hostname -s): --tee 3` to `torchrun`:
+
+```bash
+torchrun --role $(hostname -s): --tee 3 --nnodes 1 --nproc_per_node 2 \
+torch-distributed-gpu-test.py
+```
+
+Now each log line will be prefixed with `[hostname:rank]`
+
+Note that the colon is important.
+
+If you're in a SLURM environment the above command line becomes:
+
+```bash
+srun --jobid $SLURM_JOBID bash -c 'torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank $SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role $(hostname -s): --tee 3 \
+torch-distributed-gpu-test.py'
+```
+
+Of course adjust your environment variables to match, this was just an example.
+
+Important! Note, that I'm using a single quoted string of commands passed to `bash -c`. This way `hostname -s` command is delayed until it's run on each of the nodes. If you'd use double quotes above, `hostname -s` will get executed on the starting node and then all nodes will get the same hostname as the prefix, which defeats the purpose of using these flags. So if you use double quotes you need to rewrite the above like so:
+
+```bash
+srun --jobid $SLURM_JOBID bash -c "torchrun \
+--nproc_per_node $GPUS_PER_NODE --nnodes $SLURM_NNODES --node_rank \$SLURM_PROCID \
+--master_addr $MASTER_ADDR --master_port $MASTER_PORT \
+--role \$(hostname -s): --tee 3 \
+torch-distributed-gpu-test.py"
+```
+
+`$SLURM_PROCID` is escaped too as it needs to be specific to each node and it's unknown during the launch of the slurm job on the main node. So there are 2 `\$` escapes in this version of the command.
+
+This prefixing functionality is also super-helpful when one gets the distributed program fail and which often results in interleaved tracebacks that are very difficult to interpret. So by `grep`ing for one `node:rank` string of choice, it's now possible to reconstruct the real error message.
+
+For example, if you get a traceback that looks like:
+
+```
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+    if self.dataset_proba.sum() != 1:
+  File "/path/to/training/dataset.py", line 785, in __init__
+  File "/path/to/training/dataset.py", line 785, in __init__
+    if self.dataset_proba.sum() != 1:
+    if self.dataset_proba.sum() != 1:
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+AttributeError: 'list' object has no attribute 'sum'
+```
+
+and when it's dozens of frames over 8 nodes it can't be made sense of, but the above `-tee` + `--role` addition will generate:
+
+```
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:1]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+[host1:1]    if self.dataset_proba.sum() != 1:
+[host1:2]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:3]    if self.dataset_proba.sum() != 1:
+[host1:2]    if self.dataset_proba.sum() != 1:
+[host1:1]AttributeError: 'list' object has no attribute 'sum'
+[host1:2]AttributeError: 'list' object has no attribute 'sum'
+[host1:3]AttributeError: 'list' object has no attribute 'sum'
+```
+and you can `grep` this output for just one `host:rank` prefix, which gives us:
+
+```bash
+$ grep -F '[host1:0]' log.txt
+[host1:0]  File "/path/to/training/dataset.py", line 785, in __init__
+[host1:0]    if self.dataset_proba.sum() != 1:
+[host1:0]AttributeError: 'list' object has no attribute 'sum'
+```
+
+and voila, you can now tell what really happened. And as I mentioned earlier there can be easily a hundred to thousands of interleaved traceback lines there.
+
+Also, if you have just one node, you can just pass `-tee 3` and there is no need to pass `--role`.
+
+If `hostname -s` is too long, but you have each host with its own sequence number like:
+```
+[really-really-really-long-hostname-5:0]
+[really-really-really-long-hostname-5:1]
+[really-really-really-long-hostname-5:2]
+```
+you can of course make it shorter by replacing `hostname -s` with `hostname -s | tr -dc '0-9'`, which would lead to much shorter prefixes:
+```
+[5:0]
+[5:1]
+[5:2]
+```
+
+And, of course, if you're doing debug prints, then to solve this exact issue you can use [`printflock`](#good-old-print).
+
+Here is how you accomplish the same feat with other launchers:
+
+- `srun` in SLURM: add `--label`
+- `openmpi`: add `--tag-output`
+- `accelerate`: you can just pass the same `-tee` + `--role` flags as in `torchrun`
+
+
+### Invoke pdb on a specific rank in multi-node training
+
+Since PyTorch 2.2 you have a handy debug feature:
+
+```python
+import torch.distributed as dist
+[...]
+
+def mycode(...):
+
+   dist.breakpoint(0)
+
+```
+
+This is the same as `ForkedPdb` (below) but will automatically break for you on the rank of your choice - rank0 in the example above. Just make sure to call `up;;n` right away when the breakpoint hits to get into your normal code.
+
+Here is what it does underneath:
+
+```python
+import sys
+import pdb
+
+class ForkedPdb(pdb.Pdb):
+    """
+    PDB Subclass for debugging multi-processed code
+    Suggested in: https://stackoverflow.com/questions/4716533/how-to-attach-debugger-to-a-python-subproccess
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
+
+
+def mycode():
+
+    if dist.get_rank() == 0:
+        ForkedPdb().set_trace()
+    dist.barrier()
+
+```
+so you can code it yourself as well.
+
+And you can use that `ForkedPdb` code for normal forked applications, minus the `dist` calls.
+
+#### Attaching pdb to an already-running process
+
+`dist.breakpoint()` and `ForkedPdb` above both require you to plant the breakpoint in the source before the run. Python 3.14 adds the missing case: attaching to a process that is *already running* and that you did not prepare in advance, given nothing but its PID ([PEP 768](https://peps.python.org/pep-0768/)):
+```bash
+python -m pdb -p PID
+```
+Both the target and the interpreter you attach with must be Python 3.14+, since it relies on the new safe remote-debugging hook. It drops you at a `(Pdb)` prompt controlling the target wherever it happens to be:
+```
+$ python -m pdb -p 2916
+> /tmp/target.py(6)<module>()
+-> time.sleep(0.2)
+(Pdb) p counter
+8
+(Pdb) c
+```
+From there the usual commands work - `p`/`pp` to inspect, `bt` for the stack, `w` for the current frame. `c` resumes the process; closing the session detaches without killing it (in the run above the target continued and finished normally afterwards). There is no `detach` command - use `c` or quit the debugger.
+
+This is the standard-library counterpart to `py-spy dump`: `py-spy` samples a stack read-only and never stops the target, whereas `python -m pdb -p PID` actually stops the process and lets you evaluate expressions inside it. For a wedged rank in a multi-GPU job that means you can inspect live state even though you never planted a `dist.breakpoint()`. Keep `dist.breakpoint(rank)` as the rank-coordinated path when you *can* edit the source and want a clean, all-ranks-aware stop.
+
+A few caveats: you can normally only attach to your own processes; some systems restrict `ptrace` (the same `kernel.yama.ptrace_scope` consideration as in the py-spy section applies); the target can opt out entirely with `-X disable-remote-debug` or `PYTHON_DISABLE_REMOTE_DEBUG=1`; and a rank blocked inside a C call will not break until that call returns.
+
+Primary reference: [Python 3.14 pdb](https://docs.python.org/3.14/library/pdb.html).
 
 ## Performance and profiling
 
@@ -3471,16 +3866,86 @@ As you may have noticed in the earlier sections of this chapter that there are d
 
 ```bash
 $ time python -c 'import torch'
-real    0m0.943s
-user    0m0.837s
-sys     0m0.104s
+real    0m1.399s
+user    0m8.222s
+sys     0m0.209s
 ```
 Here:
 - `real` signifies the wall clock time - that is if you were to use a stop-watch - this the amount of elapsed time since you launched the program and it has finished its run
 - `user` is the amount of time the program spent performing calls in the user-space - that is your program
 - `sys` is the amount of time performing system calls (operating system / kernel level) - things like IO, networking, memory
 
-While in the above demo `user+sys` time (`.104+.837=0.941`) almost adds up to `real` time (`0.943`), very often it's not the case and `real` time can be both bigger and lower. If, for example, you're doing some very demanding compilation like building PyTorch using `make -j` to use all the cpu-cores, and at the same time you decide to run another program on the same system - the latter is likely to report a bigger `real` time and a smaller `user` plus `sys` time, because your program will be fighting with dozens of copies of `gcc` to get its share of a cpu time, spending a lot of time waiting. Slow or blocking IO (e.g. shared nfs filesystem) is another example of the same discrepancy. Usually if your software isn't competing with another software, then `real` is all you should care about. Analyzing `sys` + `user` is important for those who optimize the low level systems.
+Here `user+sys` (`8.222+0.209=8.431`) is six times bigger than `real` (`1.399`). That's not a contradiction: `real` is what a stop-watch would show, while `user` and `sys` count cpu-time summed over every thread that ran. This compute node has 192 cpu-cores and importing `torch` spins up a thread pool across them, so cpu-seconds pile up much faster than wall clock seconds. Restrict it to a single thread and the cpu-time collapses while the wall clock time stays where it was:
+```bash
+$ time OMP_NUM_THREADS=1 python -c 'import torch'
+real    0m1.377s
+user    0m1.099s
+sys     0m0.258s
+```
+Now `user+sys` (`1.099+0.258=1.357`) does add up to `real` (`1.377`) - and note that the 7 extra cpu-seconds of the first run bought no wall clock time at all. `real` time can also be bigger than `user+sys`, and that happens when the program waits instead of computing. If, for example, you're doing some very demanding compilation like building PyTorch using `make -j` to use all the cpu-cores, and at the same time you decide to run another program on the same system - the latter is likely to report a bigger `real` time and a smaller `user` plus `sys` time, because your program will be fighting with dozens of copies of `gcc` to get its share of a cpu time, spending a lot of time waiting. Slow or blocking IO (e.g. shared nfs filesystem) is another example of the same discrepancy. Usually if your software isn't competing with another software, then `real` is all you should care about. Analyzing `sys` + `user` is important for those who optimize the low level systems.
+
+#### hyperfine
+
+[hyperfine](https://github.com/sharkdp/hyperfine) runs a given command multiple times and reports how long it took to run: the mean, the standard deviation, and the fastest and slowest run. It can also compare two or more commands and report which one is faster and by how much.
+
+If you don't already have it installed do:
+```bash
+sudo apt-get install -y hyperfine
+```
+
+Here it is on the same import that was measured with [`time`](#time):
+```bash
+$ hyperfine 'python -c "import torch"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      1.412 s ±  0.024 s    [User: 8.160 s, System: 0.290 s]
+  Range (min … max):    1.378 s …  1.454 s    10 runs
+```
+It ran the command 10 times, which is the default - use `-r N` to set the number of runs. The `± 0.024 s` is the part `time` can't tell you: repeated runs of the same command differ from each other by about 24ms, so a change that saves 10ms hasn't been shown to save anything.
+
+To compare two commands, pass both of them:
+```bash
+$ hyperfine -w 2 'python -c "import torch"' 'python -c "import transformers"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      1.415 s ±  0.026 s    [User: 8.226 s, System: 0.224 s]
+  Range (min … max):    1.379 s …  1.455 s    10 runs
+
+Benchmark 2: python -c "import transformers"
+  Time (mean ± σ):      1.211 s ±  0.017 s    [User: 8.024 s, System: 0.245 s]
+  Range (min … max):    1.186 s …  1.233 s    10 runs
+
+Summary
+  python -c "import transformers" ran
+    1.17 ± 0.03 times faster than python -c "import torch"
+```
+`-w 2` performs a warmup by running each command twice before it starts measuring. Importing `transformers` is faster than importing `torch`, even though `transformers` needs `torch`, because it doesn't import it:
+```bash
+$ python -c 'import transformers, sys; print("torch" in sys.modules)'
+False
+```
+
+Every measurement above most likely came from the cache - the files being imported were already in the kernel's page cache, put there by earlier runs. When they aren't cached they get read off the disk instead, which can happen for any number of reasons - a new node, a fresh install, the first run of the day, someone flushing the cache or the kernel reclaiming that memory for something else. Use `--prepare` or `-p` to run a command before each timed run, and drop the caches there:
+```bash
+$ hyperfine -p 'sync; echo 3 | sudo tee /proc/sys/vm/drop_caches' 'python -c "import torch"'
+Benchmark 1: python -c "import torch"
+  Time (mean ± σ):      2.103 s ±  0.054 s    [User: 8.319 s, System: 0.348 s]
+  Range (min … max):    2.018 s …  2.191 s    10 runs
+```
+The same import takes 1.5x longer with no cache to read from.
+
+It is likely to take much longer than that if the files are on a networked filesystem. Here is the `torch` package copied onto a local NVMe drive and onto a shared Lustre mount, then imported from each:
+
+| package on | from cache     | from the filesystem |
+| :--------- | -------------: | ------------------: |
+| local NVMe | 1.491s ± 0.178 |      2.134s ± 0.035 |
+| Lustre     | 1.681s ± 0.494 |     10.589s ± 0.104 |
+
+With nothing cached, Lustre takes 5.0x as long as the local drive, and 7.1x as long as the local drive reading from cache. This is why installing packages on a shared filesystem and then importing them is so much slower than doing the same thing on a local disk. Writing the package is punished even harder than reading it - copying these same files took 2.026s onto the local drive and 2m35.880s onto Lustre. The cached Lustre figure is unreliable as well - those runs ranged from 1.441s to 2.912s, because the Lustre client doesn't keep a package that size cached for long.
+
+`User` time stays at about 8.3s in all of these runs, so the extra wall clock time is time spent waiting for IO.
+
+What an import actually reads, and how to build a file system benchmark out of timings like these, is covered in [Usability perception IO benchmarks](../storage/README.md#usability-perception-io-benchmarks).
+
+So when you compare two timings, make sure both were taken the same way - both from cache or both not, and both from the same filesystem. Otherwise what you're measuring is the cache and the filesystem, not the change you made.
 
 
 #### Event-based durations
@@ -3554,44 +4019,44 @@ torch.cuda.synchronize()
 with profile(activities=[ProfilerActivity.CUDA], with_stack=True) as prof:
     out = linear(x)
     torch.cuda.synchronize()
-print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=50))
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=27))
 ```
 
 It creates a Linear layer, creates a random input tensor and feeds it to the Linear layer. This is done twice, the first time is the warmup which we ignore and the second time we run the linear layer with `torch.profiler` and then print the profiler report:
 
 ```bash
 $ python torch-profile-linear-example.py
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-                                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...         0.00%       0.000us         0.00%       0.000us       0.000us     692.898us        99.77%     692.898us     692.898us             1
-                                   Memset (Device)         0.00%       0.000us         0.00%       0.000us       0.000us       1.569us         0.23%       1.569us       1.569us             1
-                           Activity Buffer Request        58.16%       1.626ms        58.16%       1.626ms       1.626ms       0.000us         0.00%       0.000us       0.000us             1
-                             cudaStreamIsCapturing         0.20%       5.714us         0.20%       5.714us       5.714us       0.000us         0.00%       0.000us       0.000us             1
-                                        cudaMalloc        15.12%     422.728us        15.12%     422.728us     422.728us       0.000us         0.00%       0.000us       0.000us             1
-                                   cudaMemsetAsync         0.60%      16.840us         0.60%      16.840us      16.840us       0.000us         0.00%       0.000us       0.000us             1
-                             cudaFuncGetAttributes         0.29%       8.029us         0.29%       8.029us       4.014us       0.000us         0.00%       0.000us       0.000us             2
-                               cudaLaunchKernelExC         1.08%      30.300us         1.08%      30.300us      30.300us       0.000us         0.00%       0.000us       0.000us             1
-                             cudaDeviceSynchronize        24.55%     686.310us        24.55%     686.310us     343.155us       0.000us         0.00%       0.000us       0.000us             2
---------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
-Self CPU time total: 2.796ms
-Self CUDA time total: 694.467us
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+                       Name  Self CPU %   Self CPU  CPU total %  CPU total  CPU time avg  Self CUDA  Self CUDA %  CUDA total  CUDA time avg  # of Calls
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+sm90_xmma_gemm_f32f32_tf...       0.00%    0.000us        0.00%    0.000us       0.000us  687.139us       99.80%   687.139us      687.139us           1
+            Memset (Device)       0.00%    0.000us        0.00%    0.000us       0.000us    1.344us        0.20%     1.344us        1.344us           1
+    Activity Buffer Request      69.98%    2.193ms       69.98%    2.193ms       2.193ms    0.000us        0.00%     0.000us        0.000us           1
+      cudaStreamIsCapturing       0.26%    8.203us        0.26%    8.203us       8.203us    0.000us        0.00%     0.000us        0.000us           1
+                 cudaMalloc      10.75%  337.029us       10.75%  337.029us     337.029us    0.000us        0.00%     0.000us        0.000us           1
+            cudaMemsetAsync       0.61%   19.135us        0.61%   19.135us      19.135us    0.000us        0.00%     0.000us        0.000us           1
+      cudaFuncGetAttributes       0.28%    8.769us        0.28%    8.769us       4.385us    0.000us        0.00%     0.000us        0.000us           2
+        cudaLaunchKernelExC       1.23%   38.672us        1.23%   38.672us      38.672us    0.000us        0.00%     0.000us        0.000us           1
+      cudaDeviceSynchronize      16.88%  529.079us       16.88%  529.079us     264.540us    0.000us        0.00%     0.000us        0.000us           2
+---------------------------  ----------  ---------  -----------  ---------  ------------  ---------  -----------  ----------  -------------  ----------
+Self CPU time total: 3.134ms
+Self CUDA time total: 688.483us
 ```
 
-From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 692.898us, which accounted for 97% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf32f32_f32_tn_n_tilesize...`.
+From the report it's easy to see that the code spends most of its time performing a GEMM operation, since that's what a linear layer does. You can see that it took 687.139us, which accounted for 99.80% of CUDA operations of this run. The rest of the calls are various CUDA functions that were used while launching the GEMM operation `sm90_xmma_gemm_f32f32_tf...`.
 
 Since kernel names tend to include dtype and shapes they can be pretty long, so if you'd like to see the full name, you can make `max_name_column_width` longer, for example:
 ```diff
-- print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=50))
+- print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=27))
 + print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10, max_name_column_width=450))
 ```
 
 The other interesting parts of the report are the end-to-end timings:
 ```
-Self CPU time total: 2.796ms
-Self CUDA time total: 694.467us
+Self CPU time total: 3.134ms
+Self CUDA time total: 688.483us
 ```
-thus you can see that in total about 2.8 msec were spent on CPU and 0.7 ms msec on CUDA.
+thus you can see that in total about 3.1 msec were spent on CPU and 0.7 msec on CUDA.
 
 Of course, once you profile a whole model, rather than a single Linear layer you will see a lot more kernels in the profiler output and that's where things become interesting.
 
@@ -3601,9 +4066,9 @@ Additionally, here is [an excellent introduction to `torch.profiler` from the Hu
 
 #### When torch.profiler isn't enough
 
-In the introduction it was stated that cProfile isn't the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.
+In the introduction it was stated that cProfile is the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.
 
-Recently I have been diagnosing a strange ~1 sec overhead in forward and backward calls, the `torch.profile` forward measurement would take about 100 msec but the total wallclock timer would be around 1 sec. I was getting no help from torch.profile and decided to run cProfile instead. I immediately saw the issue - it was a triton kernel recompilation that was taking about 1 sec. As I was working with a flattened 2D padded input into 1D unpadded input, the final unpadded tensors was different on many steps and was triggering a kernel recompilation which was written to work with specific input length.
+Recently I have been diagnosing a strange ~1 sec overhead in forward and backward calls, the `torch.profiler` forward measurement would take about 100 msec but the total wallclock timer would be around 1 sec. I was getting no help from torch.profiler and decided to run cProfile instead. I immediately saw the issue - it was a triton kernel recompilation that was taking about 1 sec. As I was working with a flattened 2D padded input into 1D unpadded input, the final unpadded tensors was different on many steps and was triggering a kernel recompilation which was written to work with specific input length.
 
 Let's reproduce this use case and work with different debug tools to understand the situation.
 
@@ -3675,7 +4140,7 @@ class ProfilerContext:
 
     def report(self):
         if self.torch:
-            print(f"*** torch.profile {self.name} ***")
+            print(f"*** torch.profiler {self.name} ***")
             print(self.ctx.key_averages().table(sort_by="cuda_time_total", row_limit=20))
         elif self.c:
             print(f"*** cProfile {self.name} ***")
@@ -3721,8 +4186,8 @@ for i in range(2):
 
 When we run it we get this discrepancy I mentioned earlier:
 ```bash
-$ pytest liger-kernel-varlen-recompile.py
-*** torch.profile FWD 0 ***
+$ python liger-kernel-varlen-recompile.py
+*** torch.profiler FWD 0 ***
 [...]
 Self CPU time total: 119.385ms
 Self CUDA time total: 25.041ms
@@ -3733,7 +4198,7 @@ wallclock duration: 1003.727 msecs
 You can see that the difference between CPU/CUDA time reports and the measured wallclock duration is huge, but on the second step the difference is much smaller:
 
 ```
-*** torch.profile FWD 1 ***
+*** torch.profiler FWD 1 ***
 [...]
 Self CPU time total: 59.184ms
 Self CUDA time total: 25.011ms
@@ -3743,7 +4208,7 @@ wallclock duration: 228.978 msecs
 
 I trimmed out most of the profiling report to show just the relevant for this discussion parts.
 
-Now why does the first forward call takes much longer than PyTorch's `forward` call? Is it because something happens that is not PyTorch related? So let's use the same script but switch from `torch.profile` to `cProfile`, but just editing the script to:
+Now why does the first forward call takes much longer than PyTorch's `forward` call? Is it because something happens that is not PyTorch related? So let's use the same script but switch from `torch.profiler` to `cProfile`, but just editing the script to:
 ```
 PROFILER_TYPE = "c"
 #PROFILER_TYPE = "torch"
@@ -3805,6 +4270,8 @@ We can quickly understand that the weird libc calls came from Liger Kernel using
 
 Now, normally it's perfectly fine that the first call is likely to run some optimizations (e.g. `torch.compile`) which could take longer than the subsequent calls, but in case of the older versions of liger-kernel there was a bug that recompiled and cached the `RMSNorm` kernel for every new sequence length, which massively impacted the end-to-end performance (moreover it'd do it twice for `forward` and `backward` since those are 2 different kernels).
 
-So if you install `pip install liger-kernel==0.6.1` you will see this problem if your sequence length changes from step to step. I found that installing `liger-kerne>=0.8.0` fixes the problem.
+So if you install `pip install liger-kernel==0.6.1` you will see this problem if your sequence length changes from step to step. I found that installing `liger-kernel>=0.8.0` fixes the problem.
 
 In general when you benchmark code you need a warmup phase where the code is exercised first and you start benchmarking things after step 2 or even later at times, but in this case I wanted to demonstrate how cProfile can still be useful when you profile seemingly pure PyTorch code and you observe that it's underperforming, and it was enough to do it in the very first step. But it'd work just as fine in step 2 and onwards.
+
+footnote: since the culprit here was `torch.compile`, you could also have spotted the recompilation directly with `TORCH_LOGS=recompiles` (and `TORCH_LOGS=graph_breaks` for eager fallbacks); see [PyTorch compiler troubleshooting](https://docs.pytorch.org/docs/stable/torch.compiler_troubleshooting.html).

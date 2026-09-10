@@ -10,13 +10,13 @@ We will use `facebook/opt-1.3b` and we will plan to use bf16 training regime as 
 
 ```bash
 cat << EOT > prep-bf16.py
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 import torch
 
 mname = "facebook/opt-1.3b"
 
 config = AutoConfig.from_pretrained(mname)
-model = AutoModel.from_config(config, torch_dtype=torch.bfloat16)
+model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.bfloat16)
 tokenizer = AutoTokenizer.from_pretrained(mname)
 
 path = "opt-1.3b-bf16"
@@ -34,7 +34,7 @@ python prep-bf16.py
 
 This will create a folder: `opt-1.3b-bf16` with everything you need to train the model from scratch. In other words you have a pretrained-like model, except it only had its initializations done and none of the training yet.
 
-Adjust to script above to use `torch.float16` or `torch.float32` if that's what you plan to use instead.
+Adjust the script above to use `torch.float16` or `torch.float32` if that's what you plan to use instead.
 
 Now you can proceed with finetuning this saved model as normal:
 

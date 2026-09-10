@@ -54,43 +54,9 @@ Incoming suggestions from Ross Wightman to integrate:
 
 - I'd try to separate volumes by workload, so keep the 'lots of small files', high churn like environments, code separate from bulk storage like datasets, checkpoints. Possibly even split those too since datasets are largely static and checkpoints are being rotated all the time
 
-- When datasets are on network storage, just like bucket storage, they should consist of large files AND be read as large files (sequentially in large chunks, not mmapped!). Avoid seeking within datasets
-
-- Setups like HF datasets can be deceiving, might look like one big file, but often being mmap'd and the IO read pattern is nuts, like 3-4x more iops than if you'd read them as individual files.
-  Mmap loading can be turned off, but if that's the case, for a lot of datasets you move a problem into the DataLoader processes, requiring reading too much data into memory at once. Better awareness of tradeoffs for different use cases, and especially using Iterable streaming when appropriate.
-
-- In a way, bucket storage like s3, via the interface limitations, enforces patterns that are reasonable for storage backends like this. It's ooh, it's mounted as a folder, I can do whatever I want (mmap files, write loads of little ones, delete them all, etc) that's the prob.
-
 - One also cannot expect to treat a distributed filesystem like their local disk. If you separated volumes by workload you'd probably be able to utilize much higher % of the total storage. Don't mix high churn, small files with low churn large files.
 
-- Also, note that once your datasets are optimally friendly for a large, distributed network filesystem, they can usually just be streamed from bucket storage in cloud systems that have that option. So better to move them off the network filesystem in that case.
-
 # Debug
-
-Memory leak Checking
-
-```
-cuda-memcheck --leak-check full python program.py
-```
-
-
-Race detection:
-```
-cuda-memcheck --tool racecheck
-```
-with extra options:
- --save to save output to a disk
- --print-level to control output
-
-```
-cuda-memcheck --tool racecheck --racecheck-report analysis
-```
-
-gdb with cuda
-
-```
-cuda-gdb
-```
 
 - integrate debug_utils.py
 
@@ -265,62 +231,3 @@ https://github.com/LLNL/scr/tree/develop/python#installing-the-scr-python-module
 
 Example checkpoint in python:
 https://github.com/LLNL/scr/blob/1878de8756c2b51882a7cda7b97b142eae4e3995/python/scr_example.py#L64-L105
-
-
-
-  396  dmesg | grep -i 'limited by'
-  397  sudo dmesg | grep -i 'limited by'
-  398  nvidia-smi nvlink -e
-
-
-GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
-
-```
-$ nvidia-smi --query-gpu=gpu_name,gpu_bus_id,vbios_version --format=csv
-
-$ nvidia-smi -q | grep "VBIOS Version"
-    VBIOS Version                         : 96.00.89.00.01
-    [...]
-    VBIOS Version                         : 96.00.89.00.01
-```
-
-
-Check error counters of NVLink links
-
-```
-$ nvidia-smi nvlink -e
-GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
-         Link 0: Replay Errors: 0
-         Link 0: Recovery Errors: 0
-         Link 0: CRC Errors: 0
-
-         Link 1: Replay Errors: 0
-         Link 1: Recovery Errors: 0
-         Link 1: CRC Errors: 0
-
-         [...]
-
-         Link 17: Replay Errors: 0
-         Link 17: Recovery Errors: 0
-         Link 17: CRC Errors: 0
-```
-
-Another useful command is:
-```
-$ nvidia-smi nvlink --status
-GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
-         Link 0: 26.562 GB/s
-         [...]
-         Link 17: 26.562 GB/s
-```
-this one tells you the current speed of each link
-
-Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting counters, etc.).
-
-nvidia-smi --query-remapped-rows=gpu_name,gpu_bus_id,remapped_rows.failure,remapped_rows.pending,\
-remapped_rows.correctable,remapped_rows.uncorrectable \
---format=csv gpu_name, gpu_bus_id, remapped_rows.failure,remapped_rows.pending,\
-remapped_rows.correctable, remapped_rows.uncorrectable
-
-
-nvidia-smi --query-remapped-rows=gpu_name,gpu_bus_id,remapped_rows.failure,remapped_rows.pending,remapped_rows.correctable,remapped_rows.uncorrectable --format=csvgpu_name, gpu_bus_id, remapped_rows.failure, remapped_rows.pending, remapped_rows.correctable,remapped_rows.uncorrectable

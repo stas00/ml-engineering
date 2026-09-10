@@ -8,6 +8,8 @@
 
 - Jacob Austin maintains [How to Scale Your Model: A Systems View of LLMs on TPUs](https://jax-ml.github.io/scaling-book/)
 
+- The Harvard Edge group publishes [Machine Learning Systems](https://github.com/harvard-edge/cs249r_book) (CS249r textbook; site: [mlsysbook.ai](http://mlsysbook.ai/)).
+
 
 ## Useful compilations
 

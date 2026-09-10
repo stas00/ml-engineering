@@ -16,8 +16,11 @@ Politeness: requests to one domain are serialized with --delay seconds between t
 different domains proceed in parallel. Never remove this. The book cites 243 distinct
 github.com URLs and 46 on huggingface.co; firing those off concurrently looks like a scraper
 and gets the runner throttled or IP-blocked, which is far more expensive than a slow check.
-That floor makes a full run take roughly (largest per-domain count x delay) - about 12
-minutes at the default. Raise --jobs to cover more domains at once, not to go faster on one.
+(largest per-domain count x delay) is only a per-domain floor, not the run time. Measured
+2026-08-07: 697 URLs across 128 domains took 3h24m at the defaults, against a 12-minute
+floor - so budget hours, not minutes. Meta-refresh probing adds up to MAX_META_HOPS more
+delayed requests per URL, which contributes, but the full breakdown was not measured.
+Raise --jobs to cover more domains at once, not to go faster on one.
 
 usage: python build/check-redirects.py [--jobs N] [--delay SECS] [--no-meta] [file ...]
        (defaults to chapters-md.txt)
@@ -206,16 +209,62 @@ def suggested(url, final):
     return (f'{final.split("#")[0]}#{frag}',
             '  (fragment carried over - verify it still exists on the new page)')
 
-args, jobs, delay, do_meta = [], 8, 3.0, True
-for a in sys.argv[1:]:
-    if a == '--no-meta':
+DEFAULT_JOBS, DEFAULT_DELAY = 8, 3.0
+USAGE = ('usage: python build/check-redirects.py [--jobs N] [--delay SECS] [--no-meta] [file ...]\n'
+         f'  --jobs N     domains to check concurrently (default {DEFAULT_JOBS}); raises domain\n'
+         '               coverage, never the rate on one domain\n'
+         f'  --delay SECS seconds between requests to the same domain (default {DEFAULT_DELAY});\n'
+         '               may be raised, never lowered - see SESSION.md External link rot item 2\n'
+         '  --no-meta    skip meta-refresh probing; HTTP redirects only, much faster\n'
+         '  file ...     chapters to check (default: every file in chapters-md.txt)\n'
+         '\nA full run takes hours and prints nothing until it finishes. Unknown options are an\n'
+         'error rather than being ignored, so that a typo cannot start a multi-hour sweep.')
+
+def die(msg):
+    print(f'{msg}\n\n{USAGE}', file=sys.stderr)
+    sys.exit(2)
+
+args, jobs, delay, do_meta = [], DEFAULT_JOBS, DEFAULT_DELAY, True
+argv = sys.argv[1:]
+i = 0
+while i < len(argv):
+    a = argv[i]
+    if a in ('--help', '-h'):
+        print(USAGE)
+        sys.exit(0)
+    elif a == '--no-meta':
         do_meta = False
-    elif a.startswith('--jobs'):
-        jobs = int(a.split('=')[1]) if '=' in a else jobs
-    elif a.startswith('--delay'):
-        delay = float(a.split('=')[1]) if '=' in a else delay
-    elif not a.startswith('--'):
+    elif a.partition('=')[0] in ('--jobs', '--delay'):
+        # accept both --opt=value and --opt value; the space form is what the usage documents,
+        # and silently ignoring it used to leave the value behind as a bogus filename.
+        # Match on the exact name before '=' - a prefix test let --jobss=4 through and ran.
+        name, eq, raw = a.partition('=')
+        if not eq:
+            i += 1
+            if i >= len(argv):
+                die(f'{name} needs a value')
+            raw = argv[i]
+        elif not raw:
+            die(f'{name} needs a value')
+        try:
+            val = int(raw) if name == '--jobs' else float(raw)
+        except ValueError:
+            die(f'{name} needs a {"whole number" if name == "--jobs" else "number"}, got {raw!r}')
+        if val <= 0:
+            die(f'{name} must be positive, got {val}')
+        if name == '--jobs':
+            jobs = val
+        else:
+            if val < DEFAULT_DELAY:
+                die(f'--delay {val} is below the {DEFAULT_DELAY}s default. The delay may be raised '
+                    f'but never lowered -\nlowering it looks like a scraper and gets the runner '
+                    f'blocked. See SESSION.md External link rot item 2.')
+            delay = val
+    elif a.startswith('-'):
+        die(f'unknown option: {a}')
+    else:
         args.append(a)
+    i += 1
 
 files = args or [l.strip() for l in open('chapters-md.txt') if l.strip()]
 
@@ -239,9 +288,12 @@ for u in sites:
 worst = max((len(v) for v in by_host.values()), default=0)
 print(f'checking {len(sites)} distinct external URLs across {len(by_host)} domains from '
       f'{len(files)} files\n{jobs} domains at a time, {delay}s between requests to the same '
-      f'domain - the busiest has {worst} URLs, so expect '
-      f'~{int(worst * delay * (2 if do_meta else 1) / 60)}+ min'
-      f'{"" if do_meta else " (--no-meta: HTTP redirects only)"}\n')
+      f'domain - the busiest has {worst} URLs, so the per-domain floor alone is '
+      f'~{int(worst * delay * (2 if do_meta else 1) / 60)} min'
+      f'{"" if do_meta else " (--no-meta: HTTP redirects only)"}\n'
+      f'that floor is not the run time: 697 URLs / 128 domains took 3h24m at these defaults '
+      f'on 2026-08-07, so budget hours\n'
+      f'nothing is printed until the run finishes - an empty log is not a hang\n')
 
 def check_host(host):
     """One domain's URLs, sequentially, spaced by `delay`. Called once per domain so that

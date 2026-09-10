@@ -114,8 +114,8 @@ Full chapter: [Debugging](https://github.com/stas00/ml-engineering/tree/master/d
   1. Rule out comms with [`torch-distributed-gpu-test.py`](https://github.com/stas00/ml-engineering/blob/master/debug/torch-distributed-gpu-test.py).
   2. Dump every rank's Python stack at once with `py-spy`; ranks stuck at *different* collectives reveal the desync. See [diagnosing crashes, hangs and tracing execution](https://github.com/stas00/ml-engineering/blob/master/debug/pytorch.md#diagnosing-crashes-hangs-and-tracing-execution) and [hanging solutions](https://github.com/stas00/ml-engineering/blob/master/debug/torch-distributed-hanging-solutions.md).
   3. Set `NCCL_DEBUG=INFO`; escalate to [NCCL performance debug](https://github.com/stas00/ml-engineering/blob/master/debug/nccl-performance-debug.md).
-- **Cryptic CUDA errors:** `CUDA_LAUNCH_BLOCKING=1` for a real traceback (CUDA is async). See [The Art of Debugging - PyTorch](https://github.com/stas00/the-art-of-debugging/blob/master/pytorch/README.md#dealing-with-async-cuda-bugs).
-- **OOM / memory:** [memory usage](https://github.com/stas00/ml-engineering/blob/master/debug/pytorch.md#memory-usage); fragmentation via `PYTORCH_CUDA_ALLOC_CONF`.
+- **Cryptic CUDA errors:** `CUDA_LAUNCH_BLOCKING=1` for a real traceback (CUDA is async). See [The Art of Debugging - PyTorch](https://github.com/stas00/the-art-of-debugging/tree/master/pytorch#dealing-with-async-cuda-bugs).
+- **OOM / memory:** [memory usage](https://github.com/stas00/ml-engineering/blob/master/debug/pytorch.md#memory-usage); fragmentation via `PYTORCH_ALLOC_CONF`.
 - **NaN/Inf:** [underflow and overflow detection](https://github.com/stas00/ml-engineering/blob/master/debug/pytorch.md#underflow-and-overflow-detection) and [debugging tensors](https://github.com/stas00/ml-engineering/blob/master/debug/pytorch.md#debugging-tensors).
 - **GPU-specific faults:** [troubleshooting NVIDIA GPUs](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/nvidia/debug.md).
 
@@ -142,7 +142,7 @@ Full chapter: [Testing](https://github.com/stas00/ml-engineering/blob/master/tes
 | Symptom | Reach for |
 |---|---|
 | Low TFLOPS / MFU, "GPUs feel idle" | Find the bottleneck: `mamf-finder`, [performance checklist](https://github.com/stas00/ml-engineering/blob/master/training/performance/README.md#how-to-improve-speed-and-save-memory), DataLoader, NUMA, dim divisibility |
-| Training OOM | Memory anatomy → activation checkpointing/offload/parallelism; profile; `PYTORCH_CUDA_ALLOC_CONF` |
+| Training OOM | Memory anatomy → activation checkpointing/offload/parallelism; profile; `PYTORCH_ALLOC_CONF` |
 | Slow steps but GPUs busy on comms | Benchmark network (`all_reduce_bench`), check intra/inter-node, NCCL settings |
 | Slow dataloading / GPU starvation | [DataLoader](https://github.com/stas00/ml-engineering/blob/master/training/performance/README.md#dataloader), local NVMe, prefetch/workers |
 | Loss spike / divergence / NaN | Logbooks, init/STD, underflow-overflow detection, tensor scans |

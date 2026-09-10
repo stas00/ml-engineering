@@ -6,13 +6,27 @@ As most of us are well familiar with NVIDIA tools, I will try to provide the map
 
 ## Tools
 
-### ROCR_VISIBLE_DEVICES
+### HIP_VISIBLE_DEVICES / CUDA_VISIBLE_DEVICES / ROCR_VISIBLE_DEVICES
 
-To select a specific gpu (`CUDA_VISIBLE_DEVICES` equivalent):
+ROCm has more than one “visible devices” knob because isolation can happen at different layers of the stack. For PyTorch on ROCm the usual CUDA-style choice is HIP-level:
+
+```bash
+HIP_VISIBLE_DEVICES=0,1 python my-program.py
+```
+
+`CUDA_VISIBLE_DEVICES` is honored the same way (CUDA-compat alias for HIP on AMD).
+
+That only filters what the **HIP** runtime exposes. ROCr can still initialize every GPU, and non-HIP clients sitting on ROCr (OpenCL, AOMP, UCX, …) are unaffected.
+
+To hide devices from the whole user-mode ROCm stack, filter at **ROCr**:
 
 ```bash
 ROCR_VISIBLE_DEVICES=0,1 python my-program.py
 ```
+
+`ROCR_VISIBLE_DEVICES` also accepts UUID strings (HIP’s list is indices only). If both are set, HIP sees only the devices ROCr left visible, so HIP indices are relative to that filtered set.
+
+On Linux, AMD’s isolation docs lean on `ROCR_VISIBLE_DEVICES` when you want stack-wide isolation; for ordinary single-framework PyTorch work, `HIP_VISIBLE_DEVICES` / `CUDA_VISIBLE_DEVICES` is enough. See [GPU isolation techniques](https://rocm.docs.amd.com/en/latest/reference/system-optimization/gpu-isolation.html).
 
 ### rocm-smi
 
@@ -228,3 +242,15 @@ Agent 1
         z                        4294967295(0xffffffff)
       FBarrier Max Size:       32
 ```
+
+## Hangs or slow multi-GPU runs and IOMMU
+
+If a multi-GPU ROCm run hangs or crawls, the host's IOMMU configuration is a common culprit. The correct setting is platform-specific - match your hardware instead of blindly disabling it:
+
+- **Modern Instinct (MI300X, MI325X, MI350X, MI355X)**: AMD's system-acceptance guides want the IOMMU **enabled** in BIOS and running in pass-through mode on the kernel command line - `iommu=pt` together with `amd_iommu=on` (or `intel_iommu=on` on Intel hosts). MI350X/MI355X (ROCm 7.0.1+) explicitly list `IOMMU enabled` + `iommu=pt`.
+- **MI100 / MI200 (MI210/MI250/MI250X)**: AMD's qualified BIOS tables typically set the NBIO **IOMMU to Disable**, with `iommu=pt` called out only for hosts with 256+ logical CPUs (so X2APIC can address every core).
+- **Legacy last resort**: on older systems where neither pass-through nor the BIOS default helped, fully disabling it via `amd_iommu=off` (or the softer `iommu=soft`) was the historical workaround - see AMD's [IOMMU advisory for multi-GPU environments](https://community.amd.com/t5/knowledge-base/iommu-advisory-for-multi-gpu-environments/ta-p/477468) and this [issue report](https://github.com/stas00/ml-engineering/issues/1#issuecomment-1076830400) (that particular case was actually on NVIDIA A6000s). This is an invasive, system-wide boot change, and current AMD guidance prefers pass-through over a full disable.
+
+These are boot-time kernel parameters set in `/etc/default/grub` (e.g. `GRUB_CMDLINE_LINUX="... iommu=pt"`; the grub config path varies by OS), followed by regenerating grub and rebooting - so they need admin access.
+
+The per-GPU `IOMMU Support` line in the `rocminfo` output above reflects what the runtime actually sees.

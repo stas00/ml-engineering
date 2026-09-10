@@ -10,6 +10,14 @@ For example, [Pipeline Parallelism](../training/model-parallelism/README.md#pipe
 
 PyTorch has `send` and `recv` for blocking, `isend` and `irecv` for non-blocking p2p comms. [more](https://docs.pytorch.org/tutorials/intermediate/dist_tuto.html#id1).
 
+## One-sided communications
+
+Collectives and `send`/`recv` are two-sided: every rank that participates posts a matching call. One-sided (RMA) communication lets one rank write into or read from another rank's memory without that peer posting `recv`. That is the useful shape for irregular access - an embedding lookup, a weight copy, routing a token to one expert - where making every rank join an all-to-all would move more data than the algorithm needs.
+
+Starting from PyTorch 2.14, `nccl2` exposes this as a *window* over the NCCL `Put`/`Get` APIs. Creating the window is still collective - every rank in the group must call it in the same order - and as of 2.14 the Python entry points are experimental (`dist._new_window`, `dist._supports_window`). Use it when the access pattern is sparse; keep two-sided collectives when every rank participates.
+
+Reference: [PyTorch 2.14 release blog](https://pytorch.org/blog/pytorch-2-14-release-blog/).
+
 
 ## Collective communications
 
@@ -117,7 +125,7 @@ For example, this collective is used in [ZeRO](../training/model-parallelism/REA
 
 PyTorch API example:
 
-`reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
+`dist.reduce_scatter(output, input_list, op, group, async_op)`: Reduces, then scatters a list of tensors to all processes in a group. [doc](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.reduce_scatter)
 
 
 
@@ -169,7 +177,7 @@ The total time to broadcast `N` bytes to `k` GPUs will take:
 
 `S*N/(S*B) + (k − 2)*N/(S*B) = N*(S + k − 2)/(S*B)`
 
-and if split messages are very small so that`S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`.
+and if split messages are very small so that `S>>k`: `S + k − 2` is `~S` and then the total time is about `N/B`.
 
 
 
@@ -186,6 +194,37 @@ Then the next chunk is done, until all smaller messages are reduced:
 
 ![ring-based all-reduce chunk 2](images/all-reduce-ring-chunk2.png)
 [source](https://images.nvidia.com/events/sc15/pdfs/NCCL-Woolley.pdf)
+
+
+### Tree
+
+A ring passes the message from neighbor to neighbor, so the number of steps grows with the number of GPUs `k`, and the base latency grows with it. A tree fans the message out instead, so the hop count grows with `log(k)`. That is why the two swap places as you scale: ring keeps the higher peak bandwidth, tree the lower base latency, and for a fixed message size a large enough `k` makes tree the faster of the two.
+
+A single binary tree would waste half the machines: half the nodes are leaves, and a leaf only ever receives, so its outbound bandwidth never contributes. NCCL therefore builds a *double binary tree* - two trees over the same GPUs, arranged so no node is an interior node in both and at most one is a leaf in both. Both carry traffic simultaneously, which recovers the full bandwidth. The second tree is the first mirrored when the node count is even, or shifted by one position when it is odd.
+
+For how NCCL picks between ring and tree, and how to see or override the choice, see [`NCCL_ALGO`](benchmarks/README.md#nccl_algo).
+
+
+## Protocols
+
+The algorithm decides who sends what to whom. Orthogonal to it, the protocol decides how each of those transfers is synchronized, and it swings performance as much as the algorithm does. NCCL has three of them - this is the `proto` half of the `Algo NVLS proto SIMPLE` lines that [`NCCL_ALGO`](benchmarks/README.md#nccl_algo) shows you.
+
+Columns are ordered by ascending per-hop latency, which happens to be ascending bandwidth utilization too:
+
+| Property              | LL                | LL128                          | Simple            |
+| :-------------------- | :---------------- | :----------------------------- | :---------------- |
+| Design goal           | low latency       | low latency and high bandwidth | high bandwidth    |
+| Synchronization       | flag-based        | flag-based                     | memory fences     |
+| Payload per unit      | 4B data + 4B flag | 120B data + 8B flag            | large data chunks |
+| Bandwidth utilization | 25-50% of peak    | ~95% of peak                   | near peak         |
+| Latency per hop       | ~1µs              | ~2µs                           | ~6µs              |
+
+Sources:
+1. [Demystifying NCCL: An In-depth Analysis of GPU Communication Protocols and Algorithms](https://arxiv.org/abs/2507.04786) (2025), Table I.
+
+`Simple` sends large chunks and uses memory fences to guarantee the receiver sees a complete chunk. That reaches near-peak bandwidth, but the fence cost dominates anything small. `LL` drops the fences: it pairs 4 bytes of data with a 4-byte flag and writes the 8 bytes atomically, so the receiver proceeds the moment the flag lands. The catch is that the staging buffer has to sit in host memory for the CPU to poll that flag, which rules out GPUDirect RDMA and caps `LL` at 25-50% of peak - acceptable when latency is all that matters, wasteful otherwise.
+
+`LL128` keeps the flag trick at 128-byte granularity, 120 bytes of data to an 8-byte flag, which is where the ~95% of peak comes from. It pays with a hardware requirement: those 128-byte writes must never be split or reordered by the interconnect, and where that isn't guaranteed - some PCIe paths - NCCL disables `LL128` rather than risk corruption. So it is what you see on NVLink systems, and its strength is intra-node. Over a network the per-128-byte synchronization turns into millions of small operations on a large transfer, and `Simple` takes the lead again.
 
 
 ## More guides

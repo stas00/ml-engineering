@@ -31,6 +31,114 @@ If you do KV-cache offloading to disk, this would be another important IO use-ca
 - NSD: Network Shared Disk
 
 
+## Concepts
+
+Here are a few key storage-related concepts that you likely need to be familiar with:
+
+### Queue Depth
+
+**Queue depth** (or **IO depth**) is the number of IO requests that can be queued at one time on a storage device controller. If more IO requests than the controller can queue are being sent the OS will usually put those into its own queue.
+
+On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
+
+Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
+
+### Direct vs Buffered IO
+
+**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
+
+The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
+
+When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
+
+In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
+
+And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
+
+- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
+- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
+- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
+
+For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
+
+Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
+```
+
+Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
+```
+
+Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
+
+`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
+
+
+### Synchronous vs asynchronous IO
+
+In synchronous IO the client submits an IO request and wait for it to be finished before submitting the next IO request to the same target device.
+
+In asynchronous IO the client may submit multiple IO requests one after another without waiting for any to finish first. This requires that the target device can [queue up multiple IO requests](#queue-depth).
+
+
+### Sequential vs Random access IO
+
+**Sequential access** IO is when you read blocks of data one by one sequentially (think a movie). Here are some examples:
+- reading or writing a model's checkpoint file all at once
+- loading a python program
+- installing a package
+
+**Random access** IO is when you're accessing part of a file at random. Here are some examples:
+- database querying
+- reading samples from a pre-processed dataset in a random fashion
+- moving around a file using `seek`
+
+
+### mmap vs sequential dataset reads
+
+A dataset that looks like one large file may still end up doing random IO. Hugging Face `datasets` keeps its data in [Apache Arrow](https://huggingface.co/docs/datasets/en/about_arrow) files - a binary columnar format whose on-disk bytes are already laid out the way they will be used in memory, so a row can be read where it lies with no parsing step. That is what makes memory-mapping the default (`load_from_disk`, or `load_dataset` without `keep_in_memory`): the file is mapped into the address space and a row access becomes a page fault instead of a `read` call.
+
+footnote: The resident memory this mapping shows in `top` is not a leak - the OS can reclaim unreferenced pages - see [CPU memory](../compute/cpu-memory/README.md#things-to-know).
+
+If you count `read()` syscalls - with `strace -c`, or by grepping a trace - a mapped dataset looks almost idle. Each mapped run below issued 2 `read` calls for the whole 1GiB; the bytes still moved, but they show up as major page faults and in `/proc/self/io` `read_bytes` instead.
+
+Measured on 2026-09 with `datasets` 4.0.0: 1GiB of text as 32768 rows of 32KiB in three Arrow shards, page cache dropped with `posix_fadvise(..., POSIX_FADV_DONTNEED)` before each run. The first row is the floor - the same three files read start to finish with ordinary `read()` calls of 1MiB each. The other two go through the mapped dataset: `for row in ds`, then `ds[i]` in shuffled order.
+
+| How the 1GiB was read           | Local NVMe | Slowdown | Lustre | Slowdown |
+| :------------------------------ | ---------: | -------: | -----: | -------: |
+| sequential `read()`, whole file |      0.14s |       0% |  1.87s |       0% |
+| mmap, rows in order             |      0.53s |     279% |  3.11s |      66% |
+| mmap, rows shuffled             |      0.78s |     457% |  94.2s |   4_937% |
+
+- The slowdown column is `t / t_sequential - 1` within each file system.
+- [`mmap-io-bench.py`](./mmap-io-bench.py) created this table - edit the two paths at the top of the script before running. In this table the benchmarks filesystem was Lustre.
+
+The three rows are the three ways a pipeline usually touches Arrow shards: read the file through once, walk a mapped dataset in order, or index rows in shuffled training order. Match your target job to a row - the bullets below say when the slowdown is acceptable and when you need a different read path or node-local shards instead of a network fs.
+
+1. **Consuming a shard in order** - checksums, format conversion, one-pass tokenization. Read the file with ordinary `read`s of a MiB or so and do not map it. This is why it's not enough to keep datasets in large files. Additionally every reader has to consume them in large sequential chunks to get high performance.
+2. **`for row in ds` over a mapped dataset** - on local NVMe the mapping costs 279% and still finishes a GiB in half a second, so leave it. On Lustre it costs 66% and every page comes over the network, so copy the shards to node-local disk first if this loop feeds training.
+3. **Shuffled `ds[i]` over a mapped dataset** - ordinary shuffled training. On Lustre this took 94s per GiB, 50x the sequential read of the same bytes. Do not point it at a network file system. Stage the split on node-local NVMe and map it there, or pre-shuffle into epoch shards and read those in order, or stream and shuffle within a buffer. `keep_in_memory=True` removes the faults too, but trades them for RAM that every DataLoader worker pays again.
+
+
+### Misreported file size
+
+I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
+
+If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
+
+If you have to force re-hydration you can run something like:
+
+```bash
+find /mountpoint/ -type f -exec cat {} >/dev/null \;
+```
+and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
+
+If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
+
 
 ## Which file system to choose
 
@@ -128,6 +236,10 @@ case study: we didn't have a choice and had to use cloud storage for dataloading
 
 In some situations people find good solutions for working with cloud-based datasets, I personally haven't had a smooth experience yet and that's why I advocate local storage. If you found a good streaming solution that can properly resume without losing data and repeating the same data, doesn't require huge local workers then it might work OK.
 
+What makes that work is layout. Streaming pulls whole objects out of cloud object storage - an S3-style bucket, whose API hands back an entire object rather than letting you read a piece of one - so it pays off only when the dataset is already large shards consumed front to back. That is the same shape [mmap vs sequential dataset reads](#mmap-vs-sequential-dataset-reads) found fastest on a shared file system, so a dataset in that shape needs no second copy there - the bucket can feed training directly.
+
+That whole-object interface doubles as a guardrail, since it makes seeking inside an object or memory-mapping one impossible. Mounting the bucket so it appears as an ordinary directory removes the guardrail: the random-access and memory-mapping patterns that section clocked at 50x the sequential read on a network fs (Lustre in that example) start working again, against a backend that was never designed for them.
+
 ## Beware that you're often being sold only 80% of the storage you pay for
 
 There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.3-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
@@ -162,90 +274,6 @@ As I discover specific solution that have this unintuitive behavior I will add p
 When you sync data to and from the cloud make sure to research whether the tool you use checks the checksums, otherwise you may end up with corrupt during transmission data. Some tools do it automatically, others you have to enable this feature (since it usually comes at additional compute cost and transmission slowdown). Better slow, but safe.
 
 These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your environment is safe, but if you want the additional security do SHA256 checksums.
-
-
-
-## Concepts
-
-Here are a few key storage-related concepts that you likely need to be familiar with:
-
-### Queue Depth
-
-**Queue depth** (or **IO depth**) is the number of IO requests that can be queued at one time on a storage device controller. If more IO requests than the controller can queue are being sent the OS will usually put those into its own queue.
-
-On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
-
-Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
-
-### Direct vs Buffered IO
-
-**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
-
-The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
-
-When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
-
-In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
-
-And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
-
-- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
-- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
-- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
-
-For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
-
-Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
-
-```bash
-{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
-```
-
-Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
-
-```bash
-{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
-```
-
-Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
-
-`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
-
-
-### Synchronous vs asynchronous IO
-
-In synchronous IO the client submits an IO request and wait for it to be finished before submitting the next IO request to the same target device.
-
-In asynchronous IO the client may submit multiple IO requests one after another without waiting for any to finish first. This requires that the target device can [queue up multiple IO requests](#queue-depth).
-
-
-### Sequential vs Random access IO
-
-**Sequential access** IO is when you read blocks of data one by one sequentially (think a movie). Here are some examples:
-- reading or writing a model's checkpoint file all at once
-- loading a python program
-- installing a package
-
-**Random access** IO is when you're accessing part of a file at random. Here are some examples:
-- database querying
-- reading samples from a pre-processed dataset in a random fashion
-- moving around a file using `seek`
-
-
-### Misreported file size
-
-I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
-
-If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
-
-If you have to force re-hydration you can run something like:
-
-```bash
-find /mountpoint/ -type f -exec cat {} >/dev/null \;
-```
-and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
-
-If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
 
 
 ## Benchmarks
@@ -403,26 +431,26 @@ Step 2. Measure conda install time (write test)
 
 Time the creation of a new conda environment:
 ```bash
-time conda create -y -n install-test python=3.9
+time conda create -y -n install-test python=3.12
 ```
 
 ```
-real    0m29.657s
-user    0m9.141s
-sys     0m2.861s
+real    0m22.790s
+user    0m12.911s
+sys     0m4.941s
 ```
 
 Time the installation of some heavy pip packages:
 ```bash
 conda deactivate
 conda activate install-test
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 
 ```
-real    2m10.355s
-user    0m50.547s
-sys     0m12.144s
+real    0m50.596s
+user    0m28.060s
+sys     0m4.398s
 ```
 
 Please note that this test is somewhat skewed since it also includes the packages download in it and depending on your incoming network speed it could be super fast or super slow and could impact the outcome. But once the downloaded packages are cached, in the case of conda they are also untarred, so if you try to install the packages the 2nd time the benchmark will no longer be fair as on a slow shared file system the untarring could be very slow and we want to catch that.
@@ -438,14 +466,34 @@ find $target_partition_path/miniconda3/pkgs -mindepth 1 -type d -exec rm -rf {} 
 in the case of `pip` it doesn't untar anything, but just caches the wheels it downloaded, so the `time pip install` benchmark can definitely be more precise if you run it the 2nd time (the first time it's downloaded, cached and installed, the second time it's installed from cache. So you could do:
 
 ```bash
-conda create -y -n install-test python=3.9
+conda create -y -n install-test python=3.12
 conda activate install-test
-pip install torch torchvision torchaudio
-conda create -y -n install-test2 python=3.9
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+conda create -y -n install-test2 python=3.12
 conda activate install-test2
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 As you can see here we time only the 2nd time we install the pip packages.
+
+If you want a write test with no download mixed into it, copy a package you already have onto the file system under test and time that. Here is the `torch` package - 1.67GiB spread over 13019 files - copied onto a local NVMe drive and onto a shared Lustre mount:
+
+```bash
+$ export SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
+
+$ time cp -a $SITE_PACKAGES/torch /tmp/torch-copy
+
+real    0m2.026s
+user    0m0.073s
+sys     0m1.133s
+
+$ time cp -a $SITE_PACKAGES/torch $target_partition_path/torch-copy
+
+real    2m35.880s
+user    0m0.266s
+sys     0m9.262s
+```
+
+That is 77x slower, and a repeat run a few minutes earlier gave 2m30.0s, so it isn't a fluke. `user` and `sys` barely move between the two, so nearly all of that time is spent waiting on the file system - most of those 13019 files are small, and each one is a create that the metadata server has to answer.
 
 
 Step 3. Measure loading time after flushing the memory and file system caches (read test)
@@ -463,30 +511,56 @@ If you don't have `sudo` access you can skip the command involving `sudo`, also 
 
 Here is how to see the caching effect:
 ```bash
+$ sudo sync
+$ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m5.404s
-user    0m1.761s
-sys     0m0.751s
+real    0m2.438s
+user    0m8.115s
+sys     0m0.434s
 
 $ time python -c "import torch"
 
-real    0m1.977s
-user    0m1.623s
-sys     0m0.519s
+real    0m1.333s
+user    0m8.144s
+sys     0m0.214s
 
 $ sudo sync
 $ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m5.698s
-user    0m1.712s
-sys     0m0.734s
+real    0m2.357s
+user    0m8.177s
+sys     0m0.368s
 ```
 
-You can see that the first time it wasn't cached and took ~3x longer, then when I ran it the second time it was much faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
+You can see that the first time it wasn't cached and took longer, then when I ran it the second time it was faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was slow again.
+
+It helps to know what those seconds are made of. Two different kinds of IO go on during an import: a handful of large sequential reads for the shared objects in `torch/lib`, and a couple of thousand tiny operations - one open per module, plus the lookups that fail while Python probes candidate paths for each one. [`strace`](../debug/pytorch.md#strace) counts the second kind:
+
+```bash
+$ strace -cf -e trace=openat python -c "import torch"
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 openat
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 total
+```
+
+Those 2339 opens - 922 of which failed, since Python probes several candidate paths per module - are a property of the package and the version installed. What each one takes is a property of the file system, and the gap is not subtle. Opening and closing a few thousand small files, on the local NVMe of the same node and on its shared Lustre mount:
+
+| open of one small file | local NVMe | Lustre |
+| :--------------------- | ---------: | -----: |
+| succeeds               |       11us |  2.3ms |
+| fails with `ENOENT`    |      2.4us |  1.1ms |
+
+Apply those to the mix an `import torch` actually performs - 1417 opens that succeed and 922 that fail - and the opens alone go from about 0.02s on the local drive to about 4.3s on Lustre. A shared file system with per-open latency in that range is how a 1.3s import turns into the 20s reported in the case studies above. Repeating the Lustre measurement with everything already read changes nothing, either: what is being paid for is a metadata round trip, and the page cache has nothing to offer it.
+
+The opens are an [IOPS](#metrics) question and the bulk reads of the shared objects in `torch/lib` a throughput one, and a file system can be good at one and poor at the other.
 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
+
+There is one more thing that even a cache-flushed read test doesn't capture. The first import after an installation compiles each `.py` file it touches into bytecode and writes the `.pyc` into `__pycache__`; every import after that reads the `.pyc` and skips the compile. Flushing the caches doesn't undo that, because the `.pyc` files are still on the disk - so a true first run after an install is slower than any of the numbers above, and a single throwaway `python -c "import torch"` is all it takes to leave that compiled state behind.
 
 Another time I noticed that `git status` was taking multiple seconds. I use [bash-git-prompt](https://github.com/magicmonty/bash-git-prompt) and it runs `git status` before every return of the prompt when inside a git repo clone, and it was becoming super sluggish and difficult to work. So I benchmarked `git status`:
 
@@ -545,8 +619,8 @@ The deprecated `HUGGINGFACE_HUB_CACHE` and library-specific variables such as `T
 
 The other solution that requires no environment variables, is to symlink your cache to another partition. You could do it for all of your caches:
 ```bash
-mkdir -p ~/.cache
-mv ~/.cache /some/path/
+mkdir -p /some/path
+mv -nT ~/.cache /some/path/.cache
 ln -s /some/path/.cache ~/.cache
 ```
 
@@ -588,21 +662,25 @@ pip install -U "huggingface_hub"
 hf cache prune
 ```
 
-`hf cache prune` deletes every revision that no longer has a branch or a tag pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. It shows you the damage and asks first:
+`hf cache prune` deletes every revision that no longer has a branch, tag, or pull-request ref pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. Start with `--dry-run` to see the damage without deleting anything:
 
 ```bash
-$ hf cache prune
-About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
-  - model/t5-small:
-      1c610f6b [refs/pr/1] 820.1M
-      d4ec9b72 [(detached)] 640.5M
-  - dataset/google/fleurs:
-      2b91c8dd [(detached)] 937.6M
-Proceed? [y/N]: y
-Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
+$ hf cache prune --dry-run
+About to delete 30 unreferenced revision(s) and 9 incomplete download(s) (180.9G total).
+  - dataset/fan-shu/instruct2thinking:
+      4c8e57ed5f06425ce0d743cf168b906646f0a338 [(detached)] 609.7M
+      ce82e962df666fc85657a3a871443009ec825b5f [(detached)] 259.7M
+      d5a3ba55f8ac010ee0f1ac86314b49475a1e300a [(detached)] 226.2M
+  - dataset/fan-shu/swe-instruct-trajectories-empty-think-inserted:
+      84d55e1f36605fe990feb61a1a705032f0620015 [(detached)] 12.1G
+  - model/Qwen/Qwen3.5-27B:
+      b7ca741b86de18df552fd2cc952861e04621a4bd [(detached)] 55.6G
+  - model/zai-org/GLM-5.2:
+      f2263102df303b2faa54a6861a29d1770ce846c0 [(detached)] 1.5T
+✓ Dry run: no files were deleted.
 ```
 
-Add `--dry-run` to see what would go without deleting it, and `--yes` to skip the prompt when you run this from a cron job.
+The total is reclaimable space after shared blobs are counted once; the per-revision sizes above can sum to much more. Without `--dry-run` it asks for confirmation before deleting; add `--yes` to skip the prompt when you run this from a cron job.
 
 To find out where the space went before deleting anything, `hf cache ls` gives you per-repo totals and `hf cache ls --revisions` breaks it down per revision. It takes filters, which understand human sizes and durations, so you can go hunting for the big and the forgotten:
 
@@ -662,7 +740,7 @@ rm -rf ~/.cache/pip
 rm -rf ~/anaconda3/pkgs/
 ```
 
-Make sure edit the last command if your conda is installed elsewhere.
+Make sure to edit the last command if your conda is installed elsewhere.
 
 
 ### Share caches in group environments
@@ -714,7 +792,7 @@ So for example to find which users consume the most disk run:
 ```bash
 sudo du -ahd1 /home/* | sort -rh
 ```
-it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyse the data a level deeper:
+it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyze the data a level deeper:
 
 ```bash
 sudo du -ahd1 /home/*/* | sort -rh

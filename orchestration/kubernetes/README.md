@@ -17,11 +17,11 @@ So to overcome this you need to get k8s to set `memory.oom.group = 0` either on 
 Here is how this is done. Kubernetes 1.32 introduced the kubelet flag [`singleProcessOOMKill`](https://github.com/kubernetes/kubernetes/pull/126096), which allows you to set `memory.oom.group = 0`.
 
 ```
-        compute:
-          additionalNodePools:
-          	kubeletConfig: # this flag is added to node pool config
-            - name: foo
-                singleProcessOOMKill: true
+compute:
+  additionalNodePools:
+    - name: foo
+      kubeletConfig:
+        singleProcessOOMKill: true
 ```
 
 

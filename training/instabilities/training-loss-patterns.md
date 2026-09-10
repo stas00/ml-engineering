@@ -34,11 +34,11 @@ This was the almost perfect training indeed. Lots of hard work was put into achi
 
 ### The grokking moment
 
-Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ DeepSpeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
+Some time back I was doing performance testing and run a tiny global batch size of 8 on an 8×A100 node, training llama-2-7b from scratch. (w/ DeepSpeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
 
 ![](images/llama-7b-grokking-no-zoom.png)
 
-Here one can observe a rapid loss improvement from 4 to 2.5 in just 480 samples after a very steady much slower improvements. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In just a handful of steps the model suddenly generalized to much better predict the masked tokens.
+Here one can observe a rapid loss improvement from 4 to 2.5 in just 480 samples after a very steady much slower improvements. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In just a handful of steps the model suddenly generalized to much better predict the next tokens.
 
 Normally one doesn't see such a dramatic improvement when using a much larger batch size.
 
@@ -162,7 +162,7 @@ There was no real spike in the two earlier runs. The loss never went up in the f
 
 The cause of the problem is data repetition, and since it clearly memorised some of it, it was reporting a better loss.
 
-The problem comes from [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables).
+The problem came from [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)).
 
 footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/pytorch-lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
 

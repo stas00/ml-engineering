@@ -80,7 +80,7 @@ gpu = f"[{hostname}:{local_rank}]"
 
 try:
     # XXX: possibly change the dist timeout to something much shorter to get this script to fail
-    # fast if there is a problem and not wait for the default 30min
+    # fast if there is a problem and not wait for the default 10min
 
     # test distributed
     dist.init_process_group("nccl")

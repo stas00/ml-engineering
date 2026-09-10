@@ -18,7 +18,11 @@ sinfo -p dev
 sinfo -p prod
 ```
 
-SLURM configuration is at `/opt/slurm/etc/slurm.conf`.
+The path to `slurm.conf` is site-dependent (often under `/etc/slurm/` or `/opt/slurm/etc/`); to see where this cluster loads it from:
+
+```bash
+scontrol show config | grep -i slurmconf
+```
 
 To see the configuration of all partitions:
 
@@ -52,7 +56,7 @@ Using `--dependency` may lead to shorter wait times that using `--begin`, since 
 
 To postpone making the allocation for a given time, use:
 ```bash
-salloc --begin HH:MM MM/DD/YY
+salloc --begin=YYYY-MM-DDTHH:MM:SS
 ```
 
 Same for `sbatch`.
@@ -171,7 +175,7 @@ or via: `#SBATCH --exclude ...`
 To use specific nodes:
 
 ```bash
-sbatch --nodelist= nodeA,nodeB
+sbatch --nodelist=nodeA,nodeB
 ```
 can also use the short `-w` instead of `--nodelist`
 
@@ -185,7 +189,7 @@ Since each SLURM run has a limited time span, it can be configured to send a sig
 ```
 --signal=[[R][B]:]<sig_num>[@<sig_time>]
 ```
-TODO: need to experiment with this to help training finish gracefully and not start a new cycle after saving the last checkpoint.
+For the worked pattern - trap `SIGUSR1` (or similar) a few minutes before the wall-clock limit, finish the step, save a checkpoint, and exit without starting another cycle - see [Sending a custom signal X minutes before the end](../../training/fault-tolerance/README.md#approach-b1-sending-a-custom-signal-x-minutes-before-the-end) in the fault-tolerance chapter.
 
 
 
@@ -203,19 +207,19 @@ For a job that finished its run use:
 sacct -j JOBID
 ```
 
-This command is also useful to discover if you have any `srun` jobs already running on that allocation (including those that were finished or cancelled). For example, you could kill some run-away `srun` step via `scancel <jobid>.<step-id>` and you'd find that `<step-id>` via the above command. The main job will continue running if it's an interactive job even if you cancelled all step jobs.
+This command is also useful to discover if you have any `srun` jobs already running on that allocation (including those that were finished or canceled). For example, you could kill some run-away `srun` step via `scancel <jobid>.<step-id>` and you'd find that `<step-id>` via the above command. The main job will continue running if it's an interactive job even if you canceled all step jobs.
 
 To see more details:
 ```bash
-sacct -ojobid,start,end,state,exitcode --format nodelist%300  -j JOBID
+sacct --format=jobid,start,end,state,exitcode,nodelist%300 -j JOBID
 sacct -j JOBID --long
 ```
 
 Or to see all jobs with their sub-steps while limiting the listing to a specific partition and only for your own user:
 
 ```bash
-sacct -u `whoami` --partition=dev  -ojobid,start,end,state,exitcode --format nodelist%300
-sacct -u `whoami` --partition=prod -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=dev  --format=jobid,start,end,state,exitcode,nodelist%300
+sacct -u `whoami` --partition=prod --format=jobid,start,end,state,exitcode,nodelist%300
 ```
 
 To see how a particular job was launched and all of its `srun` sub-step command lines:
@@ -241,6 +245,81 @@ Show jobs of a specific partition:
 squeue --partition=dev
 ```
 
+## Getting information about the job
+
+From within the slurm file one can access information about the current job's allocations.
+
+Getting allocated hostnames and useful derivations based on that:
+```bash
+export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
+export NUM_NODES=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
+export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+```
+
+## Environment variables
+
+`#SBATCH --export=...` controls which variables from the **submission shell** are copied into the job. On stock Slurm the default is `ALL` (some sites override that via `SBATCH_EXPORT` / `SLURM_EXPORT_ENV` or a cli_filter). `SLURM_*` variables are always present regardless of the mode. Anything you `export KEY=value` inside the job script itself is also always visible to the launched program - that is independent of `--export`, which only governs what is inherited from the submit shell. The four useful forms:
+
+1. **Full submit-shell environment (default):**
+
+```
+#SBATCH --export=ALL
+```
+Same as omitting `--export` on stock Slurm - writing this line alone is a no-op there. Use it only when you need to undo a site default of `NONE`, or when combining with extras as in (4).
+
+2. **Minimal environment:**
+
+```
+#SBATCH --export=NONE
+```
+Drops the submit-shell environment. Useful when you want a reproducible job that does not inherit whatever happened to be exported in the login shell.
+
+3. **Only these variables (replacement list):**
+
+```
+#SBATCH --export=KEY1,KEY2=value
+```
+Propagates **only** the named variables (here: current value of `KEY1`, and `KEY2` set to `value`). Everything else from the submit shell is dropped - this is not an add-on to `ALL`.
+
+4. **Full environment plus set/override:**
+
+```
+#SBATCH --export=ALL,KEY=value
+```
+Keeps the full submit-shell environment **and** sets or overrides `KEY`. If you want both “everything” and an extra var at submit time, `ALL` must appear in the list - without it you get case (3).
+
+## Convert compact node list to expanded node list
+
+Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
+
+```bash
+$ scontrol show hostnames node-[42,49-51]
+node-42
+node-49
+node-50
+node-51
+```
+Voila!
+
+case study: this is for example useful if you want get a list of nodes that were drained because the job was too slow to exit, but really there is no real problem with the nodes. So this one-liner will give you the list of such nodes in an expanded format which you can then script to loop over this list to undrain these nodes after perhaps checking that the processes have died by this time:
+```bash
+sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
+```
+
+## Convert SLURM_JOB_NODELIST into a hostfile
+
+Some multi-node launchers require a `hostfile` - here is how to generate one. Expansion uses `scontrol show hostnames`, the same tool as [Convert compact node list to expanded node list](#convert-compact-node-list-to-expanded-node-list) above, so mixed forms like `node-[42,49-51]` work:
+
+```bash
+# usage:
+# makehostfile > hostfile
+# relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
+function makehostfile() {
+  local slots
+  slots=$(perl -F, -lane 'print scalar @F' <<<"${SLURM_STEP_GPUS:-0}")
+  scontrol show hostnames "$SLURM_JOB_NODELIST" | perl -slne 'print "$_ slots=$s"' -- -s="$slots"
+}
+```
 
 ## Aliases
 
@@ -268,12 +347,12 @@ srun pkill python
 
 `sacct` displays accounting data for all jobs and job steps in the SLURM job accounting log or SLURM database.
 
-So this is a great tool for analysing past events.
+So this is a great tool for analyzing past events.
 
 For example, to see which nodes were used to run recent gpu jobs:
 
 ```bash
-sacct -u `whoami` --partition=dev -ojobid,start,end,state,exitcode --format nodelist%300
+sacct -u `whoami` --partition=dev --format=jobid,start,end,state,exitcode,nodelist%300
 ```
 
 `%300` here tells it to use a 300 char width for the output, so that it's not truncated.
@@ -315,9 +394,7 @@ If we need to separate logs to different log files per node add `%N` (for short 
 #SBATCH --output=%x-%j-%N.out
 ```
 
-That way we can tell if a specific node misbehaves - e.g. has a corrupt GPU. This is because currently pytorch doesn't log which node / gpu rank triggered an exception.
-
-Hoping it'll be a built-in feature of pytorch https://github.com/pytorch/pytorch/issues/63174 and then one won't need to make things complicated on the logging side.
+That way we can tell if a specific node misbehaves - e.g. has a corrupt GPU. `torchrun` can attribute the first failure to a host/rank when the entry point is wrapped with `@record`, but undecorated scripts still get a bare traceback, and a single summary does not replace having one log file per node.
 
 
 ## Show the state of nodes
@@ -657,17 +734,20 @@ Now the launcher will always work and the users will only need to tweak the `PRO
 With `torchrun`:
 
 ```bash
-export $GPUS_PER_NODE=8
+GPUS_PER_NODE=8
+NNODES=$SLURM_NNODES
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=3333
+# note `\$SLURM_PROCID` and `\$(hostname ...)` - interpolate at `srun` time, not here
 LAUNCHER="python -u -m torch.distributed.run \
     --nproc_per_node $GPUS_PER_NODE \
     --nnodes $NNODES \
-    --node_rank \$SLURM_PROCID
+    --node_rank \$SLURM_PROCID \
     --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
     --rdzv_backend c10d \
     --max_restarts 0 \
-    --role `hostname -s`:--tee 3 \
+    --role \$(hostname -s|tr -dc '0-9'): \
+    --tee 3 \
     "
 ```
 
@@ -777,7 +857,7 @@ Now let's create a driver slurm script. Use a few minutes time for this test so 
 #SBATCH --output=%x-%j.out           # output file name
 #SBATCH --partition=prod
 
-source $six_ALL_CCFRWORK/start-prod
+source $six_ALL_CCFRWORK/start-prod   # edit me - site-specific env setup
 srun --jobid $SLURM_JOBID ./test-nodes.py
 ```
 Once it runs check the logs to see if any reported `False`, those are the nodes you want to exclude.
@@ -787,8 +867,6 @@ Now once the faulty node(s) is found, feed it to `sbatch`:
 sbatch --exclude=hostname1,hostname2 ...
 ```
 and `sbatch` will exclude the bad nodes from the allocation.
-
-Additionally please report the faulty nodes to `#science-support` so that they get replaced
 
 Here are a few more situations and how to find the bad nodes in those cases:
 
@@ -807,7 +885,7 @@ If you're testing something that requires distributed setup, it's a bit more com
 #SBATCH --output=%x-%j.out           # output file name
 #SBATCH --partition=prod
 
-source $six_ALL_CCFRWORK/start-prod
+source $six_ALL_CCFRWORK/start-prod   # edit me - site-specific env setup
 
 NNODES=2
 
@@ -879,7 +957,7 @@ try:
     torch.ones((gbs*2**28)).cuda(local_rank).contiguous() # alloc on cpu, then move to gpu
     print(f"{local_rank} {hostname} is OK")
 except:
-    print(f"{local_rank} {hostname} failed to allocate {gbs}GB DRAM")
+    print(f"{local_rank} {hostname} failed to allocate {gbs}GiB of accelerator memory")
     pass
 
 time.sleep(5)
@@ -916,7 +994,7 @@ nslookup 10.148.3.247
 247.3.148.10.in-addr.arpa       name = r10i6n5.ib0.xa.idris.fr.
 ```
 
-Add `--exclude=r10i6n5` to your `sbatch` command and report it to JZ admins.
+Add `--exclude=r10i6n5` to your `sbatch` command and report the faulty node to your cluster's admins.
 
 
 ### Run py-spy or any other monitor program across all nodes
@@ -953,41 +1031,6 @@ Also the assumption is that some conda env that has `py-spy` installed got activ
 
 Don't forget to manually release the allocation when this process is done.
 
-## Convert SLURM_JOB_NODELIST into a hostfile
-
-Some multi-node launchers require a `hostfile` - here is how to generate one:
-
-```bash
-# autogenerate the hostfile for deepspeed
-# 1. deals with: SLURM_JOB_NODELIST in either of 2 formats:
-# r10i1n8,r10i2n0
-# r10i1n[7-8]
-# 2. and relies on SLURM_STEP_GPUS=0,1,2... to get how many gpu slots per node
-#
-# usage:
-# makehostfile > hostfile
-function makehostfile() {
-perl -le '$slots=split /,/, $ENV{"SLURM_STEP_GPUS"}; $_=$ENV{"SLURM_JOB_NODELIST"}; if (/^(.*?)\[(\d+)-(\d+)\]/) { print map { "$1$_ slots=$slots\n" } $2..$3} elsif (/,/) { print map { "$1$_ slots=$slots\n" } split /,/ } '
-}
-```
-
-## Environment variables
-
-You can always do:
-
-```bash
-export SOMEKEY=value
-```
-from the slurm script to get a desired environment variable passed to the program launched from it.
-
-And you can also add to the top of the slurm script:
-```
-#SBATCH --export=ALL
-```
-The launched program will see all the environment variables visible in the shell where it was launched from.
-
-
-
 ## Crontab Emulation
 
 One of the most important Unix tools is the crontab, which is essential for being able to schedule various jobs. It however usually is absent from SLURM environment. Therefore one must emulate it. Here is how.
@@ -1019,14 +1062,14 @@ $ sbatch cron-hourly.slurm
 $ sbatch cron-daily.slurm
 ```
 
-This is it, these jobs will now self-perpetuate and usually you don't need to think about it again unless there is an even that makes SLURM lose all its jobs.
+This is it, these jobs will now self-perpetuate and usually you don't need to think about it again unless there is an event that makes SLURM lose all its jobs.
 
 
 ### 2. Daily and Hourly Cronjobs
 
 Now whenever you want some job to run once a day, you simply create a slurm job and put it into the `$WORK/cron/cron.daily` dir.
 
-Here is an example job that runs daily to update the `mlocate` file index:
+Here is an example job that runs daily to rebuild a file index of `$WORK` with `updatedb` (on current distributions that is usually `plocate`'s `updatedb`; older systems had `mlocate`):
 ```bash
 $ cat $WORK/cron/cron.daily/mlocate-update.slurm
 #!/bin/bash
@@ -1041,7 +1084,7 @@ $ cat $WORK/cron/cron.daily/mlocate-update.slurm
 
 set -e
 date
-echo "updating mlocate db"
+echo "updating file index db"
 /usr/bin/updatedb -o $WORK/lib/mlocate/work.db -U $WORK --require-visibility 0
 ```
 
@@ -1073,7 +1116,7 @@ Please note that it's set to only delete files that are older than 7 days, in ca
 
 ### Nuances
 
-The scheduler runs with Unix permissions of the person who launched the SLRUM cron scheduler job and so all other SLURM scripts launched by that cron job.
+The scheduler runs with Unix permissions of the person who launched the SLURM cron scheduler job and so all other SLURM scripts launched by that cron job.
 
 ## Self-perpetuating SLURM jobs
 
@@ -1105,37 +1148,6 @@ This then will immediately schedule itself to be run 1 hour from the launch time
 As the majority of SLURM environment in addition to the expensive GPU nodes also provide much cheaper CPU-only nodes, you should choose a CPU-only SLURM partition for any jobs that don't require GPUs to run.
 
 
-## Getting information about the job
-
-From within the slurm file one can access information about the current job's allocations.
-
-Getting allocated hostnames and useful derivations based on that:
-```bash
-export HOSTNAMES=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-export NUM_NODES=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | wc -l)
-export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
-```
-
-
-
-## Convert compact node list to expanded node list
-
-Sometimes you get SLURM tools give you a string like: `node-[42,49-51]` which will require some coding to expand it into `node-42,node-49,node-50,node-51`, but there is a special tool to deal with that:
-
-```bash
-$ scontrol show hostnames node-[42,49-51]
-node-42
-node-49
-node-50
-node-51
-```
-Voila!
-
-case study: this is for example useful if you want get a list of nodes that were drained because the job was too slow to exit, but really there is no real problem with the nodes. So this one-liner will give you the list of such nodes in an expanded format which you can then script to loop over this list to undrain these nodes after perhaps checking that the processes have died by this time:
-```bash
-sinfo -R | grep "Kill task failed" | perl -lne '/(node-.*[\d\]]+)/ && print $1' | xargs -n1 scontrol show hostnames
-```
-
 ## Overcoming the lack of group SLURM job ownership
 
 SLURM runs on Unix, but surprisingly its designers haven't adopted the concept of group ownership with regards to SLURM jobs. So if a member of your team started an array of 10 jobs 20h each, and went on vacation - unless you have `sudo` access you now can't do anything to stop those jobs if something is wrong.
@@ -1154,7 +1166,7 @@ Of course, don't forget to remove it when you're done stopping the jobs.
 rm $WORK/tmp/training17-kill-switch
 ```
 
-Now, this doesn't always work. If the job is hanging, it'll never come to the point of checking for kill-switch and the only solution here is to contact the sysadmins to kill the job for you. Sometimes if the hanging is a simple case pytorch's distributed setup will typically auto-exit after 30min of preset timeout time, but it doesn't always work.
+Now, this doesn't always work. If the job is hanging, it'll never come to the point of checking for kill-switch and the only solution here is to contact the sysadmins to kill the job for you. Sometimes if the hanging is a simple case pytorch's distributed setup will typically auto-exit after 10min of preset timeout time, but it doesn't always work.
 
 
 ## How to gracefully exit on SLURM job preemption

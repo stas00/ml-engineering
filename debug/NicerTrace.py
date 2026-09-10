@@ -2,7 +2,7 @@
 
 """
 To try it in action and to get a sense of how it can help you just run:
-python trace/NicerTrace.py
+python NicerTrace.py
 """
 
 

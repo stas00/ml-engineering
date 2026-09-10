@@ -60,16 +60,15 @@ You can safely ignore the many concepts and abbreviations listed here until you 
 - XGS: the cross-datacenter variant of Spectrum-X
 
 Speed-related:
-- Unidirectional: a transmission from one point to another in one direction A -> B
-- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x speed of unidirectional
-- GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
-- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
-- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
-- Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
+- Adaptive Routing: improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
 - algbw: algorithm bandwidth - payload size divided by elapsed time
+- Bi-directional, Duplex: a transmission from one point to another in both directions A <-> B, typically 2x the one-direction (unidirectional) rate
+- Bisection Width: minimum number of links cut to divide the network into two parts (not necessarily equal). The bandwidth of those links is known as Bisection Bandwidth - which is often used as a metric for real network bandwidth). Sometimes it's referred to as the worst-case network capacity. Here is a [good answer](https://networkengineering.stackexchange.com/a/29662/93656) that explains this and related concepts, but it's unlikely you need to understand this other than knowing what is being meant, as chances are your cluster's topology has already been done by the provider.
 - busbw: bus bandwidth - `algbw` scaled by a per-collective correction factor so it reflects the hardware bottleneck rather than the rank count
-- Adaptive Routing improves Static routing to enable out of order packets on the network. Packets are load balanced at each switch to better distribute the network workload.
-- [Remote Direct Memory Access](#rdma-networking)
+- GBps, GB/s: Gigabytes per secs (1GBps = 8Gbps) transferred in a channel
+- Gbps, Gb/s: Gigabits per secs (1Gbps = 1/8GBps) transferred in a channel
+- GT/s: GigaTransfers per second - the number of operations transferring data that occur in each second.
+- Unidirectional: a transmission from one point to another in one direction A -> B
 
 footnote: In the following sections pay close attention that 1GBps = 8Gbps.
 
@@ -183,7 +182,7 @@ Notes:
 1. NVSwitch operates at the same speed as NVLink of that generation. See [NVSwitch](#nvswitch).
 2. AWS publishes `NeuronLink-v3 ... 1.28 TB/sec bandwidth per chip` for Trainium2 without declaring directionality, so it's halved here per the directionality note below. AWS doesn't publish a per-link rate or a link count, so Trainium2 can't be placed in the [peer-to-peer table](#peer-to-peer-bandwidth) below.
 3. PCIe 6 is listed under `Announced, availability not confirmed` because no shipping accelerator attaches at Gen6 as of 2026-07-31 - current parts are Gen5 x16 (NVIDIA H200 SXM lists `PCIe Gen5`, AMD MI350X/MI355X list `PCIe 5.0 x16`), so 63GBps remains today's ceiling for accelerator-to-accelerator PCIe traffic. Gen6 already ships on the NIC side - NVIDIA markets ConnectX-8 as bringing "PCIe Gen6 connectivity in a single device", which is what lets one adapter feed 800Gbps.
-4. Google publishes a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200 for TPU7x, halved here per the note above. Peer-to-peer is the per-axis figure, "bi-directional bandwidth of 200 GBps per axis" - and 6 neighbours in the 3D torus at 200 each is exactly the 1200 total, so the two figures corroborate. `GA` is `?` because Google documents TPU7x fully without stating an availability stage. See [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x).
+4. Google publishes a "Bidirectional inter-chip interconnect (ICI) bandwidth per chip (GBps)" of 1200 for TPU7x, halved here per the note above. Peer-to-peer is the per-axis figure, "bi-directional bandwidth of 200 GBps per axis" - and 6 neighbors in the 3D torus at 200 each is exactly the 1200 total, so the two figures corroborate. `GA` is `?` because Google documents TPU7x fully without stating an availability stage. See [TPU7x](https://docs.cloud.google.com/tpu/docs/tpu7x).
 5. Huawei publishes a per-cabinet total interconnect bandwidth of up to 64 x 1.68TBps bidirectional for the Atlas 950 SuperPoD - 1.68TBps bidirectional per accelerator, halved here. Only the Chinese pages carry it; the English ones state no per-NPU figure. Peer-to-peer is unknown, so there is no row in the [peer-to-peer table](#peer-to-peer-bandwidth). `GA` is `?` because Huawei publishes no availability for Ascend 950DT anywhere reachable - its own English site serves a plain downloader only a navigation shell, in which `950DT` does not appear at all. China-only distribution is not the reason: once availability is confirmed the row belongs with the available hardware, annotated as China-only. See [UB Link](#ub-link-unifiedbus).
 
 General notes:
@@ -511,7 +510,7 @@ The following is the all-to-all bandwidth.
 
 The peer-to-peer bandwidth is just that of a single link/direction (the 2nd column). This means that unless you use the whole 8-GPU node in a single process group you will have a 7x slower comms performance. See [Peer-to-peer bandwidth](#peer-to-peer-bandwidth) for details.
 
-Other intra-node solutions typically have the same all-to-all and peer-to-peer intra-node bandwidth, so Infinity Fabric appears to be dramatically slower. I suppose that is because these were created mainly for inference, as these slow speeds would dramatically slow down LLM training.
+Other intra-node solutions typically have the same all-to-all and peer-to-peer intra-node bandwidth, so Infinity Fabric appears to be dramatically slower, unless the workload either doesn't use intra-node comms or the whole node is engaged in a single workload.
 
 ![AMD Infinity Platform Architecture](images/amd-infinity-arch-MI300X.png)
 
@@ -553,9 +552,9 @@ Number of Trainium2 chips per node and intra-node network speeds:
 - Trainium2: 16 chips interconnected at 128GBps peer-to-peer undirectional (32 PCIe lanes) and each Trainium2 connects to 3 other chips
 - Trainium2 Ultra: 64 chips - the 16 chip groups are the same as non-Ultra, plus these 4 groups are interconnected at 64GBps with each other.
 
-Like TPU it is used in a 3D Torus structure. Here different axis connect at different speeds, so the total all-to-all bandwidth per chip is 640GBps unidirectional (`128GBps * 4 intra-node neighbours + 64GBps * 2 inter-node neighbours`)
+Like TPU it is used in a 3D Torus structure. Here different axis connect at different speeds, so the total all-to-all bandwidth per chip is 640GBps unidirectional (`128GBps * 4 intra-node neighbors + 64GBps * 2 inter-node neighbors`)
 
-When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirectional, so only 512GBps/chip unidirectional - and it comes from `128GBps * 4 intra-node neighbours` (and only if all 4 chips are engaged).
+When their spec suggests 1024GBps/chip intra-instance bandwidth, it is bidirectional, so only 512GBps/chip unidirectional - and it comes from `128GBps * 4 intra-node neighbors` (and only if all 4 chips are engaged).
 
 
 ## Inter-node networking
@@ -651,11 +650,12 @@ The tables in this chapter mostly count node-level bandwidth, but you buy adapte
 
 **Announced, availability not confirmed:**
 
-| Adapter              | Vendor | Protocol                 | Throughput<br>per adapter<br>(Gbps) | Notes |
-| :------------------- | :----- | :----------------------- | ----------------------------------: | :---- |
-| ConnectX-9 SuperNIC  | NVIDIA | Ethernet                 |                                1600 | 1,7   |
-| Pensando Pollara 400 | AMD    | Ethernet                 |                                 400 | 2,3,7 |
-| Pensando Vulcano     | AMD    | Ultra Ethernet           |                                 800 | 2,5,6 |
+| Adapter              | Vendor   | Protocol                          | Throughput<br>per adapter<br>(Gbps) | Notes |
+| :------------------- | :------- | :-------------------------------- | ----------------------------------: | :---- |
+| ConnectX-9 SuperNIC  | NVIDIA   | Ethernet                          |                                1600 | 1,7   |
+| CN6000 SuperNIC      | Cornelis | Omni-Path, RoCEv2, Ultra Ethernet |                                 800 | 8,9   |
+| Pensando Vulcano     | AMD      | Ultra Ethernet                    |                                 800 | 2,5,6 |
+| Pensando Pollara 400 | AMD      | Ethernet                          |                                 400 | 2,3,7 |
 
 Notes:
 
@@ -666,6 +666,8 @@ Notes:
 5. Pre-release as of 2026-07-30. AMD's Vulcano numbers come from "AMD Engineering silicon modeling and AMD synthetic benchmark simulation" and "may vary when actual product(s) are released in market".
 6. AMD advertises "up to 2.4 Tbps of scale-out bandwidth per GPU" for Vulcano. That's three 800Gbps NICs attached to one GPU - a platform configuration, not a single faster NIC. Same trap as the node-aggregate columns elsewhere in this chapter.
 7. These two sit under `Announced, availability not confirmed` because the vendor page names the product but states no availability, not because the vendor says it is unreleased. NVIDIA lists ConnectX-9 in its adapter portfolio without a ship date; AMD gives Pollara 400 a partner platform catalog, which implies it ships, but says so nowhere. Neither is claimed here as available or unavailable.
+8. [Cornelis CN6000 SuperNIC adapters](https://www.cornelis.com/product/cornelis-cn6000-omni-path-adapters) - Bandwidth `800G`; Performance `1.6Tbps bidirectional (800Gbps Tx and 800Gbps Rx)`; Dual QSFP-DD (`x4` @ 112 Gbps/lane); PCIe 6.0 x16. The throughput column is unidirectional, same convention as CN5000 / ConnectX.
+9. Pre-GA; see [inter-node](#inter-node-networking) notes 13-14 (product sampling in 2026, GA target Q4-2026).
 
 
 ### InfiniBand
@@ -866,9 +868,15 @@ This technology didn't catch on and has been phasing out while getting replaced 
 
 case study: I used this technology at JeanZay HPC in France in 2022. It was only 135Gbps and while the vendor tried to fix it a year later it was still the same speed. Hopefully the issue has been resolved and the speed is much faster nowadays. Because it was so slow we had to use [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) for training BLOOM-176B instead of the much easier to use DeepSpeed ZeRO).
 
-[Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now - and until 2025 this was the only Omni-Path generation that shipped, since Intel cancelled the planned 200Gbps `OPA 200` series in July 2019. At 100Gbps per NIC you were unlikely to see Omni-Path offered for ML workloads unless someone installed many NICs per node.
+[Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now - and until 2025 this was the only Omni-Path generation that shipped, since Intel canceled the planned 200Gbps `OPA 200` series in July 2019. At 100Gbps per NIC you were unlikely to see Omni-Path offered for ML workloads unless someone installed many NICs per node.
 
-[CN5000](https://www.cornelisnetworks.com/solutions/cornelis-cn5000/) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [adapter table](#network-adapters). One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+[CN5000](https://www.cornelis.com/product/cornelis-cn5000-omni-path-adapters) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [inter-node networking](#inter-node-networking) table. One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+
+footnote: Cornelis's marketing pages sometimes say "400Gbps bidirectional", but the [product-family docs](http://docs.cornelis.com/en/cn5000-product-family-descriptions/fabric-hardware-components/cn5000-supernic.html) state "400 Gbps (4 x 100 Gbps) bandwidth **in each direction**" - so this chapter treats 400Gbps as unidirectional, the same way it treats ConnectX-7 NDR / EFA 400G.
+
+[CN6000](https://www.cornelis.com/product/cornelis-cn6000-omni-path-adapters) is the next generation - an 800Gbps SuperNIC on PCIe 6.0 that runs Omni-Path, RoCEv2, and Ultra Ethernet concurrently (each of its dual QSFP-DD ports independently configurable), so one card can speak Omni-Path on one port and RoCE/UEC on the other. Cornelis targets GA in Q4-2026; until then it sits in the announced half of the [node](#inter-node-networking) and [adapter](#network-adapters) tables.
+
+footnote: Cornelis also writes "800 Gbps of bidirectional bandwidth" in marketing copy; the adapter page's own Performance line is `1.6Tbps bidirectional (800Gbps Tx and 800Gbps Rx)`, so this chapter treats 800Gbps as unidirectional - same call as the CN5000 footnote above.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
 
@@ -907,7 +915,7 @@ The SHARP hardware, that is part of the NVSwitch or InfiniBand switches and also
 case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GiB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo, which engaged NVLink SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
 
 To take advantage of this great feature:
-- the collective has to engage more than 4 GPUs - see the measurements below for how the gain scales with the number of GPUs.
+- the collective has to engage enough GPUs that NCCL actually selects `NVLS` - see the measurements below; the switch is above 4 on H200 and above 5 on B200, so measure yours rather than assuming either number.
 - ensure that the env var `NCCL_NVLS_ENABLE` is either unset or set to `1`.
 
 Measured on an 8x H200 node at an 8GiB payload with `nccl-tests`, running each GPU count twice - once as-is and once with `NCCL_NVLS_ENABLE=0` to force the ring - so the last column isolates what SHARP is actually contributing:
@@ -922,15 +930,27 @@ Measured on an 8x H200 node at an 8GiB payload with `nccl-tests`, running each G
 
 So it isn't a cliff at 8 GPUs, it's a ramp that starts above 4. At 4 GPUs NCCL doesn't even select `NVLS`, and the ring number is identical either way - exactly 1.00x. From 5 GPUs up it selects `NVLS` and the gain grows with each accelerator added. Admittedly a 5- or 7-GPU collective is an odd thing to run, but it does mean a partial-node job gets a partial benefit rather than none.
 
-NVIDIA's own documentation draws the line in the same place, though it takes one step to see why: NVLink SHARP is implemented with multicast - the switch reduces and then fans the result back out to every participant - which is why NCCL's setup log for `NVLS` literally reads `Created Multicast group`. So a statement about multicast is a statement about SHARP, and the [GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) says that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same 4-GPU boundary the measurements above land on.
+The same sweep on an 8x B200 `p6-b200.48xlarge` node (`nccl=2.27.7`, 8GiB, measured 2026-08-09) shows the ramp is not portable across generations - NCCL stays on `Ring` at 5 GPUs and only switches to `NVLS` from 6 up, confirmed with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`:
 
-footnote: the multicast group itself is created regardless - `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=NVLS` reports `NVLS Created Multicast group` at 4 GPUs just as it does at 8, along with the same 16 nvls channels. What changes above 4 GPUs is that NCCL starts *using* the `NVLS` algorithm. So "is a multicast group set up" and "is SHARP doing anything for you" are separate questions.
+| GPUs | algo NCCL picks | busbw     | busbw, NVLS off | gain from SHARP |
+| ---: | :-------------- | --------: | --------------: | --------------: |
+|    4 | Ring            | 673.2GBps |       673.8GBps |           1.00x |
+|    5 | Ring            | 677.8GBps |       677.8GBps |           1.00x |
+|    6 | NVLS            | 778.2GBps |       677.8GBps |           1.15x |
+|    7 | NVLS            | 811.2GBps |       680.5GBps |           1.19x |
+|    8 | NVLS            | 838.0GBps |       682.2GBps |           1.23x |
+
+At full node the gain is still real - 1.23x here against H200's 1.29x - but a 5-GPU job on this B200 node gets none of it. The chooser on this box is AWS's `NCCL_TUNER_PLUGIN=ofi`, whose log line reads `base Tuner is chosen for platform: p6-b200.48xlarge`, so do not read the H200 threshold across to a different instance type.
+
+NVIDIA's own documentation draws a 4-GPU line, though it takes one step to see why: NVLink SHARP is implemented with multicast - the switch reduces and then fans the result back out to every participant - which is why NCCL's setup log for `NVLS` literally reads `Created Multicast group`. So a statement about multicast is a statement about SHARP, and the [GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) says that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - matching the H200 boundary above, and sitting one GPU below the B200 one.
+
+footnote: the multicast group itself is created regardless - `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=NVLS` reports `NVLS Created Multicast group` at 4 GPUs just as it does at 8, along with the same 16 nvls channels. What changes above the threshold is that NCCL starts *using* the `NVLS` algorithm. So "is a multicast group set up" and "is SHARP doing anything for you" are separate questions.
 
 footnote: don't confuse the GPU count with `multicastGroupsLimit`, which the same guide says "must be 0 or a multiple of 4". That one is the number of multicast *teams* reserved to a partition out of the 1,024 the system provides - a fabric-manager resource allocation, unrelated to how many GPUs your collective engages.
 
-In the case of NVL36, NVL72 and others bigger than NVL8 the granularity is likely 4 GPUs rather than 8, since a compute tray holds 2 GB200 modules and each module is 1 Grace CPU + 2 Blackwell GPUs. The [NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) points the same way: its partition sizing examples step in fours (72, 68 and 64 GPUs), and it states that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast" - the same threshold measured above on an 8-GPU node. Multi-cast is a requirement for NVLink SHARP to work; for more clarity on why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042).
+In the case of NVL36, NVL72 and others bigger than NVL8 the granularity is likely 4 GPUs rather than 8, since a compute tray holds 2 GB200 modules and each module is 1 Grace CPU + 2 Blackwell GPUs. The [NVIDIA GB200 NVL Partition User Guide](https://docs.nvidia.com/multi-node-nvlink-systems/partition-guide-v1-0.pdf) points the same way: its partition sizing examples step in fours (72, 68 and 64 GPUs), and it states that "partitions that have less than or equal to four GPUs will not benefit from multicast and can accomplish all traffic through unicast". Multi-cast is a requirement for NVLink SHARP to work; for more clarity on why multi-cast is needed, see [this](https://github.com/NVIDIA/nccl/issues/807#issuecomment-1480585042).
 
-**This one needs validating on real NVL hardware.** The 4-GPU threshold above was measured on an 8x H200 HGX node, and the guide's statements concern fabric-level partitioning rather than which algorithm NCCL selects inside a partition - the two could diverge. So read the 4-GPU granularity as the likely case rather than an established one, until someone runs the sweep on an NVL36 or NVL72 system.
+**This one still needs validating on real NVL hardware.** The two HGX sweeps above already disagree with each other (H200 switches at 5, B200 at 6), and the guide's statements concern fabric-level partitioning rather than which algorithm NCCL selects inside a partition - so the NVL case could land on either, or on neither. Read the 4-GPU granularity as the likely case from the docs rather than an established one, until someone runs the sweep on an NVL36 or NVL72 system.
 
 Part of what makes this murky is that the GB200 use case is ambiguous/confusing with regards to counting GPUs, since 1x GB200 == 2x B200 + 1x CPU, therefore the NVIDIA doc talks about 4x GB200, which is 8x B200 - and reading that "4x" as a minimum partition size is an easy way to arrive at a granularity of 8 GPUs when the tray itself holds only 4.
 
@@ -960,7 +980,7 @@ The GPU count is only one of the two conditions. The other is the collective its
 | all-gather                       | Ring | 361.4GBps |          80% |
 | reduce-scatter                   | Ring | 362.9GBps |          81% |
 
-The second row is the same collective at the same width with SHARP switched off, and it is the one that makes the other two readable: `all-gather` and `reduce-scatter` are not slow collectives, they are simply running the ring path that `all-reduce` also falls back to. All three land at 80-82% of the unidirectional spec - the ordinary NVLink efficiency you would expect from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex). Which means `~80%` is the normal case and the 107% is the exception, reachable only by an `all-reduce` over more than 4 accelerators.
+The second row is the same collective at the same width with SHARP switched off, and it is the one that makes the other two readable: `all-gather` and `reduce-scatter` are not slow collectives, they are simply running the ring path that `all-reduce` also falls back to. All three land at 80-82% of the unidirectional spec - the ordinary NVLink efficiency you would expect from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex). Which means `~80%` is the normal case and the 107% is the exception, reachable only by an `all-reduce` wide enough that NCCL selects `NVLS`.
 
 If you want to reproduce these numbers use [nccl-tests](benchmarks/README.md#nccl-tests):
 
@@ -1091,7 +1111,7 @@ For GPT-family of decoder transformers models we can use the math described in t
 
 Here is how many TFLOP are processed per second:
 ```
-tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_interation * total_gpus * 1e3)
+tflops = model_size_in_B * 4 * 2 * seqlen * global_batch_size / (time_in_sec_per_iteration * total_gpus * 1e3)
 ```
 
 This formula assume one uses [activation recomputation](../training/performance/README.md#gradient-checkpointing) which saves GPU memory while introducing a smallish overhead. If one doesn't use it then replace `4` with `3` as the model has to do only 1x compute per `forward` and 2x per `backward` (since the grads are calculated twice - once for inputs and once for weights). With activation recomputation the `forward` is done twice and thus you have an additional path which leads to a multiplier of `4` instead of `3`
@@ -1515,6 +1535,7 @@ When you plan to eventually have a large cluster but starting small make sure th
 Here are the cloud-specific ways of accomplishing node proximity:
 
 - Azure: [availability set](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview?source=recommendations)
+- AWS: [cluster placement groups](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
 - GCP: [compact placement policies](https://docs.cloud.google.com/compute/docs/instances/use-compact-placement-policies)
 
 Depending on the type of package you have or what type of machines you rent - you may or may not be able to use those.

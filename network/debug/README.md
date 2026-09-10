@@ -18,7 +18,7 @@ Often you don't need to be a network engineer to figure out networking issues. S
 
 See also [Debugging multi-node training](../../debug/pytorch.md#debugging-multi-node-training) for debugging multi-node issues at the PyTorch level.
 
-This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues](https://github.com/NVIDIA/nccl/issues).
+This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues](https://github.com/NVIDIA/nccl/issues).
 
 For the network diagnostics work, instead of using a full application which may take a long time to launch and have unrelated issue, I recommend using this specially developed design test script:  [torch-distributed-gpu-test.py](../../debug/torch-distributed-gpu-test.py).
 
@@ -125,26 +125,26 @@ While NCCL tries hard to auto-discover which interfaces it should use, if it fai
 - `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using InfiniBand. Here are some examples:
 
 ```bash
-export NCCL_SOCKET_IFNAME=eth:        Use all interfaces starting with eth, e.g. eth0, eth1, …
-export NCCL_SOCKET_IFNAME==eth0:      Use only interface eth0
-export NCCL_SOCKET_IFNAME==eth0,eth1: Use only interfaces eth0 and eth1
-export NCCL_SOCKET_IFNAME=^docker:    Do not use any interface starting with docker
-export NCCL_SOCKET_IFNAME=^=docker0:  Do not use interface docker0.
+export NCCL_SOCKET_IFNAME=eth         # all interfaces starting with eth
+export NCCL_SOCKET_IFNAME==eth0       # only eth0
+export NCCL_SOCKET_IFNAME==eth0,eth1  # only interfaces eth0 and eth1
+export NCCL_SOCKET_IFNAME=^docker     # do not use any interface starting with docker
+export NCCL_SOCKET_IFNAME=^=docker0   # do not use interface docker0
 ```
 The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-socket-ifname).
 
 - When using IB RDMA (IB Verbs interfaces), instead of `NCCL_SOCKET_IFNAME` use `NCCL_IB_HCA` env var which selects the interfaces for the collective communications. Examples:
 
 ```bash
-export NCCL_IB_HCA=mlx5 :               Use all ports of all cards starting with mlx5
-export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1 : Use ports 1 of cards mlx5_0 and mlx5_1.
-export NCCL_IB_HCA=^=mlx5_1,mlx5_4 :    Do not use cards mlx5_1 and mlx5_4.
+export NCCL_IB_HCA=mlx5                # all ports of cards starting with mlx5
+export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1  # port 1 of mlx5_0 and mlx5_1
+export NCCL_IB_HCA=^=mlx5_1,mlx5_4     # do not use mlx5_1 and mlx5_4
 ```
 The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
 For example, often with IB, there will be additional interfaces like `mlx5_bond_0` which you don't want to be included in the NCCL comms. For example, this report would indicate that the wrong `[8]mlx5_bond_0:1/RoCE` interface was included and this would almost certainly lead to a low bandwidth:
 ```
-NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/I [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
+NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/IB [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
 ```
 There you'd exclude it with:
 ```bash
@@ -168,7 +168,7 @@ Once you think you have set up the NCCL correctly, the next thing is to benchmar
 
 ## NCCL with docker containers
 
-* Give enough resources by adding to the docker `run` these additional args: `–shm-size=1g –ulimit memlock=-1` ([more details](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html#sharing-data))
+* Give enough resources by adding to the docker `run` these additional args: `--shm-size=1g --ulimit memlock=-1` ([more details](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data))
 * Privileged access: sometimes you need to add `--privileged` to  the docker `run` args.
 * Having the docker image include the right packages, e.g. if using IB you'd want at least to install `libibverbs1 librdmacm1`
 
@@ -217,7 +217,7 @@ If you're using a high-end datacenter GPUs this is very unlikely to happen. Thou
 
 For consumer-level GPUs there could be a variety of reasons for your GPU not being supported, often it's the IOMMU and/or ACS features being enabled. At other times it's just the driver version. And if you spend some time searching you might find someone hacking drivers to enable P2P in GPUs that shouldn't support P2P, like this [4090 P2P support repo](https://github.com/tinygrad/open-gpu-kernel-modules).
 
-To check if PCI Access Control Services (ACS) are enabled and to disable those follow [this guide](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html#pci-access-control-services-acs).
+To check if PCI Access Control Services (ACS) are enabled and to disable those follow [this guide](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#pci-access-control-services-acs).
 
 IOMMU can be disabled in the BIOS.
 
@@ -264,7 +264,7 @@ So I typically first slice out one iteration. e.g. if each iteration log starts 
 ```
 csplit main_log.txt '/iteration: /' "{*}"
 ```
-and then analyse one of the resulting files that correspond to the iterations. By default it will be named something like `xx02`.
+and then analyze one of the resulting files that correspond to the iterations. By default it will be named something like `xx02`.
 
 
 ## Useful NCCL Debug Environment Variables
@@ -307,7 +307,7 @@ NCCL_DEBUG_FILE=/path/to/nccl-log.%h.%p.txt
 - `%h` is replaced with the hostname
 - `%p` is replaced with the process PID.
 
-If you then need to analyse hundreds of these at once, here are some useful shortcuts:
+If you then need to analyze hundreds of these at once, here are some useful shortcuts:
 
 - grep for a specific match and also print the file and line number where it was found:
 
@@ -357,9 +357,9 @@ Disables P2P comms - e.g. NVLink won't be used if there is one and the performan
 
 This one is very useful if you have multiple network interfaces and you want to choose a specific one to be used.
 
-By default NCCL will try to use the fastest type of an interface, which is typically `ib` (InfiniBand).
+`NCCL_SOCKET_IFNAME` selects which sockets NCCL may use for bootstrap and for collectives that run over TCP/IP - it does not pick InfiniBand Verbs adapters (those are [`NCCL_IB_HCA`](#nccl_ib_hca)).
 
-But say you want to use an Ethernet interface instead then you can override with:
+For example, to restrict NCCL to Ethernet interfaces:
 
 ```bash
 NCCL_SOCKET_IFNAME=eth

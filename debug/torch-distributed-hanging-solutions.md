@@ -66,6 +66,6 @@
 
 **Moved to [Debugging PyTorch Programs](./pytorch.md#hardware-specific-issues).**
 
-### AMD/ROCm hangs or slow with IOMMU enabled
+### AMD/ROCm hangs or slow with IOMMU
 
-**Moved to [Debugging PyTorch Programs](./pytorch.md#amdrocm-hangs-or-slow-with-iommu-enabled).**
+**See [Troubleshooting AMD GPUs](../compute/accelerator/amd/debug.md#hangs-or-slow-multi-gpu-runs-and-iommu).**
