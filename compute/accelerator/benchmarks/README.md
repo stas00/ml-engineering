@@ -8,7 +8,13 @@ For a detailed discussion and the numbers for various accelerators see [Maximum 
 
 While some accelerator manufacturers publish the theoretical TFLOPS these usually can't be reached. As a result of this when we try to optimize our software we have no realistic performance bar to compare ourselves to. The Model FLOPS Utilization (MFU) metric measures TFLOPS achieved against theoretical TFLOPS. Usually when one scores around 50% MFU it's considered a win. But this gives us no indication how far are we from the real achievable throughput.
 
-This benchmark scans various large shapes of matmul and reports the highest achievable TFLOPS it registered. As transformers training and partially inference workloads are dominated by large matmul operations it's safe to use the best matmul TFLOPS one can measure on each accelerator as a rough estimation that this is the Maximum Achievable Matmul FLOPS (MAMF). Now instead of the previously used MFU, one can use Model Achievable Matmul FLOPS Utilization (MAMFU).
+This benchmark scans various large shapes of matmul and reports both the highest
+*achievable* TFLOPS (MAMF — boost burst) and the highest *sustainable* TFLOPS
+(MSMF — saturated near TDP). As transformers training and partially inference
+workloads are dominated by large matmul operations, MSMF is a realistic bar for
+sustained training throughput, while MAMF is the short-burst ceiling. Now instead
+of the previously used MFU, one can use Model Achievable Matmul FLOPS Utilization
+(MAMFU) against either number — for training, prefer MSMF.
 
 Therefore now you can compare the TFLOPS you measured for your training or inference against a realistic number. As you will now be much closer to 100% it'll be much easier to know when to stop optimizing.
 
@@ -59,23 +65,28 @@ phase, the boost pathology holds and that backend can be promoted.
 Default iterations are 50 warmup + 100 measured per shape (`--num_warmup_iterations`,
 `--num_iterations`).
 
-#### 1. Auto search (default) — find the best shape on this accelerator
+#### 1. Auto search (default) — best the GPU can do anywhere
 
 ```bash
 ./mamf-finder.py --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 # equivalent: ./mamf-finder.py --search auto ...
 ```
 
-Runs in under a minute (typically ~40–60 s including adaptive warmup, a thermal
-soak, and both confirms). It prints **two** headline numbers and this is what
+Finds near-peak shapes via hardware heuristics and reports **two** headlines.
+Great for a spec-sheet number; not tied to any particular model. This is what
 produced the
-[MAMF & MSMF table](../README.md#maximum-achievable-matmul-flops-comparison-table):
+[MAMF & MSMF table](../README.md#maximum-achievable-matmul-flops-comparison-table).
 
 - **MAMF** (Maximum *Achievable* Matmul FLOPS) — the boost-clock burst ceiling.
 - **MSMF** (Maximum *Sustainable* Matmul FLOPS) — the power-saturated, sustained
-  rate that matches real training throughput.
+  rate that matches real training throughput. **For picking shapes a real model
+  will use, MSMF is the number that matters.**
 
-How `--search auto` works:
+Typically runs in 1–3 minutes including adaptive warmup, the recall screen,
+thermal soak, and both confirms.
+
+How `--search auto` chooses candidate shapes (then both modes share the same
+confirm phase below):
 
 1. **Wave candidates @ a short K set** — enumerate `(M,N)` shapes that fill an
    integer number of full waves of thread-block tiles across the SMs (most-square /
@@ -83,40 +94,57 @@ How `--search auto` works:
    several Ks (min / mid / max). Covers the high-arithmetic-intensity /
    wave-perfect basin; measuring all wave candidates (not only a ranked top-N)
    is what keeps mid/high-K winners in the confirm set.
-2. **Coarse M×N plane @ `Kmin`** — a cheap grid at the smallest K. Seeds the
-   many-waves / min-K basin that wave candidates can miss.
-3. **Tight local grid** around the top scout seeds (`±2` steps of 256 on M/N,
-   `±2` steps of 1024 on K) — endgame polish for off-axis peaks.
-4. **Thermal soak** — before any sustainable measurement, drive the chip to
+2. **Coarse M×N planes @ `Kmin` and K=3072** — cheap grids at the smallest K
+   and the low-K boost basin. The latter is required for B200's non-wave BF16
+   MAMF family found by exhaustive search.
+3. **Tight local grid** around both power-ranked and raw-peak scout seeds (`±4`
+   steps of 256 on M/N, `±2` steps of 1024 on K) — endgame polish for off-axis
+   peaks without letting MSMF-oriented ranking hide a MAMF basin.
+4. **MAMF recall screen** — cheaply measure raw scout leaders plus the top
+   several K choices from every wave `(M,N)` layout using the actual idle+burst
+   regime. Promote its leaders into a dedicated MAMF shortlist.
+
+Shared confirm phase (identical for `--search auto` and `--search grid`):
+
+5. **Candidate union + thermal soak** — combine the independently ranked MAMF
+   and MSMF shortlists, then drive the chip to steady state before any
+   sustainable measurement
    steady state (hot, SM clock settled at the saturated floor), stopping early
    once the clock stops dropping (`--msmf_soak_s`). This is the single biggest
    reproducibility lever: a cold/cooler card boosts and reads high, so without
    soaking the MSMF headline would depend on how warm the card happened to be.
-5. **MSMF confirm** (sustainable): re-measure the top shapes with the full
+6. **MSMF confirm** (sustainable): re-measure every shape in the union with the full
    iteration count and per-shape warmup, repeated (`--confirm_reps`, default 5 →
    trimmed median), with a short thermal pre-warmup per shape so a freshly
    switched shape doesn't read cold on its first rep. The confirm set always
    includes (a) the best scouted K for each most-square low-wave shape (w=1..4)
    in **both** `(M,N)` orientations — e.g. H200's `1536×2816` family — and (b)
-   the **fattest** scouts (largest smaller-dimension), which reliably saturate to
-   TDP and anchor the saturated-clock reference. A shape is kept out of the MSMF
-   headline (still reported) if it is **not saturated** — either drawing well
-   below peak power (`SUSPECT`) or running materially **above the saturated-clock
-   floor** (`--msmf_clock_ratio`, i.e. a tall-skinny layout that keeps clock
-   headroom) — or if it measures **too jittery to reproduce** (`--msmf_max_spread`).
-   Finally the winner is **lock-in validated** (`--msmf_lock_reps`): re-measured
-   with extra reps and published only if that longer run is itself within the
-   spread tolerance, else the next candidate is tried. All exclusions apply only
-   on validated telemetry backends (currently NVIDIA NVML); untested backends
-   report power/clock but do not exclude.
-6. **MAMF confirm** (achievable): take the scouts that ran at (near) the run's
-   **boost** clock — the low-power shapes MSMF rejects — idle briefly so the
-   clock recovers, then measure a SHORT burst. Each iteration is timed in
-   isolation and **bracketed by a synchronous clock read on both sides**, so the
-   peak ("winning") iteration carries its *own* measured clock (`min` of the two
-   brackets) rather than a clock sampled at some unrelated moment. The peak is
-   reported only if that bracketed clock reached boost (`--boost_clock_ratio`),
-   so a throttled/base-clock reading can't be published as MAMF.
+   the **fattest** scouts (largest `min(M,N,K)`, then volume), which reliably
+   saturate to TDP and anchor the saturated-clock reference. A shape is kept out
+   of the MSMF headline (still reported) if it is **not saturated** — either
+   drawing well below peak power (`SUSPECT`) or running materially **above the
+   saturated-clock floor** (`--msmf_clock_ratio`) *while also* drawing below
+   `--msmf_sat_power_ratio` of max power. A sparse layout pinned at TDP can
+   hold a higher clock than a fat one; that number is still sustainable and is
+   kept. Jittery shapes (`--msmf_max_spread`) are kept out unless nothing else
+   is stable. Finally the winner is **lock-in validated** (`--msmf_lock_reps`):
+   re-measured with extra reps and published only if that longer run is itself
+   within the spread tolerance, else the next candidate is tried. All
+   exclusions apply only on validated telemetry backends (currently NVIDIA
+   NVML); untested backends report power/clock but do not exclude.
+7. **MAMF confirm** (achievable): re-measure the **same union** as MSMF — not
+   MSMF's candidate list and not a scout-clock pre-filter. A fat shape that saturates while scouting still
+   recovers boost after a short idle (measured on B300). Idle, then a SHORT
+   burst that is **queued and synchronized once**. Synchronizing before each
+   start event (v5–v7) left the GPU idle at the moment the event was taken, which
+   charged kernel-launch latency and the idle DVFS re-ramp to the timed kernel —
+   1.6–19% depending on shape, and worst for large footprints, so it re-ranked
+   candidates. Per-iteration clocks are instead recovered by projecting each
+   iteration's GPU-time window onto a background sampler's host timeline and
+   taking the minimum clock inside it. The peak is reported only if that clock reached boost
+   (`--boost_clock_ratio`). After both headlines are picked, the finder prints a
+   **same-shape cross-check**: each winning shape measured in both regimes, so
+   the boost→saturated penalty is comparable on the same GEMM.
 
 Scout measurements are memoized, so overlapping candidates cost nothing.
 
@@ -130,9 +158,10 @@ must be reproducible on the same GPU with the same setup, so:
 - **The headline value is the *mean* of the winning shape** (not a lucky max),
   measured at a known clock, both printed in the headline (`… 985W 1360MHz`).
 - **To reproduce a published number, re-run its exact shape in grid mode** — e.g.
-  `--m 9472 --n 6144 --k 12288` — not the search. Auto's job is to *find* the
-  shape; grid *reproduces* it (the sustained mean is stable to well under 1%).
-  Re-running `auto` re-searches and may land on a different (equivalent) shape.
+  `--m 9472 --n 6144 --k 12288`. Auto's job is to *find* a near-peak shape
+  anywhere; grid *reproduces* (or searches within) a known range and still runs
+  the same MAMF/MSMF confirm. Re-running `auto` re-searches and may land on a
+  different (equivalent) shape.
 
 With this protocol the MSMF headline is reproducible to ~1–2% run-to-run and MAMF
 to ~1–2% (boost-locked); most of the residual is genuine saturated-clock jitter.
@@ -172,7 +201,7 @@ alone-GPU measurements, and why the finder warns when siblings are busy.
 
 Useful knobs: `--dtype`, `--max_size`, `--confirm_top` (default 10),
 `--confirm_reps`, `--confirm_fat_forced`, `--msmf_soak_s`, `--msmf_max_spread`,
-`--msmf_clock_ratio`, `--msmf_lock_reps`, `--mamf_burst_iters`, `--mamf_idle_s`,
+`--msmf_clock_ratio`, `--msmf_sat_power_ratio`, `--msmf_lock_reps`, `--mamf_burst_iters`, `--mamf_idle_s`,
 `--boost_clock_ratio`, `--no-refine_grid`, `--telemetry off`.
 
 #### Reading the output
@@ -210,24 +239,35 @@ Peak GEMM shapes are not mysterious; they follow the paper's recipe
 For model-design work (picking shapes your layers will emit), also see
 [Vector and matrix size divisibility](../../../training/performance/README.md#vector-and-matrix-size-divisibility).
 
-#### 2. Grid search — constrained shape ranges
+#### 2. Grid search — best shape in *your* range (the practical case)
 
 Use `--search grid` (or just pass any `--m`/`--n`/`--k`/`_*_range` argument — that
-implies grid) when you care about a **specific subspace**: e.g. the shapes your
-new model will actually emit, a single training shape, or an accelerator-specific
+implies grid) when you care about a **specific subspace**: the shapes your new
+model will actually emit, a single training shape, or an accelerator-specific
 band you want to map exhaustively.
+
+Grid reports the **same MAMF + MSMF headlines** as auto. The only difference is
+how candidates are chosen: auto derives them from hardware heuristics; grid
+sweeps the M/N/K range *you* give, then runs the shared confirm phase. For model
+work, **MSMF in your range** is the useful answer — not the GPU's absolute peak.
 
 ```bash
 # shapes your model will use (example: M in 2k..8k, N=K=4096)
 ./mamf-finder.py --m_range 2048 8193 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
-# one exact shape
+# one exact shape (reproduce a published headline)
 ./mamf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 # fp8 sweep over a coarse lattice
 ./mamf-finder.py --m_range 0 20480 1024 --n_range 0 20480 1024 --k_range 0 20480 1024 \
     --dtype float8_e4m3fn --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
+
+**Give the range enough room to saturate.** MSMF needs at least one fat/high-K
+shape that can pin the saturated-clock floor. A narrow/small grid (e.g. only
+`K=4096` squares) can leave every candidate still boosting or jittery; the finder
+then warns and falls back to a "best available" MSMF. Widen M/N/K (especially
+`min(M,N,K)` and K) so a truly sustainable shape is in the set.
 
 You can Ctrl-C a long grid run and still get the best result so far. Finer steps
 (512 / 256 instead of 1024) cost 8× / 64× wall time. For which shapes tend to

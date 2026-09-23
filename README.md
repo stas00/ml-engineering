@@ -75,9 +75,12 @@ I will try to rebuild these once in a few weeks or so, but if you want the lates
 Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
 
 
-## SKILL.md for AI agents
+## Skills for AI agents
 
-I maintain a [SKILL.md](./SKILL.md) file that you can use to teach your AI agent to train and operate large-scale ML models better.
+I maintain two [SKILL.md](skills/README.md) files that you can use to teach your AI agent:
+
+- [Machine Learning Engineering](skills/ml-engineering/SKILL.md) — train and operate large-scale ML models.
+- [Evaluate a GPU cluster](skills/evaluate-cluster/SKILL.md) — trial-node / acceptance loop: compute, network, and storage, then a markdown report.
 
 See also the companion skills: [The Art of Debugging](https://github.com/stas00/the-art-of-debugging/blob/master/SKILL.md) and [Stas' Python Cookbook](https://github.com/stas00/python-cookbook/blob/master/SKILL.md).
 
