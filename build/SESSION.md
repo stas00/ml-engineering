@@ -20,6 +20,7 @@
 1. Read the sections of this file that govern the edit, not the ones that happen to come to mind. Any new number means [Reader-visible grounding](#reader-visible-grounding); prose means [Source line layout](#source-line-layout) and [Unit formatting](#unit-formatting); a table means [Table ordering and source layout](#table-ordering-and-source-layout); a file with a twin means [Companion book sync](#companion-book-sync).
 2. Run the checks instead of eyeballing the result: `make check-style` always, `make fix-tables` when a table changed rather than hand-padding one, and `make check-links-local-fast` when links or headings changed.
 3. The failure this exists to prevent: treating the chat proposal as the artifact and the file write as mere transcription. Everything that exists only in the file - source alignment, line layout, the make targets - gets skipped that way, and a number that read fine in chat goes in without anyone asking whether the reader can derive it.
+4. **Never edit generated `.html` files.** `README.html`, chapter `.html`, and anything else produced by the book build are overwritten on the next rebuild. A link or wording change belongs in the `.md` source; patching HTML is wasted work and a second source of truth. Concrete failure: a SKILL.md move was applied to `the-art-of-debugging/README.html` as well as `README.md` - the HTML edit dies on the next `mdbook`/`make` pass.
 
 ## Book style
 
