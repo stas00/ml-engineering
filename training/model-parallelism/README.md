@@ -3,7 +3,7 @@
 
 ## Parallelism overview
 
-In the modern machine learning the various approaches to parallelism are used to:
+In the modern Machine Learning the various approaches to parallelism are used to:
 
 1. Overcome GPU memory limitations. Examples:
    - fit very large models - e.g., t5-11b is 45GB in just model params
