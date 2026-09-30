@@ -1,8 +1,18 @@
 # CPU
 
-As of 2026-08 Machine learning workloads don't use much CPU so there aren't too many things to tell in this chapter. As CPUs evolve to become more like GPUs this is like to change, so I'm expecting this chapter to evolve along the evolution of the CPUs.
+This chapter is tiny because GPUs dominate ML work and there is not much to tell about CPUs' use.
 
-## How many cpu cores do you need
+Originally Machine learning workloads didn't use much CPU other than for data processing (text/audio/video).
+
+Around 2025 CPUs started to get more use for RAG workloads which need to perform database queries.
+
+In 2026 the load on CPUs started increasing due to AI tool calling in RL workloads. These workloads may execute a variety of computer programs, which may perform validation of the generated data or code, compilation and execution of generated code, and many other things. This need sometimes calls for dedicated CPU nodes to prevent stalling GPUs, since the co-located with GPUs cpu-cores might prove insufficient.
+
+It's also possible CPUs may evolve to become more like GPUs, so there will be more work offloaded to CPUs.
+
+## How many cpu cores do you need for DataLoader work
+
+In a typical training workload a DataLoader is what consumes most of the CPU cores.
 
 Per 1 accelerator you need:
 
@@ -31,7 +41,7 @@ See also [Asynchronous DataLoader](../../training/performance/README.md#asynchro
 
 ### CPU offload
 
-Some frameworks, like [DeepSpeed](https://www.deepspeed.ai/tutorials/zero-offload/) can offload some compute work to CPU without creating a bottleneck. In which case you'd want additional cpu-cores.
+Some frameworks, like [DeepSpeed](https://www.deepspeed.ai/tutorials/zero-offload/) and [FSDP](https://docs.pytorch.org/docs/stable/fsdp.html) can offload some compute work to CPUs without creating a bottleneck. In which case you'd want additional cpu-cores beyond what you already use.
 
 
 
