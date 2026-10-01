@@ -14,23 +14,23 @@ A quote from the `sbatch` manpage:
 
 Which means that if in the past your SLURM script could have been:
 
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
 srun myprogram
 ```
 
-and the program launched by `srun` would have received 48 cpu-cores because `srun` used to inherit the `--cpus-per-task=48` settings from `sbatch` or `salloc` settings, according to the quoted documentation since SLURM 22.05 this behavior is no longer true.
+and the program launched by `srun` would have received 48 cpu-cores because `srun` used to inherit the `--cpus-per-task=48` settings from `sbatch` or `salloc` settings, according to the quoted documentation this behavior changed somewhere in the SLURM 22.05 series and is definitely no longer true as of the 23.x series.
 
 footnote: I tested with SLURM@22.05.09 and the old behavior was still true, but this is definitely the case with 23.x series. So the change might have happened in the later 22.05 series.
 
 So if you leave things as is, now the program will receive just 1 cpu-core (unless the `srun` default has been modified).
 
-You can easily test if your SLURM setup is affected, using `os.sched_getaffinity(0))`, as it shows which cpu-cores are eligible to be used by the current process. So it should be easy to count those with `len(os.sched_getaffinity(0))`.
+You can easily test if your SLURM setup is affected, using `os.sched_getaffinity(0)`, as it shows which cpu-cores are eligible to be used by the current process. So it should be easy to count those with `len(os.sched_getaffinity(0))`.
 
 Here is how you can test if you're affected:
-```
+```bash
 $ cat test.slurm
 #!/bin/bash
 #SBATCH --job-name=test-cpu-cores-per-task
@@ -56,27 +56,27 @@ or another value smaller than 48 then you're affected.
 
 To fix that you need to change your SLURM script to either:
 
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
 srun --cpus-per-task=48 myprogram
 ```
 or:
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
-SRUN_CPUS_PER_TASK=48
+export SRUN_CPUS_PER_TASK=48
 srun myprogram
 ```
 
 or automate it with write-once-and-forget:
-```
+```bash
 #SBATCH --cpus-per-task=48
 [...]
 
-SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
+export SRUN_CPUS_PER_TASK=$SLURM_CPUS_PER_TASK
 srun myprogram
 ```
 

@@ -9,7 +9,11 @@
 - SBE: Single Bit ECC Error
 - SDC: Silent Data Corruption
 
-## Xid Errors
+## Errors and diagnostics
+
+See also [Diagnosing crashes, hangs and tracing execution](../../../debug/pytorch.md#diagnosing-crashes-hangs-and-tracing-execution) for diagnosing crashes from the software side.
+
+### Xid Errors
 
 No hardware is perfect, sometimes due to the manufacturing problems or due to tear and wear (especially because of exposure to high heat), GPUs are likely to encounter various hardware issues. A lot of these issues get corrected automatically without needing to really understand what's going on. If the application continues running usually there is nothing to worry about. If the application crashes due to a hardware issue it's important to understand why this is so and how to act on it.
 
@@ -22,14 +26,14 @@ NVRM: Xid (PCI:0000:10:1c): 63, pid=1896, Row Remapper: New row marked for remap
 ```
 
 To get those logs one of the following ways should work:
-```
+```bash
 sudo grep Xid /var/log/syslog
 sudo dmesg -T | grep Xid
 ```
 
 Typically, as long as the training doesn't crash, these errors often indicate issues that automatically get corrected by the hardware.
 
-The full list of Xid Errors and their interpretation can be found [here](https://docs.nvidia.com/deploy/xid-errors/index.html).
+The full list of Xid Errors and their interpretation can be found [here](https://docs.nvidia.com/deploy/xid-errors/latest/index.html).
 
 You can run `nvidia-smi -q` and see if there are any error counts reported. For example, in this case of Xid 63, you will see something like:
 
@@ -96,28 +100,45 @@ If there are page scheduled to be retired you will see something like this in th
         Pending Page Blacklist    : Yes
 ```
 
-Each retired page decreases the total memory available to applications. But the maximum amount of pages retired amounts to only 4MB in total, so it doesn't reduce the total available GPU memory by much.
+Each retired page decreases the total memory available to applications. But the maximum amount of pages retired amounts to only 4MiB in total, so it doesn't reduce the total available GPU memory by much.
 
 To dive even deeper into the GPU debugging, please refer to [this document](https://docs.nvidia.com/deploy/gpu-debug-guidelines/index.html) - it includes a useful triage chart which helps to determine when to RMA GPUs. This document has additional information about Xid 63-like errors
 
 For example it suggests:
 
 > If associated with XID 94, the application that encountered the error needs to be restarted. All other applications on the system can keep running as is until there is a convenient time to reboot for row remapping to activate.
-> See below for guidelines on when to RMA GPUs based on row remapping failures.
 
-If after a reboot the same condition occur for the same memory address, it means that memory remapping has failed and Xid 64 will be emitted again. If this continues it means you have a hardware issue that can't be auto-corrected and the GPU needs to RMA'ed.
+If after a reboot the same condition occurs for the same memory address, memory remapping has failed and Xid 64 is emitted. If it keeps happening after reboot, the GPU needs to be RMA'ed.
 
-At other times you may get Xid 63 or 64 and the application will crash. Which usually will generate additional Xid errors, but most of the time it means that the error was uncorrectable (i.e. it was a DBE sort of an error and then it'll be Xid 48).
+When that happens it shows up in the same `Remapped Rows` block as above, with the failure flag set and a bank that has run out of spares. This is [Crusoe Cloud's published signature](https://docs.crusoecloud.com/resources/troubleshooting) for a GPU that qualifies for replacement:
+
+```
+Remapped Rows
+        Correctable Error                 : 0
+        Uncorrectable Error               : 0
+        Pending                           : No
+        Remapping Failure Occurred        : Yes
+        Bank Remap Availability Histogram
+            Max                           : 639 bank(s)
+            High                          : 0 bank(s)
+            Partial                       : 0 bank(s)
+            Low                           : 0 bank(s)
+            None                          : 1 bank(s)
+```
+
+Note that not a single row was remapped successfully, yet a failure has been recorded, and one bank sits at `None` - it has no reserved rows left to remap into. That combination is what distinguishes a GPU that needs replacing from one that just needs a reset. To read only this block rather than the whole report, use `nvidia-smi -q -d ROW_REMAPPER`.
+
+At other times you may get Xid 63 or 64 and the application will crash, which usually generates additional Xid errors, but most of the time it means that the error was uncorrectable (i.e. it was a DBE sort of an error and then it'll be Xid 48).
 
 As mentioned earlier to reset a GPU you can either simply reboot the machine, or run:
 
-```
+```bash
 nvidia-smi -r -i gpu_id
 ```
 
 where `gpu_id` is the sequential number of the gpu you want to reset, e.g. `0` for the first GPU. Without `-i` all GPUs will be reset.
 
-### uncorrectable ECC error encountered
+#### uncorrectable ECC error encountered
 
 If you get an error:
 ```
@@ -125,7 +146,7 @@ CUDA error: uncorrectable ECC error encountered
 ```
 as in the previous section, checking the output of `nvidia-smi -q` this time for `ECC Errors` entries will tell which GPU is the problematic one. But if you need to do a quick check in order to recycle a node if it has at least one GPU with this issue, you can just do this:
 
-```
+```bash
 $ nvidia-smi -q | grep -i correctable | grep -v 0
             SRAM Uncorrectable            : 1
             SRAM Uncorrectable            : 5
@@ -150,7 +171,7 @@ The first entry is for `Volatile` (errors counted since the last time the GPU dr
 This typically would correspond to Xid 94 error (see: [Xid Errors](#xid-errors), most likely w/o Xid 48).
 
 To overcome this issue as in the previous section, reset the problematic GPU:
-```
+```bash
 nvidia-smi -r -i gpu_id
 ```
 Rebooting the machine will have the same effect.
@@ -159,15 +180,15 @@ Now when it comes to Aggregate SRAM Uncorrectable errors, if you have more than 
 
 
 
-## Running diagnostics
+### Running diagnostics
 
-If you suspect one or mode NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
+If you suspect one or more NVIDIA GPUs are broken on a given node, `dcgmi` is a great tool to quickly find any bad GPUs.
 
 NVIDIA® Data Center GPU Manager (DCGM) is documented [here](https://docs.nvidia.com/datacenter/dcgm/latest/user-guide/index.html) and can be downloaded from [here](https://github.com/NVIDIA/DCGM#quickstart).
 
 Here is an example slurm script that will run very in-depth diagnostics (`-r 3`), which will take about 10 minutes to complete on an 8-GPU node:
 
-```
+```bash
 $ cat dcgmi-1n.slurm
 #!/bin/bash
 #SBATCH --job-name=dcgmi-1n
@@ -180,12 +201,12 @@ $ cat dcgmi-1n.slurm
 
 set -x -e
 echo "START TIME: $(date)"
-srun --output=%x-%j-%N.out dcgmi diag -r 3
+srun --cpus-per-task=$SLURM_CPUS_PER_TASK --output=%x-%j-%N.out dcgmi diag -r 3
 echo "END TIME: $(date)"
 ```
 
 Now to run it on specific nodes of choice:
-```
+```bash
 sbatch --nodelist=node-115 dcgmi-1n.slurm
 sbatch --nodelist=node-151 dcgmi-1n.slurm
 sbatch --nodelist=node-170 dcgmi-1n.slurm
@@ -193,11 +214,11 @@ sbatch --nodelist=node-170 dcgmi-1n.slurm
 edit the nodelist argument to point to the node name to run.
 
 If the node is drained or downed and you can't launch a slurm job using this node, just `ssh` into the node and run the command directly on the node:
-```
+```bash
 dcgmi diag -r 3
 ```
 If the diagnostics didn't find any issue, but the application still fails to work, re-run the diagnostics with level 4, which will now take more than 1 hour to complete:
-```
+```bash
 dcgmi diag -r 4
 ```
 
@@ -231,20 +252,22 @@ But, actually, I found that most of the time `-r 2` already detects faulty GPUs.
 
 The `dcgmi` tool contains various other levels of diagnostics, some of which complete in a matter of a few minutes and can be run as a quick diagnostic in the epilogue of SLURM jobs to ensure that the node is ready to work for the next SLURM job, rather than discovering that after the user started their job and it crashed.
 
-When filing an RMA report you will be asked to run `nvidia-bug-report` script, the output of which you will need to submit with the RMA request.
+When filing an RMA report you will be asked to run `nvidia-bug-report.sh` script, the output of which you will need to submit with the RMA request.
 
 I usually save the log as well for posterity using one of:
-```
+```bash
 dcgmi diag -r 2 | tee -a dcgmi-r2-`hostname`.txt
 dcgmi diag -r 3 | tee -a dcgmi-r3-`hostname`.txt
 dcgmi diag -r 4 | tee -a dcgmi-r4-`hostname`.txt
 ```
 
-## How to get the VBIOS info
+## Health and inventory checks
+
+### How to get the VBIOS info
 
 GPU VBIOS version might be important when researching issues. Let's add the name and bus id to the query, we get:
 
-```
+```bash
 $ nvidia-smi --query-gpu=gpu_name,gpu_bus_id,vbios_version --format=csv
 name, pci.bus_id, vbios_version
 NVIDIA H100 80GB HBM3, 00000000:04:00.0, 96.00.89.00.01
@@ -253,31 +276,31 @@ NVIDIA H100 80GB HBM3, 00000000:8B:00.0, 96.00.89.00.01
 ```
 
 Hint: to query for dozens of other things, run:
-```
+```bash
 nvidia-smi --help-query-gpu
 ```
 
-## How to check if your GPU's PCIe generation is supported
+### How to check if your GPU's PCIe generation is supported
 
 Check the PCIe bandwidth reports from the system's boot messages:
 
-```
+```bash
 $ sudo dmesg | grep -i 'limited by'
 [   10.735323] pci 0000:04:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:01:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
 [...]
 [   13.301989] pci 0000:8b:00.0: 252.048 Gb/s available PCIe bandwidth, limited by 16.0 GT/s PCIe x16 link at 0000:87:00.0 (capable of 504.112 Gb/s with 32.0 GT/s PCIe x16 link)
 ```
 
-In this example, as PCIe 5 spec is 504Gbps, you can see that on this node only half of the possible bandwidth is usable, because the PCIe switch is gen4. For PCIe specs see [this](../../../network#pcie).
+In this example, as PCIe 5 spec is 504Gbps, you can see that on this node only half of the possible bandwidth is usable, because the PCIe switch is gen4. For PCIe specs see [this](../../../network/README.md#pcie).
 
-Since most likely you have [NVLink](../../../network#nvlink) connecting the GPUs to each other, this shouldn't matter for GPU to GPU comms, but it'd slow down any data movement between the GPU and the host, as the data speed is limited by the speed of the slowest link.
+Since most likely you have [NVLink](../../../network/README.md#nvlink) connecting the GPUs to each other, this shouldn't matter for GPU to GPU comms, but it'd slow down any data movement between the GPU and the host, as the data speed is limited by the speed of the slowest link.
 
 
 
-## How to check error counters of NVLink links
+### How to check error counters of NVLink links
 
 If you're concerned your NVLink malfunctions you can check its error counters:
-```
+```bash
 $ nvidia-smi nvlink -e
 GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
          Link 0: Replay Errors: 0
@@ -296,7 +319,7 @@ GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
 ```
 
 Another useful command is:
-```
+```bash
 $ nvidia-smi nvlink --status
 GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-abcdefab-cdef-abdc-abcd-abababababab)
          Link 0: 26.562 GB/s
@@ -308,28 +331,56 @@ this one tells you the current speed of each link
 Run `nvidia-smi nvlink -h` to discover more features (reporting, resetting counters, etc.).
 
 
-## How to detect if a node is missing GPUs
+### How to check GPU memory row-remapping health
+
+Row remapping is how Ampere and later GPUs deal with memory that has gone bad - a degrading bank row is replaced by one of the spares that every HBM bank reserves for the purpose. It is [NVIDIA's replacement for the page retirement scheme](https://docs.nvidia.com/deploy/a100-gpu-mem-error-mgmt/latest/row-remapping.html) used by earlier generations, with a much larger budget: up to 512 remappings for the frame buffer, against 64 retirements before it. [Xid Errors](#xid-errors) covers what this looks like once a GPU has thrown an Xid 63 or 64 - this section is about checking it deliberately, before a job dies.
+
+That section reads the state out of `nvidia-smi -q`, which prints a long block per GPU. For checking a whole node there is a CSV query that gives one line per GPU instead:
+
+```bash
+$ nvidia-smi --query-remapped-rows=gpu_name,gpu_bus_id,remapped_rows.failure,remapped_rows.pending,remapped_rows.correctable,remapped_rows.uncorrectable --format=csv
+gpu_name, gpu_bus_id, remapped_rows.failure, remapped_rows.pending, remapped_rows.correctable, remapped_rows.uncorrectable
+NVIDIA H200, 00000000:59:00.0, No, No, 0, 0
+[...]
+NVIDIA H200, 00000000:A5:00.0, No, No, 0, 0
+```
+
+That is a healthy node - no failures, nothing pending, no rows remapped. To see the other end of it, [Xid Errors](#xid-errors) shows the same fields from a GPU whose row remapping has failed. Reading a report that isn't all `No` and `0`:
+
+- `correctable` and `uncorrectable` count the rows that have already been remapped, after repeated SBEs and after a DBE respectively. A non-zero count is not by itself a reason to pull the GPU out of service - it means the sparing did its job.
+- `pending: Yes` means a remap has been decided but doesn't take effect until the GPU is reset, and it does not put the running job at risk of touching the bad cell. It does change how much memory that GPU has, though: when the trigger was an uncorrectable error the driver offlines the page containing it immediately, and that page stays out of the allocatable pool until the reset remaps the row in hardware and hands the address space back - so a job sized to fill HBM can start hitting OOM on this GPU while still fitting on a healthy one.
+- `failure: Yes` means a remap was attempted and did not succeed. This is the one that means RMA rather than reset-and-return.
+
+The same fields are available from `--query-gpu` if you want them alongside other per-GPU columns, e.g. `nvidia-smi --query-gpu=gpu_bus_id,remapped_rows.pending,remapped_rows.failure --format=csv`.
+
+Hint: for the full field list, including the `remapped_rows.sbe`/`.dbe` aliases, run:
+```bash
+nvidia-smi --help-query-remapped-rows
+```
+
+
+### How to detect if a node is missing GPUs
 
 If you got a new VM, there are odd cases where there is less than expected number of GPUs. Here is how you can quickly test you have got 8 of them:
 
-```
+```bash
 cat << 'EOT' >> test-gpu-count.sh
 #!/bin/bash
 
 set -e
 
 # test the node has 8 gpus
-test $(nvidia-smi -q | grep UUID | wc -l) != 8 && echo "broken node: less than 8 gpus" && false
+test $(nvidia-smi -q | grep UUID | wc -l) != 8 && echo "broken node: not exactly 8 gpus" && false
 EOT
 ```
 and then:
 
-```
+```bash
 bash test-gpu-count.sh
 ```
 
 
-## How to detect if you get the same broken node again and again
+### How to detect if you get the same broken node again and again
 
 This is mostly relevant to cloud users who rent GPU nodes.
 
@@ -339,7 +390,7 @@ Chances are that you're getting the same node with the same broken GPUs. Here is
 
 Before discarding the current node, run and log:
 
-```
+```bash
 $ nvidia-smi -q | grep UUID
     GPU UUID                              : GPU-2b416d09-4537-ecc1-54fd-c6c83a764be9
     GPU UUID                              : GPU-0309d0d1-8620-43a3-83d2-95074e75ec9e
@@ -357,7 +408,7 @@ When you then re-created your VM, run this command again - if the UUIDs are the 
 
 To automate this process so that you always have this data as it'd be too late if you already rebooted the VM, add somewhere in your startup process this:
 
-```
+```bash
 nvidia-smi -q | grep UUID > nvidia-uuids.$(hostname).$(date '+%Y-%m-%d-%H:%M').txt
 ```
 
@@ -372,7 +423,9 @@ This method is extra-crucial for when GPUs don't fail right away but after some 
 Cloud providers usually have a mechanism of reporting bad nodes. Therefore other than discarding a bad node, it'd help yourself and other users to report bad nodes. Since most of the time users just discard the bad nodes, the next user is going to get them. I have seen users getting a very high percentage of bad nodes in some situations.
 
 
-## How to get the real GPU utilization metrics
+## Metrics
+
+### How to get the real GPU utilization metrics
 
 As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a very high gpu util, while most of the GPU isn't doing anything.
 
@@ -383,7 +436,7 @@ What you want to measure instead is GPU's utilization of the available capacity,
 Please note that this tool works only high-end data center NVIDIA GPUs, so if you have a consumer level GPU it won't work.
 
 After installing the prerequisites I built the tool:
-```
+```bash
 git clone https://github.com/NVIDIA/dcgm-exporter.git
 cd dcgm-exporter
 make binary
@@ -391,7 +444,7 @@ make binary
 
 And then I was able to get the "real" utilization metrics described in the article with this `dcgm-exporter` config file:
 
-```
+```bash
 $ cat << EOT > dcp-metrics-custom.csv
 DCGM_FI_PROF_SM_OCCUPANCY,       gauge, The ratio of number of warps resident on an SM.
 DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Ratio of cycles the tensor (HMMA) pipe is active.
@@ -401,7 +454,7 @@ EOT
 ```
 
 Then I launched the daemon (root is required):
-```
+```bash
 $ sudo cmd/dcgm-exporter/dcgm-exporter -c 500 -f dcp-metrics-custom.csv
 [...]
 INFO[0000] Starting webserver
@@ -411,7 +464,7 @@ INFO[0000] Listening on                                  address="[::]:9400"
 `-c 500` refreshes every 0.5sec
 
 and now I was able poll it via:
-```
+```bash
 watch -n 0.5 "curl http://localhost:9400/metrics"
 ```
 by running it in one console, and launching a GPU workload in another console. The last column of the output is the utilization of these metrics (where `1.0 == 100%`).
@@ -426,7 +479,7 @@ This is a quick way of doing that, but the intention is to use it with [Promethe
 
 For completion here is an example from the same article showing a 100% gpu util with a CUDA kernel that is doing absolutely nothing compute-wise other than occupying a single Streaming Multiprocessor (SM):
 
-```
+```bash
 $ cat << EOT > 1_sm_kernel.cu
 __global__ void simple_kernel() {
     while (true) {}
@@ -440,15 +493,15 @@ EOT
 ```
 
 Let's compile it:
-```
+```bash
 nvcc 1_sm_kernel.cu -o 1_sm_kernel
 ```
 And now run it in console A:
-```
+```bash
 $ ./1_sm_kernel
 ```
 and in console B:
-```
+```bash
 $ nvidia-smi
 Tue Oct  8 09:49:34 2024
 +-----------------------------------------------------------------------------------------+
@@ -463,4 +516,4 @@ Tue Oct  8 09:49:34 2024
 |                                         |                        |             Disabled |
 ```
 
-You can see the `100%` GPU-Util. So here 1 SM is used whereas A100-80GB PCIe has 132 SMs! And it's not even doing any compute as it just runs an infinite loop of doing nothing.
+You can see the `100%` GPU-Util. So here 1 SM is used whereas A100-80GB PCIe has 108 SMs! And it's not even doing any compute as it just runs an infinite loop of doing nothing.

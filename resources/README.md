@@ -8,6 +8,8 @@
 
 - Jacob Austin maintains [How to Scale Your Model: A Systems View of LLMs on TPUs](https://jax-ml.github.io/scaling-book/)
 
+- The Harvard Edge group publishes [Machine Learning Systems](https://github.com/harvard-edge/cs249r_book) (CS249r textbook; site: [mlsysbook.ai](http://mlsysbook.ai/)).
+
 
 ## Useful compilations
 
@@ -28,10 +30,10 @@ The listing is in no particular order other than being grouped by the year.
 
 - BigScience pre-BLOOM 108B training experiments (2021):
 [chronicles](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide/chronicles.md) |
-[the full spec and discussions](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide)
+[the full spec and discussions](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide)
 (backup:
 [1](https://github.com/stas00/bigscience-backup/blob/master/train/tr8-104B-wide/chronicles.md) |
-[2](https://github.com/stas00/bigscience-backup/blob/master/train/tr8-104B-wide))
+[2](https://github.com/stas00/bigscience-backup/tree/master/train/tr8-104B-wide))
 
 
 ### 2022
@@ -39,16 +41,16 @@ The listing is in no particular order other than being grouped by the year.
 - BigScience BLOOM-176B (2022):
 [chronicles-prequel](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles-prequel.md) |
 [chronicles](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles.md) |
-[the full spec and discussions](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/)
+[the full spec and discussions](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr11-176B-ml)
 (backup:
 [1](https://github.com/stas00/bigscience-backup/blob/master/train/tr11-176B-ml/chronicles-prequel.md) |
 [2](https://github.com/stas00/bigscience-backup/blob/master/train/tr11-176B-ml/chronicles.md) |
-[3](https://github.com/stas00/bigscience-backup/blob/master/train/tr11-176B-ml/))
+[3](https://github.com/stas00/bigscience-backup/tree/master/train/tr11-176B-ml))
 
 - Meta OPT-175B (2022):
  [logbook](https://github.com/facebookresearch/metaseq/tree/main/projects/OPT/chronicles) | [Video](https://www.youtube.com/watch?v=p9IxoSkvZ-M) (backup: [1](https://github.com/stas00/metaseq-backup/tree/main/projects/OPT/chronicles))
 
-- THUDM GLM-130B (2022): [en logbook](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log-en.md) | [Mandarin version](https://github.com/THUDM/GLM-130B/blob/main/logs/main-log.md) (backup:  [1](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log-en.md) | [2](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log.md))
+- THUDM GLM-130B (2022): [en logbook](https://github.com/zai-org/GLM-130B/blob/main/logs/main-log-en.md) | [Mandarin version](https://github.com/zai-org/GLM-130B/blob/main/logs/main-log.md) (backup:  [1](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log-en.md) | [2](https://github.com/stas00/GLM-130B-backup/blob/main/logs/main-log.md))
 
 
 ### 2023
@@ -62,13 +64,13 @@ The listing is in no particular order other than being grouped by the year.
 
 - [MegaScale: Scaling Large Language Model Training to More Than 10,000 GPUs](https://arxiv.org/abs/2402.15627) - the paper covers various training issues and their resolution - albeit on models that are proprietary yet just as instructional/useful.
 
-- Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/research/70b-infrastructure/) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
+- Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
 
 
 
 ## Hardware setup logbooks
 
-- Imbue published a detailed log of how they have set up a 512-node IB-fat-tree cluster and made it to work: [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/research/70b-infrastructure/), they also open-sourced the [cluster tooling](https://github.com/imbue-ai/cluster-health) they created in the process.
+- Imbue published a detailed log of how they have set up a 512-node IB-fat-tree cluster and made it to work: [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure), they also open-sourced the [cluster tooling](https://github.com/imbue-ai/cluster-health) they created in the process.
 
-- SemiAnalysis published a great detailed writeup about [what it takes to set up a Neocloud cluster](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/).
+- SemiAnalysis published a great detailed writeup about [what it takes to set up a Neocloud cluster](https://newsletter.semianalysis.com/p/ai-neocloud-playbook-and-anatomy).

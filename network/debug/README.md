@@ -6,29 +6,33 @@ Often you don't need to be a network engineer to figure out networking issues. S
 
 ## Glossary
 
-- OOB: Out-of-Band (typically a slower ethernet NIC)
 - Bonding: using multiple NICs together for faster speed or as a back up
+- HCA: Host Channel Adapter - InfiniBand's term for a network adapter
 - IB: InfiniBand (Originally by Mellanox, acquired by NVIDIA)
 - NIC: Network Interface Card
+- OOB: Out-of-Band (typically a slower ethernet NIC)
+- RDMA: Remote Direct Memory Access
 
 
 ## How to diagnose NCCL multi-gpu and multi-node connectivity issues
 
-This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues](https://github.com/NVIDIA/nccl/issues).
+See also [Debugging multi-node training](../../debug/pytorch.md#debugging-multi-node-training) for debugging multi-node issues at the PyTorch level.
+
+This section is definitely non-exhaustive and is meant to cover some of the most common setup issues that I have often encountered. For more complex problems please research the [NCCL repo Issues](https://github.com/NVIDIA/nccl/issues) or file a new Issue if you can't find one matching your situation. NCCL also includes a brief [troubleshooting section](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html) but usually one learns a lot more from reading [Issues](https://github.com/NVIDIA/nccl/issues).
 
 For the network diagnostics work, instead of using a full application which may take a long time to launch and have unrelated issue, I recommend using this specially developed design test script:  [torch-distributed-gpu-test.py](../../debug/torch-distributed-gpu-test.py).
 
 First, run the nccl-based program after setting:
 
-```
+```bash
 export NCCL_DEBUG=INFO
 ```
 which will print a lot of debug info about the NCCL setup and its network traffic.
 
 For example if you're using the aforementioned debug script, for a single node with 8 GPUs, you might do:
 
-```
-NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 8 --nnodes 1 torch-distributed-gpu-test.py
+```bash
+NCCL_DEBUG=INFO torchrun --nproc_per_node 8 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 To launch it on multiple nodes, you'd have to either use some orchestration software like SLURM or Kubernetes, or manually launch it on each node (`pdsh` would be of a huge help) - see the instructions inside [torch-distributed-gpu-test.py](../../debug/torch-distributed-gpu-test.py) for details. But to understand how things work I recommend starting with just 1 node and then progressing to 2, and later to more nodes.
@@ -57,7 +61,7 @@ To know which TCP/IP interfaces your node has you run `ifconfig` on one of the n
 
 If your collective comms network is IB, instead of `ifconfig` you'd run `ibstat`. The last example of `NCCL INFO NET` would correspond to the following output:
 
-```
+```bash
 $ ibstat | grep mlx5
 CA 'mlx5_0'
 CA 'mlx5_1'
@@ -69,9 +73,13 @@ CA 'mlx5_6'
 CA 'mlx5_7'
 ```
 
+Which of these commands answer at all depends on the fabric, so it helps to know what each one asks. `ibstat`, along with `ibnetdiscover`, `iblinkinfo`, `ibhosts`, `ibswitches` and `perfquery`, queries the subnet manager - the fabric-wide service that hands out addresses and answers topology questions on InfiniBand. Those report only on a real InfiniBand fabric, which is what the sample above is. `ibv_devices`, `ibv_devinfo` and `ibstatus` ask the local adapter instead, so they answer on any fabric the RDMA stack enumerates, as does reading the port directly with `cat /sys/class/infiniband/*/ports/1/rate`.
+
+So identify the fabric first, using a command from the second group. On InfiniBand the port's `link_layer` is `InfiniBand` and the subnet-manager tools work. On RoCE, which carries RDMA over Ethernet, `link_layer` is `Ethernet`. On EFA there is no subnet manager: `ibv_devinfo` reports `transport: unspecified` with `link_layer: Unspecified`, `ibstatus` reports each port `ACTIVE` at its rate, and the subnet-manager tools fail - `ibnetdiscover` with `Can't open SMI UMAD port`, while `ibstat -l` prints nothing at all. That silent empty output is the trap, since it reads as "this node has no RDMA devices"; on a 2026-09 AWS node measured for this chapter it printed nothing while the node had 16 adapters, each `ACTIVE` at `200 Gb/sec (4X HDR)`.
+
 Since besides the fast inter-node connectivity NICs, you're also likely to have a slow management Ethernet NIC (or even several of those), that is there to be able to configure the node, use a shared file system, access the Internet, it's almost certain that `ifconfig` will also include additional NICs. Also you are likely to have a docker network interface, `lo` loopback and some others. For example on my desktop I may get the following output:
 
-```
+```bash
 $ ifconfig
 docker0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 172.99.0.1  netmask 255.255.0.0  broadcast 172.99.255.255
@@ -118,40 +126,40 @@ If it's a cloud environment, typically your cloud provider should give you instr
 
 While NCCL tries hard to auto-discover which interfaces it should use, if it fails to do so correctly you can then help it by telling it which interfaces to use or not to use:
 
-- `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using Infiniband. Here are some examples:
+- `NCCL_SOCKET_IFNAME` can be used to specify which `ifconfig` interfaces to include or exclude when not using InfiniBand. Here are some examples:
 
-```
-export NCCL_SOCKET_IFNAME=eth:        Use all interfaces starting with eth, e.g. eth0, eth1, …
-export NCCL_SOCKET_IFNAME==eth0:      Use only interface eth0
-export NCCL_SOCKET_IFNAME==eth0,eth1: Use only interfaces eth0 and eth1
-export NCCL_SOCKET_IFNAME=^docker:    Do not use any interface starting with docker
-export NCCL_SOCKET_IFNAME=^=docker0:  Do not use interface docker0.
+```bash
+export NCCL_SOCKET_IFNAME=eth         # all interfaces starting with eth
+export NCCL_SOCKET_IFNAME==eth0       # only eth0
+export NCCL_SOCKET_IFNAME==eth0,eth1  # only interfaces eth0 and eth1
+export NCCL_SOCKET_IFNAME=^docker     # do not use any interface starting with docker
+export NCCL_SOCKET_IFNAME=^=docker0   # do not use interface docker0
 ```
 The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-socket-ifname).
 
 - When using IB RDMA (IB Verbs interfaces), instead of `NCCL_SOCKET_IFNAME` use `NCCL_IB_HCA` env var which selects the interfaces for the collective communications. Examples:
 
-```
-export NCCL_IB_HCA=mlx5 :               Use all ports of all cards starting with mlx5
-export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1 : Use ports 1 of cards mlx5_0 and mlx5_1.
-export NCCL_IB_HCA=^=mlx5_1,mlx5_4 :    Do not use cards mlx5_1 and mlx5_4.
+```bash
+export NCCL_IB_HCA=mlx5                # all ports of cards starting with mlx5
+export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1  # port 1 of mlx5_0 and mlx5_1
+export NCCL_IB_HCA=^=mlx5_1,mlx5_4     # do not use mlx5_1 and mlx5_4
 ```
 The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
 For example, often with IB, there will be additional interfaces like `mlx5_bond_0` which you don't want to be included in the NCCL comms. For example, this report would indicate that the wrong `[8]mlx5_bond_0:1/RoCE` interface was included and this would almost certainly lead to a low bandwidth:
 ```
-NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/I [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
+NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [4]mlx5_4:1/IB [5]mlx5_5:1/IB [6]mlx5_6:1/IB [7]mlx5_7:1/IB [8]mlx5_bond_0:1/RoCE [RO]; OOB ibp25s0:10.0.12.82<0>
 ```
 There you'd exclude it with:
-```
+```bash
 export NCCL_IB_HCA=^mlx5_bond_0:1
 ```
 or alternatively you could list explicitly the interfaces you want, e.g.:
-```
+```bash
 export NCCL_IB_HCA==mlx5_0,mlx5_1,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_6,mlx5_7
 ```
 
-As mentioned earlier using `ibstat` on one of the nodes interconnected with IB will show you the available IB interfaces.
+As mentioned earlier, `ibstat` on one of the nodes will list the available interfaces if the fabric is InfiniBand; on any other RDMA fabric use `ibv_devices` or `ibv_devinfo`.
 
 Since NCCL tries to automatically choose the best network interfaces, you only need to do the above if NCCL doesn't work or it's slow. In normal circumstances NCCL should work out of the box, without the user needing to do anything special.
 
@@ -164,7 +172,7 @@ Once you think you have set up the NCCL correctly, the next thing is to benchmar
 
 ## NCCL with docker containers
 
-* Give enough resources by adding to the docker `run` these additional args: `–shm-size=1g –ulimit memlock=-1` ([more details](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html#sharing-data))
+* Give enough resources by adding to the docker `run` these additional args: `--shm-size=1g --ulimit memlock=-1` ([more details](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data))
 * Privileged access: sometimes you need to add `--privileged` to  the docker `run` args.
 * Having the docker image include the right packages, e.g. if using IB you'd want at least to install `libibverbs1 librdmacm1`
 
@@ -176,7 +184,7 @@ Sometimes you need to know if the GPUs on your compute node support P2P access (
 
 You can see that on this particular 8x NVIDIA H100 node the P2P is supported:
 
-```
+```bash
 $ nvidia-smi topo -p2p r
         GPU0    GPU1    GPU2    GPU3    GPU4    GPU5    GPU6    GPU7
  GPU0   X       OK      OK      OK      OK      OK      OK      OK
@@ -200,7 +208,7 @@ Legend:
 ```
 
 On the other hand with this particular 2x NVIDIA L4 the P2P is not supported:
-```
+```bash
 $ nvidia-smi topo -p2p r
         GPU0    GPU1
  GPU0   X       CNS
@@ -213,13 +221,13 @@ If you're using a high-end datacenter GPUs this is very unlikely to happen. Thou
 
 For consumer-level GPUs there could be a variety of reasons for your GPU not being supported, often it's the IOMMU and/or ACS features being enabled. At other times it's just the driver version. And if you spend some time searching you might find someone hacking drivers to enable P2P in GPUs that shouldn't support P2P, like this [4090 P2P support repo](https://github.com/tinygrad/open-gpu-kernel-modules).
 
-To check if PCI Access Control Services (ACS) are enabled and to disable those follow [this guide](https://docs.nvidia.com/deeplearning/nccl/archives/nccl_2183/user-guide/docs/troubleshooting.html#pci-access-control-services-acs).
+To check if PCI Access Control Services (ACS) are enabled and to disable those follow [this guide](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#pci-access-control-services-acs).
 
 IOMMU can be disabled in the BIOS.
 
 You can also check P2P support between specific GPUs using torch - here are we checking for GPUs 0 and 1:
 
-```
+```bash
 python -c "import torch; print(torch.cuda.can_device_access_peer(torch.device('cuda:0'), torch.device('cuda:1')))"
 ```
 If there is no P2P support, the above would print `False`.
@@ -229,13 +237,13 @@ If there is no P2P support, the above would print `False`.
 ## How to count NCCL calls
 
 Enable NCCL debug logging for subsystems - collectives:
-```
+```bash
 export NCCL_DEBUG=INFO
 export NCCL_DEBUG_SUBSYS=COLL
 ```
 
 if you're working in a slurm environment with many nodes you probably want to perform this only on rank 0, like so:
-```
+```bash
 if [[ $SLURM_PROCID == "0" ]]; then
   export NCCL_DEBUG=INFO
   export NCCL_DEBUG_SUBSYS=COLL
@@ -243,7 +251,7 @@ fi
 ```
 
 Assuming your logs were all sent to `main_log.txt`, you can then count how many of each collective call were performed with:
-```
+```bash
 grep -a "NCCL INFO Broadcast" main_log.txt     | wc -l
 2590
 grep -a "NCCL INFO AllReduce" main_log.txt     | wc -l
@@ -260,7 +268,7 @@ So I typically first slice out one iteration. e.g. if each iteration log starts 
 ```
 csplit main_log.txt '/iteration: /' "{*}"
 ```
-and then analyse one of the resulting files that correspond to the iterations. By default it will be named something like `xx02`.
+and then analyze one of the resulting files that correspond to the iterations. By default it will be named something like `xx02`.
 
 
 ## Useful NCCL Debug Environment Variables
@@ -281,7 +289,7 @@ Values:
 For example:
 
 ```bash
-NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
+NCCL_DEBUG=INFO torchrun --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
 ```
 
 This will dump a lot of NCCL-related debug information, which you can then search online if you find that some problems are reported.
@@ -296,24 +304,24 @@ When using `NCCL_DEBUG` env var, redirect all NCCL debug logging output to a fil
 
 The default is `stdout`. When using many GPUs it can be very useful to save each process' debug info into its own log file, which can be done like so:
 
-```
+```bash
 NCCL_DEBUG_FILE=/path/to/nccl-log.%h.%p.txt
 ```
 
 - `%h` is replaced with the hostname
 - `%p` is replaced with the process PID.
 
-If you then need to analyse hundreds of these at once, here are some useful shortcuts:
+If you then need to analyze hundreds of these at once, here are some useful shortcuts:
 
 - grep for a specific match and also print the file and line number where it was found:
 
-```
+```bash
 grep -n "Init COMPLETE" nccl-log*
 ```
 
 - show `tail -1` of all nccl log files followed by the name of each file
 
-```
+```bash
 find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
 ```
 
@@ -323,10 +331,25 @@ find . -name "nccl*" -exec sh -c 'echo "$(tail -1 "$1") ($1)"' _ {} \;
 
 `NCCL_DEBUG_SUBSYS` used in combination with `NCCL_DEBUG` tells the latter which subsystems to show. Normally you don't have to specify this variable, but sometimes the developers helping you may ask to limit the output to only some sub-systems, for example:
 
-```
+```bash
 NCCL_DEBUG_SUBSYS=INIT,GRAPH,ENV,TUNING
 ```
 
+
+
+### `NCCL_IB_HCA`
+
+When the collectives run over IB Verbs rather than sockets, this is the variable that selects which adapters they use - the RDMA counterpart to [`NCCL_SOCKET_IFNAME`](#nccl_socket_ifname). Run `ibv_devinfo` to see what the node has.
+
+There are three forms:
+
+```bash
+export NCCL_IB_HCA=mlx5                # every port of every card whose name starts with mlx5
+export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1  # exactly port 1 of mlx5_0 and of mlx5_1
+export NCCL_IB_HCA=^=mlx5_1,mlx5_4     # everything except mlx5_1 and mlx5_4
+```
+
+A worked example of using the exclusion form to route around a single problem adapter is in [How to diagnose NCCL multi-gpu and multi-node connectivity issues](#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues). The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
 
 ### `NCCL_P2P_DISABLE`
@@ -338,11 +361,11 @@ Disables P2P comms - e.g. NVLink won't be used if there is one and the performan
 
 This one is very useful if you have multiple network interfaces and you want to choose a specific one to be used.
 
-By default NCCL will try to use the fastest type of an interface, which is typically `ib` (InfiniBand).
+`NCCL_SOCKET_IFNAME` selects which sockets NCCL may use for bootstrap and for collectives that run over TCP/IP - it does not pick InfiniBand Verbs adapters (those are [`NCCL_IB_HCA`](#nccl_ib_hca)).
 
-But say you want to use an Ethernet interface instead then you can override with:
+For example, to restrict NCCL to Ethernet interfaces:
 
-```
+```bash
 NCCL_SOCKET_IFNAME=eth
 ```
 

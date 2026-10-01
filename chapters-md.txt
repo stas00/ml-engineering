@@ -2,6 +2,7 @@ README.md
 
 insights/ai-battlefield.md
 insights/how-to-choose-cloud-provider.md
+insights/when-to-upgrade-gpus/README.md
 
 compute/README.md
 compute/accelerator/README.md
@@ -13,14 +14,11 @@ compute/cpu/README.md
 compute/cpu-memory/README.md
 
 storage/README.md
-storage/benchmarks/results/hope-2023-12-20-14-37-02-331702-summary.md
 
 network/README.md
 network/comms.md
 network/debug/README.md
 network/benchmarks/README.md
-network/benchmarks/results/README.md
-network/benchmarks/results/disable-nvlink.md
 
 orchestration/README.md
 orchestration/slurm/README.md
@@ -28,6 +26,7 @@ orchestration/slurm/admin.md
 orchestration/slurm/users.md
 orchestration/slurm/performance.md
 orchestration/slurm/launchers/README.md
+orchestration/kubernetes/README.md
 
 training/README.md
 training/model-parallelism/README.md
@@ -48,9 +47,6 @@ inference/README.md
 debug/README.md
 debug/pytorch.md
 debug/tools.md
-debug/torch-distributed-hanging-solutions.md
-debug/underflow_overflow.md
-debug/make-tiny-models-tokenizers-datasets.md
 debug/tiny-scripts/README.md
 
 testing/README.md
@@ -58,5 +54,7 @@ testing/README.md
 resources/README.md
 
 contributors.md
+
+courses/lesson-learned/README.md
 
 build/README.md

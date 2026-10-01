@@ -32,14 +32,100 @@ When doing inference there are 2 stages:
 
 #### Prefill
 
-Prefill: as all tokens of the prompt are known - process the full prompt length at once (similar to training) and cache the intermediate states (KV cache). This stage contributes very little latency as even a 1k prompt can be processed really fast, given enough memory.
+During prefill, the model processes the prompt tokens in parallel, similar to training, and builds the KV cache used during generation. Prefill is usually compute-bound. Its latency contributes directly to TTFT and generally increases with input length; long prompts or insufficient compute can make prefill a major part of request latency.
 
 #### Decode
 
-Decode: new tokens generation happens, one new token at a time (regressive approach) based on all the previous tokens (the prompt and any new tokens generated so far). Thus this stage contributes the most to the generation's latency as unlike prefill, decoding can't be parallelized.
+During ordinary autoregressive decoding, the model generates one output token at a time based on the prompt and previously generated tokens. This sequential dependency prevents parallelizing output-token steps within one sequence, and decode is often memory-bandwidth-bound.
+
+Which stage matters most depends on the workload and metric. TTFT is sensitive to prompt length, prefill efficiency, scheduling, and queueing; TPOT/ITL primarily characterizes decode; end-to-end latency depends on input length, output length, batching, load, and hardware.
+
+See [NVIDIA's inference optimization overview](https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/) and [LLM benchmarking metric definitions](https://developer.nvidia.com/blog/llm-benchmarking-fundamental-concepts/).
 
 
+### Anatomy of Model's Memory Usage
 
+The inference memory usage is quite different from [training](../training/performance/README.md#anatomy-of-models-memory-usage). Here we have:
+
+1. Model weights
+2. KV cache - crucial to not need to recalculate past tokens for each new generated token
+3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
+
+#### Model Weights
+
+Bytes per parameter for each [dtype](../training/dtype.md):
+
+- 4 bytes * number of parameters for fp32
+- 2 bytes * number of parameters for fp16/bf16
+- 1 byte  * number of parameters for fp8/int8
+- 0.75 bytes * number of parameters for fp6 or 6-bit quantization
+- 0.625 bytes * number of parameters for 5-bit quantization
+- 0.5 bytes * number of parameters for fp4/int4
+- 0.375 bytes * number of parameters for 3-bit quantization
+- 0.25 bytes * number of parameters for 2-bit quantization
+- 0.125 bytes * number of parameters for 1-bit quantization
+
+These are densely packed payload sizes. Actual weight storage can be higher because quantized formats may store scales, zero points, codebooks, padding/alignment, and selected tensors in a wider format.
+
+The [OCP microscaling (MX) formats](https://github.com/openxla/xla/discussions/18085) use one 8-bit E8M0 scale per block of 32 values. Including the shared scale, their packed payload sizes are:
+
+- 1.03125 bytes * number of parameters for MXFP8/MXINT8
+- 0.78125 bytes * number of parameters for MXFP6
+- 0.53125 bytes * number of parameters for MXFP4
+
+Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
+
+
+#### KV Caching
+
+It'd be very expensive to recalculate all the previous KV (Key Value) values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
+
+![computation process with caching inference](images/infer-kv-cache.png)
+
+([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
+
+KV cache size is directly proportional to the input sequence length and batch size. Past query values aren't used in the attention mechanism and thus don't need to be cached.
+
+A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
+
+notes:
+- `dtype_bytes` is bytes per dtype: 4 bytes for fp32, 2 bytes for bf16/fp16, etc.
+- `2` stands for keys + values as there are 2 of them.
+- `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
+
+You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different. e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
+
+Examples:
+
+1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 4096 (hidden_size) * 8 (num_key_value_heads) / 32 (num_attention_heads)  / 10**6 = 0.131MB`. This model uses GQA so it uses 1/4th of the vanilla MHA.
+
+A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
+
+A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
+
+The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from the MHA/GQA/MQA/MLA diagram further below.
+
+In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
+
+[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
+
+Here is the diagram that shows the difference between MHA/GQA/MQA/MLA:
+
+![mha-gqa-mqa-mla](images/mha-gqa-mqa-mla.png)
+
+[source](https://arxiv.org/abs/2405.04434)
+
+[SwiftKV](https://arxiv.org/abs/2410.03960) was invented to deal with the common situation of 10:1 ratio of prefill vs decode use-cases, reducing inference computation during prompt processing rather than just compressing memory. By combining model rewiring and knowledge-preserving self-distillation, SwiftKV achieves substantial reductions in computational overhead during inference with minimal accuracy loss, leading to transformative improvements in throughput, latency and cost efficiency for enterprise LLM workloads by up to 2x.
+
+KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
+
+> 2.3. Memory-Bound and Compute-Bound Operations
+>
+> Every operation performed with a GPU accelerator, such as General Matrix Multiply (GEMM), is either memory-bound or compute-bound. In the former case, the overall runtime is dominated by high bandwidth memory (HBM) access, while in the latter by the actual computations. Auto-regressive generation with Transformer LLMs, where the sequence length for every forward pass is n = 1, tends to be memory-bound rather than compute-bound. The vast majority of a forward pass is spent either processing linear layers (in MHSA, Feed-Forward, and output vocabulary projection) or calculating attention scores and outputs from Equation (4). For linear layers, the ratio of FLOPS to memory accesses improves as the batch size increases, and more FLOPS are performed with the set of layer weights retrieved from the HBM. Eventually, with a large enough batch size, linear layers become compute-bound. On the other hand, for the calculation of Equation (4) inside MHSA layers during auto-regressive inference, the ratio of FLOPS to input size remains constant, and MHSA layers are memory-bound regardless of the batch size. It follows that for those layers, latency scales linearly with the size of the KV cache.
+
+* Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
+
+A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies (token dropping), memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
 
 
 ### Online vs Offline inference
@@ -49,37 +135,6 @@ When you have users that send queries in real time - this is Online inference, a
 When you have a file with hundreds or thousands of prompts that you need to run inference on - this is Offline inference, also known as batch inference. Examples: benchmark evaluation and synthetic data generation. In this case the inference server is often not needed and the inference is run directly in the same program that sends the query (client and server in one application).
 
 The 2 main use cases are often optimized for different performance metrics - the online inference use case requires a very low TTFT and low latency, whereas the offline inference requires high throughput. The combined prefill and decode token processing throughput is the key metric for any type of inference because it defines the total cost of the inference service. In the case of online inference, the better the combined throughput the more users can be served with the same hardware. For offline inference, it's clear that the faster the inference is done, the smaller the compute costs will be.
-
-
-### Grounding
-
-It's the process of giving the pre-trained model additional information that wasn't available during its training.
-For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
-
-Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
-
-Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
-
-Grounding can be thought of providing a context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
-
-In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
-
-
-### Tasks
-
-
-#### Input-grounded tasks
-
-Input-grounded tasks are those where the generated response is derived mainly from the prompt, i.e. the main source of knowledge is contained in the prompt. These include:
-
-- Translation
-- Summarization
-- Document QA
-- Multi-turn chat
-- Code editing
-- Speech recognition (audio transcription)
-
-
 
 
 ### Batching
@@ -96,7 +151,7 @@ This is the naive straightforward batching where the first N queries are batched
 
 Continuous Batching or In-flight batching is a process where the generation engine removes completed results as soon as they are done and replacing them with new queries, without waiting for the whole batch to complete. So that a sequence in position 0 in the batch could be generating its 10th token, while a sequence in position 1 in the batch could be just starting its first token generation, and position 3 is producing its last token.
 
-This improves the response time, since there is no need for a sequence that already finished not to be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
+This improves the response time, since a sequence that already finished can be returned immediately and there is no need for a new prompt to wait for the next batch to become available. Of course, if all of the compute is fully busy, and there are no new openings in the batch, then some requests will have to wait before the compute will start processing those.
 
 
 
@@ -112,8 +167,7 @@ Paged Attention is very popular with inference servers as it allows for a very e
 
 ### Decoding methods
 
-The main decoding methods are:  [Greedy decoding](#greedy-decoding),
-[Beam search](#beam-search) and [Sampling](#sampling).
+The main decoding methods are:  [Greedy decoding](#greedy-decoding), [Beam search](#beam-search) and [Sampling](#sampling).
 
 
 #### Greedy decoding
@@ -141,9 +195,9 @@ The most common sampling methods are:
 
 #### Temperature
 
-Temperature is another component of [Top-p](#sampling) sampling strategy which has the following impact depending on its value:
+Temperature is an independent logits transformation that can be combined with [Top-K or Top-p](#sampling) sampling, both of them, or neither. It has the following impact depending on its value:
 
-- `t==0.0:` ends up choosing the token with highest probability - no randomness here - same as greedy decoding - precise use cases.
+- `t==0.0`: literal softmax temperature division by zero is undefined. Some APIs use zero as shorthand for greedy decoding while others reject it, so use the API's explicit greedy mode when available.
 - `0.0<t<1.0`: the probabilities are pushed further apart, so the closer to 0.0 the less randomness - somewhere between precise and balanced use cases.
 - `t==1.0`: has no impact on sampling - the original training distribution is preserved here - balanced relevance and diversity use cases.
 - `t>1.0`: the probabilities are pushed closer together, creating a lot more randomness - creative use cases.
@@ -160,17 +214,17 @@ To really understand the impact, the temperature factor typically gets applied t
 scaled_logits = logits / temperature
 probs = softmax(scaled_logits)
 ```
-The softmax operation turns logit differences into probability ratios - when we divide by t<1.0, we make these differences larger, causing more extreme probability ratios and a more peaked distribution. When we divide by t>1.0, we make these differences smaller, causing more similar probability ratios and a more uniform distribution. At t=0, this effectively makes the highest logit infinitely larger than the others (though division by zero is avoided in practice).
+The softmax operation turns logit differences into probability ratios - when we divide by t<1.0, we make these differences larger, causing more extreme probability ratios and a more peaked distribution. When we divide by t>1.0, we make these differences smaller, causing more similar probability ratios and a more uniform distribution. As t approaches 0 from above, the highest logit dominates the distribution, but literal division by zero is avoided in practice.
 
-Temperature will have no impact on Greedy decoding, Beam search and Top-K sampling strategies, as it impacts the distance between logit probabilities and all of these strategies use the top probabilities based on their order and temperature doesn't change the order of probabilities. Whereas Top-p sampling allows more or less contenders to enter the sub-set the random sampling will be pulled from based on their total probability - so the closer the probabilities are (high temp) the more randomness is possible.
+For any positive temperature, scaling doesn't change the logit rank order, so a pure greedy argmax chooses the same token. It still changes sampling probabilities. With Top-K, the same K candidates remain eligible but their relative sampling probabilities change. With Top-p, temperature can change both which tokens enter the nucleus and their relative probabilities. Beam-search behavior depends on the implementation and its sequence scoring, so it shouldn't be assumed to be invariant. See the Transformers [`TemperatureLogitsWarper` documentation](https://huggingface.co/docs/transformers/main/en/internal/generation_utils#transformers.TemperatureLogitsWarper).
 
-Other than `t==0.0` and `t==0` there are no hard prescribed values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
+There are no universal temperature values to copy from and you will have to experiment with each use case to find the values that work the best for your needs - though you surely will find people offering good baselines for different use cases if you search the Internet.
 
-For more on decoding methods, see this [Huggingface blog](https://huggingface.co/blog/how-to-generate).
+For more on decoding methods, see this [HuggingFace blog](https://huggingface.co/blog/how-to-generate).
 
 ### Guided Text Generation
 
-Also known as Structured Text Generation and Assisted generation.
+Also known as Structured Text Generation.
 
 If the model can return its generated output in a specific format, rather than unrestricted format, you don't want the model to hallucinate invalid formats. For example, if you want a model to return a JSON dict, it should do just that.
 
@@ -197,8 +251,10 @@ This technique has several costs:
 - it slows down the generation - the more complex the schema it has to adhere to the slower it'll be at generating tokens. From measuring generation speed I found some structured text generation libraries perform much faster than others.
 - it may contribute to model hallucination.
 
-There are multiple implementations of this technique, as of this writing the two popular libraries are:
-- https://github.com/outlines-dev/outlines
+There are multiple implementations of this technique. As of 2026-08 vLLM supports four of them as [structured output backends](https://docs.vllm.ai/en/latest/features/structured_outputs/), and picks one automatically unless you override it:
+- https://github.com/mlc-ai/xgrammar
+- https://github.com/guidance-ai/llguidance
+- https://github.com/dottxt-ai/outlines
 - https://github.com/noamgat/lm-format-enforcer
 
 You ideally want the implementations that have already been integrated into inference frameworks like vLLM and others.
@@ -218,7 +274,7 @@ It's possible to use the schema to speed up inference as well. For example, cons
 }
 ```
 
-Since the schema has specific keys `name` and `age`, as soon as the model has predicted: `{"n` or `{"a` it doesn't need to perform an auto-regressive generation to come up with ``{"name": ` and `{"age": ` because both of these must lead to a specific unambiguous single outcome - so here it can perform a prefill instead of decoding and save a few slow steps at it knows 100% the next few tokens will be `ame": ` or `ge":` correspondingly. Clearly, this approach would be most beneficial when the schema has a lot of pre-determined keys and short generated values.
+Since the schema has specific keys `name` and `age`, as soon as the model has predicted: `{"n` or `{"a` it doesn't need to perform an auto-regressive generation to come up with ``{"name": ` and `{"age": ` because both of these must lead to a specific unambiguous single outcome - so here it can perform a prefill instead of decoding and save a few slow steps as it knows 100% the next few tokens will be `ame": ` or `ge":` correspondingly. Clearly, this approach would be most beneficial when the schema has a lot of pre-determined keys and short generated values.
 
 
 
@@ -230,7 +286,7 @@ Since the schema has specific keys `name` and `age`, as soon as the model has pr
 
 Also known as Speculative inference or Assisted generation.
 
-Because it's very slow to generate tokens one a time, sometimes it is possible to cheat and speed things up by using a much smaller and faster draft model. So for example, your normal inference uses Llama-70B which would be quite slow, but we could use Llama-7b as a draft model and then we could verify if the prediction is correct but doing it at once for all tokens.
+Because it's very slow to generate tokens one a time, sometimes it is possible to cheat and speed things up by using a much smaller and faster draft model. So for example, your normal inference uses Llama-70B which would be quite slow, but we could use Llama-7b as a draft model and then we could verify the prediction is correct by doing it at once for all tokens.
 
 Example: let's take a prompt `I'm turnin', turnin', turnin', turnin', turnin' around and all that I can see is just` and now:
 
@@ -267,7 +323,7 @@ The draft model ideally should be trained on the same data (or least data from a
 
 Speculative decoding gives the highest return on [input-grounded tasks](#input-grounded-tasks), such as translation, summarization, document QA, multi-turn chat because in those tasks the range of possible outputs is much smaller and the draft model is much more likely to match the big model.
 
-For the same reason it works best in when used in [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
+For the same reason it works best when used with [greedy decoding](#greedy-decoding), as there is the least amount of possible variations during generation. If not using greedy decoding, you will want to have the value of  [temperature](#temperature) close to 0.
 
 Here is a good indepth dive into this subject: [Assisted Generation: a new direction toward low-latency text generation](https://huggingface.co/blog/assisted-generation).
 
@@ -303,20 +359,47 @@ When a model can't fit onto a single accelerator or when it's more efficient to 
 
 #### Tensor parallelism
 
-Most of the time you are most likely to only run into [Tensor Parallelism](../training/model-parallelism#tensor-parallelism) where the model weights are sharded across 2 to 8 accelerators. Ideally you want to try to fit the model into a single accelerator, because then it has the least amount of overhead during generation. But surprisingly you are likely to end up with higher decoding throughput if you use tensor parallelism - this is because it enables you to fit much larger batches and also because the `forward` call may be faster despite the additional comms between the accelerators. Of course, you will be getting this speed up at a cost of using more accelerators in some cases. So it's best to experiment, there will be use-cases where a higher tensor parallelism degree will give a better total throughput considering the same number of accelerators.
+Most of the time you are most likely to only run into [Tensor Parallelism](../training/model-parallelism/README.md#tensor-parallelism) where the model weights are sharded across 2 to 8 accelerators. Ideally you want to try to fit the model into a single accelerator, because then it has the least amount of overhead during generation. But surprisingly you are likely to end up with higher decoding throughput if you use tensor parallelism - this is because it enables you to fit much larger batches and also because the `forward` call may be faster despite the additional comms between the accelerators. Of course, you will be getting this speed up at a cost of using more accelerators in some cases. So it's best to experiment, there will be use-cases where a higher tensor parallelism degree will give a better total throughput considering the same number of accelerators.
 
 footnote: in my experiments TP=1 leads to the highest TTFT and lowest decoding throughput, as compared to TP>1. So if you're being requested to make the TTFT faster and the model fits, use smaller TP or TP=1. If you're being requested to make the decoding throughput faster, throw more accelerators at it with a higher TP degree.
 
 #### Pipeline parallelism
 
-Further, while tensor parallelism helps to lower latency, using [Pipeline Parallelism](../training/model-parallelism#pipeline-parallelism) could help increase the throughput. This is especially so for very large models where many accelerators have to be used anyway to even load the model's weights. If say you're using Llama 405B and TP=8 is used, then each accelerator has to all-reduce to 7 other accelerators, whereas with PP=8 each accelerator needs to communicate only with 2 other accelerators (`recv` the input from the previous stage and `send` the current output to the next stage), creating a much lower pressure on the networking layer and this can speed things up dramatically if the hardware supports it.
+Further, while tensor parallelism helps to lower latency, using [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) could help increase the throughput. This is especially so for very large models where many accelerators have to be used anyway to even load the model's weights. If say you're using Llama 405B and TP=8 is used, then each accelerator has to all-reduce to 7 other accelerators, whereas with PP=8 each accelerator needs to communicate only with 2 other accelerators (`recv` the input from the previous stage and `send` the current output to the next stage), creating a much lower pressure on the networking layer and this can speed things up dramatically if the hardware supports it.
 
-It's important to clarify here that PP can be superior to TP only if you use the full PP and not the naive PP. In the [naive PP](../training/model-parallelism#naive-model-parallelism-vertical) only one PP stage works at any given time so it'd perform worse than TP. To benefit from PP the inference framework needs to feeds all PP stages in parallel to perform [full PP](../training/model-parallelism#pipeline-parallelism).
+It's important to clarify here that PP can be superior to TP only if you use the full PP and not the naive PP. In the [naive PP](../training/model-parallelism/README.md#naive-model-parallelism-vertical) only one PP stage works at any given time so it'd perform worse than TP. To benefit from PP the inference framework needs to feeds all PP stages in parallel to perform [full PP](../training/model-parallelism/README.md#pipeline-parallelism).
 
 The other important thing about PP inference is that unlike training, there is no `backward` pass, thus there is no need to solve the inactivity bubble problem. There will be only a tiny overhead of filling the PP stages in the first few micro-batches.
 
 And as with training you may find that some mix of TP and PP will lead to the best outcome (e.g. TP=4 + PP=4 for Llama 405B). So make sure to experiment and measure different configurations and pick the one that meets your needs.
 
+
+### Grounding
+
+It's the process of giving the pre-trained model additional information that wasn't available during its training. For example [input-grounded tasks](#input-grounded-tasks) give the model a lot of additional information in the prompt. Non zero-shot prompts ground the model in examples altering the default model behavior. Prompt-engineering is all about grounding the model to behave in a certain way during inference.
+
+Retrieval Augmented Generation (RAG) is one of the main techniques for grounding models as it supplies the inference process with additional data that is relevant to the prompt. And the intention is that the model will give more significance to that information than the massive compressed information it was trained on.
+
+Fine-tuning to a different knowledge domain is another grounding approach, we update the model to be grounded in a new dataset that could be quite distinct from the original domain of data the foundational model has been trained on.
+
+Grounding can be thought of as providing context. As anybody can attest it's easier to answer a question when one understands the context of the question. The same applies with model generation. The better the context, the more relevant the generated output is.
+
+In a multi-modal use case an image or a video supplied with the text prompt can be that grounding or a context.
+
+
+### Tasks
+
+
+#### Input-grounded tasks
+
+Input-grounded tasks are those where the generated response is derived mainly from the prompt, i.e. the main source of knowledge is contained in the prompt. These include:
+
+- Translation
+- Summarization
+- Document QA
+- Multi-turn chat
+- Code editing
+- Speech recognition (audio transcription)
 
 
 ## Key inference performance metrics
@@ -337,7 +420,7 @@ This includes the time to:
 
 The time to receive the request and send the response is mostly the same with a small variation due to the differences in the length of the prompt and the generated response. These length variations should have a negligible impact to the total time.
 
-The prefill stage processes all the prompt's tokens in parallel so here as well the variations in the length of the prompt shouldn't make too much of a difference, albeit longer prompts will consume more accelerator memory and impact the total throughput.
+The prefill stage processes prompt tokens in parallel, but longer prompts require more computation and KV-cache memory and therefore generally increase TTFT and reduce throughput. The effect depends on the model, batching, hardware, and server load.
 
 The decoding stage is the one most impacted by the length of the generated response since each new token is generated as a separate step. Here the longer the response the longer the decoding stage will be.
 
@@ -375,11 +458,11 @@ This is a non-trivial metric since depending on the prompt size the time will va
 
 Time Per Output Token (TPOT) is a per user metric. It measures how long does it take for a new token to be generated for a given user.
 
-A relatively low Time Per Output Token (TPOT) is desired, but it doesn't have to be too high. This time ideally should be close to the reading speed of the human who sent the request. So for example if you serve first graders the TPOT can be quite low, but the more educated the person is the faster TPOT should be to achieve a smooth reading experience.
+A relatively low Time Per Output Token (TPOT) is desired, but it doesn't have to be too low. This time ideally should be close to the reading speed of the human who sent the request. So for example if you serve first graders the TPOT can be relatively high, but the more educated the person is the lower the TPOT should be to achieve a smooth reading experience.
 
 According to wiki there are [3 types of reading](https://en.wikipedia.org/wiki/Speed_reading#Types_of_reading) and the reading speed is measured in words per minute (WPM).
 
-The average tokens per word can vary from tokenizer to tokenizer, primarily depending on their vocab size and the language(s). Here let's consider an English tokenizer with about 1.5 tokens per word. Now we can convert words per minute (WPM) to tokens per minute (TPM).
+The average tokens per word varies with the language, somewhat with the tokenizer, and most of all with the kind of text being generated. Here let's consider an English tokenizer with about 1.5 tokens per word. Now we can convert words per minute (WPM) to tokens per minute (TPM).
 
 And now we just need to divide by 60 to get Tokens Per Second (TPS) and invert to get time per output token (TPOT)
 
@@ -391,7 +474,16 @@ So `TPOT = 60 / (WPM*1.5)` in seconds
 | Auditory | 450 |  675 | 11.25 | 0.089 |
 | Visual   | 700 | 1050 | 18.75 | 0.057 |
 
-Remember to change the 1.5 co-efficient to the actual word to tokens average ratio of your tokenizer. For example, as of this writing OpenAI ChatGPT's with a 50k vocab is reported to be about 1.3 tokens per word, while many other LLMs have 30k vocabs, which lead to a higher tokens per words ratio.
+Remember to change the 1.5 co-efficient to the actual word to tokens average ratio of your tokenizer, which you can measure on your own text:
+
+```python
+import re, tiktoken
+enc  = tiktoken.get_encoding("cl100k_base")
+text = open("sample.txt").read()
+print("tokens per word: ", len(enc.encode(text)) / len(re.findall(r"\S+", text)))
+```
+
+Measured on a paragraph of plain English this gives about 1.2 tokens per word on OpenAI's `cl100k` and `o200k` tokenizers, and the same on GPT-2's older 50k vocab - for prose the choice of tokenizer barely moves it. What does move it is the kind of text the model emits: the same measurement on Python code gives about 3.3 tokens per word. So if you serve code completions rather than prose, a 1.5 co-efficient sets your TPOT target more than 2x too lax - you'd budget 0.16 secs per token for a 250 WPM reader where the code case needs closer to 0.07.
 
 As you can see TPOT is an awkward value to track and think of in one's head, so **once you know your targeted TPOT it's better to convert it to Tokens Per Seconds (TPS) and track that instead**.
 
@@ -412,7 +504,7 @@ If this is an offline system that doesn't interface individual humans and there 
 
 ### Simplified performance metrics
 
-As you can tell the discussed above metrics have a lot of overlap in them. Practically we can reduce all of them to just these 2 metrics: Prefill throughput and Decode throughput - and probably how many parallel requests per second the system can handle.
+As you can tell the [metrics discussed so far](#key-inference-performance-metrics) have a lot of overlap in them. Practically we can reduce all of them to just these 2 metrics: Prefill throughput and Decode throughput - and probably how many parallel requests per second the system can handle.
 
 #### Prefill throughput
 
@@ -445,22 +537,21 @@ In the ideal case you want your accelerator utilization to be as high as possibl
 
 #### Percentiles
 
-If you read benchmarks and run into things like p50, p75, p90, p95 and p99 percentiles - these are statistical filters that give you the results based on the percentage of results that fit under (or over) a certain threshold. Even the same request is likely to take a slightly different response time when it gets re-run multiple times. So, for example, if 95% of the time a throughput was higher than a certain value - that would be a p95 percentile. That also would mean that 5% of the time the throughput was lower than that same threshold value. The higher the number next to `p`, the more difficult it is to achieve.
+If you read benchmarks and run into p50, p75, p90, p95, and p99, these percentiles are values in an ordered distribution. A p95 value is the threshold at or below which 95% of observations fall; the remaining 5% are above it. The desirable tail depends on the metric. For latency, lower is better, so p95 describes high-tail latency. For throughput, higher is better, so p5 is often the useful lower-tail guarantee: about 95% of observations are at or above p5. See the [Grafana k6 percentile documentation](https://grafana.com/docs/k6/latest/javascript-api/k6-metrics/trend/).
 
 For example, let's look at partial output of a system loading report generated by [k6](https://github.com/grafana/k6) on an inference server:
 
 ```
-http_req_duration..: avg=13.74s   min=12.54s  med=13.81s   max=13.83s   p(90)=13.79s   p(95)=13.83s
+http_req_duration..: avg=13.36s   min=12.54s  med=13.31s   max=14.12s   p(90)=13.79s   p(95)=13.83s
 http_req_receiving.: avg=27.98µs  min=15.16µs med=21.6µs   max=98.13µs  p(90)=44.98µs  p(95)=59.2µs
 http_req_sending...: avg=133.8µs  min=20.47µs med=75.39µs  max=598.04µs p(90)=327.73µs p(95)=449.65µs
 ```
 
-If we look at the first line which reported the total generation time, if we look at the minimal recorded value of 12.54 seconds, we then know that 90% of responses took between 12.54 and 13.79 secs and 95% of responses took between
-12.54 and 13.83 secs - and in this particular case the median reported value is between the p90 and p95 values.
+In the first line, 50% of responses completed in at most 13.31 seconds, 90% in at most 13.79 seconds, and 95% in at most 13.83 seconds. The slowest 5% took more than 13.83 seconds, up to the observed maximum of 14.12 seconds.
 
-The same interpretation applies to the other lines in the report, but the key exemplification here is that p90 values are lower than p95 values because time is being measured (the lower the better).
+The same interpretation applies to the other lines. For any metric, a correctly ordered sample must satisfy `min <= p50 <= p90 <= p95 <= max`; whether a higher value is better or worse depends on what is measured.
 
-Percentiles are useful when outliers aren't important, so, for example, instead of looking at the slowest throughput measured you'd say ignore the worst 5% of outcomes and suddenly the system's performance looks much much better. But one has to be very careful with such discarding of bad outcomes when dealing with users, since it means that some of them will have a bad experience using your system. Also 5% translates to a whole lot of users if you have millions of them.
+Percentiles summarize tails without letting one extreme observation dominate the report. They do not make the omitted tail unimportant: a p95 latency still means that 5% of requests were slower, which can represent many users at production scale.
 
 Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a much more indepth explanation.
 
@@ -469,13 +560,13 @@ Please refer to [Percentile](https://en.wikipedia.org/wiki/Percentile) for a muc
 
 When serving in production it might be OK to let the model takes its loading time since it happens once and then the server runs for days, so this overhead is amortized over many days. But when doing research, development and testing it's critical that the inference server starts serving really fast.
 
-Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism#tensor-parallelism) and [PP](../training/model-parallelism#pipeline-parallelism).
+Sometimes the overhead is just loading to CPU and then moving the tensors to the accelerators, at other times there is an additional need to shard the tensors for multiple accelerators to perform [TP](../training/model-parallelism/README.md#tensor-parallelism) and [PP](../training/model-parallelism/README.md#pipeline-parallelism).
 
 Various approaches are used for that - most involve some sort of pre-sharding and caching, with a subsequent direct loading onto GPU.
 
 For example:
 
-- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer).  ([recipe](https://docs.vllm.ai/en/latest/serving/tensorizer.html) and, of course, if you use TP>1 you want to [pre-shard the weights once](https://docs.vllm.ai/en/latest/getting_started/examples/save_sharded_state.html).
+- vLLM supports the `--load-format` flag, where one could choose options like `npcache` (numpy format caching) or `tensorizer` using  CoreWeave’s [Tensorizer](https://github.com/coreweave/tensorizer).  ([recipe](https://docs.vllm.ai/en/stable/examples/features/tensorize_vllm_model/) and, of course, if you use TP>1 you want to [pre-shard the weights once](https://docs.vllm.ai/en/stable/examples/features/sharded_state/).
  - TensorRT-LLM requires the user to build a model engine for each specific use-case and loads the pre-made shards at run time (unless you're using the simplified API which will build the model engine on the fly on every server start).
 
 
@@ -485,34 +576,42 @@ For example:
 
 You can write your own benchmark as explained in [key inference performance metrics](#key-inference-performance-metrics) or use an existing one.
 
-At the moment I use mainly the [prefill throughput](#prefill-throughput) and [decode throughput](#decode-throughput) benchmarks. The first one just measures tokens per second from the moment the request was sent and the first generated token received, and the second one is the throughput between the first and the last generated tokens received. Here is the relevant snippet of such measurement using [`openai` client completions API](https://github.com/openai/openai-python):
+At the moment I mainly use [TTFT](#time-to-first-token) and [decode throughput](#decode-throughput) benchmarks. TTFT measures the client-observed time from sending the request until receiving the first non-empty generated chunk. The inter-token decode rate covers the interval between receiving the first and last generated tokens. Here is the relevant snippet using the [`openai` client completions API](https://github.com/openai/openai-python):
 
-```
-[... create client, data, etc. ...]
-prefill_tokens_len = len(prompt)
-start_time = time.time()
+```python
+# ... create client, prompt, and model ...
+request_started_time = time.perf_counter()
 decode_text = ""
-decode_started = False
-completion = client.completions.create(prompt=prompt, ...)
+first_token_time = None
+last_token_time = None
+completion = client.completions.create(model=model, prompt=prompt, stream=True)
 for chunk in completion:
     if chunk.choices:
-        decode_text += text
-        if not decode_started:
-            decode_started_time = time.time()
-            prefill_time = decode_started_time - start_time
-            decode_started = True
+        text = chunk.choices[0].text
+        if text:
+            now = time.perf_counter()
+            if first_token_time is None:
+                first_token_time = now
+            last_token_time = now
+            decode_text += text
 
-end_time = time.time()
-decode_time = end_time - decode_started_time
-decode_tokens = tokenizer.encode(decode_text)
-decode_tokens_len = len(decode_tokens)
+if first_token_time is None:
+    raise RuntimeError("The response contained no output tokens")
 
-# tokens/per sec
-prefill_throughput = prefill_tokens_len / prefill_time
-decode_throughput  = decode_tokens_len  / decode_time
+ttft = first_token_time - request_started_time
+output_tokens = len(tokenizer.encode(decode_text, add_special_tokens=False))
+inter_token_count = max(output_tokens - 1, 0)
+inter_token_time = last_token_time - first_token_time
+decode_throughput = (
+    inter_token_count / inter_token_time
+    if inter_token_count > 0 and inter_token_time > 0
+    else None
+)
 ```
 
-The `prefill_throughput` is not very precise here, since the client only know when it sent the request and received the first token, so a bit more went into this stage than pure prompt-preprocessing, but it should be close enough.
+The subtraction in `output_tokens - 1` matches the measured interval, which starts after the first token has arrived. This client-side estimate assumes streamed chunks correspond closely enough to token arrivals; an API that batches multiple tokens into a chunk needs token-level or server-side timestamps for precise inter-token latency.
+
+TTFT is not pure prefill time. It includes request transport, queueing, scheduling, prompt processing, first-token generation, and response transport. Dividing the prompt-token count by TTFT therefore does not produce prefill throughput; that metric requires server-side instrumentation that isolates prompt processing. See [NVIDIA's LLM inference metric definitions](https://developer.nvidia.com/blog/llm-benchmarking-fundamental-concepts/) and [MLPerf Inference's TTFT and TPOT definitions](https://mlcommons.org/2024/03/mlperf-inference-v4/).
 
 Of course, like any serious benchmark, you want to run this multiple times to get realistic numbers, as the variance  between single runs can be quite large.
 
@@ -522,7 +621,6 @@ Here are some good starting points for load testing:
 
 - https://github.com/vllm-project/vllm/blob/main/benchmarks/benchmark_throughput.py - my favorite tool so far
 - https://github.com/grafana/k6 - useful for load testing to simulate multiple concurrent clients - uses JavaScript clients.
-- https://github.com/bentoml/llm-bench - benchmarks inference loads (not yet sure if it works only for BentoML)
 
 
 What I'm missing right now is a tool to measure the highest concurrency the server can handle.
@@ -530,82 +628,6 @@ What I'm missing right now is a tool to measure the highest concurrency the serv
 
 
 
-
-
-
-## Anatomy of Model's Memory Usage
-
-The inference memory usage is quite different from [training](../training/performance#anatomy-of-models-memory-usage). Here we have:
-
-1. Model weights
-2. KV cache - crucial to not need to recalculate past tokens for each new generated token
-3. Activation memory - this is the processing temporary memory which would depend on a batch size and a sequence length
-
-### Model Weights
-
-- 4 bytes * number of parameters for fp32
-- 2 bytes * number of parameters for fp16/bf16
-- 1 byte  * number of parameters for fp8/int8
-- 0.5 bytes * number of parameters for int4
-
-footnote: even more compact formats are being worked on as you read this, e.g. [microscaling format (MX)](https://fpga.org/category/microscaling-mx-formats/) also known as block floating point, where the exponent bits are shared between multiple elements of the tensor (MXFP6, MXFP4, etc.)
-
-Example: Meta-Llama-3.1-8B in bf16 will need `2 (bf16 bytes) * 8B (num of params) = 16GB` (approximately)
-
-
-### KV Caching
-
-It'd be very expensive to recalculate all the previous KV (Key Value) values before each new token is generated and thus they are cached in accelerator's memory. Newly computed KV-values are appended to the existing cache.
-
-![computation process with caching inference](images/infer-kv-cache.png)
-
-([source](https://developer.nvidia.com/blog/accelerated-inference-for-large-transformer-models-using-nvidia-fastertransformer-and-nvidia-triton-inference-server/))
-
-KV cache size is directly proportional to the input sequence length and batch size. Past query values aren't used in the attention mechanism and thus don't need to be cached.
-
-A KV cache of 1 token requires `dtype_bytes * 2 * num_hidden_layers * hidden_size * num_key_value_heads / num_attention_heads` bytes
-
-notes:
-- `dtype_bytes` is bytes per dtype: 4 bytes for fp32, 2 bytes for bf16/fp16, etc.
-- `2` stands for keys + values as there are 2 of them.
-- `num_key_value_heads / num_attention_heads` is the factor that will depend on whether multi-query (MQA), grouped-query (GQA) or multi-head attention (MHA) is used. for MHA it'll be 1, for MQA it'll be `1/num_attention_heads` and for GQA it'll depend on how many queries are used per group, i.e. `num_key_value_heads / num_attention_heads` which is the general case for MHA and MQA.
-
-You can get these dimensions from `config.json` inside the model's folder or from an equivalent file if it's different.
-e.g. [meta-llama/Meta-Llama-3.1-8B](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json).
-
-Examples:
-
-1 token Meta-Llama-3.1-8B in bf16 will need: `2 (bf16 bytes) * 2 (keys+values) * 32 (num_hidden_layers) * 4096 (hidden_size) * 8 (num_key_value_heads) / 32 (num_attention_heads)  / 10**6 = 0.131MB`. This model uses GQA so it uses 1/4th of the vanilla MHA.
-
-A batch size of 1 of 1024 tokens will need `0.131*1024 = ~134MB`.
-
-A batch size of 128 of 1024 tokens each will need `0.131*1024*128 / 10**3 = ~17.2GB`.
-
-The KV cache for Meta-Llama-3.1-8B would have taken 4x more memory per token if it were to use MHA, 8x less memory if it were to use MQA. It's easy to see why from this diagram:
-
-In this case the model has `num_key_value_heads=8` and `num_attention_heads=32`, hence MQA and GQA use 32x and 4x less memory than MHA, correspondingly.
-
-[DeepSeek v3](https://arxiv.org/abs/2412.19437) introduced Multi-Latent Attention (MLA) which compresses the Key and Value into a latent vector, which further reduces the KV-cache size.  See section 2.1.1 of the paper for the specific details.
-
-Here is the diagram that shows the difference between MHA/GQA/MQA/MLA:
-
-![mha-gqa-mqa-mla](images/mha-gqa-mqa-mla.png)
-
-[source](https://arxiv.org/abs/2405.04434)
-
-[SwiftKV](https://arxiv.org/abs/2410.03960) was invented to deal with the common situation of 10:1 ratio of prefill vs decode use-cases, reducing inference computation during prompt processing rather than just compressing memory. By combining model rewiring and knowledge-preserving self-distillation, SwiftKV achieves substantial reductions in computational overhead during inference with minimal accuracy loss, leading to transformative improvements in throughput, latency and cost efficiency for enterprise LLM workloads by up to 2x.
-
-KV cache while saving recomputation has a big negative impact on inference's performance. Here is a quote from [Dynamic Memory Compression: Retrofitting LLMs for Accelerated Inference](https://arxiv.org/abs/2403.09636):
-
-> 2.3. Memory-Bound and Compute-Bound Operations
->
-> Every operation performed with a GPU accelerator, such as General Matrix Multiply (GEMM), is either memory-bound or compute-bound. In the former case, the overall runtime is dominated by high bandwidth memory (HBM) access, while in the latter by the actual computations. Auto-regressive generation with Transformer LLMs, where the sequence length for every forward pass is n = 1, tends to be memory-bound rather than compute-bound. The vast majority of a forward pass is spent either processing linear layers (in MHSA, Feed-Forward, and output vocabulary projection) or calculating attention scores and outputs from Equation (4). For linear layers, the ratio of FLOPS to memory accesses improves as the batch size increases, and more FLOPS are performed with the set of layer weights retrieved from the HBM. Eventually, with a large enough batch size, linear layers become compute-bound. On the other hand, for the calculation of Equation (4) inside MHSA layers during auto-regressive inference, the ratio of FLOPS to input size remains constant, and MHSA layers are memory-bound regardless of the batch size. It follows that for those layers, latency scales linearly with the size of the KV cache.
-
-* Equation (4) is the usual self-attention mechanism equation of `Softmax(Q,K)V`
-
-A smaller KV cache would lead to faster generation and higher GPU utilization. So various techniques like gisting, context distillation, key-value eviction policies (token dropping), memory compression, multi-query attention, grouped-query attention, cross-layer attention, anchor-based self-attention, quantization and many others are used to accomplish that.
-
-In the case of a small batch size you should check if disabling KV cache will not give a better overall performance.
 
 
 
@@ -630,17 +652,13 @@ This section is trying hard to be neutral and not recommend any particular frame
 
 Supports only NVIDIA gpus.
 
-### TGI
-
-[TGI](https://github.com/huggingface/text-generation-inference)
-
 ### SGLang
 
 [SGLang](https://github.com/sgl-project/sglang)
 
-### OpenPPL
+### llama.cpp
 
-[OpenPPL](https://github.com/OpenPPL/ppl.nn)
+[llama.cpp](https://github.com/ggml-org/llama.cpp) - local / single-box serving (CPU, CUDA including datacenter GPUs, Metal, …); not a multi-tenant production peer to vLLM/SGLang.
 
 ### LightLLM
 
@@ -654,19 +672,26 @@ Supports only NVIDIA gpus.
 
 [MLC-LLM](https://github.com/mlc-ai/mlc-llm)
 
-If your favourite inference framework isn't listed please make a PR and add it.
+If your favorite inference framework isn't listed please make a PR and add it.
 
 
 
 ### Accelerator-specific frameworks
 
-Most inference framework obviously support NVIDIA CUDA. Some support AMD ROCm and Intel Gaudi.
+Most inference frameworks obviously support NVIDIA CUDA. Many also support AMD ROCm and Intel Gaudi - increasingly via vendor plugins to the mainstream frameworks (e.g. vLLM's hardware-plugin architecture) rather than as separate stacks.
 
-But there are accelerator-specific frameworks:
+The main accelerator-specific software stacks are:
 
-### Intel Gaudi, MAX, etc.
+- **Intel Gaudi (HPU)**: the [vllm-gaudi](https://github.com/vllm-project/vllm-gaudi) plugin (the older [HabanaAI/vllm-fork](https://github.com/HabanaAI/vllm-fork) is being retired), plus [Optimum for Intel Gaudi](https://github.com/huggingface/optimum-habana) for the HF `transformers`/`diffusers` ecosystem.
+- **AWS Trainium/Inferentia**: the [AWS Neuron SDK](https://github.com/aws-neuron/aws-neuron-sdk), which serves through standard vLLM APIs and [Optimum Neuron](https://github.com/huggingface/optimum-neuron).
+- **Google TPU**: [tpu-inference](https://github.com/vllm-project/tpu-inference) - the vLLM TPU plugin unifying JAX and PyTorch, and the successor to the now-archived [JetStream](https://github.com/AI-Hypercomputer/JetStream); [MaxText](https://github.com/AI-Hypercomputer/maxtext) is the JAX-native alternative.
+- **Modular MAX**: [MAX](https://github.com/modular/modular) - a portable serving stack that also runs on CPUs and NVIDIA/AMD GPUs.
+- **Apple Silicon**: [MLX](https://github.com/ml-explore/mlx) / [mlx-lm](https://github.com/ml-explore/mlx-lm), plus llama.cpp's Metal backend.
+- **Tenstorrent**: [tt-metal](https://github.com/tenstorrent/tt-metal) and its vLLM integration.
 
--  https://github.com/intel/intel-extension-for-transformers
+Because accelerator support increasingly ships as a plugin to a mainstream framework, always check whether your framework of choice already supports your accelerator before reaching for a vendor-specific stack.
+
+Finally, some vendors expose inference only as a hosted service on their own hardware, rather than as an installable framework - e.g. [Cerebras Inference](https://www.cerebras.ai/inference), Groq and [SambaNova](https://sambanova.ai/).
 
 
 
@@ -674,17 +699,17 @@ But there are accelerator-specific frameworks:
 
 To choose the most suitable inference framework you need to answer at least the following questions:
 
-1. Does the framework have the features that you need? Be careful here, some frameworks list that they support feature A, but when you try to use it it's not well integrated or works really slowly.
-2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example HF's TGI tried to charge for commercial use and it backfired - so its license got reverted to the original Apache 2.0 license and now they are trying to recover from being shunned by the community.
+1. Does the framework have the features that you need? Be careful here, some frameworks list that they support feature A, but when you try to use it, it's not well integrated or works really slowly.
+2. Does the framework have a permissive license that meets your current and future needs? In practice we have seen that frameworks with licenses that go against commercial use are likely to be rejected by the community. For example, HF's TGI tried to charge for commercial use and it backfired - their licenses got reverted under community pressure, but TGI has never recovered and the development has stopped.
 3. Does the framework have a thriving community of contributors? Go to the framework's github repo and check how many contributors it has - if it's very few I'd be concerned as thriving frameworks usually tend to invite contributions and that means that even if the core contributors don't have the time some feature, some contributors might do it for you.
 4. Does the framework have a high adoption? github stars are often a good indication, but sometimes it can be hyped up via smart marketing moves. So seek out other signals - e.g. `Used by` count on the framework's repo's main page on github - these are real numbers. Lots of PRs and Issues is another flag. Then search the web for how many articles are written about the given framework.
 5. Are the framework maintainers responsive to Issues and PRs? Some frameworks will ignore many Issues and even PRs. Check the count of how many PRs and Issues not being addressed. A high outstanding open Issues is a difficult signal - from one side it means this is a popular project, from the other side it means the developer team and contributors can't cope with the needs of its users.
-6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, TGI's big chunk is written in Rust). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
+6. While the majority of ML inference frameworks are written in Python, with some sprinkling of C++ or Triton for fused kernels, some aren't written in Python. (e.g. NVIDIA's TensorRT-LLM is 99% C++, llama.cpp is C++/CUDA). If something doesn't work the way you need it to and you filed an Issue and it's not being addressed, will you be able to get your hands dirty and modify the framework to do what you need?
 7. The other issue you may run into is that some frameworks don't want your PRs where you implemented missing features or made improvements and then you will end up maintaining a fork, which can be extremely difficult if you want to continue syncing with the upstream and cause a lot of pain to your developers.
 8. Run some sort of load [benchmarks](#benchmarks) for the desired workloads to know if the performance is adequate.
-9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
+9. Will you want to choose the [best cost-effective accelerator](../compute/accelerator/README.md#high-end-accelerators-for-ml-workloads) down the road or are you OK being locked in into a specific vendor? For example, a framework from NVIDIA isn't likely to support any other accelerators besides NVIDIA's. Same goes for AMD and Intel.
 
-For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of this writing.
+For example, here is a snapshot of [vLLM](https://github.com/vllm-project/vllm)'s stats as of 2024-08-24, which is one of the most popular inference frameworks as of 2026-08.
 
 ![vllm](images/github-vllm-stats-2024-08-24.png)
 

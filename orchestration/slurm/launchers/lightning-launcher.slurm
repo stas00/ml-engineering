@@ -49,7 +49,7 @@ echo $CMD
 # export CUDA_LAUNCH_BLOCKING=1
 #
 # to force crashing on nccl issues like hanging broadcast
-# export NCCL_ASYNC_ERROR_HANDLING=1
+# export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 
 # srun error handling:
 # --wait=60: wait 60 sec after the first task terminates before terminating all remaining tasks

@@ -22,6 +22,9 @@ If you use a non-SLURM scheduler validate that it too can do unmanned bad node r
 
 You also need at least one additional node for running various preventative watchdogs (discussed later in this chapter), possibly offloading the checkpoints and doing cleanup jobs.
 
+## Rebuilding the process group in place
+
+The rest of this chapter recovers from a dead rank by exiting and letting the next queued job start on a fresh allocation. Starting from PyTorch 2.14 the communicator itself can be rebuilt in place, so surviving ranks keep their warm process state. That path is experimental as of 2.14: you opt in at `init_process_group(..., enable_reconfigure=True)`, and the calls (`dist._get_reconfigure_handle`, `dist._reconfigure`) are underscored and documented as subject to change. Until they stabilize, keep using spare nodes and a job array as the recovery path.
 
 
 ## Queue up multiple training jobs
@@ -29,13 +32,13 @@ You also need at least one additional node for running various preventative watc
 The next crucial step is to ensure that if the training crashed, there is a new job lined up to take place of the previous one.
 
 Therefore, when a training is started, instead of using:
-```
+```bash
 sbatch train.slurm
 ```
 
 You'd want to replace that with:
 
-```
+```bash
 sbatch --array=1-10%1 train.slurm
 ```
 
@@ -44,28 +47,28 @@ This tells SLURM to book a job array of 10 jobs, and if one of the job completes
 footnote: `%1` in `--array=1-10%1` tells SLURM to launch the job array serially - one job at a time.
 
 If you have already started a training without this provision, it's easy to fix without aborting the current job by using the `--dependency` argument:
-```
+```bash
 sbatch --array=1-10%1 --dependency=CURRENTLY_RUNNING_JOB_ID train.slurm
 ```
 So if your launched job looked like this:
 
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
+       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-64]
 ```
-You will not that the current's `JOBID=87` and now you can use it in:
-```
+You will note that the current's `JOBID=87` and now you can use it in:
+```bash
 sbatch --array=1-10%1 --dependency=87 train.slurm
 ```
 and then the new status will appear as:
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
      JOBID PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-63]
- 88_[10%1]   prod    my-training-10b  PENDING       0:00 1-16:00:00   64                    N/A (Dependency)
+       87    prod    my-training-10b  RUNNING 2-15:52:19 1-16:00:00   64    2023-10-07T01:26:28 node-[1-64]
+ 88_[1-10%1]   prod    my-training-10b  PENDING       0:00 1-16:00:00   64                    N/A (Dependency)
 ```
-So you can see that an array of 10 jobs (`88_[10%1]`) was appended to be started immediately after the current job (`87`) completes or fails.
+So you can see that an array of 10 jobs (`88_[1-10%1]`) was appended to be started immediately after the current job (`87`) completes or fails.
 
 Granted that if the condition that lead to the crash is still there the subsequent job will fail as well. For example, if the storage device is full, no amount of restarts will allow the training to proceed. And we will discuss shortly how to avoid this situation.
 
@@ -73,7 +76,7 @@ But since the main reason for training crashes is failing GPUs, ensuring that fa
 
 In the SLURM lingo, the removed nodes are given a new status called `drained`. Here is an example of a hypothetical SLURM cluster:
 
-```
+```bash
 $ sinfo
 PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST
 prod*       up   infinite       4  drain node-[0-3]
@@ -112,14 +115,14 @@ Depending on your checkpointing methodology and the speed of your IO storage par
 
 The math is quite simple - measure the amount of time it takes to save the checkpoint, multiply it by how many times you'd want to save it and see how much of an additional delay the checkpoint saving will contribute to the total training time.
 
-Use case: While training BLOOM-176B we had an incredibly fast GPFS over NVME filesystem and it took only 40 seconds to save a 2.3TB checkpoint written concurrently on 384 processes. We saved a checkpoint approximately every 3 hours. As we trained for about 3 months, that means that we saved about 720 checkpoints (`90 days * 24h / 3h`) - that is an additional 8 hours was spent just saving the checkpoints (`720 times * 40 secs / 3600 secs`) - or ~0.37% of the total training time (`8h / (90 days * 24 hours)`. Now say if the IO were to be 5 times slower, which is not uncommon on the cloud unless one pays for premium IO, that would have become 2% of the training time, which would be quite significant.
+Use case: While training BLOOM-176B we had an incredibly fast GPFS over NVME filesystem and it took only 40 seconds to save a 2.3TB checkpoint written concurrently on 384 processes. We saved a checkpoint approximately every 3 hours. As we trained for about 3 months, that means that we saved about 720 checkpoints (`90 days * 24h / 3h`) - that is an additional 8 hours was spent just saving the checkpoints (`720 times * 40 secs / 3600 secs`) - or ~0.37% of the total training time (`8h / (90 days * 24 hours)`). Now say if the IO were to be 5 times slower, which is not uncommon on the cloud unless one pays for premium IO, that would have become 2% of the training time, which would be quite significant.
 
 footnote: If you don't have a large local storage and you have to offload the checkpoints to the cloud, make sure that the 2 most frequent checkpoints remain local to allow for a quick resume. The reason for 2 and not 1, is that it's possible that the very last checkpoint got corrupted or didn't finish saving if a crash occurred during its saving.
 
-While this method introduces an overhead to the training, having training checkpoints is a hugely useful. Because these allow you to rollback many steps back should there be a divergence, are useful for analysis of various events and many trainings these day switch from in-training single loss measuring eval, which provide little useful signal to a full blown dataset-based evaluation on multiple benchmarks applied to each checkpoint during training. The latter can be done on additional nodes w/o slowing down the training for in-training evals.
+While this method introduces an overhead to the training, having training checkpoints is hugely useful. Because these allow you to rollback many steps back should there be a divergence, are useful for analysis of various events and many trainings these day switch from in-training single loss measuring eval, which provide little useful signal to a full blown dataset-based evaluation on multiple benchmarks applied to each checkpoint during training. The latter can be done on additional nodes w/o slowing down the training for in-training evals.
 
 
-## Mutli-Replica-based fault tolerance
+## Multi-Replica-based fault tolerance
 
 There is another approach to dealing with accelerator crashes which involves no checkpoint saving. This approach only works in situations where at least two model replicas are used during training.
 
@@ -136,9 +139,11 @@ Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with 
 
 Of course, on a large scale training you're likely to have a hundred active nodes and a small handful of back up node.
 
-This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing this will hundreds of iterations lost.
+This approach is superior to file system checkpointing saving because, you only ever lose one iteration, whereas with file system checkpointing you may lose hundreds of iterations.
 
-I'm not aware of any open source implementations of this advanced fault tolerance method, but we know some of the big companies use this approach internally.
+The open-source library that lands closest to this idea is [`torchft`](https://github.com/meta-pytorch/torchft) (Meta / PyTorch). It treats each training step as a fault boundary across replica groups, coordinates health with a lighthouse/quorum service, and can heal a failed group by live state transfer from a healthy peer instead of rolling back to a filesystem checkpoint. Out of the box it covers fault-tolerant DDP and HSDP, and [`torchtitan`](https://github.com/pytorch/torchtitan) wires it into an end-to-end HSDP training loop - see its [`torchft` experiment docs](https://github.com/pytorch/torchtitan/tree/main/torchtitan/experiments/torchft) and the [PyTorch blog write-up of a checkpoint-free run under synthetic failures](https://pytorch.org/blog/fault-tolerant-llama-training-with-2000-synthetic-failures-every-15-seconds-and-no-checkpoints-on-crusoe-l40s/). The failure domain is a whole replica group rather than a single GPU, and the healing path is peer recovery through torchft's checkpoint transports rather than the RDMA-copy-onto-a-dedicated-standby sketch above - same goal (lose at most a step, keep training), different machinery.
+
+Related research systems attack the same problem from other angles. [`Oobleck`](https://github.com/SymbioticLab/Oobleck) (SOSP'23) keeps logically equivalent pipeline replicas and recovers by re-instantiating precomputed pipeline templates after failures, again without a full checkpoint restart. Earlier spot-instance work such as [Bamboo](https://www.usenix.org/system/files/nsdi23-thorpe.pdf) (redundant computation scheduled into pipeline bubbles; NSDI'23) and [Varuna](https://github.com/microsoft/varuna) (elastic PP+DP reconfiguration) is in the same family; those codebases are largely dormant now and are useful mainly as design references. Commercial infrastructure layers also exist that migrate a failed GPU onto a spare without changing the training script - a different trade-off (per-GPU failure domain, outside the framework) rather than another torchft clone.
 
 
 
@@ -161,8 +166,6 @@ While mentioning the kill switch, it might be good to quickly mention its cousin
 This feature can be very useful for those who watch the training charts. If one sees an interesting or critical situation in the training loss or some other training metric one can quickly ask the training program to save the checkpoint of interest and be able to later reproduce the current situation at will.
 
 The main use of this feature is around observing training loss spikes and divergences.
-
-(note-to-self: better belongs to instabilities chapter)
 
 ## Prevention
 
@@ -202,7 +205,7 @@ The most obvious watchdog is one which checks that there is a training SLURM job
 Here is an example [slurm-status.py](slurm-status.py) that was used during BLOOM-176B training. This watchdog was sending an email if a job was detected to be neither running nor scheduled and it was also piping its check results into the main training's log file. As we used [Crontab Emulation](../../orchestration/slurm/users.md#crontab-emulation), we simply needed to drop  [slurm-status.slurm](slurm-status.slurm) into the `cron/cron.hourly/` folder and the previously launched SLURM crontab emulating scheduler would launch this check approximately once an hour.
 
 The key part of the SLURM job is:
-```
+```bash
 tools/slurm-status.py --job-name $WATCH_SLURM_NAME 2>&1 | tee -a $MAIN_LOG_FILE
 ```
 which tells the script which job name to watch for, and you can also see that it logs into a log file.
@@ -212,10 +215,10 @@ For example, if you launched the script with:
 tools/slurm-status.py --job-name my-training-10b
 ```
 and the current status report shows:
-```
+```bash
 $ squeue -u `whoami` -o "%.10i %9P %20j %.8T %.10M %.8l %.6D %.20S %R"
   JOBID    PARTITION NAME             STATE       TIME   TIME_LIM    NODES  START_TIME     NODELIST(REASON)
-    87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-63]
+    87     prod      my-training-10b  RUNNING 2-15:52:19 1-16:00:00  64    2023-10-07T01:26:28 node-[1-64]
 ```
 then all is good. But if `my-training-10b` job doesn't show the alert will be sent.
 
@@ -228,7 +231,7 @@ If the application is doing `torch.distributed` or alike and a hanging occurs du
 
 However, if the hanging happens during another syscall which may have no timeout, e.g. reading from the disk, the application could easily hang there for hours and nobody will be the wiser.
 
-Most applications do periodic logging, e.g., most training log the stats of the last N steps every few minutes. Then one could check if the log file has been updated during the expected time-frame - and if it didn't - send an alert. You could write your own, or use [io-watchdog](https://github.com/grondo/io-watchdog) for that.
+Most applications do periodic logging, e.g., most training log the stats of the last N steps every few minutes. Then one could check if the log file has been updated during the expected time-frame - and if it didn't - send an alert. You could write your own, or use [io-watchdog](https://github.com/grondo/io-watchdog) for that (no commit since 2019 - treat as functional-but-unmaintained rather than actively developed).
 
 
 
@@ -238,7 +241,7 @@ The next biggest issue is running out of disk space. If your checkpoints are lar
 
 Now what should be the threshold at which the alerts are triggered. They need to be made not too soon as users will start ignoring these alerts if you start sending those at say, 50% usage. But also the percentage isn't always applicable, because if you have a huge disk space shared with others, 5% of that disk space could translate to many TBs of free disk space. But on a small partition even 25% might be just a few TBs. Therefore really you should know how often you write your checkpoints and how many TBs of disk space you need daily and how much disk space is available.
 
-Use case: During BLOOM training we wrote a 2.3TB checkpoint every 3 hours, therefore we were consuming 2.6TB a day!
+Use case: During BLOOM training we wrote a 2.3TB checkpoint every 3 hours, therefore we were consuming 18.4TB a day!
 
 Moreover, often there will be multiple partitions - faster IO partitions dedicated to checkpoint writing, and slower partitions dedicated to code and libraries, and possibly various other partitions that could be in use and all of those need to be monitored if their availability is required for the training not crashing.
 
@@ -269,15 +272,15 @@ When it comes to GPU memory, there is the possible issue of memory fragmentation
 RuntimeError: CUDA out of memory. Tried to allocate 304.00 MiB (GPU 0; 8.00 GiB total capacity;
 142.76 MiB already allocated; 6.32 GiB free; 158.00 MiB reserved in total by PyTorch)
 ```
-In this example if there are 6.32GB free, how comes that 304MB couldn't be allocated.
+In this example if there are 6.32GiB free, how comes that 304MiB couldn't be allocated.
 
 One of the approaches my team developed during IDEFICS-80B training where there was some tiny CPU memory leak that would often take multiple days to lead to running out of CPU memory was to install a watchdog inside the training loop that would check the memory usage and if a threshold was reached it'd voluntarily exit the training loop. The next training job would then resume with all the CPU memory reclaimed.
 
-footnote: The reality of machine learning trainings is that not all problems can be fixed with limited resources and often times a solid workaround provides for a quicker finish line, as compared to "stopping the presses" and potentially delaying the training for weeks, while trying to figure out where the problem is. For example we trained BLOOM-176B with `CUDA_LAUNCH_BLOCKING=1` because the training would hang without it and after multiple failed attempts to diagnose that we couldn't afford any more waiting and had to proceed as is. Luckily this environment variable that normally is used for debug purposes and which in theory should make some CUDA operations slower didn't actually make any difference to our throughput. But we have never figured out what the problem was and today it doesn't matter at all that we haven't, as we moved on with other projects which aren't impacted by that issue.
+footnote: The reality of Machine Learning trainings is that not all problems can be fixed with limited resources and often times a solid workaround provides for a quicker finish line, as compared to "stopping the presses" and potentially delaying the training for weeks, while trying to figure out where the problem is. For example we trained BLOOM-176B with `CUDA_LAUNCH_BLOCKING=1` because the training would hang without it and after multiple failed attempts to diagnose that we couldn't afford any more waiting and had to proceed as is. Luckily this environment variable that normally is used for debug purposes and which in theory should make some CUDA operations slower didn't actually make any difference to our throughput. But we have never figured out what the problem was and today it doesn't matter at all that we haven't, as we moved on with other projects which aren't impacted by that issue.
 
 The idea is similar to the kill and save switches discussed earlier, but here instead of polling for a specific file appearance we simply watch how much resident memory is used. For example here is how you'd auto-exit if the OS shows only 5% of the virtual cpu memory remain:
 
-```
+```python
 import psutil
 for batch in iterator:
     total_used_percent = psutil.virtual_memory().percent
@@ -291,7 +294,7 @@ for batch in iterator:
 
 Similar heuristics could be used for setting a threshold for GPU memory usage, except one needs to be aware of cuda tensor caching and python garbage collection scheduling, so to get the actual memory usage you'd need to do first run the garbage collector then empty the cuda cache and only then you will get real memory usage stats and then gracefully exit the training if the GPU is too close to being full.
 
-```
+```python
 import gc
 import torch
 
@@ -299,7 +302,7 @@ for batch in iterator:
     gc.collect()
     torch.cuda.empty_cache()
 
-    # get mem usage in GBs and exit if less than 2GB of free GPU memory remain
+    # get mem usage in GiBs and exit if less than 2GiB of free GPU memory remain
     free, total = map(lambda x: x/2**30, torch.cuda.mem_get_info());
     if free < 2:
         print(f"Exiting early since the GPU memory is almost full: ({free}GB remain)")
@@ -309,7 +312,7 @@ for batch in iterator:
     train_step(batch)
 ```
 
-footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_CUDA_ALLOC_CONF`](https://pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [Deepspeed](https://github.com/deepspeedai/DeepSpeed) solve this by pre-allocating tensors at start time and then reuse them again and again preventing the issue of fragmentation altogether.
+footnote: don't do this unless you really have to, since caching makes things faster. Ideally figure out the fragmentation issue instead. For example, look up `max_split_size_mb` in the doc for [`PYTORCH_ALLOC_CONF`](https://docs.pytorch.org/docs/stable/notes/cuda.html#environment-variables) as it controls how memory is allocated. Some frameworks like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) solve this by pre-allocating tensors at start time and then reuse them again and again preventing the issue of fragmentation altogether.
 
 footnote: this simplified example would work for a single node. For multiple nodes you'd need to gather the stats from all participating nodes and find the one that has the least amount of memory left and act upon that.
 
@@ -339,7 +342,7 @@ So, for example, let's say your HPC allows 100 hour jobs, and then your slurm sc
 ```
 
 ### Approach A. Tell the program at launch time when it should start the exiting process:
-```
+```bash
 srun ... torchrun ... --exit-duration-in-mins 5990
 ```
 100h is 6000 minutes and so here we give the program 10 mins to gracefully exit.
@@ -348,7 +351,7 @@ And when you start the program you create a timer and then before every new iter
 
 case study: you can see how this was set [in the BLOOM training job](https://github.com/bigscience-workshop/bigscience/blob/58d99c67f643d27b5765a73a2ee2d1ce0a4b2c6b/train/tr11-176B-ml/tr11-176B-ml.slurm#L97-L100) and then acted upon [here](https://github.com/bigscience-workshop/Megatron-DeepSpeed/blob/e52bdabbde3c6895aceb76c1bced295c2646121f/megatron/training.py#L985-L998):
 
-```
+```python
         # Exiting based on duration
         if args.exit_duration_in_mins:
             train_time = (time.time() - _TRAIN_START_TIME) / 60.0
@@ -368,7 +371,7 @@ case study: you can see how this was set [in the BLOOM training job](https://git
 As you can see since the training is distributed we have to synchronize the exiting event across all ranks
 
 You could also automate the derivation, by retrieving the `EndTime` for the running job:
-```
+```bash
 $ scontrol show -d job $SLURM_JOB_ID | grep Time
    RunTime=00:00:42 TimeLimit=00:11:00 TimeMin=N/A
    SubmitTime=2023-10-26T15:18:01 EligibleTime=2023-10-26T15:18:01
@@ -389,7 +392,7 @@ and then SLURM will send a `SIGUSR1` signal to your program 10min before job's e
 footnote: normally SLURM schedulers send a `SIGCONT`+`SIGTERM` signal about 30-60 seconds before the job's time is up, and just as the time is up it will send a `SIGCONT`+`SIGTERM`+`SIGKILL` signal if the job is still running. `SIGTERM` can be caught and acted upon but 30 seconds is not enough time to gracefully exit a large model training program.
 
 Let's demonstrate how the signal sending and trapping works. In terminal A, run:
-```
+```bash
 python -c "
 import time, os, signal
 
@@ -404,7 +407,7 @@ time.sleep(1000)
 ```
 it will print the pid of the process, e.g., `4034989` and will go to sleep (emulating real work). In terminal B now send `SIGUSR1` signal to the python program in terminal A with:
 
-```
+```bash
 kill -s USR1 4034989
 ```
 
@@ -417,7 +420,7 @@ Signal handler called with signal 10
 
 So here is the same thing with the SLURM setup:
 
-```
+```bash
 $ cat sigusr1.slurm
 #SBATCH --job-name=sigusr1
 #SBATCH --nodes=1
@@ -442,7 +445,7 @@ time.sleep(1000)
 In the SLURM script we told SLURM to send the program a signal 170 seconds before its end and the job itself was set to run for 180 secs (3 mins).
 
 When this job has been scheduled:
-```
+```bash
 sbatch sigusr1.slurm
 ```
 10 seconds (`180-170`) after the job started, it will exit with the log:
@@ -454,12 +457,12 @@ Signal handler called with signal 10
 
 which means the job had a pid `58307` and it caught `SIGUSR1` (`10`) and it exited.
 
-Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in Approach A above.
+Now that you understand how this machinery works, instead of immediate `exit(0)` you can set exit-asap flag, finish the currently run iteration, check that the flag is up, save the checkpoint and exit. This is very similar to the code shown in [Approach A](#approach-a-tell-the-program-at-launch-time-when-it-should-start-the-exiting-process).
 
 
 ### Approach B.2. Choosing which process to send the signal to
 
-Now what if your main program isn't the one launched with `srun` - if you were to use an intermediate launcher like `torchrun` or `accelerate` the above recipe won't work, because most likely `SIGUSR1` won't be propagated from the launcher to its children. In this case we need a slightly more complicated slurm script than
+Now what if your main program isn't the one launched with `srun` - if you were to use an intermediate launcher like `torchrun` or `accelerate` the above recipe won't work, because most likely `SIGUSR1` won't be propagated from the launcher to its children. In this case we need a slightly more complicated slurm script than the one shown earlier.
 
 We have to replace:
 ```
@@ -474,14 +477,14 @@ The added `B:` tells SLURM not to send the signal to the `srun` process (launche
 
 And now we have to change the end of the SLURM script from a typical launcher-based code like:
 
-```
+```bash
 CMD="python -u -m torch.distributed.run ... train.py ..." # real command here
 LOG_FILE=/path/to/logs/main_log.txt
 srun --jobid $SLURM_JOBID bash -c "$CMD" 2>&1 | tee -a $LOG_FILE
 
 ```
 to this:
-```
+```bash
 trap 'echo "SIGUSR1 received!"; \
 pid=$(pgrep -f "^python.*(accelerate|deepspeed|torchrun|distributed.run)"); \
 pgrep -P $pid | xargs -r kill -USR1; \
@@ -504,7 +507,7 @@ Your python code that catches the signal handler remains the same as in Approach
 
 Here are the important parts of the SLURM script together:
 
-```
+```bash
 $ cat launch.slurm
 #!/bin/bash
 [...]
@@ -524,7 +527,7 @@ wait
 ```
 
 And your training loop that may have originally looked like this:
-```
+```bash
 $ cat train.py
 
 for batch in dl:
@@ -532,7 +535,7 @@ for batch in dl:
 ```
 
 Now it'll become:
-```
+```bash
 $ cat train.py
 
 import signal
@@ -573,7 +576,7 @@ We haven't discussed so far what happens when Quality of Service (QoS) is used, 
 
 Consider a SLURM setup where you have `--qos=high` which can preempt `--qos=low` jobs and the low priority job has grace time of 10 minutes to shut down:
 
-```
+```bash
 $ sacctmgr show qos format=name,priority,preempt,MaxTRESPerUser,GraceTime,Preempt,Flags
       Name   Priority     MaxTRESPU  GraceTime    Preempt                Flags
 ---------- ---------- ------------- ---------- ---------- --------------------

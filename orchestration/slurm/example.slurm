@@ -53,7 +53,7 @@ echo $CMD
 # export TORCHELASTIC_ERROR_FILE=/tmp/torch-elastic-error.json
 
 # force crashing on nccl issues like hanging broadcast
-export NCCL_ASYNC_ERROR_HANDLING=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # export NCCL_DEBUG=INFO
 # export NCCL_DEBUG_SUBSYS=COLL
 # export NCCL_SOCKET_NTHREADS=1

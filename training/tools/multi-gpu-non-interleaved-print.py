@@ -8,7 +8,7 @@
 #
 # e.g., if you have 2 gpus run it as:
 #
-# python -m torch.distributed.run --nproc_per_node 2 multi-gpu-non-interleaved-print.py
+# torchrun --nproc_per_node 2 multi-gpu-non-interleaved-print.py
 #
 
 import fcntl

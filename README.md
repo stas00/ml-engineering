@@ -18,6 +18,8 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 1. **[How to Choose a Cloud Provider](./insights/how-to-choose-cloud-provider.md)** - these questions will empower you to have a successful compute cloud experience.
 
+1. **[When Is It Worth Upgrading GPUs?](./insights/when-to-upgrade-gpus/README.md)** - a practical framework for deciding whether a GPU generation upgrade is worth its cost, worked through on a real H200 → B200 benchmark.
+
 **Part 2. Hardware**
 
 1. **[Compute](compute)** - accelerators, CPUs, CPU memory.
@@ -61,29 +63,52 @@ I've been compiling this information mostly for myself so that I could quickly f
 
 I announce any significant updates on my twitter channel [https://twitter.com/StasBekman](https://twitter.com/StasBekman).
 
-## PDF version
+## Ebook versions of the book
 
-Download the [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true) version of the book.
+You can download various ebook formats of this book:
+* [PDF](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.pdf?download=true)
+* [EPUB](https://huggingface.co/stas/ml-engineering-book/resolve/main/Stas%20Bekman%20-%20Machine%20Learning%20Engineering.epub?download=true)
 
-I will try to rebuild it once in a few weeks or so, but if you want the latest pdf, the instructions for building are [here](build).
 
-Thanks to HuggingFace for giving me permission to host my book's PDF at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
+I will try to rebuild these once in a few weeks or so, but if you want the latest ebook versions, the instructions for building are [here](build).
+
+Thanks to HuggingFace for giving me permission to host my book's ebook formats at the [HF hub](https://huggingface.co/stas/ml-engineering-book).
+
+
+## Skills for AI agents
+
+I maintain two [SKILL.md](skills/README.md) files that you can use to teach your AI agent:
+
+- [Machine Learning Engineering](skills/ml-engineering/SKILL.md) — train and operate large-scale ML models.
+- [Evaluate a GPU cluster](skills/evaluate-cluster/SKILL.md) — trial-node / acceptance loop: compute, network, and storage, then a markdown report.
+
+See also the companion skills: [The Art of Debugging](https://github.com/stas00/the-art-of-debugging/blob/master/SKILL.md) and [Stas' Python Cookbook](https://github.com/stas00/python-cookbook/blob/master/SKILL.md).
+
+
+## Courses
+
+- **[Lessons Learned from Training LLMs](courses/lesson-learned)** - provides a very different way of reading my open books, by going over the terse learned insights and allowing you to quickly dive deeper when you need to.
+
+## Lectures/Talks
+
+- [Building resilient ML Engineering skills](https://www.youtube.com/watch?v=IBJUt9JPKHk) given on 2026-01-10 for the [GPU Mode community](https://github.com/gpu-mode). Only had time to discuss performance reality of accelerators, network and storage and how each of them can be crucial to the ensemble's performance. Thanks to [Mark Saroufim](https://github.com/msaroufim) for organizing and providing an awesome support during the talk.
 
 ## Discussions
 
 If you want to discuss something related to ML engineering this repo has the [community discussions](https://github.com/stas00/ml-engineering/discussions) available - so please don't hesitate to share your experience or start a new discussion about something you're passionate about.
 
+
 ## Key comparison tables
 
 High end accelerators:
 
-- [Theoretical accelerator TFLOPS](compute/accelerator#tflops-comparison-table)
-- [Accelerator memory size and speed](compute/accelerator#accelerator-memory-size-and-speed)
+- [Theoretical accelerator TFLOPS](compute/accelerator/README.md#tflops-comparison-table)
+- [Accelerator memory size and speed](compute/accelerator/README.md#accelerator-memory-size-and-speed)
 
 Networks:
 
-- [Theoretical inter-node speed](network#inter-node-networking)
-- [Theoretical intra-node speed](network#intra-node-networking)
+- [Theoretical inter-node speed](network/README.md#inter-node-networking)
+- [Theoretical intra-node speed](network/README.md#intra-node-networking)
 
 ## Shortcuts
 
@@ -99,8 +124,8 @@ Guides:
 
 - [debugging pytorch applications](debug/pytorch.md) - quick copy-n-paste solutions to resolve hanging or breaking pytorch applications
 - [slurm for users](orchestration/slurm/users.md) - a slurm cheatsheet and tricks
-- [make tiny models/datasets/tokenizers](debug/make-tiny-models-tokenizers-datasets.md)
-- [LLM/VLM chronicles collection](resources#publicly-available-training-llmvlm-logbooks)
+- [make tiny models/datasets/tokenizers](debug/pytorch.md#faster-debug-and-development-with-tiny-models-tokenizers-and-datasets)
+- [LLM/VLM chronicles collection](resources/README.md#publicly-available-training-llmvlm-logbooks)
 
 
 ## Gratitude
@@ -117,6 +142,10 @@ I'd also like to thank the numerous [contributors](contributors.md) who have bee
 
 If you found a bug, typo or would like to propose an improvement please don't hesitate to open an [Issue](https://github.com/stas00/ml-engineering/issues) or contribute a PR.
 
+## Related Open Books
+
+- [The Art of Debugging Open Book](https://github.com/stas00/the-art-of-debugging) — methodologies and recipes for debugging Unix, Python and PyTorch programs.
+- [Stas' Python Cookbook](https://github.com/stas00/python-cookbook) — everyday Python and standard-library recipes.
 
 ## License
 
@@ -129,7 +158,7 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 @misc{bekman2024mlengineering,
   author = {Bekman, Stas},
   title = {Machine Learning Engineering Open Book},
-  year = {2023-2024},
+  year = {2023-2026},
   publisher = {Stasosphere Online Inc.},
   journal = {GitHub repository},
   url = {https://github.com/stas00/ml-engineering}
@@ -138,13 +167,10 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
 
 ## My repositories map
 
-✔ **Machine Learning:**
- [ML Engineering Open Book](https://github.com/stas00/ml-engineering) |
- [ML ways](https://github.com/stas00/ml-ways) |
- [Porting](https://github.com/stas00/porting)
-
-✔ **Guides:**
- [The Art of Debugging](https://github.com/stas00/the-art-of-debugging)
+✔ **Books:**
+ [Machine Learning Engineering](https://github.com/stas00/ml-engineering) |
+ [The Art of Debugging](https://github.com/stas00/the-art-of-debugging) |
+ [Stas' Python Cookbook](https://github.com/stas00/python-cookbook)
 
 ✔ **Applications:**
  [ipyexperiments](https://github.com/stas00/ipyexperiments)
@@ -158,3 +184,7 @@ The content of this site is distributed under [Attribution-ShareAlike 4.0 Intern
  [python](https://github.com/stas00/python-tools) |
  [tensorboard](https://github.com/stas00/tensorboard-tools) |
  [unix](https://github.com/stas00/unix-tools)
+
+✔ **Other Machine Learning:**
+ [ML ways](https://github.com/stas00/ml-ways) |
+ [Porting](https://github.com/stas00/porting)

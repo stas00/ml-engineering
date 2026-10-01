@@ -1,3 +1,3 @@
 # NCCL: Debug and Performance
 
-moved to [Network Debug](../network/debug).
+**Moved to [Network Debug](../network/debug).**

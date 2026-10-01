@@ -34,11 +34,11 @@ This was the almost perfect training indeed. Lots of hard work was put into achi
 
 ### The grokking moment
 
-Recently I was doing some performance testing and run a tiny global batch size of 8 on 8x A100 nodes on llama-2-7b trained from scratch. (w/ Deepspeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
+Some time back I was doing performance testing and run a tiny global batch size of 8 on an 8×A100 node, training llama-2-7b from scratch. (w/ DeepSpeed ZeRO-3 DP using HF Transformers [Llama](https://github.com/huggingface/transformers/tree/main/src/transformers/models/llama) implementation)
 
 ![](images/llama-7b-grokking-no-zoom.png)
 
-Here one can observe a rapid loss improvement from 4 to 2.5 in just 480 samples after a very steady much slower improvements. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In just a handful of steps the model suddenly generalized to much better predict the masked tokens.
+Here one can observe a rapid loss improvement from 4 to 2.5 in just 480 samples after a very steady much slower improvements. My colleague [Gautam Mittal](https://github.com/gmittal) called it the [grokking](https://en.wikipedia.org/wiki/Grok) moment. In just a handful of steps the model suddenly generalized to much better predict the next tokens.
 
 Normally one doesn't see such a dramatic improvement when using a much larger batch size.
 
@@ -152,17 +152,19 @@ I rolled back to just before the weird behavior occurred and restarted. The loss
 
 I have never seen this type of divergence before. I was scratching my head for a while and then decided to look at the bigger picture.
 
-As of this writing [Wandb](https://wandb.ai/) doesn't handle resume data plotting correctly if a rollback was performed, that is it ignores all new data after the rollback until the steps of the old data have been overcome. This forces us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you needs to see the whole plot you have to stitch them and which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
+[wandb](https://wandb.ai/) didn't handle resume data plotting correctly if a rollback was performed, that is it ignored all new data after the rollback until the steps of the old data have been overcome. This forced us to start a new wandb plot for every resume with a rollback so that new data is shown. And if you need to see the whole plot you have to stitch them together, which includes dead data points that are no longer true. So I did the stitching and saw this puzzle:
 
 ![](images/ptl-repeat-data-p3.png)
 
+footnote: as of 2025 wandb can do this properly - [rewinding a run](https://docs.wandb.ai/models/runs/rewind) with `wandb.init(resume_from="<run_id>?_step=N")` truncates the history at step `N` and lets you log forward under the same run id, and `fork_from` does the same while leaving the original run intact (wandb SDK 0.17.1+; wandb recommends forking over rewinding for performance). Two catches: it's cloud-only - Multi-tenant and Dedicated Cloud, not Self-Managed - and it needs monotonically increasing steps, so it won't work alongside a non-monotonic `define_metric()`. Self-hosting, the stitching above is still the way.
+
 There was no real spike in the two earlier runs. The loss never went up in the first place. In both resumes it was under-reporting loss due to an exactly repeated data and then it reached data it hasn't seen before and started reporting correctly. In other words it was overfitting and reporting a false loss.
 
-The cause of the problem is data repetition, and since it clearly memorised some of it it was reporting a better loss.
+The cause of the problem is data repetition, and since it clearly memorised some of it, it was reporting a better loss.
 
-The problem comes from [pytorch-lightning](https://github.com/lightning-ai/lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables).
+The problem came from [pytorch-lightning](https://github.com/Lightning-AI/pytorch-lightning) not handling resumes correctly wrt DataSampler automatically - basically every time you resume you start your data stream from scratch. This, of course, requires a user to somehow fix the situation. You could change the seed to somewhat ameliorate the situation and avoid the exact data sequence, but it still leaves you with repeat data, which isn't what you want for any serious training (or ablation experiments, since your observation will be invalid, if they assume [IID data distribution](https://en.wikipedia.org/wiki/Independent_and_identically_distributed_random_variables)).
 
-footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
+footnote: I discussed [this issue with the PTL developers](https://github.com/Lightning-AI/pytorch-lightning/issues/18780) and they said that they tried hard to come up with a generic solution but it wasn't meant to be. So the user needs to figure it out.
 
 Make sure to check your training framework documentation whether it handles the DataSampler resuming correctly. Make sure you didn't discover this problem after the training has finished and you ended up training 6x times the same 50B of tokens from the planned 300B tokens seen only once each.
 

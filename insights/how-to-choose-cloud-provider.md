@@ -20,12 +20,22 @@ These notes assume you already know what compute you want for your specific work
 - TCO: Total Cost of Ownership
 
 
+## The most important questions to ask
+
+In my limited experience there are 3 questions you absolutely need to know the answer to:
+
+1. **Your GPUs will fail - guaranteed.** The critical question is how quickly they will be replaced and what's the procedure - if you need to get a hold of a human for each replacement this will be painful and slow, the best CSPs give you an API for you to do it yourself. Also beware of Humpty Dumpty GPUs, that will get returned to you w/o actually being replaced because when the technician checks them they appear to work just fine - but they will fail again when you try to use them - here is how to [detect if you get the same broken GPUs back](../compute/accelerator/nvidia/debug.md#how-to-detect-if-you-get-the-same-broken-node-again-and-again).
+
+2. **You will run into multiple problems, mainly with the hardware.** You need to know how quickly you can reach an engineer that can address the issue. Normally your reports will go to a PM, who will triage and try to get you to the right person, but very often this can take hours/days and sometimes requires escalation, especially if the PM isn't the most experienced person in the world.
+
+3. **You need to know if you can break the contract - how quickly and at what cost.** Things may get really bad for your team, but if you can't walk away, that would guarantee burnout for one or more persons on your team and a potential negative impact on your ability to make progress and lead your team to success.
+
 
 ## Contracts
 
 If you're paying per hour, you don't need to worry about contracts. But this method isn't good long term because you will be paying many times more and you won't have a steady reliable accelerator foundation. A long term contract at times and with a good negotiator can lead to a 10x in total cost of ownership (TCO) savings (and time)!
 
-### Free Trials
+### Free trials
 
 Most cloud service providers (CSPs) have trial programs where you can "kick the tires" for a few days/weeks on a few nodes for free.
 
@@ -42,7 +52,7 @@ So if you want the latest generation as soon as it becomes available you're almo
 
 I'm not sure if CSPs are to blame, because often they get the hardware delivery months after it was promised by the manufacturers and, of course, by now they can't keep their promises to the customers, so they just go ahead and deliver...
 
-Then some CSPs develop their own hardware (e.g. network stack) in order to have better margins and then they fail to complete those custom solutions in time, the latest accelerators are there, but the whole system is limping. It's much safer when off-the-shelf components are offered, since those are most likely to be well-tested working components (expect it's likely to cost more).
+Then some CSPs develop their own hardware (e.g. network stack) in order to have better margins and then they fail to complete those custom solutions in time, the latest accelerators are there, but the whole system is limping. It's much safer when off-the-shelf components are offered, since those are most likely to be well-tested working components (except it's likely to cost more).
 
 I think it's OK if the customer wants the hardware early, there should just be an honest disclosure as in: *"look we need some 3 more months to make things solid, if you want the nodes now you can have them but we can't guarantee anything."*
 
@@ -53,17 +63,15 @@ A lot of the long-term cloud contracts are likely to include a lot of "we will d
 Yet:
 
 1. The customer is not allowed to "do their best" to pay, they are legally obliged to pay the amount they agreed to pay and on time.
-2. The customer is not allowed to break a contact before its term runs its course.
+2. The customer is not allowed to break a contract before its term runs its course.
 
 In my experience "we will do our best" is demonstrated by Tier-1 clouds by sending 10+ people to the meetings with the customers. Some of them will be clueless and will be just sitting there making the company look resourceful: *"look, we are allocating 10+ people to the problem you're experiencing. You have nothing to worry about"*. Except, most of the time those people can't solve your problem.
 
 What you need is just 2 cloud support people on the call - one product manager and one engineer directly responsible for solving the problem at hand. And in my experience this sort of meeting could take weeks to months to manifest or not at all. Usually one needs to have good connections to be able to escalate the issue to "top brass".
 
-For every critical component of the package you're purchasing you need a quantifiable delivery. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the CSP will do when this happens. How long do they have to fix the problem and whether you can break a contract should this not happen within the agreed by both sides time.
+For every critical component of the package you're purchasing you need a quantifiable delivery metric. For example, if the network you were sold is supposed to run at X GBps at that many nodes doing all-reduce, and you measured it to be significantly lower, there should be a stipulation of what the CSP will do when this happens. Same goes for storage, accelerators and any other critical component that you plan to rely on.
 
-Same goes for storage, accelerators and any other critical component that you plan to rely on.
-
-Of course, it's up to you to negotiate the specific repercussions, but probably the best one is that you stop paying until the problem is fixed. That way there is a huge incentive for the problem to be fixed.
+Of course, it's up to you to negotiate the specific repercussions, but probably the best one is that you stop paying until the problem is fixed. That way there is an incentive for the problem to be fixed.
 
 Alas, not paying helps, but not being able to use the compute is still a huge problem. And breaking the contract and migrating to another provider is a huge undertaking not to be taken lightly. But at least there is something you could do if you don't get what you need.
 
@@ -73,7 +81,7 @@ I must also say that it's almost never the problem of the engineers, very often 
 
 As a continuation of a previous section, a [Service Level Agreement](https://en.wikipedia.org/wiki/Service-level_agreement) (SLA) is an agreement between a service providers and a customer that define various guarantees and expectations with regards to service quality and availability, and various responsibilities.
 
-The other term is Service Level Objective (SLO) where SLA is quantified. For example, an SLO may define a Monthly Uptime Percentage to 99.5%, if the uptime is less than 99.5% the provider credits the customer to a certain percentage of the $$ spent. For example, 10% if the uptime is 99-99.5%, 25% for 95-99%, etc. Here a [GCP SLA](https://cloud.google.com/ai-platform/training-and-prediction/sla?hl=en).
+The other term is Service Level Objective (SLO) where SLA is quantified. For example, an SLO may define a Monthly Uptime Percentage to 99.5%, if the uptime is less than 99.5% the provider credits the customer to a certain percentage of the $$ spent. For example, 10% if the uptime is 99-99.5%, 25% for 95-99%, etc. Here is an example [GCP SLA](https://cloud.google.com/ai-platform/training-and-prediction/sla?hl=en).
 
 The main category one should care for when renting ML clusters is failing accelerators and/whole nodes. If you paid for 64 nodes but were able to use only 60 you should be reimbursed/credited for those nodes you couldn't use. Your SLA should define the duration of downtime after which the provider starts paying you back and how much.
 
@@ -81,7 +89,7 @@ Same goes for network and storage, albeit those typically fail a lot less often 
 
 In general any critical part of the service should have an SLO and clearly defined repercussions if the SLOs aren't met.
 
-Most Tier 1 companies should already include their standard SLAs in the contract. In theory the customer should be able to negotiate those to adapt to their needs, thought it might not always be possible. Sometimes offering to pay more may allow for a better than standard SLO.
+Most Tier 1 companies should already include their standard SLAs in the contract. In theory the customer should be able to negotiate those to adapt to their needs, though it might not always be possible. Sometimes offering to pay more may allow for a better than standard SLO.
 
 
 ### Discuss a contract breaking clause
@@ -141,7 +149,7 @@ Otherwise, a new batch of accelerators often has a 3-10% failure rate, which is 
 
 So ask your provider how long did they burn in your accelerators/systems for, if at all.
 
-I'm yet to find a golden reference point, but, for example,  [SemiAnalysis](https://semianalysis.com/2024/10/03/ai-neocloud-playbook-and-anatomy/#cluster-deployment-and-acceptance-test) suggests that OEM provider performs a 3-4 weeks burn-in, and then the CSP conducts another 2-3 day long burn-in/acceptance test. So if that's the case you want to ensure that the systems were stress-tested for at least 2-3 days.
+I'm yet to find a golden reference point, but, for example,  [SemiAnalysis](https://newsletter.semianalysis.com/p/ai-neocloud-playbook-and-anatomy#%C2%A7cluster-deployment-and-acceptance-test) suggests that OEM provider performs a 3-4 weeks burn-in, and then the CSP conducts another 2-3 day long burn-in/acceptance test. So if that's the case you want to ensure that the systems were stress-tested for at least 2-3 days. And, BTW, nothing stops you from doing some massive training as a test if you're not worries about stop-n-go for failures, if it works you made some progress. Of course, you want to make sure that your training stresses out all parts of the system in a sustainable fashion.
 
 
 ### Dealing with accelerator failures
@@ -154,7 +162,7 @@ Ideally this process needs to be automated. So you need to ask if there an API t
 
 How many accelerators do you have in the provider-side back up pool available to you? They will usually commit to a certain number of fast replacement per month.
 
-That's said if time is of an essence to your workflows, as most of the time you won't be able to get instant replacements you should always pay for about 10% more nodes than you need. The extra nodes can be used for development and if you have failing nodes during training you can instantly use your own extra nodes.
+That said, if time is of the essence to your workflows, you should always pay for about 10% more nodes than you need, since most of the time you won't be able to get instant replacements. The extra nodes can be used for development and if you have failing nodes during training you can instantly use your own extra nodes.
 
 
 ### Ensure all your nodes are on the same network spine
@@ -197,7 +205,7 @@ Most other filesystems I had an experience with typically reach 100% capacity wi
 
 ### Know your storage IO requirements
 
-At one of the clouds we used a non-parallel distributed filesystem and the developer experience was absolutely terrible. While dealing with large files was acceptable, the small files experience was extremely slow - it'd take 30 minutes to install a basic Conda environment and 2 minutes to run `python -c "import torch"`. This is because Python has tens of thousands of 4-16kb files and if the file system isn't optimized to handle those and the meta-data servers are weak, it'd be a very frustrating experience.
+At one of the clouds we used a non-parallel distributed filesystem and the developer experience was absolutely terrible. While dealing with large files was acceptable, the small files experience was extremely slow - it'd take 30 minutes to install a basic Conda environment and 2 minutes to run `python -c "import torch"`. This is because Python has tens of thousands of 4-16KB files and if the file system isn't optimized to handle those and the meta-data servers are weak, it'd be a very frustrating experience.
 
 In general a typical Python shop needs a filesystem that can deal with:
 - tens of thousands of tiny files
@@ -235,7 +243,7 @@ Here are some critical questions you need to ask long before the migration start
 - What happens to the files being edited and created while the filesystem is on the move - do you send everybody home while the migration is happening and freeze the filesystem?
 
 
-### Backup and Archive
+### Backup and archive
 
 Many CSPs only have one tier of file storage available at one price point. However, organiations can have needs for multiple tiers of storage. For example, you might want to archive old model checkpoints or finetuning datasets to cheap, cold storage such as S3 object on HDD.
 
@@ -249,7 +257,7 @@ Having the flexibility to expand your total storage capacity, and keep the "hot"
 
 This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
-In general you want to ensure that the offered [intra-node](../network#intra-node-networking) and [inter-node](../network#intra-node-networking) network speeds match the promise and your expectations.
+In general you want to ensure that the offered [intra-node](../network/README.md#intra-node-networking) and [inter-node](../network/README.md#inter-node-networking) network speeds match the promise and your expectations. When you measure, ask which NCCL env vars the platform needs; a safe default is `NCCL_NVLS_ENABLE=2` (use NVLink SHARP when available).
 
 ### Ask for the actual performance numbers
 
@@ -257,24 +265,59 @@ Compute theory never matches reality, and the reality may dramatically vary from
 
 The easiest ask is to request an `all-reduce` benchmark plot over 4-8-16-32-64 nodes (or more if your cluster is more than 64 nodes). You'd expect the bandwidth to gradually become worse with more participating nodes, but not dramatically so. Some networks become very inefficient at higher number of nodes.
 
-Please refer to [Real network throughput](../network#real-network-throughput) for more details.
+Please refer to [Real network throughput](../network/README.md#real-network-throughput) for more details.
 
-Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GB (16GB would get the best bandwidth on the latest fastest inter-node networks), if the performance drops below 80% of the theoretical GBps, then I know we have a problem.
+Ideally you want to benchmark at least a few payloads - the ones that are of a particular interest to you because you know that this is the collective payload you will be using in your workloads. I usually just start by asking for a plot of a big payload of about 4-16GiB (16GiB would get the best bandwidth on the latest fastest inter-node networks), which immediately tells me if the network is good. But it's very likely you will want to know 256-512MiB payload as well, so just as well ask for the wider range.
+
+The most practical approach I've used is to ask the CSP for their own `nccl-tests` `all-reduce` numbers - on 1 node, and on 4-16 nodes. Every provider wants to put their best foot forward, so what comes back is their best case, which is exactly what you want: it becomes the number you hold them to in your SLA. You can ask around whether those figures look right for that hardware, and in my experience they usually do. Then once you have the nodes, run the same benchmark yourself - those are the numbers you should be able to reproduce. If you can't, something about your allocation differs from what they demoed, and now you have a specific, quantified thing to escalate instead of a vague complaint that the network feels slow.
+
+footnote: of course, ask them about this upfront, not when you negotiate the SLA. That's too late and they then have no incentive to show you what their best case looks like.
+
+I'm yet to see NVLink not performing the same everywhere (unless it's misconfigured on the software level), but still ask to also see the single-node benchmark.
 
 
 ### Does the network steal from the accelerator memory?
 
-One surprise I experienced on one of the clouds is that when I started using the GPUs I discovered that 5GB of each was already used by the networking software - we managed to reduce it to a lower value, but still we were sold GPUs with less than their memory size and nobody told us about that before we signed the contract.
+One surprise I experienced on one of the clouds is that when I started using the GPUs I discovered that 5GiB of each was already used by the networking software - we managed to reduce it to a lower value, but still we were sold GPUs with less than their memory size and nobody told us about that before we signed the contract.
 
-As accelerators become much bigger this will probably become unimportant, but when you get 75GB of usable memory instead of 80GB on H100 - that's a huge amount of memory lost per GPU.
+As accelerators become much bigger this will probably become unimportant, but when you get 75GiB of usable memory instead of 80GiB on H100 - that's a huge amount of memory lost per GPU.
 
-### Infiniband or Ethernet?
+### InfiniBand or Ethernet?
 
 In general, CSPs follow NVIDIA's [DGX SuperPOD Reference Architecture](https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/abstract.html) which provides a lot of detail on how to build a rail-optimized InfiniBand network. Rail-optimized basically means that each GPU in an 8-way system connects to it's own leaf switch. Everything else is a standard fat-tree.
 
-However, many of the largest GPU clusters in the world now run RoCEv2 instead of Infiniband. Meta has [proven](https://engineering.fb.com/2024/08/05/data-center-engineering/roce-network-distributed-ai-training-at-scale/) that you can train frontier-class Llama models on a RoCEv2 network. Semianalysis/Fabricated Knowledge show a [significant drop-off](https://www.fabricatedknowledge.com/p/nvidia-waiting-on-blackwell-and-whats?utm_source=post-banner&utm_medium=web&utm_campaign=posts-open-in-app&triedRedirect=true) in NVIDIA's networking attach rate for their GPUs.
+However, many of the largest GPU clusters in the world now run RoCEv2 instead of InfiniBand. Meta has [proven](https://engineering.fb.com/2024/08/05/data-center-engineering/roce-network-distributed-ai-training-at-scale/) that you can train frontier-class Llama models on a RoCEv2 network. Semianalysis/Fabricated Knowledge show a [significant drop-off](https://www.fabricatedknowledge.com/p/nvidia-waiting-on-blackwell-and-whats?utm_source=post-banner&utm_medium=web&utm_campaign=posts-open-in-app&triedRedirect=true) in NVIDIA's networking attach rate for their GPUs.
 
-Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can siginificantly impact performance and user experience.
+Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can significantly impact performance and user experience.
+
+
+## How to evaluate the cluster
+
+Once you have trial nodes, measure the three subsystems the rest of this article is about. Do not take the CSP's slide deck as the SLA until you can reproduce it on *your* allocation. The tools live in this book; an agent runbook for the same loop is [evaluate-cluster/SKILL.md](../skills/evaluate-cluster/SKILL.md).
+
+Use an **isolated venv**. Do not mutate the node's `dev` conda/env. If a recent `torch` with a CUDA build that matches the GPU is already there, reuse it; otherwise install the current stable CUDA wheel, plus `nvidia-ml-py` (MAMF telemetry), `matplotlib` (all-reduce plots), and `fio`.
+
+Before expensive sweeps, run [`torch-distributed-gpu-test.py`](../debug/torch-distributed-gpu-test.py) on one node so a broken NCCL/GPU shows up in seconds rather than inside a 16 GiB all-reduce.
+
+### A. Network
+
+Intra-node: [`all_reduce_bench.py`](../network/benchmarks/all_reduce_bench.py) with `torchrun --nproc_per_node=8` (or however many GPUs the node has). Inter-node: the same script on **at least 4 nodes**. Passwordless SSH between those nodes is required for the `pdsh` recipe in the script header; SLURM `srun` is the other supported launcher. See [Networking Benchmarks](../network/benchmarks/README.md) and [Real network throughput](../network/README.md#real-network-throughput).
+
+The number to report is **`busbw`** (unidirectional). Intra-node: compare to advertised NVLink (not duplex); NVLS/SHARP can push the ring-formula number past 100% of that spec and only helps **all-reduce**. Inter-node: quote `busbw` and the NCCL path; **do not** divide by advertised IB/RoCE/EFA GBps — that collective is never a NIC-only measurement. If you only have one node, skip inter-node and write that down; a 1-node NVLink number does not tell you how the fabric behaves at 4 nodes.
+
+### B. Compute
+
+**MAMF sequential, siblings idle.** [`mamf-finder.py`](../compute/accelerator/benchmarks/mamf-finder.py) `--search auto` on **each GPU** of the node, one at a time (`CUDA_VISIBLE_DEVICES=i`). That is the lemon-detection pass: one slow GPU ruins the node. Compare MAMF/MSMF to official TFLOPS in the [accelerator tables](../compute/accelerator/README.md#tflops-comparison-table). Details: [benchmarks README](../compute/accelerator/benchmarks/README.md).
+
+**DCGM (`dcgmi diag -r 2`).** Hardware health (memory, PCIe/NVLink), not a FLOPS number (≲10.5 min on 8 GPUs). `-r 1` is software-only and not enough; `-r 3` is optional soak. Needs `nv-hostengine` (NVIDIA CUDA repo package `datacenter-gpu-manager-4-cudaN`). If the container cannot run it, write that down and keep MAMF.
+
+A second *concurrent* all-8 run is a different question (shared power/cooling pulls the saturated clock down). Useful, but it is not the headline for "are these GPUs healthy."
+
+### C. Storage
+
+[`fio-scan`](../storage/fio-scan) on the **local NVMe** path *and* the **shared filesystem** path, as documented under [fio](../storage/README.md#fio). You need both: NVMe is the ceiling; shared FS is what dataloaders and checkpoints actually hit. Default is 6 benches × 3 minutes per mount (~18 min each). Tiny-file (16 KiB) latency is the developer-experience proxy; 1 GiB sequential is the checkpoint proxy.
+
+Write a **Conclusion** at the end of the dated report: one verdict per of compute / network / storage, then a **Flags** list (Gaps and anything that is merely “usable, not great”). Do not make the reader hunt through tables for the call.
 
 
 ## Security
@@ -337,4 +380,4 @@ If you feel that these notes are overwhelming for you, I occasionally consult he
 
 ## Additional reading
 
-- semianalysis.com created a ClusterMax CSP rating system and includes excellent explanations of the different criteria and plans to continue ranking many CSPs. [2025](https://semianalysis.com/2025/03/26/the-gpu-cloud-clustermax-rating-system-how-to-rent-gpus/)
+- semianalysis.com created a ClusterMax CSP rating system and includes excellent explanations of the different criteria and plans to continue ranking many CSPs. [2025](https://newsletter.semianalysis.com/p/the-gpu-cloud-clustermax-rating-system-how-to-rent-gpus)

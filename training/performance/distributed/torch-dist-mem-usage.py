@@ -2,7 +2,7 @@
 
 """
 
-This script demonstrates that when using `torch.distributed` a few GBs of GPU memory is taken away per GPU.
+This script demonstrates that when using `torch.distributed` a few GiBs of GPU memory is taken away per GPU.
 
 *** To do a quick test on 2 GPUs:
 
@@ -50,16 +50,16 @@ def see_memory_usage(message, force=False, ranks=[0]):
     nv_mem = memory_info.used
 
     vm_stats = psutil.virtual_memory()
-    used_GB = round(((vm_stats.total - vm_stats.available) / (1024**3)), 2)
+    used_GiB = round(((vm_stats.total - vm_stats.available) / (1024**3)), 2)
 
     accelerator_mem_str = " | ".join([
-        f"MA {round(torch.cuda.memory_allocated() / 2**30, 2):0.2f} GB",
-        f"Max_MA {round(torch.cuda.max_memory_allocated() / 2**30, 2):0.2f} GB",
-        f"CA {round(torch.cuda.memory_reserved() / 2**30, 2):0.2f} GB",
-        f"Max_CA {round(torch.cuda.max_memory_reserved() / 2**30, 2):0.2f} GB",
-        f"NV {round(nv_mem / 2**30, 2):0.2f} GB",
+        f"MA {round(torch.cuda.memory_allocated() / 2**30, 2):0.2f} GiB",
+        f"Max_MA {round(torch.cuda.max_memory_allocated() / 2**30, 2):0.2f} GiB",
+        f"CA {round(torch.cuda.memory_reserved() / 2**30, 2):0.2f} GiB",
+        f"Max_CA {round(torch.cuda.max_memory_reserved() / 2**30, 2):0.2f} GiB",
+        f"NV {round(nv_mem / 2**30, 2):0.2f} GiB",
     ])
-    cpu_mem_str = f"CPU Virtual Memory:  used = {used_GB} GB, percent = {vm_stats.percent}%"
+    cpu_mem_str = f"CPU Virtual Memory:  used = {used_GiB} GiB, percent = {vm_stats.percent}%"
 
     # add '[rank] mp' prefix to enable easy grep
     print(f"[{rank}] mp: {message}")

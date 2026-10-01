@@ -12,6 +12,7 @@ import torch
 import torch.distributed as dist
 
 TRIALS = 1
+WARMUPS = 3
 
 # these emulate the payload which will become a M * N * 4-sized tensor below
 N = 500000
@@ -62,6 +63,16 @@ def run(local_rank):
     end_event = torch.cuda.Event(enable_timing=True)
     for i in range(TRIALS):
         dist.barrier()
+
+        # NCCL sets up channels and buffers on the first collective of a given size - and on
+        # NVLink 4 and higher also the NVLS multicast registration. Without a warmup all of that
+        # cost lands on the 1x measurement below, since it runs first. On an 8x H200 node that
+        # made the 1x figure read about 6x low and reversed the comparison this script exists
+        # to demonstrate.
+        for _ in range(WARMUPS):
+            dist.all_reduce(mat1)
+            dist.all_reduce(mat2)
+        torch.cuda.synchronize()
 
         if global_rank == 0:
             print(f"\n\n\n----------- 1x {N*M*4/1e9}GB ----------------")

@@ -204,7 +204,7 @@ def md_convert_md_target_to_html(text):
     - chapter/doc.md => chapter/doc.html
     """
     link_text, link, anchor = md_link_break_up(text)
-    link = re.sub("\.md$", ".html", link)
+    link = re.sub(r"\.md$", ".html", link)
     return md_link_build(link_text, link, anchor)
 
 

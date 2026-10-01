@@ -5,23 +5,23 @@
 
 ### Useful aliases
 
-Show a diff of all files modified in the current branch against HEAD:
-```
+Show a diff of all files modified in the current branch against the remote default branch:
+```bash
 alias brdiff="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff origin/\$def_branch..."
 ```
 
 Same, but ignore white-space differences, adding `--ignore-space-at-eol` or `-w`:
-```
+```bash
 alias brdiff-nows="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff -w origin/\$def_branch..."
 ```
 
-List all the files that were added or modified in the current branch compared to HEAD:
-```
+List all the files that were added or modified in the current branch compared to the remote default branch:
+```bash
 alias brfiles="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); git diff --name-only origin/\$def_branch..."
 ```
 
 Once we have the list, we can now automatically open an editor to load just added and modified files:
-```
+```bash
 alias bremacs="def_branch=\$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'); emacs \$(git diff --name-only origin/\$def_branch...) &"
 ```
 
@@ -43,7 +43,7 @@ Solution: Bisecting all the commits between the known good and bad commits to fi
 We are going to use 2 shell terminals: A and B. Terminal A will be used for `git bisect` and terminal B for testing your software. There is no technical reason why you couldn't get away with a single terminal but it's easier with 2.
 
 1. In terminal A fetch the git repo and install it in devel mode (`pip install -e .`) into your Python environment.
-```
+```bash
 git clone https://github.com/huggingface/transformers
 cd transformers
 pip install -e .
@@ -54,13 +54,13 @@ Also for simplicity we assume that all the dependencies have already been instal
 
 2. next we launch the bisecting - In terminal A, run:
 
-```
+```bash
 git bisect start
 ```
 
 3. Discover the last known good and the first known bad commits
 
-`git bisect` needs just 2 data points to do its work. It needs to know one earlier commit that is known to work (`good`) and one later commit that is know to break (`bad`). So if you look at the sequence of commits on a given branch it'd have 2 known points and many commits around these that are of an unknown quality:
+`git bisect` needs just 2 data points to do its work. It needs to know one earlier commit that is known to work (`good`) and one later commit that is known to break (`bad`). So if you look at the sequence of commits on a given branch it'd have 2 known points and many commits around these that are of an unknown quality:
 
 ```
 ...... orig_good ..... .... .... .... ..... orig_bad ....
@@ -73,12 +73,12 @@ footnote: typically the first 8 hex characters are enough to have a unique ident
 
 
 So now we specify which is the first known good commit:
-```
+```bash
 git bisect good 5a4f340d
 ```
 
 and as we said we will use `HEAD` (latest commit) as the bad one, in which case we can use `HEAD` instead finding out the corresponding SHA string:
-```
+```bash
 git bisect bad HEAD
 ```
 
@@ -104,11 +104,11 @@ The next stage is telling `git bisect` if the current commit is `good` or `bad`:
 To do so in terminal B run your program once.
 
 Then in terminal A run:
-```
+```bash
 git bisect bad
 ```
 If it fails, or:
-```
+```bash
 git bisect good
 ```
 if it succeeds.
@@ -145,14 +145,14 @@ If your program doesn't take too long to run even if there are thousands of comm
 If your program is very slow, try to reduce it to something small - ideally a small reproduction program that shows the problem really fast. Often, commenting out huge chunks of code that you deem irrelevant to the problem at hand, can be all it takes.
 
 If you want to see the progress, you can ask it to show the current range of remaining commits to check with:
-```
+```bash
 git bisect visualize --oneline
 ```
 
 6. Clean up
 
-So now restore the git repo clone to the same state you started from (most likely `HEAD) with:
-```
+So now restore the git repo clone to the same state you started from (most likely `HEAD`) with:
+```bash
 git bisect reset
 ```
 
@@ -166,10 +166,10 @@ Sometimes, the issue emerges from intentional backward compatibility breaking AP
 a. skipping
 
 If for some reason the current commit cannot be tested - it can be skipped with:
-```
+```bash
 git bisect skip
 ```
-and it `git bisect` will continue bisecting the remaining commits.
+and `git bisect` will continue bisecting the remaining commits.
 
 This is often helpful if some API has changed in the middle of the commit range and your program starts to fail for a totally different reason.
 
@@ -187,18 +187,20 @@ Normally git expects `bad` to be after `good`.
 
 Now, if `bad` happens before `good` revision order-wise and you want to find the first revision that fixed a previously existing problem - you can reverse the definitions of `good` and `bad` - it'd be confusing to work with overloaded logic states, so it's recommended to use a new set of states instead - for example, `fixed` and `broken` - here is how you do that.
 
-```
+```bash
 git bisect start --term-new=fixed --term-old=broken
 git bisect fixed
 git bisect broken 6c94774
 ```
-and then use:
-```
-git fixed / git broken
+and then continue marking commits with:
+```bash
+git bisect fixed
+git bisect broken
 ```
 instead of:
-```
-git good / git bad
+```bash
+git bisect good
+git bisect bad
 ```
 
 c. complications

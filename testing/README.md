@@ -9,7 +9,7 @@ This document covers both `pytest` and `unittest` functionalities and shows how 
 
 ### Run all tests
 
-```console
+```bash
 pytest
 ```
 I use the following alias:
@@ -24,7 +24,7 @@ which tells pytest to:
 - `-rA` generates a short test summary info
 
 it requires you to install:
-```
+```bash
 pip install pytest-instafail
 ```
 
@@ -58,8 +58,7 @@ pytest tests/utils/test_logging.py
 
 ### Run specific tests
 
-If `unittest` is used, to run specific subtests you need to know the name of the `unittest`
-class containing those tests. For example, it could be:
+If `unittest` is used, to run specific subtests you need to know the name of the `unittest` class containing those tests. For example, it could be:
 
 ```bash
 pytest tests/test_optimization.py::OptimizationTest::test_adam_w
@@ -93,8 +92,7 @@ To run only tests whose name contains `adam`:
 pytest -k adam tests/test_optimization.py
 ```
 
-Logical `and` and `or` can be used to indicate whether all keywords should match or either. `not` can be used to
-negate.
+Logical `and` and `or` can be used to indicate whether all keywords should match or either. `not` can be used to negate.
 
 To run all tests except those whose name contains `adam`:
 
@@ -146,9 +144,7 @@ pip install pytest-xdist
 
 To enter the mode: `pytest -f` or `pytest --looponfail`
 
-File changes are detected by looking at `looponfailroots` root directories and all of their contents (recursively).
-If the default for this value does not work for you, you can change it in your project by setting a configuration
-option in `setup.cfg`:
+File changes are detected by looking at `looponfailroots` root directories and all of their contents (recursively). If the default for this value does not work for you, you can change it in your project by setting a configuration option in `setup.cfg`:
 
 ```ini
 [tool:pytest]
@@ -162,10 +158,9 @@ or `pytest.ini`/``tox.ini`` files:
 looponfailroots = transformers tests
 ```
 
-This would lead to only looking for file changes in the respective directories, specified relatively to the ini-file’s
-directory.
+This would lead to only looking for file changes in the respective directories, specified relatively to the ini-file’s directory.
 
-[pytest-watch](https://github.com/joeyespo/pytest-watch) is an alternative implementation of this functionality.
+[pytest-watcher](https://github.com/olzhasar/pytest-watcher) is an alternative implementation of this functionality. The older `pytest-watch` is widely linked but has had no commit since 2022, so prefer the former or `--looponfail` above.
 
 
 ### Skip a test module
@@ -186,7 +181,7 @@ pytest --cache-clear tests
 
 ### Running tests in parallel
 
-As mentioned earlier `make test` runs tests in parallel via `pytest-xdist` plugin (`-n X` argument, e.g. `-n 2` to run 2 parallel jobs).
+If your project defines a `make test` target, it typically runs tests in parallel via the `pytest-xdist` plugin (`-n X` argument, e.g. `-n 2` to run 2 parallel jobs).
 
 `pytest-xdist`'s `--dist=` option allows one to control how the tests are grouped. `--dist=loadfile` puts the tests located in one file onto the same process.
 
@@ -211,9 +206,9 @@ And then run every test multiple times (50 by default):
 pytest --flake-finder --flake-runs=5 tests/test_failing_test.py
 ```
 
-footnote: This plugin doesn't work with `-n` flag from `pytest-xdist`.
+footnote: This plugin doesn't work with `-n` flag from `pytest-xdist`. It has also had no commit since 2022, so treat it as functional-but-unmaintained rather than actively developed.
 
-footnote: There is another plugin `pytest-repeat`, but it doesn't work with `unittest`.
+footnote: There is another plugin [`pytest-repeat`](https://github.com/pytest-dev/pytest-repeat), which is actively maintained but cannot repeat `unittest.TestCase` tests - they "simply always run once, regardless of `--count`" and emit a warning. So the two swap trade-offs: `pytest-flakefinder` handles `unittest` classes but is dormant, `pytest-repeat` is current but skips them silently apart from that warning. If your suite is built on `unittest.TestCase`, as many `transformers`-derived suites are, that limitation decides it.
 
 
 #### Run tests in a random order
@@ -222,8 +217,7 @@ footnote: There is another plugin `pytest-repeat`, but it doesn't work with `uni
 pip install pytest-random-order
 ```
 
-Important: the presence of `pytest-random-order` will automatically randomize tests, no configuration change or
-command line options is required.
+Important: the presence of `pytest-random-order` will automatically randomize tests, no configuration change or command line options is required.
 
 As explained earlier this allows detection of coupled tests - where one test's state affects the state of another. When `pytest-random-order` is installed it will print the random seed it used for that session, e.g:
 
@@ -255,7 +249,7 @@ To disable the shuffling for all tests:
 pytest --random-order-bucket=none
 ```
 
-By default `--random-order-bucket=module` is implied, which will shuffle the files on the module levels. It can also shuffle on `class`, `package`, `global` and `none` levels. For the complete details please see its [documentation](https://github.com/jbasko/pytest-random-order).
+By default `--random-order-bucket=module` is implied, which will shuffle the files on the module levels. It can also shuffle on `class`, `package`, `global` and `none` levels. For the complete details please see its [documentation](https://github.com/pytest-dev/pytest-random-order).
 
 Another randomization alternative is: [`pytest-randomly`](https://github.com/pytest-dev/pytest-randomly). This module has a very similar functionality/interface, but it doesn't have the bucket modes available in `pytest-random-order`. It has the same problem of imposing itself once installed.
 
@@ -263,7 +257,7 @@ Another randomization alternative is: [`pytest-randomly`](https://github.com/pyt
 
 #### pytest-sugar
 
-[pytest-sugar](https://github.com/Frozenball/pytest-sugar) is a plugin that improves the look-n-feel, adds a progressbar, and show tests that fail and the assert instantly. It gets activated automatically upon installation.
+[pytest-sugar](https://github.com/Teemu/pytest-sugar) is a plugin that improves the look-n-feel, adds a progressbar, and show tests that fail and the assert instantly. It gets activated automatically upon installation.
 
 ```bash
 pip install pytest-sugar
@@ -424,6 +418,8 @@ pytest --color=no tests/utils/test_logging.py
 
 ### Sending test report to online pastebin service
 
+As of pytest 9.1.0 this flag lives in the separate `pytest-pastebin` plugin (`pip install pytest-pastebin`).
+
 Creating a URL for each test failure:
 
 ```bash
@@ -447,7 +443,7 @@ pytest --pastebin=all tests/utils/test_logging.py
 
 ## Writing tests
 
-Most of the time if combining `pytest` and `unittest` in the same test suite works just fine. You can read [here](https://docs.pytest.org/en/stable/unittest.html) which features are supported when doing that , but the important thing to remember is that most `pytest` fixtures don't work. Neither parametrization, but we use the module `parameterized` that works in a similar way.
+Most of the time if combining `pytest` and `unittest` in the same test suite works just fine. You can read [here](https://docs.pytest.org/en/stable/how-to/unittest.html) which features are supported when doing that , but the important thing to remember is that most `pytest` fixtures don't work. Neither parametrization, but we use the module `parameterized` that works in a similar way.
 
 
 ### Parametrization
@@ -486,8 +482,7 @@ or all but `negative` sub-tests, with:
 pytest -k "not negative" tests/test_mytest.py
 ```
 
-Besides using the `-k` filter that was just mentioned, you can find out the exact name of each sub-test and run any
-or all of them using their exact names.
+Besides using the `-k` filter that was just mentioned, you can find out the exact name of each sub-test and run any or all of them using their exact names.
 
 ```bash
 pytest test_this1.py --collect-only -q
@@ -587,8 +582,7 @@ class PathExampleTest(TestCasePlus):
         data_dir = self.tests_dir / "fixtures/tests_samples/wmt_en_ro"
 ```
 
-If you don't need to manipulate paths via `pathlib` or you just need a path as a string, you can always invoked
-`str()` on the `pathlib` object or use the accessors ending with `_str`. For example:
+If you don't need to manipulate paths via `pathlib` or you just need a path as a string, you can always invoked `str()` on the `pathlib` object or use the accessors ending with `_str`. For example:
 
 ```python
 from testing_utils import TestCasePlus
@@ -653,8 +647,7 @@ footnote: Each test can register multiple temporary directories and they all wil
 
 #### Temporary sys.path override
 
-If you need to temporary override `sys.path` to import from another test for example, you can use the
-`ExtendSysPath` context manager. Example:
+If you need to temporary override `sys.path` to import from another test for example, you can use the `ExtendSysPath` context manager. Example:
 
 
 ```python
@@ -668,8 +661,7 @@ with ExtendSysPath(f"{bindir}/.."):
 
 ### Skipping tests
 
-This is useful when a bug is found and a new test is written, yet the bug is not fixed yet. In order to be able to
-commit it to the main repository we need make sure it's skipped during `make test`.
+This is useful when a bug is found and a new test is written, yet the bug is not fixed yet. In order to be able to commit it to the main repository we need make sure it's skipped during `make test`.
 
 Methods:
 
@@ -677,8 +669,7 @@ Methods:
 
 -  A **xfail** means that you expect a test to fail for some reason. A common example is a test for a feature not yet implemented, or a bug not yet fixed. When a test passes despite being expected to fail (marked with `pytest.mark.xfail`), it’s an xpass and will be reported in the test summary.
 
-One of the important differences between the two is that `skip` doesn't run the test, and `xfail` does. So if the
-code that's buggy causes some bad state that will affect other tests, do not use `xfail`.
+One of the important differences between the two is that `skip` doesn't run the test, and `xfail` does. So if the code that's buggy causes some bad state that will affect other tests, do not use `xfail`.
 
 #### Implementation
 
@@ -710,13 +701,15 @@ def test_feature_x():
         pytest.skip("unsupported configuration")
 ```
 
-or the whole module:
+or the whole module (via an autouse fixture — `pytest.config` was removed in pytest 4.0):
 
 ```python
 import pytest
 
-if not pytest.config.getoption("--custom-flag"):
-    pytest.skip("--custom-flag is missing, skipping tests", allow_module_level=True)
+@pytest.fixture(scope="module", autouse=True)
+def _require_custom_flag(pytestconfig):
+    if not pytestconfig.getoption("--custom-flag", default=False):
+        pytest.skip("--custom-flag is missing, skipping tests")
 ```
 
 or the `xfail` way:
@@ -754,7 +747,7 @@ class TestClass():
     def test_feature_x(self):
 ```
 
-More details, example and ways are [here](https://docs.pytest.org/en/latest/skipping.html).
+More details, example and ways are [here](https://docs.pytest.org/en/stable/how-to/skipping.html).
 
 
 
@@ -762,7 +755,7 @@ More details, example and ways are [here](https://docs.pytest.org/en/latest/skip
 
 #### Capturing the stdout/stderr output
 
-In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/latest/capture.html). Here is how this is accomplished:
+In order to test functions that write to `stdout` and/or `stderr`, the test can access those streams using the `pytest`'s [capsys system](https://docs.pytest.org/en/stable/how-to/capture-stdout-stderr.html). Here is how this is accomplished:
 
 ```python
 import sys
@@ -925,33 +918,7 @@ This helper method creates a copy of the `os.environ` object, so the original re
 
 ### Getting reproducible results
 
-In some situations you may want to remove randomness for your tests. To get identical reproducible results set, you
-will need to fix the seed:
-
-```python
-seed = 42
-
-# python RNG
-import random
-
-random.seed(seed)
-
-# pytorch RNGs
-import torch
-
-torch.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(seed)
-
-# numpy RNG
-import numpy as np
-
-np.random.seed(seed)
-
-# tf RNG
-tf.random.set_seed(seed)
-```
+When a test needs identical results across runs, fix the RNGs and the GPU determinism knobs - seeding alone is not enough on CUDA. The full recipe lives in [Achieve determinism in randomness based software](../training/reproducibility/README.md#achieve-determinism-in-randomness-based-software); call that chapter's `enforce_reproducibility(seed)` (or the equivalent settings it documents) from the test rather than maintaining a second, incomplete copy here.
 
 ## Debugging tests
 

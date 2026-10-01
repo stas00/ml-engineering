@@ -31,7 +31,7 @@ Corollary: If when you buy or rent hardware you invest in the fastest accelerato
 
 - An accelerator or a processing unit is what does most of the work.
 
-- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, IPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
+- Since ML does a lot of parallel processing ([SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)) GPUs were used at the beginning, but now you additionally have TPUs, FPGAs, HPUs, QPUs, RDUs, etc. Recent CPUs are becoming used as accelerators as well, especially for inference.
 
 [More details](../compute/accelerator).
 
@@ -141,7 +141,7 @@ There aren't that many HPCs out there and so the amount of available resources i
 
 Pros:
 - Managed for you - all you need is your software to do the training and a bit of [SLURM](../orchestration/slurm) know-how to launch jobs
-- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC](http://www.idris.fr/eng/jean-zay/)!)
+- Often sponsored by the local government/university - probably could get the job done for less $$ or even free (e.g. we trained [BLOOM-176B](https://huggingface.co/bigscience/bloom) for free on [JeanZay HPC](http://www.idris.fr/en/)!)
 
 Cons:
 - needing to time share compute with other teams == short job times with possible long wait times in between - could be difficult to finish training quickly
@@ -241,13 +241,13 @@ Therefore once you know the MFU you can now adjust the cost estimate from the pr
 
 ### Moving bits
 
-Why can't the advertised TFLOPS achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disk and other gpus to the accelerator's memory.
+Why can't the advertised TFLOPS be achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disk and other gpus to the accelerator's memory.
 
-- There is not much can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
+- There is not much that can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://docs.pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
 - If you only have a single GPU and the model fits its memory, you don't need to worry about the network - accelerator memory is the only bottleneck. But if you have [to shard the model across multiple GPUs](../training/model-parallelism) network becomes the bottleneck.
 
-- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../training/model-parallelism#tensor-parallelism) and [sequence parallelism](../training/model-parallelism#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
+- Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../training/model-parallelism/README.md#tensor-parallelism) and [sequence parallelism](../training/model-parallelism/README.md#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
 
 - Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
 
@@ -261,30 +261,32 @@ Why can't the advertised TFLOPS achieved? It's because it takes time to move dat
 
 ### Accelerators
 
-As of this writing here are the most common accelerators that can be used for training, finetuning and inference ML models:
+As of 2026-08 here are the most common accelerators that can be used for training, finetuning and inferencing ML models:
 
 Widely available:
 
-  * NVIDIA H200
-  * AMD MI325 on neoclouds primarily, MI355 is starting to appear
+  * NVIDIA H200, B200, B300 - B300 systems are shipping
+  * AMD MI325X, MI350X and MI355X - neoclouds primarily, but large CSPs have started offering AMD too
+  * Intel Gaudi3 - on Intel's cloud and via OEM servers
 
 Available, but locks you in:
 
-  * Google TPUs - fast! but the cost is a lock-in into a single vendor and cloud
+  * Google TPUs - fast, but a lock-in to one vendor and one cloud, and the software path is XLA rather than CUDA. It appears Google started to sell TPUs to some companies (outside of their cloud) - not officially confirmed, but it would weaken the lock-in argument if it holds
+  * AWS Trainium2 - on AWS, also XLA
+  * Cerebras WaferScale Engine - on Cerebras' cloud
 
-Emerging to general availability:
+Not yet available:
 
-  * NVIDIA B200s/B300s/GB200/GB300s are starting to emerge.
-  * AMD MI355X are starting to emerge on Neo clouds and also large CSPs started to offer AMD GPUs
-  * Intel Gaudi3 > H200 - is available on Intel's cloud
-  * Amazon's Trainium2 < H100 is available on AWS
-  * Cerebras WaferScale Engine - available on Cerebras' cloud
+  * NVIDIA Rubin - specs published but still marked preliminary
+  * AMD MI455X - Helios volume deployments expected 2H-2026
+  * SambaNova SN50 - shipping "in the second half of 2026"; SN40L is the current part
+  * Intel Crescent Island - inference GPU, customer sampling announced for H2-2026; no published TFLOPS
 
-No longer available:
+Regional:
 
-* GraphCore IPU - very difficult to find if at all, was shortly available on paperspace but no more.
+  * Huawei Ascend - real scale, but China-only in practice, and the specs are only on Huawei's Chinese pages
 
-For the full list and more recently announced accelerators see [Accelerators](../compute/accelerator).
+Beware that "announced" is not "available" - the [Accelerators](../compute/accelerator/README.md#tflops-comparison-table) tables are split in two for exactly this reason, `Generally available` first and `Announced, availability not confirmed` after it. For the full list and the numbers see [Accelerators](../compute/accelerator).
 
 
 #### Accelerator Interoperability
@@ -293,15 +295,17 @@ In general most (all?) accelerators are supported by major frameworks like PyTor
 
 For example, if your PyTorch application calls `torch.mm` - it should work everywhere, but if it includes custom CUDA kernels it'll only work on NVIDIA GPUs and may be on the recent AMD MI-series.
 
-- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda-toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
+- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda/toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
 
-- AMD MI250/MI3**X: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
+- AMD MI250/MI3xx: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
 - Intel Gaudi2/Gaudi3: if you use HF Transformers/Diffusers you can use [optimum-habana](https://github.com/huggingface/optimum-habana). If you use HF Trainer with NVIDIA GPUs it should be relatively easy to switch to train/infer on Gaudi2.
 
-- GraphCore IPU: can also be run via PyTorch via [poptorch](https://github.com/graphcore/poptorch)
+- Google TPU and AWS Trainium: both via [XLA](https://openxla.org/xla) - PyTorch works, custom CUDA kernels don't
 
-- Cerebras: is also working on PyTorch support via [Cerebras Software Platform (CSoft) via XLA](https://www.cerebras.net/blog/supporting-pytorch-on-the-cerebras-wafer-scale-engine/).
+- Huawei Ascend: via CANN, with MindSpore first-party and PyTorch adaptation alongside it
+
+- Cerebras: is also working on PyTorch support via [Cerebras Software Platform (CSoft) via XLA](https://www.cerebras.ai/blog/supporting-pytorch-on-the-cerebras-wafer-scale-engine/).
 
 Also in general most ML code could be compiled into cross-platform formats like [Open Neural Network Exchange (ONNX)](https://en.wikipedia.org/wiki/Open_Neural_Network_Exchange) which can be run on a variety of accelerators. This approach is typically used more often for inference workloads.
 
@@ -312,16 +316,17 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - The biggest issue right now is that compute hardware advancements move faster than networking hardware, e.g. for NVIDIA NVLink intra-node (unidirectional bandwidth):
 
-| GPU  | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
-| :--- |                      --: |                --: |                --: |                   --: |
-| V100 |                      125 |                  1 |                150 |                     1 |
-| A100 |                      312 |                2.5 |                300 |                     2 |
-| H100 |                      989 |                  8 |                450 |                     3 |
-| B200 |                     2250 |                 18 |                900 |                     6 |
+| GPU   | Compute<br>fp16<br>TFLOPS | Compute<br>speedup | Intra-node<br>GBps | Intra-node<br>speedup |
+| :---- | ------------------------: | -----------------: | -----------------: | --------------------: |
+| V100  |                       125 |                  1 |                150 |                     1 |
+| A100  |                       312 |                2.5 |                300 |                     2 |
+| H100  |                       989 |                  8 |                450 |                     3 |
+| B200  |                      2250 |                 18 |                900 |                     6 |
+| Rubin |                      4000 |                 32 |               1800 |                    12 |
 
 - You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation. NVLink 5.0 doubled the speed over NVLink 4.0 so it catches up a little bit with the compute speed ups. But the speed up is still insufficient.
 
-- Moreover, the first 4 generations of NVLink use identical NICs of the same 25GBps unidirectional bandwidth. They have just doubled and tripled the number of links to speed things up. So there was 0 progress in that technology.
+- Moreover, each NVLink generation raised both the per-link bandwidth (2.5 → 3.125 → 6.25 → 12.5 GBps for NVLink 1–4, then 25 GBps for NVLink 5) and, in most generations, the number of links, so per-GPU bandwidth climbed from 80 GBps (P100) to 450 GBps (H100) to 900 GBps (B200).
 
 - The inter-node situation isn't any better with most NICs there doing 100 or 200Gbps, and some 400Gbps are starting to emerge. (correspondingly in GBps: 12.5, 25 and 50). It's the same story here, some solutions provide dozens of NICs to get to higher speeds.
 
@@ -332,40 +337,32 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 - Pay attention to bytes vs bits. 1Byte = 8bits. 1GBps = 8Gbps.
 
-- If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, so intra-node speed doesn't matter then
+- If you need to reduce bits (e.g. gradients) across multiple nodes, it's the slowest link (Inter-node) that defines the overall throughput, though hierarchical algorithms sometimes can speed things up taking advantage of the faster intra-node bandwidth
 
-- [Tensor parallelism](../training/model-parallelism#tensor-parallelism) and [sequence parallelism](../training/model-parallelism#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
+- [Tensor parallelism](../training/model-parallelism/README.md#tensor-parallelism) and [sequence parallelism](../training/model-parallelism/README.md#sequence-parallelism) have to remain within the node to be efficient - only makes sense with fast intra-node speed
 
 NVIDIA:
 
-- NVIDIA-based compute nodes come with 50GBps duplex NVLink
-
-- Some have a lot of NVLinks, others less but typically plenty with 900GBps (7.2Tbps) unidirectional bandwidth for B200, H100
-450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes
+- Some have a lot of NVLinks, others less, but typically plenty with 1800GBps (14.4Tbps) unidirectional bandwidth for Rubin,
+900GBps (7.2Tbps) for B200/B300,
+450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes.
 
 Intel Gaudi2:
 
-- 8 x 21 NICs of 100GbE RoCE v2 ROMA for a total of 2.1TBps
+- 300Gbps card-to-card (100GbE RoCE v2 RDMA; same NICs also serve inter-node)
 
 [More details](../network/README.md#intra-node-networking)
 
 
 #### Inter-node Network
 
-- An order of magnitude slower than Intra-node
+- You will see a wide range of speeds from 200Gbps to 6400Gbps
 
-- You will see a wide range of speeds from 50Gbps to 3200 Gbps
+- Inter-node links remain about an order of magnitude slower than intra-node ones (e.g. 50GBps per accelerator of EFA v4 on a P6-B200 instance vs 900GBps of NVLink 5), but the practical gap is far smaller than that, because an inter-node collective also does most of its data movement over the intra-node links - a 4GiB `all-reduce` across 4 nodes measures only ~2x slower than on one node, not 18x. See [Inter-node speed depends on intra-node speed](../network/README.md#inter-node-speed-depends-on-intra-node-speed)
 
-- You need to reduce gradients and other bits faster than compute to avoid idling accelerators
+- You need to reduce gradients and other tensors (e.g. MoE) faster than compute to avoid idling accelerators
 
-- You typically get at most 80% of advertised speed. e.g., if you are told you get 800Gbps, expect ~640Gbps.
-
-- If moving to fp8 H100 is 18x faster than V100
-
-- We are yet to see if 3200Gbps for H100s will be enough to keep high MFU.
-
-
-* Practically less than 3x but it's a good estimate
+- You typically get at most 80% of advertised speed. e.g., if you are told you get 800Gbps, expect ~640Gbps
 
 [More details](../network/README.md#inter-node-networking).
 
@@ -434,7 +431,7 @@ Here is the breakdown:
 
 - 1.25 is 25% for activations (very very approximate)
 
-For example: Let's take an 80B param model and 80GB GPUs and calculate how many of them we will need for:
+For example: Let's take an 80B param model and 80GiB GPUs and calculate how many of them we will need for:
 
 - Training: at least 23 GPUs `80*18*1.25/80`
 - Inference: at least 3 GPUs `80*2*1.25/80`

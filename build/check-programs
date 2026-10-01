@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#
+# Check that the book's main programs are still runnable - that each one starts up, parses its
+# arguments and prints its help - without running any actual workload.
+#
+# Why this exists: on 2026-08-04 `all_reduce_bench.py` was found to have been unrunnable since
+# 2025-12-08. `parse_args(formatter_class=...)` raised a TypeError on every invocation, on every
+# Python version. The file was syntactically valid, so a compile check would not have caught it,
+# and nobody noticed for eight months because running that benchmark for real needs a GPU node.
+# `--help` reaches the same argument-parsing code and exits in a second on a laptop.
+#
+# What this does not catch: anything that goes wrong after argument parsing, and anything in a
+# program that has no --help. It also executes each program's module-level code, so imports do
+# run - which is a feature (it catches import errors) but means this is not entirely inert.
+#
+# usage: build/check-programs
+#        PYTHON=python3.12 build/check-programs
+
+set -uo pipefail
+
+cd "$(dirname "$0")/.."
+
+# The book's reader-facing programs - the ones a reader copies out of a chapter and runs. Build
+# tooling is deliberately out of scope. Add new ones here.
+PROGRAMS=(
+    network/benchmarks/all_reduce_bench.py
+    compute/accelerator/benchmarks/mamf-finder.py
+    training/checkpoints/torch-checkpoint-shrink.py
+)
+
+# Deliberately not listed - these refuse to start outside a site-specific environment, so they
+# would fail here forever rather than telling us anything:
+#   training/fault-tolerance/slurm-status.py   ("relies on JZ's specific environment")
+#   training/fault-tolerance/fs-watchdog.py    (same)
+
+PYTHON=${PYTHON:-python}
+
+# `timeout` is GNU coreutils and is absent on macOS unless it was installed separately, so use it
+# only if it is actually there rather than failing with "command not found".
+TIMEOUT=()
+for t in timeout gtimeout; do
+    if command -v "$t" >/dev/null 2>&1; then
+        TIMEOUT=("$t" 120)
+        break
+    fi
+done
+
+status=0
+for prog in "${PROGRAMS[@]}"; do
+    printf '%-56s ' "$prog"
+
+    if [[ ! -f $prog ]]; then
+        printf 'MISSING\n'
+        status=1
+        continue
+    fi
+
+    if out=$("${TIMEOUT[@]}" "$PYTHON" "$prog" --help 2>&1); then
+        printf 'ok\n'
+    else
+        printf 'FAILED\n'
+        printf '%s\n' "$out" | tail -3 | sed 's/^/    /'
+        status=1
+    fi
+done
+
+if (( status != 0 )); then
+    printf '\nAt least one program failed to start. It is broken for every reader who copies it.\n'
+fi
+
+exit "$status"

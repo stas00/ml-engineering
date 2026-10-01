@@ -1,6 +1,6 @@
-# Tensor precision / Data types
+# Tensor Precision / Data Types
 
-These are the common datatypes that are used as of this writing in ML (usually referred to as `dtype`):
+These are the common data types that are used as of 2026-08 in ML (usually referred to as `dtype`):
 
 Floating point formats:
 - fp32 - 32 bits
@@ -24,10 +24,12 @@ For visual comparison refer to this representations:
 
 The new formats that are being adopted by new hardware are:
 - fp4: `float4_e2m1fn`
-- fp6:`float6_e2m3fn` and `float6_e3m2fn`
+- fp6: `float6_e2m3fn` and `float6_e3m2fn`
 - fp8: `float8_e3m4`, `float8_e4m3`, `float8_e4m3b11fnuz`, `float8_e4m3fn`, `float8_e4m3fnuz`, `float8_e5m2`, `float8_e5m2fnuz`, `float8_e8m0fnu`
 
 There is an excellent explanation of each of these variations [here](https://github.com/jax-ml/ml_dtypes?tab=readme-ov-file#specifications-of-implemented-floating-point-formats).
+
+`float8_e8m0fnu` is the odd one out in that list - it is not an element format but the shared scale that block-scaled formats attach to a group of elements, which is why it has no mantissa. Pairing it with a 4-, 6- or 8-bit element encoding is what produces the `MXFP4`/`MXFP6`/`MXFP8` names quoted in accelerator specs: one `E8M0` scale per block of 32 values, whose per-parameter byte cost is worked out in [Model Weights](../inference/README.md#model-weights). NVIDIA's [`NVFP4`](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/) is the same two-part idea tuned differently - the same `E2M1` element, but a block of 16 with an `E4M3` scale plus a single fp32 scale for the whole tensor, which tracks local dynamic range more closely than a power-of-two `E8M0` scale can.
 
 To decipher the letters followed by the numbers:
 - The `e` indicates the length of exponent
@@ -47,13 +49,13 @@ Integer formats used in quantization:
 
 - int8 - 8 bits
 - int4 - 4 bits
-- int1 - 1 bits
+- int1 - 1 bit
 
 ## ML dtype progression
 
 Originally ML was using fp32, but it was very slow.
 
-Next [mixed-precision was invented using a combination of fp16 and fp32](https://developer.nvidia.com/blog/video-mixed-precision-techniques-tensor-cores-deep-learning/) was invented which tremendously sped up the training speed.
+Next [mixed-precision](https://developer.nvidia.com/blog/video-mixed-precision-techniques-tensor-cores-deep-learning/) was invented using a combination of fp16 and fp32, which tremendously sped up the training speed.
 
 ![fp32/fp16 mixed precision](images/mixed-precision-fp16.png)
 
@@ -63,22 +65,31 @@ But fp16 proved to be not very stable and training LLM was extremely difficult.
 
 Luckily bf16 came out and replaced fp16 using the same mixed precision protocol. This made the LLM training much more stable.
 
-Then fp8 came and mixed precision has switched to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html) and which makes the training even faster. See the paper: [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433).
+Then fp8 came and mixed precision could switch to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html), which makes the training even faster. See [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433). As of 2026-08 bf16 mixed precision is still the default for most training runs, but fp8 training is no longer experimental - [DeepSeek-V3](https://arxiv.org/abs/2412.19437) was trained in fp8.
 
-To appreciate the speed ups between the different formats have a look at this table for NVIDIA A100 TFLOPS spec (w/o sparsity):
+And then Blackwell added fp6, fp4 and NVIDIA's own nvfp4. So far these are mostly inference formats - fp4 training is still a research topic.
 
-| Data type              | TFLOPS |
-| :---                   |    --: |
-| FP32                   |   19.5 |
-| Tensor Float 32 (TF32) |    156 |
-| BFLOAT16 Tensor Core   |    312 |
-| FP16 Tensor Core       |    312 |
-| FP8 Tensor Core        |    624 |
-| INT8 Tensor Core       |    624 |
+To appreciate the speed ups between the different formats here is a table for NVIDIA B200 TFLOPS spec (w/o sparsity), along with the accelerator that first supported each dtype in non-CPU hardware (cpu is weak for deep learning). It's sorted by `B200 TFLOPS` ascending, and where several dtypes run at the same speed, by the year the hardware support arrived:
 
-Each next dtype is about 2x faster than the previous one (except fp32 which is much slower than the rest).
+| Data type | B200 TFLOPS | First hardware support                               |
+| :-------- | ----------: | :--------------------------------------------------- |
+| fp32      |          80 | predates ML accelerators                             |
+| tf32      |        1125 | NVIDIA A100 (Ampere, 2020)                           |
+| fp16      |        2250 | NVIDIA P100 (Pascal, 2016)                           |
+| bf16      |        2250 | Google TPU v2 (2017)<br>NVIDIA A100 (Ampere, 2020)   |
+| int8      |        4500 | Google TPU v1 (2015)<br>NVIDIA P4/P40 (Pascal, 2016) |
+| fp8       |        4500 | NVIDIA H100 (Hopper, 2022)<br>Intel Gaudi 2 (2022)   |
+| fp6       |        4500 | NVIDIA B200 (Blackwell, 2024)                        |
+| fp4       |        9000 | NVIDIA B200 (Blackwell, 2024)                        |
+| nvfp4     |       10000 | NVIDIA B200 (Blackwell, 2024)                        |
 
-In parallel with the mixed training regime the ML community starting coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/TimDettmers/bitsandbytes) which provides many 4 and 8-bit quantization solutions. The Deepspeed team also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
+int8 is TOPS rather than TFLOPS, since those are integer ops.
+
+Some of these dates mark when a dtype became usable rather than when it became fast. P100 could do fp16 arithmetic at 2x the fp32 rate, but it took V100's tensor cores in 2017 to make fp16 `matmul`s fast. Pascal's int8 was the `DP4A` dot-product instruction; int8 tensor cores arrived with Turing in 2018.
+
+The doubling holds all the way down to fp8 - each halving of the element width buys about 2x the throughput. Then it stops: fp6 runs at the same 4500TFLOPS as fp8, so it buys you memory and bandwidth but no compute. fp4 doubles again over fp8, and on GB300 it's 3x (15000 vs 5000). So don't assume the pattern continues - check the spec for the dtype you're actually planning to use.
+
+In parallel with the mixed training regime the ML community started coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) which provides many 4 and 8-bit quantization solutions. DeepSpeed also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
 
 ## TF32
 
@@ -95,12 +106,12 @@ As you can see TF32 is 8x faster than FP32!
 
 It's disabled by default. To enable it add at the beginning of your program:
 
-```
+```python
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 ```
 
-For more information about the actual precision loss please see [this](https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices).
+For more information about the actual precision loss please see [this](https://docs.pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-and-later-devices).
 
 
 ## When to use fp32 accumulators
@@ -127,8 +138,7 @@ Here are some examples:
 
 * when adding a tiny gradient to a large number, that addition is often nullified therefore typically fp32 master weights and fp32 optim states are used.
 
-* f16 master weights and optim states can be used when using [Kahan Summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm)
-or [Stochastic rounding](https://en.wikipedia.org/wiki/Rounding) (introduced in [Revisiting BFloat16 Training](https://arxiv.org/abs/2010.06192)).
+* fp16 master weights and optim states can be used when using [Kahan Summation](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) or [Stochastic rounding](https://en.wikipedia.org/wiki/Rounding) (introduced in [Revisiting BFloat16 Training](https://arxiv.org/abs/2010.06192)).
 
 For an example of the latter see: [AnyPrecision optimizer](https://github.com/pytorch/torchdistx/pull/52) with the latest version found [here](https://github.com/facebookresearch/multimodal/blob/6bf3779a064dc72cde48793521a5be151695fc62/torchmultimodal/modules/optimizers/anyprecision.py#L17).
 

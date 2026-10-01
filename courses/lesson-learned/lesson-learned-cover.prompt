@@ -1,0 +1,13 @@
+A genuine old-fashioned school chalkboard (matte slate-green surface, chalk dust smudges, eraser streaks, faint ghost-marks) in a thin worn wooden school-chalkboard frame with a narrow ledge at the bottom holding exactly ONE white chalk stick and a felt eraser. Board hangs with only a very slight tilt, photographed from a point of view slightly to the right, mild right-side perspective, soft ambient shadow. Hand-drawn in white and pale-yellow chalk, rough imperfect hand-lettering.
+
+LAYOUT: asymmetric single-column design. ALL technical annotations are stacked in ONE narrow vertical strip confined to the LEFT THIRD of the board only, in this order top to bottom: small descending curve "TRAINING LOSS - BLOOM-176B" with note "fp16 to bf16 + clean data + emb layer-norm = no more divergence"; STD Init formula "sqrt(1/(NHIDDEN*3))=0.00482 for NHIDDEN=14336" with note "one of the reasons BLOOM-176B never diverged"; checkpoint icon doodle "JeanZay HPC 2021: 2.3TB checkpoint saved in 40 sec across 384 processes (GPFS over NVMe)"; small MAMF bar chart "ACHIEVED (BF16) 1745.0" vs "THEORETICAL SPEC 2250" (crossed X on unreachable top) with caption "77.6% efficiency - spec sheets lie"; chalk terminal box "CUDA_LAUNCH_BLOCKING=1 - zero slowdown!".
+
+The RIGHT TWO-THIRDS of the board is wide open, dedicated entirely to: near the top-right, the two real book covers (exactly as in reference images) taped with masking tape; then below them, in the large open remaining space, a BIG centered chalk title with lots of breathing room - "Machine Learning Engineering" smaller/compact, directly below "Lessons Learned from Training LLMs" much larger and bolder (dominant), underlined, "A course by Stas Bekman" beneath; then a friendly chalk robot with speech bubble "Battle-tested lessons, not just theory." beneath the title.
+
+Above the bottom ledge, spanning full width: a chalk banner "STORAGE - NETWORK - PERFORMANCE - STABILITY - DEBUGGING" and underlined line "FROM TRAINING BLOOM-176B, IDEFICS-80B & PRODUCTION RAG/RL SYSTEMS". Warm, academic, charming. Portrait orientation.
+
+---
+aspect_ratio: 3:4
+reference_image_paths:
+  - mle-cover.png (rendered from ml-engineering/images/Machine-Learning-Engineering-book-cover.svg)
+  - aod-cover.png (rendered from the-art-of-debugging/images/The-Art-of-Debugging-book-cover.svg)

@@ -60,7 +60,7 @@ def shrink_pt_file(f):
     size_after = os.path.getsize(f)
     size_delta = size_before - size_after
     if debug:
-        print(f"before {size_before / 2**20:.2f}MB, after {size_after / 2**20:.2f}MB, saved {size_delta / 2**20:.2f}MB")
+        print(f"before {size_before / 2**20:.2f}MiB, after {size_after / 2**20:.2f}MiB, saved {size_delta / 2**20:.2f}MiB")
     return size_before, size_after, size_delta
 
 def checkpoint_shrink(checkpoint_dir, patterns):
@@ -76,7 +76,7 @@ def checkpoint_shrink(checkpoint_dir, patterns):
         before += size_before
         after  += size_after
         delta  += size_delta
-    print(f"Done. Before {before / 2**20:.2f}MB, after {after / 2**20:.2f}MB, saved {delta / 2**20:.2f}MB")
+    print(f"Done. Before {before / 2**20:.2f}MiB, after {after / 2**20:.2f}MiB, saved {delta / 2**20:.2f}MiB")
 
 if __name__ == "__main__":
 

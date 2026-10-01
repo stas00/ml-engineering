@@ -170,3 +170,7 @@ sup { vertical-align: top }
 
 /* fix ' characters */
 body { prince-text-replace: "'" "\2019" }
+
+.page_break {
+  page-break-before: always;
+}

@@ -1,8 +1,8 @@
 # Storage: File Systems and IO
 
-## 3 Machine Learning IO needs
+## Machine Learning IO needs
 
-There are 3 distinct IO needs in the ML workload:
+For training workloads there are 3 distinct IO needs:
 
 1. You need to be able to feed the DataLoader fast - (super fast read, don't care about fast write) - requires sustainable load for hours and days
 2. You need to be able to write checkpoints fast - (super fast write, fastish read as you will be resuming a few times) - requires burst writing - you want super fast to not block the training for long (unless you use some sort of cpu offloading to quickly unblock the training)
@@ -12,152 +12,23 @@ As you can see these 3 have very different requirements both on speed and sustai
 
 If you have infinite funds, of course, get a single super-fast read, super-fast write, that can do that for days non-stop. But for most of us, this is not possible so getting 2 or 3 different types of partitions where you end up paying much less is a wiser choice.
 
+For inference, it's mostly about startup time to be able to start serving inference asap:
+1. Reading the checkpoint fast
+2. Loading the codebase fast
 
+For batched inference, you'd have additionally:
+1. Reading prompts
+2. Writing generated outputs
+
+If this is done asynchronously to generation then this IO overhead can be completely hidden, since typically generation will be much slower than loading the text it generates from and writing the generated text back to the disk.
+
+If you do KV-cache offloading to disk, this would be another important IO use-case for inference. You will need to be able to seek fast to get to the desired KV-cache index and less crucial writing it out if the latter is done asynchronously.
 
 
 ## Glossary
 
-- NAS: Network Attached Storage
-- SAN: Storage Area Network
-- DAS: Direct-Attached storage
+- IOPS: Input/Output Operations Per Second
 - NSD: Network Shared Disk
-- OSS: Object storage server
-- MDS: Metadata server
-- MGS: Management server
-
-
-
-## Which file system to choose
-
-**Distributed Parallel File Systems are the fastest solutions**
-
-Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients can access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
-
-The 3 excellent performing parallel file systems that I had experience with are:
-
-- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and
-  before that it was called IBM Spectrum Scale.
-- [WekaIO](https://www.weka.io/)
-- [Lustre FS](https://www.lustre.org/) (Open Source) ([Wiki](https://wiki.lustre.org/Main_Page))
-
-These solutions have been around for 2+ decades. They are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
-
-case study: At JeanZay HPC (France) in 2021 we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
-
-NASA's cluster has [a long long list of gotchas around using Lustre](https://www.nas.nasa.gov/hecc/support/kb/lustre-best-practices_226.html).
-
-Some very useful pros of GPFS:
-- If you have a lot of small files, you can easily run out of inodes (`df -i` to check). GPFS 5.x never runs out of inodes, it dynamically creates more as needed
-- GPFS doesn't have the issue Lustre has where you can run out of disk space at 80% if one of the sub-disks got full and wasn't re-balanced in time - you can reliably use all 100% of the allocated storage.
-- GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metatada is handled by each node in the storage cluster.
-- GPFS comes with a native NSD client which is superior to the generic NFS client, but either can be used with it.
-- One can build a multi-tier system. So for example, Tier 1 is usually made from NVME drives and Tier 2 usually uses some cloud storage system. So when the Tier 1 capacity gets low, files that haven't been accessed in some time, get auto-moved to the cloud storage. So for example your Tier 1 could be 100TB, and Tier 2 could be 1PB. This approach saves a lot of money, since 1PB of cloud storage is significantly cheaper than 1PB of NVME drives.
-- Data protection can use various RAID approaches. Typically striping is used to save costs.
-
-Weka is quite similar to GPFS in features and performance. The main difference would be the licensing cost you can negotiate with either provider. A big part of your cost will be in the cost of the VMs required to run the system - e.g. if you have a lot of small files you'd want many VMs to quickly deal with meta-data.
-
-Other parallel file systems I don't yet have direct experience with:
-
-- [BeeGFS](https://www.beegfs.io/)
-- [DAOS](https://docs.daos.io/) (Distributed Asynchronous Object Storage) (Intel)
-- [NetApp](https://www.netapp.com)
-- [VAST](https://www.vastdata.com/)
-
-Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide at least one of these and they don't have a fast enough alternative to meet your needs you should reconsider.
-
-**OK'ish solutions**
-
-There are many OK'ish solutions offered by [various cloud providers](#cloud-shared-storage-solutions). Benchmark those seriously before you commit to any. Those are usually quite decent for handling large files and not so much for small files.
-
-case study: As of this writing with GCP's Zonal FileStore over NFS solution `python -c "import torch"` takes 20 secs to execute, which is extremely slow! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can easily take 20-30 min! This solution we started with had been very painful and counter-productive to our work. This would impact anybody who has a lot of python packages and conda environments. But, of course, GCP provides much faster solutions as well.
-
-## Remote File System Clients
-
-You will need to choose which client to use to connect the file system to your VM with.
-
-The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_System) - which has been around for 4 decades. It introduces an additional overhead and slows things down. So if there is a native client supported by your VM, you'd have an overall faster performance using it over NFS. For example, GPFS comes with an [NSD](https://www.ibm.com/docs/en/linux-on-systems?topic=configurations-network-shared-disk-nsd) client which is superior to NFS.
-
-## File Block size
-
-If the file system you use uses a block size of 16mb, but the average size of your files is 16k, you will be using 1,000 times more disk space than the actual use. For example, you will see 100TB of disk space used when the actual disk space will be just 100MB.
-
-footnote: On Linux the native file systems typically use a block size of 4k.
-
-So often you might have 2 very different needs and require 2 different partitions optimized for different needs.
-
-1. thousands to millions of tiny files - 4-8k block size
-2. few large files - 2-16mb block size
-
-case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MB block sizes, so this was not a suitable partition for 4KB-large files.
-
-The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2mb, with a sub-block of 8k, and then the tiny files get packed together as sub-blocks, thus not wasting too much disk space.
-
-## Distributed storage servers proximity to clients
-
-The cluster that uses a shared distributed storage should have the storage servers places close to the cluster that uses those servers. If the VMs running the storage servers are located many hops (switches) away, the IO latency can be high and the interactive use of the storage can be frustratingly slow. Think any interactions with metadata servers as an example, when you try to run `du` and other tools that access metadata of many files.
-
-So if you have control ask the cloud provider to give you the cpu-only storage servers VMs allocated as close as possible to your accelerator VMs network-distance-wise.
-
-
-
-## Cloud shared storage solutions
-
-Here are shared file system storage solutions made available by various cloud providers:
-
-- [GCP](https://cloud.google.com/architecture/filers-on-compute-engine)
-- [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
-- [AWS](https://aws.amazon.com/what-is/nas/#seo-faq-pairs#how-can-aws-help-with-storage-solutions)
-
-
-## Local storage beats cloud storage
-
-While cloud storage is cheaper the whole idea of fetching and processing your training data stream dynamically at training time is very problematic with a huge number of potential issues around it.
-
-Same goes for dynamic offloading of checkpoints to the cloud.
-
-It's so much better to have enough disk space locally for data loading.
-
-For checkpointing there should be enough local disk space for saving a checkpoint in a fast and reliable way and then having a crontab job or a slurm job to offload it to the cloud. Always keep the last few checkpoints locally for a quick resume, should your job crash, as it'd be very expensive to wait to fetch the checkpoint from the cloud for a resume.
-
-case study: we didn't have a choice and had to use cloud storage for dataloading during IDEFICS-80B training as we had barely any local storage and since it was multimodal data it was many TBs of data. We spent many weeks trying to make this solution robust and it sucked at the end. The biggest issue was that it was very difficult at the time to keep track of RNG state for the DataSampler because the solution we used, well, didn't bother to take care of it. So a lot of data that took a lot of time to create was wasted (not used) and a lot of data was repeated, so we didn't have a single epoch of unique data.
-
-In some situations people find good solutions for working with cloud-based datasets, I personally haven't had a smooth experience yet and that's why I advocate local storage. If you found a good streaming solution that can properly resume without losing data and repeating the same data, doesn't require huge local workers then it might work OK.
-
-## Beware that you're often being sold only 80% of the storage you pay for
-
-There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.3-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
-
-From talking to IO engineers, the accepted reality (that for some reason is not being communicated to customers) is that only about 80% of distributed large storage is reliable.
-
-Which means that if you want to have 100TB of reliable cloud storage you actually need to buy 125TB of storage, since 80% of that will be 100TB. So you need to plan to pay 25% more than what you provisioned for your actual needs. I'm not sure why the customer should pay for the technology deficiency but that's how it is.
-
-For example, GCP states that only [89%](https://cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
-
-I also talked to [Sycomp](https://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
-
-Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disk usage - it may show usage not including the backups. So if your backups consume 50% of the partition.
-
-Whatever storage solution you pick, ask the provider how much of the storage can be reliably used, so that there will be no surprises later.
-
-
-## Beware that on some cloud providers backups use the same partition they backup
-
-This makes no sense to me but with some providers when you make a back up of a partition using their tools, the back up will use space on that same partition. And on some of those providers you won't even know this happened until you run out of disk space when you really used 30% of the partition you allocated. On those providers running `df` is pointless because it'll tell you the free disk space, but it won't include any back ups in it. So you have no idea what's going on.
-
-If you start making a backup and suddenly everything fails because all processes fail to write but `df` reports 30% usage, you will now know why this happened. Snapshots too use the same partition.
-
-So say you paid for a 100TB partition and you used up 95TB and now you want to back it up - well, you can't - where would it put 95TB of data if it has 5TB of data left even if it compresses it.
-
-As I discover specific solution that have this unintuitive behavior I will add pointers to how you can see the actual disk usage:
-- [GCP FileStore](https://cloud.google.com/filestore/docs/monitoring-instances#free-raw-capacity-percent) (but it doesn't work for Basic Tier)
-
-
-## Don't forget the checksums
-
-When you sync data to and from the cloud make sure to research whether the tool you use checks the checksums, otherwise you may end up with corrupt during transmission data. Some tools do it automatically, others you have to enable this feature (since it usually comes at additional compute cost and transmission slowdown). Better slow, but safe.
-
-These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your environment is safe, but if you want the additional security do SHA256 checksums.
-
 
 
 ## Concepts
@@ -170,17 +41,43 @@ Here are a few key storage-related concepts that you likely need to be familiar 
 
 On Linux the local block devices' queue depth is usually pre-configured by the kernel. For example, if you want to check the max queue depth set for `/dev/sda` you can `cat /sys/block/sda/queue/nr_requests`. To see the current queue depth of a local device run `iostat -x` and watch for `aqu-sz` column. (`apt install sysstat` to get `iostat`.)
 
-Typically the more IO requests get buffered the bigger the latency will be, and the better the throughput will be. This is because if a request can't be acted upon immediately it'll prolong the response time as it has to wait before being served. But having multiple requests awaiting to be served in a device's queue would typically speed up the total throughput as there is less waiting time between issuing individual requests.
+A storage device serves many requests at once - an NVMe drive reads from many flash chips simultaneously, a network file system (usually) from many storage servers. Think of those as the device's workers. While there are fewer requests in progress than workers, each request goes straight to an idle worker, so latency stays flat while throughput climbs with every request added. Issue them one at a time instead and the device sits idle after each completion, waiting for the application to come back with the next request.
+
+Once there are more requests than workers, throughput is capped and the surplus gets queued, so latency grows with the depth.
 
 ### Direct vs Buffered IO
 
-**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in `open(2)` system call.
+**Direct** IO refers to IO that bypasses the operating system's caching buffers. This corresponds to `O_DIRECT` flag in [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html) system call.
 
 The opposite is the **buffered** IO, which is usually the default way most applications do IO since caching typically makes things faster.
 
 When we run an IO benchmark it's critical to turn the caching/buffering off, because otherwise the benchmark's results will most likely be invalid. You normally won't be reading or writing the same file hundreds of times in a row. Hence most likely you'd want to turn the direct mode on in the benchmark's flags if it provides such.
 
-In certain situation opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer typically helps to get the reader see the logged lines much sooner.
+In certain situations opening files with `O_DIRECT` may actually help to overcome delays. For example, if the training program logs to a log file (especially on a slow shared file system), you might not be able to see the logs for many seconds if both the application and the file system buffering are in the way. Opening the log file with `O_DIRECT` by the writer can get the reader to see the logged lines much sooner.
+
+And it's worth knowing what `O_DIRECT` doesn't promise before building a workflow on it:
+
+- it isn't durability. It "makes an effort to transfer data synchronously, but does not give the guarantees of the `O_SYNC` flag that data and necessary metadata are transferred" - if you need the bytes to survive a crash you want `fsync`/`fdatasync`, or `O_SYNC` in addition to `O_DIRECT`.
+- it may impose alignment restrictions on the length and the address of your buffer and on the file offset, varying by file system and kernel version. A misaligned IO may fail with `EINVAL` or silently fall back to buffered IO - which is a very quiet way for a benchmark to stop measuring what you think it measures. Since Linux 6.1 `statx(2)` with `STATX_DIOALIGN` will tell you the actual requirements.
+- mixing `O_DIRECT` and normal buffered IO on the same file, especially on overlapping regions, is explicitly discouraged - and an `O_DIRECT` writer with a `tail -f` reader is precisely that pairing.
+
+For the logging problem, though, try the application's own buffering first - it's usually the layer that's actually sitting on your lines, and it's much cheaper to change: `python -u` or `PYTHONUNBUFFERED=1` for Python, `flush=True` on the `print` call, `stdbuf -oL` for the C stdio programs in a pipeline, like `awk` or `cut`, which have no flushing flag of their own. `O_DIRECT` does nothing for this, because it bypasses the kernel's page cache and not your process' own buffer - a line still sitting in the application's buffer hasn't been written at all yet, whatever flags the file was opened with.
+
+Here is a quick demonstration. `awk` is a plain C stdio program, which is exactly the kind of thing `stdbuf` can fix - the trailing `cat` is only there to make `awk`'s stdout a pipe rather than a terminal:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | awk '{print}' | cat
+```
+
+Both lines appear together after 3 seconds. `awk` isn't refusing to print, it's printing into its own buffer - when stdout isn't a terminal, stdio switches from line buffering to a block buffer of several kilobytes and writes only when that buffer fills or the program exits. Add `stdbuf -oL` and `1` shows up immediately:
+
+```bash
+{ echo 1; sleep 3; echo 2; } | stdbuf -oL awk '{print}' | cat
+```
+
+Point `awk` at your terminal instead, by removing `| cat`, and stdio line-buffers by default, so both versions behave identically and there is nothing to fix - the buffering only bites once you pipe into another program or redirect into a log file, which is precisely when you can no longer watch it happening.
+
+`stdbuf` presets the buffering mode that C stdio reads at startup, so it only reaches programs that leave that decision to stdio. `perl` and `python` both manage their own and will ignore it completely, as will Go binaries - for those the knob has to be inside the program: `$|=1` for perl, `-u` or `PYTHONUNBUFFERED=1` for python.
 
 
 ### Synchronous vs asynchronous IO
@@ -203,6 +100,185 @@ In asynchronous IO the client may submit multiple IO requests one after another 
 - moving around a file using `seek`
 
 
+### mmap vs sequential dataset reads
+
+A dataset that looks like one large file may still end up doing random IO. Hugging Face `datasets` keeps its data in [Apache Arrow](https://huggingface.co/docs/datasets/en/about_arrow) files - a binary columnar format whose on-disk bytes are already laid out the way they will be used in memory, so a row can be read where it lies with no parsing step. That is what makes memory-mapping the default (`load_from_disk`, or `load_dataset` without `keep_in_memory`): the file is mapped into the address space and a row access becomes a page fault instead of a `read` call.
+
+footnote: The resident memory this mapping shows in `top` is not a leak - the OS can reclaim unreferenced pages - see [CPU memory](../compute/cpu-memory/README.md#things-to-know).
+
+If you count `read()` syscalls - with `strace -c`, or by grepping a trace - a mapped dataset looks almost idle. Each mapped run below issued 2 `read` calls for the whole 1GiB; the bytes still moved, but they show up as major page faults and in `/proc/self/io` `read_bytes` instead.
+
+Measured on 2026-09 with `datasets` 4.0.0: 1GiB of text as 32768 rows of 32KiB in three Arrow shards, page cache dropped with `posix_fadvise(..., POSIX_FADV_DONTNEED)` before each run. The first row is the floor - the same three files read start to finish with ordinary `read()` calls of 1MiB each. The other two go through the mapped dataset: `for row in ds`, then `ds[i]` in shuffled order.
+
+| How the 1GiB was read           | Local NVMe | Slowdown | Lustre | Slowdown |
+| :------------------------------ | ---------: | -------: | -----: | -------: |
+| sequential `read()`, whole file |      0.14s |       0% |  1.87s |       0% |
+| mmap, rows in order             |      0.53s |     279% |  3.11s |      66% |
+| mmap, rows shuffled             |      0.78s |     457% |  94.2s |   4_937% |
+
+- The slowdown column is `t / t_sequential - 1` within each file system.
+- [`mmap-io-bench.py`](./mmap-io-bench.py) created this table - edit the two paths at the top of the script before running. In this table the benchmarks filesystem was Lustre.
+
+The three rows are the three ways a pipeline usually touches Arrow shards: read the file through once, walk a mapped dataset in order, or index rows in shuffled training order. Match your target job to a row - the bullets below say when the slowdown is acceptable and when you need a different read path or node-local shards instead of a network fs.
+
+1. **Consuming a shard in order** - checksums, format conversion, one-pass tokenization. Read the file with ordinary `read`s of a MiB or so and do not map it. This is why it's not enough to keep datasets in large files. Additionally every reader has to consume them in large sequential chunks to get high performance.
+2. **`for row in ds` over a mapped dataset** - on local NVMe the mapping costs 279% and still finishes a GiB in half a second, so leave it. On Lustre it costs 66% and every page comes over the network, so copy the shards to node-local disk first if this loop feeds training.
+3. **Shuffled `ds[i]` over a mapped dataset** - ordinary shuffled training. On Lustre this took 94s per GiB, 50x the sequential read of the same bytes. Do not point it at a network file system. Stage the split on node-local NVMe and map it there, or pre-shuffle into epoch shards and read those in order, or stream and shuffle within a buffer. `keep_in_memory=True` removes the faults too, but trades them for RAM that every DataLoader worker pays again.
+
+footnote: Reading the shards through sequentially before the loop - `cat shard > /dev/null`, or a `cp` - leaves them in the page cache, and the shuffled case then faults against RAM: on Lustre 98.24s from cold became a 1.86s pre-read plus a 1.03s loop. This holds only while the shards fit in the page cache, so it is a remedy for a split that fits in RAM rather than a replacement for staging on local NVMe. The mapping hints do not help and are not reachable through `datasets` in any case - [`MAP_POPULATE`](https://man7.org/linux/man-pages/man2/mmap.2.html) prefaults the whole mapping, [`MADV_SEQUENTIAL`](https://man7.org/linux/man-pages/man2/madvise.2.html) only widens readahead, and `pyarrow`'s `memory_map` passes neither.
+
+
+### Misreported file size
+
+I have noticed some distributed file systems, like Lustre, may report incorrect file sizes if the files got offloaded and haven't been "rehydrated". I haven't seen this problem with Weka or GPFS. A proper distributed file system client should always report the real file size even if the contents of the file have been offloaded, and then automatically re-hydrate the file when it's being read.
+
+If you're unlucky to deal with such a broken file system client, you can get a rough idea of the real file sizes using `du --apparent-size`, but beware that it may over-report the size if there is fragmentation, file sparsity and other reasons. `df` will still report incorrect file sizes, since it doesn't have a similar flag to `du`.
+
+If you have to force re-hydration you can run something like:
+
+```bash
+find /mountpoint/ -type f -exec cat {} >/dev/null \;
+```
+and then both `du` and `df` will report correct file sizes, except the above command may take a really long time to run if you have hundreds GBs of data.
+
+If at all possible, avoid using file systems which can't handle such a fundamental need as reporting correct file sizes, because when this occurs you may be unaware that your partition is close to being full. For example, it may report being 5% full when it's 95% full.
+
+
+## Which file system to choose
+
+**Distributed Parallel File Systems are the fastest solutions**
+
+Distributed parallel file systems dramatically improve performance where hundreds to thousands of clients can access the shared storage simultaneously. They also help a lot with reducing hotspots (where some data pockets are accessed much more often than others).
+
+The 3 excellent performing parallel file systems that I had experience with are:
+
+- [GPFS](https://en.wikipedia.org/wiki/GPFS) (IBM), recently renamed to IBM Storage Scale, and
+  before that it was called IBM Spectrum Scale.
+- [WekaIO](https://www.weka.io/)
+- [Lustre FS](https://www.lustre.org/) (Open Source) ([Wiki](https://wiki.lustre.org/Main_Page))
+
+These solutions have been around for 2+ decades. They are POSIX-compliant. These are also not trivial to create - you have to setup a whole other cluster with multiple cpu-only VMs dedicated exclusively for those filesystems - only then you can mount those. As compared to weaker cloud-provided "built-in" solutions which take only a few screens of questions to answer in order to activate. And when creating the storage cluster there is a whole science to which VMs to choose for which functionality. For example, here is a [Lustre guide on GCP](https://docs.cloud.google.com/architecture/parallel-file-systems-for-hpc#overview_of_lustre_and_exascaler_cloud).
+
+case study: At JeanZay HPC (France) in 2021 we were saving 2.3TB checkpoint in parallel on 384 processes in 40 secs! This is insanely fast - and it was GPFS over NVME drives.
+
+NASA's cluster has [a long long list of gotchas around using Lustre](https://www.nas.nasa.gov/hecc/support/kb/lustre-best-practices_226.html).
+
+Some very useful pros of GPFS:
+- If you have a lot of small files, you can easily run out of inodes (`df -i` to check). GPFS 5.x never runs out of inodes, it dynamically creates more as needed
+- GPFS doesn't have the issue Lustre has where you can run out of disk space at 80% if one of the sub-disks got full and wasn't re-balanced in time - you can reliably use all 100% of the allocated storage.
+- GPFS doesn't use a central metadata server (or a cluster of those) which often becomes a bottleneck when dealing with small files. Just like data, metadata is handled by each node in the storage cluster.
+- GPFS comes with a native NSD client which is superior to the generic NFS client, but either can be used with it.
+- One can build a multi-tier system. So for example, Tier 1 is usually made from NVME drives and Tier 2 usually uses some cloud storage system. So when the Tier 1 capacity gets low, files that haven't been accessed in some time, get auto-moved to the cloud storage. So for example your Tier 1 could be 100TB, and Tier 2 could be 1PB. This approach saves a lot of money, since 1PB of cloud storage is significantly cheaper than 1PB of NVME drives.
+- Data protection can use various RAID approaches. Typically striping is used to save costs.
+
+Weka is quite similar to GPFS in features and performance. The main difference would be the licensing cost you can negotiate with either provider. A big part of your cost will be in the cost of the VMs required to run the system - e.g. if you have a lot of small files you'd want many VMs to quickly deal with meta-data.
+
+Other parallel file systems I don't yet have direct experience with:
+
+- [BeeGFS](https://www.beegfs.io/)
+- [DAOS](https://docs.daos.io/latest/) (Distributed Asynchronous Object Storage) (Intel)
+- [NetApp](https://www.netapp.com)
+- [VAST](https://www.vastdata.com/)
+
+Most clouds provide at least one implementation of these, but not all. If your cloud provider doesn't provide at least one of these and they don't have a fast enough alternative to meet your needs you should reconsider.
+
+**OK'ish solutions**
+
+There are many OK'ish solutions offered by [various cloud providers](#cloud-shared-storage-solutions). Benchmark those seriously before you commit to any. Those are usually quite decent for handling large files and not so much for small files.
+
+case study: As of 2024-01 with GCP's Zonal FileStore over NFS solution `python -c "import torch"` takes 20 secs to execute, which is extremely slow! Once the files are cached it then takes ~2 secs. Installing a conda environment with a handful of prebuilt python packages can easily take 20-30 min! This solution we started with had been very painful and counter-productive to our work. This would impact anybody who has a lot of python packages and conda environments. But, of course, GCP provides much faster solutions as well.
+
+## Remote File System Clients
+
+You will need to choose which client to use to connect the file system to your VM with.
+
+The most common choice is: [NFS](https://en.wikipedia.org/wiki/Network_File_System) - which has been around for 4 decades. It introduces an additional overhead and slows things down. So if there is a native client supported by your VM, you'd have an overall faster performance using it over NFS. For example, GPFS comes with an [NSD](https://www.ibm.com/docs/en/linux-on-systems?topic=configurations-network-shared-disk-nsd) client which is superior to NFS.
+
+## File Block size
+
+If the file system you use uses a block size of 16MiB, but the average size of your files is 16KiB, you will be using 1,024 times more disk space than the actual use. For example, you will see 100GiB of disk space used when the actual disk space will be just 100MiB.
+
+footnote: On Linux the native file systems typically use a block size of 4KiB.
+
+So often you might have 2 very different needs and require 2 different partitions optimized for different needs.
+
+1. thousands to millions of tiny files - 4-8KiB block size
+2. few large files - 2-16MiB block size
+
+case study: Python is so bad at having tens of thousand of tiny files that if you have many conda environments you are likely to run of inodes in some situations. At JeanZay HPC we had to ask for a special dedicated partition where we would install all conda environments because we kept running out of inodes on normal GPFS partitions. I think the problem is that those GPFS partitions were configured with 16MiB block sizes, so this was not a suitable partition for 4KiB-large files.
+
+The good news is that modern solutions are starting to introduce a dynamic block size. For example, the most recent GPFS supports sub-blocks. So, for example, it's possible to configure GPFS with a block size of 2MiB, with a sub-block of 8KiB, and then the tiny files get packed together as sub-blocks, thus not wasting too much disk space.
+
+## Distributed storage servers proximity to clients
+
+The cluster that uses a shared distributed storage should have the storage servers places close to the cluster that uses those servers. If the VMs running the storage servers are located many hops (switches) away, the IO latency can be high and the interactive use of the storage can be frustratingly slow. Think any interactions with metadata servers as an example, when you try to run `du` and other tools that access metadata of many files.
+
+So if you have control ask the cloud provider to give you the cpu-only storage servers VMs allocated as close as possible to your accelerator VMs network-distance-wise.
+
+
+
+## Cloud shared storage solutions
+
+Here are shared file system storage solutions made available by various cloud providers:
+
+- [GCP](https://docs.cloud.google.com/architecture/parallel-file-systems-for-hpc)
+- [Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-shared)
+- [AWS](https://aws.amazon.com/what-is/nas/#how-can-aws-help-with-storage-solutions--mxce5s)
+
+
+## Local storage beats cloud storage
+
+While cloud storage is cheaper the whole idea of fetching and processing your training data stream dynamically at training time is very problematic with a huge number of potential issues around it.
+
+Same goes for dynamic offloading of checkpoints to the cloud.
+
+It's so much better to have enough disk space locally for data loading.
+
+For checkpointing there should be enough local disk space for saving a checkpoint in a fast and reliable way and then having a crontab job or a slurm job to offload it to the cloud. Always keep the last few checkpoints locally for a quick resume, should your job crash, as it'd be very expensive to wait to fetch the checkpoint from the cloud for a resume.
+
+case study: we didn't have a choice and had to use cloud storage for dataloading during IDEFICS-80B training as we had barely any local storage and since it was multimodal data it was many TBs of data. We spent many weeks trying to make this solution robust and it sucked at the end. The biggest issue was that it was very difficult at the time to keep track of RNG state for the DataSampler because the solution we used, well, didn't bother to take care of it. So a lot of data that took a lot of time to create was wasted (not used) and a lot of data was repeated, so we didn't have a single epoch of unique data.
+
+In some situations people find good solutions for working with cloud-based datasets, I personally haven't had a smooth experience yet and that's why I advocate local storage. If you found a good streaming solution that can properly resume without losing data and repeating the same data, doesn't require huge local workers then it might work OK.
+
+What makes that work is layout. Streaming pulls whole objects out of cloud object storage - an S3-style bucket, whose API hands back an entire object rather than letting you read a piece of one - so it pays off only when the dataset is already large shards consumed front to back. That is the same shape [mmap vs sequential dataset reads](#mmap-vs-sequential-dataset-reads) found fastest on a shared file system, so a dataset in that shape needs no second copy there - the bucket can feed training directly.
+
+That whole-object interface doubles as a guardrail, since it makes seeking inside an object or memory-mapping one impossible. Mounting the bucket so it appears as an ordinary directory removes the guardrail: the random-access and memory-mapping patterns that section clocked at 50x the sequential read on a network fs (Lustre in that example) start working again, against a backend that was never designed for them.
+
+## Beware that you're often being sold only 80% of the storage you pay for
+
+There is a subtle problem with distributed shared storage used on compute nodes. Since most physical disks used to build the large file systems are only 0.3-2TB large, any of these physical disks can get full before the combined storage gets full. And thus they require constant rebalancing so that there will be no situation where one disk is 99% full and others are only 50% full. Since rebalancing is a costly operation, like most programming languages' garbage collection, it happens infrequently. And so if you run `df` and it reports 90% full, it's very likely that any of the programs can fail at any given time.
+
+From talking to IO engineers, the accepted reality (that for some reason is not being communicated to customers) is that only about 80% of distributed large storage is reliable.
+
+Which means that if you want to have 100TB of reliable cloud storage you actually need to buy 125TB of storage, since 80% of that will be 100TB. So you need to plan to pay 25% more than what you provisioned for your actual needs. I'm not sure why the customer should pay for the technology deficiency but that's how it is.
+
+For example, GCP states that only [89%](https://docs.cloud.google.com/filestore/docs/known-issues#capacity_errors_before_reaching_full_provisioned_capacity) can be used reliably, albeit more than once the storage failed already at 83% for me there. Kudos to Google to even disclosing this as a known issue, albeit not at the point of where a person buys the storage. As in - we recommend you buy 12% more storage than you actually plan to use, since we can only reliably deliver 89% of it.
+
+I also talked to [Sycomp](https://sycomp.com/) engineers who provide managed IBM Storage Scale (GPFS) solutions, and according to them GPFS doesn't have this issue and the whole 100% can be reliably used.
+
+Also on some setups if you do backups via the cloud provider API (not directly on the filesystem), they might end up using the same partition, and, of course, consume the disk space, but when you run `df` it will not show the real disk usage - it may show usage not including the backups.
+
+Whatever storage solution you pick, ask the provider how much of the storage can be reliably used, so that there will be no surprises later.
+
+
+## Beware that on some cloud providers backups use the same partition they backup
+
+This makes no sense to me but with some providers when you make a back up of a partition using their tools, the back up will use space on that same partition. And on some of those providers you won't even know this happened until you run out of disk space when you really used 30% of the partition you allocated. On those providers running `df` is pointless because it'll tell you the free disk space, but it won't include any back ups in it. So you have no idea what's going on.
+
+If you start making a backup and suddenly everything fails because all processes fail to write but `df` reports 30% usage, you will now know why this happened. Snapshots too use the same partition.
+
+So say you paid for a 100TB partition and you used up 95TB and now you want to back it up - well, you can't - where would it put 95TB of data if it has 5TB of data left even if it compresses it.
+
+As I discover specific solution that have this unintuitive behavior I will add pointers to how you can see the actual disk usage:
+- [GCP FileStore](https://docs.cloud.google.com/filestore/docs/monitoring-instances#free-raw-capacity-percent) (but it doesn't work for Basic Tier)
+
+
+## Don't forget the checksums
+
+When you sync data to and from the cloud make sure to research whether the tool you use checks the checksums, otherwise you may end up with corrupt during transmission data. Some tools do it automatically, others you have to enable this feature (since it usually comes at additional compute cost and transmission slowdown). Better slow, but safe.
+
+These are typically MD5 and SHA256 checksums. Usually MD5 is sufficient if your environment is safe, but if you want the additional security do SHA256 checksums.
+
 
 ## Benchmarks
 
@@ -215,7 +291,7 @@ In the following sections we will discuss various approaches to figuring out whe
 The three main storage IO metrics one typically cares for are:
 
 1. [Throughput](https://en.wikipedia.org/wiki/Network_throughput) or Bandwidth (bytes per second - can be MBps, GBps, etc.)
-2. [IOPS](https://en.wikipedia.org/wiki/IOPS) (Input/output operations per second that a system can perform
+2. [IOPS](https://en.wikipedia.org/wiki/IOPS) (Input/output operations per second that a system can perform)
 3. [Latency](https://en.wikipedia.org/wiki/Latency_(engineering)) (msecs or usecs)
 
 - *IOPS* measures how many input and/or output operations a given storage device or a cluster can perform per second. Typically read and write IOPS won't be the same. And for many systems it'll also depend on whether the operation is sequential or random. So a storage system will have 4 different IOPS rates:
@@ -254,16 +330,16 @@ First install `fio` with `apt install fio` or however your package manager does 
 
 Here is an example of a read benchmark:
 
-```
+```bash
 base_path=/path/to/partition/
 fio --ioengine=libaio --filesize=16k --ramp_time=2s --time_based --runtime=3m --numjobs=16 \
 --direct=1 --verify=0 --randrepeat=0 --group_reporting --unlink=1 --directory=$base_path  \
 --name=read-test --blocksize=4k --iodepth=64 --readwrite=read
 ```
 
-Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4k (typical for most OSes) with the file size of 16k (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good benchmark to show how fast you can import Python modules on 16 concurrent processes.
+Here 16 concurrent read threads will run for 3 minutes. The benchmark uses a block size of 4KiB (typical for most OSes) with the file size of 16KiB (a common size of most Python files) in a sequential reading style using [non-buffered IO](#direct-vs-buffered-io). So this particular set of flags will create a good proxy benchmark for how fast you can import Python modules on 16 concurrent processes.
 
-case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 20x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
+case study: on one NFS setup we had `python -c "import torch"` taking 20 seconds the first time it was run, which is about 5-10x slower than the same test on a normal NVME drive. Granted once the files were cached the loading was much faster but it made for a very painful development process since everything was slow.
 
 good read: [Fio Output Explained](https://tobert.github.io/post/2014-04-17-fio-output-explained.html) - it's an oldie but is still a goodie - if you have a more up-to-date write up please send me a link or a PR.
 
@@ -271,10 +347,10 @@ Important: if you don't use the `--unlink=1` flag make sure to delete `fio`'s wo
 
 Going back to the benchmark - the parameters will need to change to fit the type of the IO operation you care to be fast - is it doing a lot of pip installs or writing a checkpoint on 512 processes, or doing a random read from a parquet file - each benchmark will have to be adapted to measure the right thing.
 
-At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KB, 1MB and 1GB file sizes each using a fixed 4k block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
+At the beginning I was manually fishing out the bits I was after, so I automated it resulting in [fio-scan](./fio-scan) benchmark that will run a pair of read/write benchmarks on 16KiB, 1MiB and 1GiB file sizes each using a fixed 4KiB block size (6 benchmarks in total). It uses a helper [fio-json-extract.py](./fio-json-extract.py) to parse the log files and pull out the average latency, bandwidth and iops and report them in a nicely formatted markdown table.
 
 Here is how to run it:
-```
+```bash
 git clone https://github.com/stas00/ml-engineering/
 cd ml-engineering
 cd storage
@@ -284,65 +360,65 @@ path_to_test=/path/to/partition/to/test
 ```
 Adapt `path_to_test` to point to the partition path you want to benchmark.
 
-note: the log parser uses python3. if `fio-scan` fails it's most likely because you run it on a system with python2 installed by default. It expects `python --version` to be some python 3.x version. You can edit `fio-scan` to point to the right `python`.
+note: `fio-scan` calls `python ./fio-json-extract.py`, so if it fails check what `python` resolves to - on many systems only `python3` exists. Edit `fio-scan` to point at the right interpreter.
 
-Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive ([summary](benchmarks/results/hope-2023-12-20-14-37-02-331702-summary.md)):
+Here is an example of this IO scan on my Samsung SSD 980 PRO 2TB NVME drive, run on 2023-12-20 against a `/mnt/nvme0` partition:
 
 * filesize=16k read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 4.0      | 1006.3  | 257614   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      4.0 |   1006.3 | 257614 |   16 |
 
 * filesize=16k write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 3.2      | 1239.1  | 317200   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      3.2 |   1239.1 | 317200 |   16 |
 
 * filesize=1m read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.7      | 2400.1  | 614419   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      1.7 |   2400.1 | 614419 |   16 |
 
 * filesize=1m write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1940.5  | 496765   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      2.1 |   1940.5 | 496765 |   16 |
 
 * filesize=1g read
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 1.4      | 2762.0  | 707062   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      1.4 |   2762.0 | 707062 |   16 |
 
 * filesize=1g write
 
-| lat msec | bw MBps | IOPS     | jobs |
-| -------: | ------: | -------: | ---: |
-| 2.1      | 1943.9  | 497638   | 16   |
+| lat msec | bw MiBps | IOPS   | jobs |
+| -------: | -------: | -----: | ---: |
+|      2.1 |   1943.9 | 497638 |   16 |
 
 
-As you can see as of this writing this is a pretty fast NVMe drive if you want to use it as a base-line against, say, a network shared file system.
+As you can see this is a fast PCIe 4.0 NVMe drive if you want to use it as a baseline against, say, a network shared file system.
 
 
 ### Usability perception IO benchmarks
 
 Besides properly designed performance benchmarks which give you some numbers that you may or may not be able to appreciate there is a perception benchmark, and that is how does a certain functionality or a service feel. For example, when going to a website, does it feel like it's taking too long to load a webpage? or when going to a video service, does it take too long for the video to start playing and does it stop every few seconds to buffer the stream?
 
-So with file system the questions are very simple - does it feel that it takes too long to install or launch a program? Since a lot of us live in the Python world, python is known to have thousands of tiny files which are usually installed into a virtual environment, with [conda](https://www.anaconda.com/download) being the choice of many as of this writing.
+So with file system the questions are very simple - does it feel that it takes too long to install or launch a program? Since a lot of us live in the Python world, python is known to have thousands of tiny files which are usually installed into a virtual environment, with [conda](https://www.anaconda.com/download) being the choice of many as of 2026-08.
 
-In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch'` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
+In one of the environments we have noticed that our developers' productivity was really bad on a shared filesystem because it was taking up to 30min to install a conda environment with various packages needed for using a certain ML-training framework, and we also noticed that `python -c "import torch"` could take more than 20 seconds. This is about 5-10x slower than a fast local NVME-based filesystem would deliver. Obviously, this is bad. So I devised a perception test using `time` to measure the common activities. That way we could quickly tell if the proposed shared file system solution that we contemplated to switch to were significantly better. We didn't want a solution that was 2x faster, we wanted a solution that was 10x better, because having an expensive developer wait for proverbial paint to dry is not a good thing for a business.
 
 So here is the poor man's benchmark that we used, so this is just an example. Surely if you think about the workflow of your developers you would quickly identify where things are slow and devise yours best fitting your needs.
 
-note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but with beware that many shared file systems won't be able to match that.
+note: To have a baseline to compare to do these timing tests on a recently manufactured local NVME. This way you know what the ceiling is, but beware that many shared file systems won't be able to match it.
 
 Step 1. Install conda onto the shared file system you want to test if it's not there already.
 
-```
+```bash
 export target_partition_path=/mnt/weka  # edit me!!!
 mkdir -p $target_partition_path/miniconda3
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $target_partition_path/miniconda3/miniconda.sh
@@ -358,27 +434,27 @@ notes:
 Step 2. Measure conda install time (write test)
 
 Time the creation of a new conda environment:
-```
-time conda create -y -n install-test python=3.9
+```bash
+time conda create -y -n install-test python=3.12
 ```
 
 ```
-real    0m29.657s
-user    0m9.141s
-sys     0m2.861s
+real    0m22.790s
+user    0m12.911s
+sys     0m4.941s
 ```
 
 Time the installation of some heavy pip packages:
-```
+```bash
 conda deactivate
 conda activate install-test
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 
 ```
-real    2m10.355s
-user    0m50.547s
-sys     0m12.144s
+real    0m50.596s
+user    0m28.060s
+sys     0m4.398s
 ```
 
 Please note that this test is somewhat skewed since it also includes the packages download in it and depending on your incoming network speed it could be super fast or super slow and could impact the outcome. But once the downloaded packages are cached, in the case of conda they are also untarred, so if you try to install the packages the 2nd time the benchmark will no longer be fair as on a slow shared file system the untarring could be very slow and we want to catch that.
@@ -387,26 +463,46 @@ I don't worry about it because usually when the file system is very slow usually
 
 If you do want to make this benchmark precise, you probably could keep the pre-downloaded conda packages and just deleting their untar'ed dirs:
 
-```
+```bash
 find $target_partition_path/miniconda3/pkgs -mindepth 1 -type d -exec rm -rf {} +
 ```
 
 in the case of `pip` it doesn't untar anything, but just caches the wheels it downloaded, so the `time pip install` benchmark can definitely be more precise if you run it the 2nd time (the first time it's downloaded, cached and installed, the second time it's installed from cache. So you could do:
 
-```
-conda create -y -n install-test python=3.9
+```bash
+conda create -y -n install-test python=3.12
 conda activate install-test
-pip install torch torchvision torchaudio
-conda create -y -n install-test2 python=3.9
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+conda create -y -n install-test2 python=3.12
 conda activate install-test2
-time pip install torch torchvision torchaudio
+time pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 ```
 As you can see here we time only the 2nd time we install the pip packages.
+
+If you want a write test with no download mixed into it, copy a package you already have onto the file system under test and time that. Here is the `torch` package - 1.67GiB spread over 13019 files - copied onto a local NVMe drive and onto a shared Lustre mount:
+
+```bash
+$ export SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
+
+$ time cp -a $SITE_PACKAGES/torch /tmp/torch-copy
+
+real    0m2.026s
+user    0m0.073s
+sys     0m1.133s
+
+$ time cp -a $SITE_PACKAGES/torch $target_partition_path/torch-copy
+
+real    2m35.880s
+user    0m0.266s
+sys     0m9.262s
+```
+
+That is 77x slower, and a repeat run a few minutes earlier gave 2m30.0s, so it isn't a fluke. `user` and `sys` barely move between the two, so nearly all of that time is spent waiting on the file system - most of those 13019 files are small, and each one is a create that the metadata server has to answer.
 
 
 Step 3. Measure loading time after flushing the memory and file system caches (read test)
 
-```
+```bash
 sudo sync
 echo 3 | sudo tee /proc/sys/vm/drop_caches
 time python -c "import torch"
@@ -418,44 +514,70 @@ If you don't have `sudo` access you can skip the command involving `sudo`, also 
 
 
 Here is how to see the caching effect:
-```
+```bash
+$ sudo sync
+$ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m5.404s
-user    0m1.761s
-sys     0m0.751s
+real    0m2.438s
+user    0m8.115s
+sys     0m0.434s
 
 $ time python -c "import torch"
 
-real    0m1.977s
-user    0m1.623s
-sys     0m0.519s
+real    0m1.333s
+user    0m8.144s
+sys     0m0.214s
 
 $ sudo sync
 $ echo 3 | sudo tee /proc/sys/vm/drop_caches
 $ time python -c "import torch"
 
-real    0m5.698s
-user    0m1.712s
-sys     0m0.734s
+real    0m2.357s
+user    0m8.177s
+sys     0m0.368s
 ```
 
-You can see that the first time it wasn't cached and took ~3x longer, then when I run it the second time. And then I told the system to flush memory and file system caches and you can see it was 3x longer again.
+You can see that the first time it wasn't cached and took longer, then when I ran it the second time it was faster because everything was cached. And then I told the system to flush memory and file system caches and you can see it was slow again.
+
+It helps to know what those seconds are made of. Two different kinds of IO go on during an import: a handful of large sequential reads for the shared objects in `torch/lib`, and a couple of thousand tiny operations - one open per module, plus the lookups that fail while Python probes candidate paths for each one. [`strace`](../debug/pytorch.md#strace) counts the second kind:
+
+```bash
+$ strace -cf -e trace=openat python -c "import torch"
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 openat
+------ ----------- ----------- --------- --------- ----------------
+100.00    0.005894           2      2339       922 total
+```
+
+Those 2339 opens - 922 of which failed, since Python probes several candidate paths per module - are a property of the package and the version installed. What each one takes is a property of the file system, and the gap is not subtle. Opening and closing a few thousand small files, on the local NVMe of the same node and on its shared Lustre mount:
+
+| open of one small file | local NVMe | Lustre |
+| :--------------------- | ---------: | -----: |
+| succeeds               |       11us |  2.3ms |
+| fails with `ENOENT`    |      2.4us |  1.1ms |
+
+Apply those to the mix an `import torch` actually performs - 1417 opens that succeed and 922 that fail - and the opens alone go from about 0.02s on the local drive to about 4.3s on Lustre. A shared file system with per-open latency in that range is how a 1.3s import turns into the 20s reported in the case studies above. Repeating the Lustre measurement with everything already read changes nothing, either: what is being paid for is a metadata round trip, and the page cache has nothing to offer it.
+
+The opens are an [IOPS](#metrics) question and the bulk reads of the shared objects in `torch/lib` a throughput one, and a file system can be good at one and poor at the other.
 
 I think it might be a good idea to do the memory and file system caching in the write tests again, since even there caching will make the benchmark appear faster than what it would be like in the real world where a new package is installed for the first time.
 
+There is one more thing that even a cache-flushed read test doesn't capture. The first import after an installation compiles each `.py` file it touches into bytecode and writes the `.pyc` into `__pycache__`; every import after that reads the `.pyc` and skips the compile. Flushing the caches doesn't undo that, because the `.pyc` files are still on the disk - so a true first run after an install is slower than any of the numbers above, and a single throwaway `python -c "import torch"` is all it takes to leave that compiled state behind.
+
 Another time I noticed that `git status` was taking multiple seconds. I use [bash-git-prompt](https://github.com/magicmonty/bash-git-prompt) and it runs `git status` before every return of the prompt when inside a git repo clone, and it was becoming super sluggish and difficult to work. So I benchmarked `git status`:
 
-```
+```bash
 git clone https://github.com/pytorch/pytorch
 cd pytorch
 time git status
 ```
-and it was taking 3.7secs on this slow file system and needed to be fixed (it was taking 0.02 secs on a local SSD). The good thing this actual perception benchmark was easy to pass to a sysadmin and them reproducing the problem instantly and then working on fixing it, while re-using this benchmark as a reference.
+and it was taking 3.7 secs on this slow file system and needed to be fixed (it was taking 0.02 secs on a local SSD). The good thing this actual perception benchmark was easy to pass to a sysadmin and them reproducing the problem instantly and then working on fixing it, while re-using this benchmark as a reference.
 
 Yet, another time I noticed, `pytest` was taking forever to start, so I measured its collection and it indeed was very slow:
 
-```
+```bash
 time pytest --disable-warnings --collect-only -q
 ```
 
@@ -466,11 +588,10 @@ So now you have a plethora of examples to choose from and I trust you will find 
 
 ### other tools
 
--
-- [HPC IO Benchmark Repository](https://github.com/hpc/ior) (`mdtest` has been merged into `ior` in 2017)
-- [DLIO](https://github.com/argonne-lcf/dlio_benchmark)
+For a more rigorous, reproducible benchmark of a shared/parallel file system than the [ad-hoc timings](#usability-perception-io-benchmarks), two tools are worth knowing:
 
-XXX: expand on how these are used when I get a chance to try those
+- [IOR](https://github.com/hpc/ior) - the standard HPC parallel-IO benchmark. It launches many processes via MPI that read/write concurrently, so it measures the *aggregate* sequential and random bandwidth a distributed file system can sustain under realistic parallel load, across multiple backends (POSIX, MPI-IO, HDF5, ...). The same repo also ships `mdtest` (merged into `ior` in 2017), which instead benchmarks *metadata* performance - how many file/directory create/stat/remove operations per second the file system can handle. Metadata is frequently the real bottleneck for workloads with lots of small files, such as many small checkpoints or dataset shards.
+- [DLIO](https://github.com/argonne-lcf/dlio_benchmark) - a Deep-Learning I/O benchmark that emulates the data-loading pattern of ML training without needing any accelerator: it replaces the forward/backward compute with a `sleep` of equivalent duration and drives real data loaders (PyTorch `DataLoader`, `tf.data`) over synthetic datasets described via a YAML workload config. A run has three phases - generate synthetic data, run the benchmark, then post-process into a report. This makes it the closest proxy to "how will my storage behave during actual training", as opposed to the generic bandwidth/IOPS numbers IOR reports.
 
 
 
@@ -478,80 +599,116 @@ XXX: expand on how these are used when I get a chance to try those
 
 Here are some published IO benchmarks:
 
-- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. For example, here is the most recent as of this writing [storage v0.5](https://mlcommons.org/benchmarks/storage/) results. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
-
-Then various benchmarks that you can run yourself:
+- [MLPerf via MLCommons](https://mlcommons.org/) publishes various hardware benchmarks that measure training, inference, storage and other tasks' performance. The [storage results](https://mlcommons.org/benchmarks/storage/) are the relevant ones here - that page always shows the current round, which advances a few times a year. Though I find the results are very difficult to make sense of - too many columns and no control whatsoever by the user, and each test uses different parameters - so how do you compare things.
 
 
 
 
 ## Why pay for more storage when you can easily clean it up instead
 
-Talking to a few storage providers I understood that many companies don't bother cleaning up and just keep on buying more and more storage. If you're not that company and want to keep things tidy in the following sections I will share how to easily prune various caches that many of us in the Python/Pytorch ecosphere use (and a lot of those will apply to other ecospheres).
+Talking to a few storage providers I understood that many companies don't bother cleaning up and just keep on buying more and more storage. If you're not that company and want to keep things tidy in the following sections I will share how to easily prune various caches that many of us in the Python/PyTorch ecosphere use (and a lot of those will apply to other ecospheres).
 
 ### HuggingFace Hub caches
 
 The very popular HuggingFace Hub makes it super easy to download models and datasets and cache them locally. What you might not be aware of is that whenever a new revision of the model or a dataset is released, the old revisions remain on your disk - so over time you are likely to have a lot of dead weight.
 
-The cached files are usually found at `~/.cache/huggingface` but it's possible to override those with `HF_HOME` environment variable and place them elsewhere if your `/home/` doesn't have space for huge files. (and in the past those were `HUGGINGFACE_HUB_CACHE` and `TRANSFORMERS_CACHE` and some others).
+The cached files are usually found at `~/.cache/huggingface`, but the least error-prone way to place them elsewhere is to set the [`HF_HOME` environment variable](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables) before importing Hugging Face libraries:
 
-The other solution that requires no mucking with environment variables, which requires you to remember to set them, is to symlink your cache to another partition. You could do it for all of your caches:
+```bash
+export HF_HOME=/some/path/huggingface
+mkdir -p "$HF_HOME"
 ```
-mkdir -p ~/.cache
-mv ~/.cache /some/path/
+
+The deprecated `HUGGINGFACE_HUB_CACHE` and library-specific variables such as `TRANSFORMERS_CACHE` may still be encountered in older setups.
+
+The other solution that requires no environment variables, is to symlink your cache to another partition. You could do it for all of your caches:
+```bash
+mkdir -p /some/path
+mv -nT ~/.cache /some/path/.cache
 ln -s /some/path/.cache ~/.cache
 ```
 
-or just for HF hub caches:
-```
-mkdir -p ~/.cache/huggingface
-mv ~/.cache/huggingface /some/path/
-ln -s /some/path/cache/huggingface ~/.cache/cache/huggingface
+Or move only the default Hugging Face cache and leave a symlink in its place. This script stops instead of merging with a pre-existing target or replacing an existing symlink:
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+source_dir="$HOME/.cache/huggingface"
+target_dir="/some/path/huggingface"
+
+mkdir -p "$(dirname "$source_dir")" "$(dirname "$target_dir")"
+
+if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+    printf 'Target already exists: %s\n' "$target_dir" >&2
+    exit 1
+fi
+
+if [ -L "$source_dir" ]; then
+    printf 'Source is already a symlink: %s\n' "$source_dir" >&2
+    exit 1
+elif [ -e "$source_dir" ]; then
+    mv "$source_dir" "$target_dir"
+else
+    mkdir -p "$target_dir"
+fi
+
+ln -s "$target_dir" "$source_dir"
 ```
 
-The `mkdir` calls are there in case you have haven't used the caches yet, so they weren't there and they ensure the above code won't fail.
+The absent-source branch creates an empty target before linking it. If the target already contains a cache that should be reused, inspect it first and create the symlink manually rather than asking the script to merge directories.
 
 Now that you know where the caches are, you could, of course, nuke the whole cache every so often, but if these are huge models and datasets, and especially if there was some preprocessing done for the latter - you really won't want to repeat those time consuming tasks again and again. So I will teach you how to use special tools provided by HuggingFace to do the cleanup.
 
-The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main` in a few quick steps without tedious manual editing.
+The way revisions work on the HF hub is by pointing `main` to the latest revision of the files while keeping the old revisions around should anyone want to use the older revision for some reason. Chance are very high you always want the latest revision, and so here is how to delete all old revisions and only keeping `main`:
 
-In terminal A:
+```bash
+pip install -U "huggingface_hub"
+hf cache prune
 ```
-$ pip install huggingface_hub["cli"] -U
-$ huggingface-cli delete-cache --disable-tui
-File to edit: /tmp/tmpundr7lky.txt
-0 revisions selected counting for 0.0. Continue ? (y/N)
+
+`hf cache prune` deletes every revision that no longer has a branch, tag, or pull-request ref pointing at it - which is precisely the old detached revisions you wanted gone - along with any `.incomplete` blobs left behind by interrupted downloads. Start with `--dry-run` to see the damage without deleting anything:
+
+```bash
+$ hf cache prune --dry-run
+About to delete 30 unreferenced revision(s) and 9 incomplete download(s) (180.9G total).
+  - dataset/fan-shu/instruct2thinking:
+      4c8e57ed5f06425ce0d743cf168b906646f0a338 [(detached)] 609.7M
+      ce82e962df666fc85657a3a871443009ec825b5f [(detached)] 259.7M
+      d5a3ba55f8ac010ee0f1ac86314b49475a1e300a [(detached)] 226.2M
+  - dataset/fan-shu/swe-instruct-trajectories-empty-think-inserted:
+      84d55e1f36605fe990feb61a1a705032f0620015 [(detached)] 12.1G
+  - model/Qwen/Qwen3.5-27B:
+      b7ca741b86de18df552fd2cc952861e04621a4bd [(detached)] 55.6G
+  - model/zai-org/GLM-5.2:
+      f2263102df303b2faa54a6861a29d1770ce846c0 [(detached)] 1.5T
+✓ Dry run: no files were deleted.
 ```
-Do not answer the prompt and proceed with my instructions.
 
-(note your tmp file will have a different path, so adjust it below)
+The total is reclaimable space after shared blobs are counted once; the per-revision sizes above can sum to much more. Without `--dry-run` it asks for confirmation before deleting; add `--yes` to skip the prompt when you run this from a cron job.
 
-In terminal B:
+To find out where the space went before deleting anything, `hf cache ls` gives you per-repo totals and `hf cache ls --revisions` breaks it down per revision. It takes filters, which understand human sizes and durations, so you can go hunting for the big and the forgotten:
+
+```bash
+hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
 ```
-$ cp /tmp/tmpedbz00ox.txt cache.txt
-$ perl -pi -e 's|^#(.*\(detached\).*)|$1|' cache.txt
-$ cat cache.txt >>  /tmp/tmpundr7lky.txt
+
+And to delete entire models or datasets rather than just their stale revisions, `hf cache rm` takes repo ids and revision hashes:
+
+```bash
+hf cache rm model/bert-base-cased dataset/glue
 ```
-The perl one-liner uncommented out all lines that had `(detached)` in it - so can be wiped out. And then we pasted it back into the tmp file `huggingface-cli` expects to be edited.
 
-Now go back to terminal A and hit: N, Y, Y, so it looks like:
+which pairs with `hf cache ls -q` - identifiers only, one per line - to delete by filter:
 
+```bash
+hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
 ```
-0 revisions selected counting for 0.0. Continue ? (y/N) n
-89 revisions selected counting for 211.7G. Continue ? (y/N) y
-89 revisions selected counting for 211.7G. Confirm deletion ? (Y/n) y
-```
-Done.
 
-If you messed up with the prompt answering you still have `cache.txt` file which you can feed again to the new tmp file it'll create when you run `huggingface-cli delete-cache --disable-tui` again.
-
-attached as a snapshot as well as it's easier to read on twitter, but use the message to copy-n-paste from.
-
-Please note that you can also use this tool to choose which models or datasets to delete completely. You just need to open `cache.txt` in your editor and remove the `#` in front of lines that contain `main` in it for models/datasets you want to be deleted for you. and then repeat the process explained above minus the `perl` one liner which you'd replace with manual editing.
+If your cache isn't in the default location, every one of these takes `--cache-dir PATH`.
 
 Additionally you will find that HF `datasets` have a `~/.cache/huggingface/datasets/downloads` dir which often will contain a ton of leftovers from datasets downloads and their preprocessing, including various lock files. On one setup I found literally a few millions of files there. So here is how I clean those up:
 
-```
+```bash
 sudo find ~/.cache/huggingface/datasets/downloads -type f -mtime +3 -exec rm {} \+
 sudo find ~/.cache/huggingface/datasets/downloads -type d -empty -delete
 ```
@@ -562,14 +719,14 @@ As usual you may need to adjust the paths if you placed your caches elsewhere.
 
 note: if your team uses `HF_HOME` to share the HF hub models/datasets/etc - the `$HF_HOME/token` will get shared as well, which works fine as long as ungated models are used. But if you want to access gated models you might run into problems there. Therefore you most likely want to not share the access token. You can fix that by adding something like:
 
-```
+```bash
 export HF_TOKEN_PATH=~/.cache/hf_hub_token
 ```
 (then put it into `~/.bashrc` to always work)
 
-and now how each user run once:
+Now have each user run once:
 ```
-huggingface-cli login
+hf auth login
 ```
 which will ask them to add their access token from https://huggingface.co/settings/tokens - it'll save it under `~/.cache/hf_hub_token`.
 
@@ -582,12 +739,12 @@ conda and pip will pile up more and more files on your system over time. conda i
 
 So you can safely nuke these dirs:
 
-```
+```bash
 rm -rf ~/.cache/pip
 rm -rf ~/anaconda3/pkgs/
 ```
 
-Make sure edit the last command if your conda is installed elsewhere.
+Make sure to edit the last command if your conda is installed elsewhere.
 
 
 ### Share caches in group environments
@@ -596,7 +753,7 @@ If you have more than 2 people working on the same system, you really want to av
 
 For example, let's say you make `pip` and `conda` caches under `/data/cache` like so:
 
-```
+```bash
 mkdir /data/cache/conda
 mkdir /data/cache/pip
 chmod a+rwx /data/cache/conda
@@ -604,7 +761,7 @@ chmod a+rwx /data/cache/pip
 ```
 
 now you just need to symlink from each user's local cache to this shared cache:
-```
+```bash
 mkdir -p ~/.cache
 
 rm -rf ~/.cache/pip
@@ -626,7 +783,7 @@ Once `umask 000` is run, most files will be created with read/write perms so tha
 Of course, if you are using a sort of HPC, where many unrelated groups use the same cluster this won't work and then you would either use groups instead of making files read/write by all, with possibly `setgid` bit preset or using ACL . In any such environments there are always sysadmins so you can ask them how to setup a shared cache for your team and they will know what to do.
 
 Additionally, recently some of these applications added tools to do the cleanup, e.g. for `conda` and `pip`:
-```
+```bash
 conda clean --all -f -y
 pip cache purge
 ```
@@ -636,16 +793,16 @@ pip cache purge
 Of course, sooner or later, your partition will get bigger and bigger, and you will probably want to understand where data is leaking. Typically you will need to find the users who contribute to the most of data consumption and ask them to do some cleanups.
 
 So for example to find which users consume the most disk run:
-```
+```bash
 sudo du -ahd1 /home/* | sort -rh
 ```
-it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyse the data a level deeper:
+it will sort the data by the worst offenders. If you want to help them out you could go into their dirs and analyze the data a level deeper:
 
-```
+```bash
 sudo du -ahd1 /home/*/* | sort -rh
 ```
 or for a specific user `foo`:
-```
+```bash
 sudo du -ahd1 /home/foo/* | sort -rh
 ```
 
@@ -658,7 +815,7 @@ Getting users to be aware of them using too much disk space can be a very diffic
 Also beware of inode usage, on some shared partitions on HPCs I have seen more than once cases where a job crashed not because there was no disk space left, but because the job used up the last inodes and the whole thing crashed.
 
 To see inode usage, use `df -i`:
-```
+```bash
 $ /bin/df -hi
 Filesystem     Inodes IUsed IFree IUse% Mounted on
 tmpfs             16M  1.9K   16M    1% /run
@@ -666,7 +823,7 @@ tmpfs             16M  1.9K   16M    1% /run
 ```
  `-h` formats huge numbers into human-readable strings.
 
- So here you can see the the `/` partition is using 7% of the total possible inodes.
+ So here you can see the `/` partition is using 7% of the total possible inodes.
 
  Depending on the type of filesystem in some cases it's possible to add more inodes whereas in other cases it's not possible.
 
@@ -678,12 +835,12 @@ tmpfs             16M  1.9K   16M    1% /run
 
 Normally compute nodes will use `/tmp/` for temp files. The problem is on most set ups `/tmp` resides on the tiny `/` filesystem of each node (often <100GB) and since `/tmp/` only gets reset on reboot, this doesn't get cleaned up between SLURM jobs and this leads to `/tmp` running out of space and so when you try to run something that let's say untars a file you're likely to run into:
 
-```
+```bash
 OSError: [Errno 28] No space left on device
 ```
 
 The solution is to set in your SLURM launcher script.
-```
+```bash
 export TMPDIR=/scratch
 ```
 
@@ -698,56 +855,65 @@ You can also arrange for the SLURM setup to automatically clean up such folders 
 
 Do you have a problem when your team trains models and you constantly have to buy more storage because huge model checkpoints aren't being offloaded to bucket storage fast enough?
 
-Here is a one-liner that will recursively analyze a path of your choice, find all the checkpoints, sum up their sizes and print the totals sorted by the biggest user, so that you could tell them to clean up their act :) Just edit `/mypath` to the actual path
+Here is a one-liner that will recursively analyze a path of your choice, find all the checkpoints, sum up their sizes and print the totals sorted by the biggest user, so that you could tell them to clean up their act :) Just edit `/mypath` to the actual path:
 
-```
+```bash
 find /mypath/ -type f -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-gives:
+This produces an output like:
 ```
-user_a    :     2.5TB
-user_c    :     1.6TB
-user_b   :      1.2TB
+user_a   :     2.5TiB
+user_c   :     1.6TiB
+user_b   :     1.2TiB
 ```
 
 Of course, you can change the regex to match other patterns or you can remove it altogether to measure all files:
 
-```
+```bash
 find /mypath/ -type f | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
 If you want to exclude some sub-dirs efficiently:
 
-```
+```bash
 find /mypath/ -regextype posix-egrep \
--type d -regex "/mypath/(exlude_a|exclude_b|exclude_c)/.*" -prune -o \
--type f -regex ".*\.(pt|pth|ckpt|safetensors)$" | \
+-type d -regex "/mypath/(exclude_a|exclude_b|exclude_c)" -prune -o \
+-type f -regex ".*\.(pt|pth|ckpt|safetensors)$" -print | \
 perl -nle 'chomp; ($uid,$size)=(stat($_))[4,7]; $x{$uid}+=$size;
-END { map { printf qq[%-10s: %7.1fTB\n], (getpwuid($_))[0], $x{$_}/2**40 }
+END { map { printf qq[%-10s: %7.1fTiB\n], (getpwuid($_))[0], $x{$_}/2**40 }
 sort { $x{$b} <=> $x{$a} } keys %x }'
 ```
 
-hint: the second line tells `find` to skip folders matching the `/mypath/(exlude_a|exclude_b|exclude_c)/.*` regex. Adapt to your use case as needed.
+hint: the second line tells `find` to skip folders matching the `/mypath/(exclude_a|exclude_b|exclude_c)` regex. Two subtleties: the regex has to match the folder's path exactly, because if you append a trailing `/.*` then `find` descends into the folder itself and prunes only its sub-folders - so any files sitting directly in it still get counted. And the `-print` is required, because `-prune` is an action and without a second one `find` prints the pruned folders too, which then get `stat`ed and added to somebody's total. Adapt to your use case as needed.
 
 
 ### How to automatically delete old checkpoints
 
-Continuing the item from above, if you want to automatically delete old checkpoints instead (e.g. those older than 30 days).
+Continuing from [finding the users whose checkpoints consume the most disk space](#how-to-find-users-whose-checkpoints-consume-a-lot-of-disk-space), here is how to automatically delete old checkpoints (e.g. those older than 30 days).
 
 First try to ensure the candidates are indeed good to delete:
 
-```
+```bash
 find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30
 ```
 
 and when you feel it's safe to delete, only then add `rm`
-```
+```bash
 find /mypath/ -regextype posix-egrep -regex ".*\.(pt|pth|ckpt|safetensors)$" -mtime +30 -exec rm {} +
 ```
+
+## Resources
+
+### du alternatives
+
+`du` is a powerful Unix tool, but it can be slow and usually requires additional postprocessing to sort the outcome to make the latter useful, for example I often use this formula `du -ahd1 | sort -rh` for getting disk usage of a single level sorted by size.
+
+- [dust](https://github.com/bootandy/dust) - written in Rust, it runs faster than `du` and has a built in sorting. I find the no flags output to be confusing to read as it mixes many levels together and sub-sorts them, but it might be OK to others. `dust -F` and `dust -D` appear to be very useful and formatted well.
+- [baobab](https://github.com/GNOME/baobab) - analyzes partitions quite quickly and provides a UI to navigate the results based on sub-folder size with easy copying of the paths useful when needing to delete a lot of old large dataset and checkpoint folders. I think this tool is only useful on a desktop since it requires GNOME env.
