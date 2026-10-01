@@ -20,6 +20,7 @@
 1. Read the sections of this file that govern the edit, not the ones that happen to come to mind. Any new number means [Reader-visible grounding](#reader-visible-grounding); prose means [Source line layout](#source-line-layout) and [Unit formatting](#unit-formatting); a table means [Table ordering and source layout](#table-ordering-and-source-layout); a file with a twin means [Companion book sync](#companion-book-sync).
 2. Run the checks instead of eyeballing the result: `make check-style` always, `make fix-tables` when a table changed rather than hand-padding one, and `make check-links-local-fast` when links or headings changed.
 3. The failure this exists to prevent: treating the chat proposal as the artifact and the file write as mere transcription. Everything that exists only in the file - source alignment, line layout, the make targets - gets skipped that way, and a number that read fine in chat goes in without anyone asking whether the reader can derive it.
+4. **Never edit generated `.html` files.** `README.html`, chapter `.html`, and anything else produced by the book build are overwritten on the next rebuild. A link or wording change belongs in the `.md` source; patching HTML is wasted work and a second source of truth. Concrete failure: a SKILL.md move was applied to `the-art-of-debugging/README.html` as well as `README.md` - the HTML edit dies on the next `mdbook`/`make` pass.
 
 ## Book style
 
@@ -365,8 +366,9 @@ Cross-chapter:
 1. Keep each prose paragraph on one physical source line; do not wrap prose to a fixed line width.
 2. Keep each Markdown list item on one physical source line unless it contains nested block content.
 3. Preserve intentional blank lines between Markdown blocks.
-4. Only code is subject to a line-width limit, which is 119 characters.
-5. Wrap code according to the syntax and semantics of its language rather than applying prose-style reflow.
+4. Only code is subject to a line-width limit, which is 119 characters. This covers every code file in the book (e.g. the benchmark scripts) and all of its parts: statements, comments, docstrings, and string literals. Use the full width: fill comment and docstring paragraphs out to 119 rather than wrapping them at 80, and split a long call or string only when it would exceed 119. The one exception is an unbreakable token such as a URL, which goes on its own line even if that line is longer.
+5. Wrap code according to the syntax and semantics of its language rather than applying prose-style reflow: break calls after an argument with the continuation aligned to the open paren, split long strings into implicitly concatenated literals at word boundaries (keeping the `f` prefix only on pieces with placeholders), put a long argparse `help=` on its own line, and leave structured comments - lists, tables, ASCII separators, commented-out code - in their existing layout.
+6. When editing an existing code file, check the lines you touch against 119, and any file you reflow wholesale must be verified to be behavior-identical (e.g. its Python AST is unchanged apart from docstring whitespace) before it is kept.
 
 ## Unit formatting
 

@@ -257,7 +257,7 @@ Having the flexibility to expand your total storage capacity, and keep the "hot"
 
 This segment is mostly relevant to those planning to do training and finetuning. If you need to rent accelerators either for inference via large deployments of microservices or for small, on-demand, interactive work (i.e. notebooks) you can safely ignore this information. The only exception is when you plan on inferencing very big models that require more than one node for a single replica.
 
-In general you want to ensure that the offered [intra-node](../network/README.md#intra-node-networking) and [inter-node](../network/README.md#inter-node-networking) network speeds match the promise and your expectations.
+In general you want to ensure that the offered [intra-node](../network/README.md#intra-node-networking) and [inter-node](../network/README.md#inter-node-networking) network speeds match the promise and your expectations. When you measure, ask which NCCL env vars the platform needs; a safe default is `NCCL_NVLS_ENABLE=2` (use NVLink SHARP when available).
 
 ### Ask for the actual performance numbers
 
@@ -289,6 +289,35 @@ In general, CSPs follow NVIDIA's [DGX SuperPOD Reference Architecture](https://d
 However, many of the largest GPU clusters in the world now run RoCEv2 instead of InfiniBand. Meta has [proven](https://engineering.fb.com/2024/08/05/data-center-engineering/roce-network-distributed-ai-training-at-scale/) that you can train frontier-class Llama models on a RoCEv2 network. Semianalysis/Fabricated Knowledge show a [significant drop-off](https://www.fabricatedknowledge.com/p/nvidia-waiting-on-blackwell-and-whats?utm_source=post-banner&utm_medium=web&utm_campaign=posts-open-in-app&triedRedirect=true) in NVIDIA's networking attach rate for their GPUs.
 
 Since multi-node training depends on network collectives (i.e. NCCL or RCCL), the type of network can significantly impact performance and user experience.
+
+
+## How to evaluate the cluster
+
+Once you have trial nodes, measure the three subsystems the rest of this article is about. Do not take the CSP's slide deck as the SLA until you can reproduce it on *your* allocation. The tools live in this book; an agent runbook for the same loop is [evaluate-cluster/SKILL.md](../skills/evaluate-cluster/SKILL.md).
+
+Use an **isolated venv**. Do not mutate the node's `dev` conda/env. If a recent `torch` with a CUDA build that matches the GPU is already there, reuse it; otherwise install the current stable CUDA wheel, plus `nvidia-ml-py` (MAMF telemetry), `matplotlib` (all-reduce plots), and `fio`.
+
+Before expensive sweeps, run [`torch-distributed-gpu-test.py`](../debug/torch-distributed-gpu-test.py) on one node so a broken NCCL/GPU shows up in seconds rather than inside a 16 GiB all-reduce.
+
+### A. Network
+
+Intra-node: [`all_reduce_bench.py`](../network/benchmarks/all_reduce_bench.py) with `torchrun --nproc_per_node=8` (or however many GPUs the node has). Inter-node: the same script on **at least 4 nodes**. Passwordless SSH between those nodes is required for the `pdsh` recipe in the script header; SLURM `srun` is the other supported launcher. See [Networking Benchmarks](../network/benchmarks/README.md) and [Real network throughput](../network/README.md#real-network-throughput).
+
+The number to report is **`busbw`** (unidirectional). Intra-node: compare to advertised NVLink (not duplex); NVLS/SHARP can push the ring-formula number past 100% of that spec and only helps **all-reduce**. Inter-node: quote `busbw` and the NCCL path; **do not** divide by advertised IB/RoCE/EFA GBps — that collective is never a NIC-only measurement. If you only have one node, skip inter-node and write that down; a 1-node NVLink number does not tell you how the fabric behaves at 4 nodes.
+
+### B. Compute
+
+**MAMF sequential, siblings idle.** [`mamf-finder.py`](../compute/accelerator/benchmarks/mamf-finder.py) `--search auto` on **each GPU** of the node, one at a time (`CUDA_VISIBLE_DEVICES=i`). That is the lemon-detection pass: one slow GPU ruins the node. Compare MAMF/MSMF to official TFLOPS in the [accelerator tables](../compute/accelerator/README.md#tflops-comparison-table). Details: [benchmarks README](../compute/accelerator/benchmarks/README.md).
+
+**DCGM (`dcgmi diag -r 2`).** Hardware health (memory, PCIe/NVLink), not a FLOPS number (≲10.5 min on 8 GPUs). `-r 1` is software-only and not enough; `-r 3` is optional soak. Needs `nv-hostengine` (NVIDIA CUDA repo package `datacenter-gpu-manager-4-cudaN`). If the container cannot run it, write that down and keep MAMF.
+
+A second *concurrent* all-8 run is a different question (shared power/cooling pulls the saturated clock down). Useful, but it is not the headline for "are these GPUs healthy."
+
+### C. Storage
+
+[`fio-scan`](../storage/fio-scan) on the **local NVMe** path *and* the **shared filesystem** path, as documented under [fio](../storage/README.md#fio). You need both: NVMe is the ceiling; shared FS is what dataloaders and checkpoints actually hit. Default is 6 benches × 3 minutes per mount (~18 min each). Tiny-file (16 KiB) latency is the developer-experience proxy; 1 GiB sequential is the checkpoint proxy.
+
+Write a **Conclusion** at the end of the dated report: one verdict per of compute / network / storage, then a **Flags** list (Gaps and anything that is merely “usable, not great”). Do not make the reader hunt through tables for the call.
 
 
 ## Security
