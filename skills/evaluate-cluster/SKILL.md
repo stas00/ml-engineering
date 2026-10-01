@@ -2,8 +2,8 @@
 name: evaluate-cluster
 description: >-
   Evaluates an ML GPU cluster for a cloud trial or acceptance test: environment
-  dump, isolated newest PyTorch, sequential matmul FLOPS (MAMF/MSMF) on every
-  GPU, intra-node all-reduce, inter-node all-reduce on every node you were given
+  dump, isolated newest PyTorch, matmul FLOPS (MAMF/MSMF) on every GPU while the
+  others compute, intra-node all-reduce, inter-node all-reduce on every node you were given
   (omit that section if there is only one node), fio on local disk and shared FS,
   dated markdown report. Use when the user asks to evaluate a cluster, kick the
   tires on trial nodes, run cluster acceptance, or measure GPU/network/storage.
@@ -37,32 +37,34 @@ Refuse to invent access, GPU counts, filesystem paths, or peer IPs. **Preflight 
 
 ## Terms
 
-| term | meaning |
-| --- | --- |
-| **MAMF** | Maximum Achievable Matmul FLOPS: the highest any **matmul shape** (M×N×K) reaches on that GPU. The winning shapes are short bursts — the clock sits at boost and the board stays far below its power limit — so this is a ceiling, not a rate any sustained workload holds. |
-| **MSMF** | Maximum Sustainable Matmul FLOPS: what is left once the matmul shape is big enough to pin the board at its power limit and the clock settles below boost. This is what back-to-back dense matmuls actually get. Both come from [`mamf-finder.py`](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py), which times on the order of 1500–2000 matmul shapes per GPU (the `auto` search adapts, so the count differs per card) and reports the W and MHz behind each winner. |
-| **DCGM** | NVIDIA Data Center GPU Manager. `dcgmi diag -r 2` checks GPU memory, bandwidth, PCIe — not FLOPS. |
-| **lemon GEMM** | A one-off inline `torch.matmul` (not a published script) on every GPU with the same large shape, to catch a dead, slow, or throttled card. |
-| **all-reduce** | Collective: every rank ends up with the sum of all ranks' tensors. Used to stress NVLink and the network. |
-| **busbw / algbw** | Printed by [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py). **busbw** = unidirectional bus bandwidth (what the fabric moves). **algbw** = algorithm bandwidth (what the caller sees). busbw is already unidirectional ([why](https://github.com/stas00/ml-engineering/blob/master/network/README.md#unidirectional-vs-bidirectional-duplex)). |
-| **NVLS** | NVLink SHARP: the NVSwitch does the all-reduce in the switch. Typical gain vs ring busbw ~30% intra-node / ~25% inter-node. Does **not** speed up all-gather or reduce-scatter. Different from InfiniBand switch SHARP. |
-| **NCCL** | NVIDIA Collective Communications Library (the GPU collective stack torch uses). |
-| **rdzv** | torch.distributed **rendezvous**: a TCP store so ranks find `MASTER_ADDR:PORT` before NCCL starts. |
-| **hostfile** | Text file, one peer address per line (`10.0.0.1` or `10.0.0.1 slots=8`). DeepSpeed `-H` and `pdsh -w` read it. |
-| **pdsh** | Parallel SSH: run one command on many hosts. |
-| **fio-scan** | Wrapper around `fio` ([script](https://github.com/stas00/ml-engineering/blob/master/storage/fio-scan)): six timed runs (16 KiB / 1 MiB / 1 GiB × read/write). Needs [`fio-json-extract.py`](https://github.com/stas00/ml-engineering/blob/master/storage/fio-json-extract.py) in the **same directory**. |
-| **`local/shared ×`** | local-disk bandwidth ÷ same-row shared-FS bandwidth — how many times slower the shared filesystem is. One column is enough: with a fixed block size the IOPS ratio is identical. Never a percentage, never `%local`. |
-| **SM** | GPU streaming multiprocessor. Count from `torch.cuda.get_device_properties(0).multi_processor_count`. |
-| **HBM** | GPU high-bandwidth memory. Report `nvidia-smi` `memory.total` in **GiB**. |
-| **TDP** | Thermal design power: the GPU’s advertised watt limit (`power.limit`). |
-| **EFA** | AWS Elastic Fabric Adapter (RDMA NICs named `rdmap*`). `ibstat` is often **empty**; use `rdma link`. |
-| **overlay** | Container union filesystem. `df -T /` may say `overlay`; the **backing** FS (xfs, ext4) is the partition type to report. |
+| term                 | meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MAMF**             | Maximum Achievable Matmul FLOPS: the highest any **matmul shape** (M×N×K) reaches on that GPU. The winning shapes are short bursts — the clock sits at boost and the board stays far below its power limit — so this is a ceiling, not a rate any sustained workload holds.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **MSMF**             | Maximum Sustainable Matmul FLOPS: what is left once the matmul shape is big enough to pin the board at its power limit and the clock settles below boost. This is what back-to-back dense matmuls actually get, provided the other GPUs of the node compute at the same time: they share the board's power and cooling budget, so measured next to idle GPUs it reads high. Both come from [`mamf-finder.py`](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py), which times on the order of 1500–2200 matmul shapes per GPU (the `auto` search adapts, so the count differs per run) and reports the W and MHz behind each winner. [`mamf-finder-all-gpus.py`](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder-all-gpus.py) runs it on every GPU of a node, one at a time, while all the other GPUs run a continuous matmul. |
+| **DCGM**             | NVIDIA Data Center GPU Manager. `dcgmi diag -r 2` checks GPU memory, bandwidth, PCIe — not FLOPS.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **lemon GEMM**       | A one-off inline `torch.matmul` (not a published script) on every GPU with the same large shape, to catch a dead, slow, or throttled card.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **all-reduce**       | Collective: every rank ends up with the sum of all ranks' tensors. Used to stress NVLink and the network.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **busbw / algbw**    | Printed by [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py). **busbw** = unidirectional bus bandwidth (what the fabric moves). **algbw** = algorithm bandwidth (what the caller sees). busbw is already unidirectional ([why](https://github.com/stas00/ml-engineering/blob/master/network/README.md#unidirectional-vs-bidirectional-duplex)).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **NVLS**             | NVLink SHARP: the NVSwitch does the all-reduce in the switch. Typical gain vs ring busbw ~30% intra-node / ~25% inter-node. Does **not** speed up all-gather or reduce-scatter. Different from InfiniBand switch SHARP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **NCCL**             | NVIDIA Collective Communications Library (the GPU collective stack torch uses).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **rdzv**             | torch.distributed **rendezvous**: a TCP store so ranks find `MASTER_ADDR:PORT` before NCCL starts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **hostfile**         | Text file, one peer address per line (`10.0.0.1` or `10.0.0.1 slots=8`). DeepSpeed `-H` and `pdsh -w` read it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **pdsh**             | Parallel SSH: run one command on many hosts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **fio-scan**         | Wrapper around `fio` ([script](https://github.com/stas00/ml-engineering/blob/master/storage/fio-scan)): six timed runs (16 KiB / 1 MiB / 1 GiB × read/write). Needs [`fio-json-extract.py`](https://github.com/stas00/ml-engineering/blob/master/storage/fio-json-extract.py) in the **same directory**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`local/shared ×`** | local-disk bandwidth ÷ same-row shared-FS bandwidth — how many times slower the shared filesystem is. One column is enough: with a fixed block size the IOPS ratio is identical. Never a percentage, never `%local`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **SM**               | GPU streaming multiprocessor. Count from `torch.cuda.get_device_properties(0).multi_processor_count`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **HBM**              | GPU high-bandwidth memory. Report `nvidia-smi` `memory.total` in **GiB**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **TDP**              | Thermal design power: the GPU’s advertised watt limit (`power.limit`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **EFA**              | AWS Elastic Fabric Adapter (RDMA NICs named `rdmap*`). `ibstat` is often **empty**; use `rdma link`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **overlay**          | Container union filesystem. `df -T /` may say `overlay`; the **backing** FS (xfs, ext4) is the partition type to report.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Scripts (fetch, do not invent)
 
 ```bash
 RAW=https://raw.githubusercontent.com/stas00/ml-engineering/master
 curl -fsSL "$RAW/compute/accelerator/benchmarks/mamf-finder.py" -o mamf-finder.py
+curl -fsSL "$RAW/compute/accelerator/benchmarks/mamf-finder-all-gpus.py" -o mamf-finder-all-gpus.py
+# mamf-finder-all-gpus.py runs ./mamf-finder.py from its own directory — keep both in one directory.
 curl -fsSL "$RAW/network/benchmarks/all_reduce_bench.py" -o all_reduce_bench.py
 curl -fsSL "$RAW/debug/torch-distributed-gpu-test.py" -o torch-distributed-gpu-test.py
 curl -fsSL "$RAW/storage/fio-scan" -o fio-scan
@@ -87,21 +89,21 @@ Tools not in the fetch list: `dcgmi diag` is NVIDIA's; the lemon GEMM is an inli
 
 ## Preflight (hard gate)
 
-**Goal:** be able to run the rest of the eval without blocking on the user. Slow work (PyTorch wheels, DCGM `-r 2`, sequential MAMF, shared-FS `fio-scan`, GPU all-reduce) starts only after this gate.
+**Goal:** be able to run the rest of the eval without blocking on the user. Slow work (PyTorch wheels, DCGM `-r 2`, MAMF/MSMF, shared-FS `fio-scan`, GPU all-reduce) starts only after this gate.
 
 ### Ask now, not later
 
 Collect and **write down** every row. Missing → message the user with the exact list, then **stop**.
 
-| need | why | typical answer |
-| --- | --- | --- |
-| How to exec on a node | every command | `kubectl` (ask for context, namespace, pod/job), `ssh`, `srun`, or whatever CLI the user names |
-| **All** node identities | lemon GEMM + inter-node | every pod/hostname, not only rank 0 |
-| **Hostfile (or equivalent) with peer IPs** | inter-node SSH / rdzv / `pdsh` | path or pasted contents: one IP per line. Required when **≥2 nodes**. SLURM: `scontrol show hostnames` plus IPs. |
-| SSH / launcher details | `pdsh` / DeepSpeed | port; passwordless SSH **between** nodes (not only laptop → rank 0) |
-| GPUs per node | default 8 | `nvidia-smi -L` if unknown |
-| Local disk path + shared-FS path | `fio-scan` | discover with `df -hT`; ask if unclear |
-| Advertised uni bandwidth / official TFLOPS | optional | else [accelerator tables](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md) + `nvidia-smi` |
+| need                                       | why                            | typical answer                                                                                                               |
+| ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| How to exec on a node                      | every command                  | `kubectl` (ask for context, namespace, pod/job), `ssh`, `srun`, or whatever CLI the user names                               |
+| **All** node identities                    | lemon GEMM + inter-node        | every pod/hostname, not only rank 0                                                                                          |
+| **Hostfile (or equivalent) with peer IPs** | inter-node SSH / rdzv / `pdsh` | path or pasted contents: one IP per line. Required when **≥2 nodes**. SLURM: `scontrol show hostnames` plus IPs.             |
+| SSH / launcher details                     | `pdsh` / DeepSpeed             | port; passwordless SSH **between** nodes (not only laptop → rank 0)                                                          |
+| GPUs per node                              | default 8                      | `nvidia-smi -L` if unknown                                                                                                   |
+| Local disk path + shared-FS path           | `fio-scan`                     | discover with `df -hT`; ask if unclear                                                                                       |
+| Advertised uni bandwidth / official TFLOPS | optional                       | else [accelerator tables](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md) + `nvidia-smi` |
 
 NCCL env is **not** a user question if you can exec: dump `env | grep -E '^NCCL_|^FI_|^AWS_OFI'` on rank 0 in this same preflight. Keep whatever the platform already sets for the fast path (`NCCL_IB_HCA`, `NCCL_NET_PLUGIN=ofi`, `NCCL_TUNER_PLUGIN=ofi`, EFA/OFI tunables, `NCCL_NVLS_ENABLE`, …). Do **not** overwrite a live platform value with the eval default. If NCCL is unset, **preset `NCCL_NVLS_ENABLE=2`**. Record the **final** env in the report (Environment + Network Introduction).
 
@@ -138,14 +140,14 @@ After the eval venv exists (loop step 2), add one more cheap check **before** GP
 2. Isolated venv on the **newest** released torch (do **not** mutate or benchmark the node’s preinstalled Python).
 3. If ≥2 nodes: CPU gloo 1-process-per-node across the hostfile (connectivity + rdzv). Fix `is_host` / `local_addr` here if needed. **Skip this step on 1 node.**
 4. Connectivity: `torch-distributed-gpu-test.py` — one process per GPU; ranks must see each other and complete a collective. **The scope is whatever you launch it on**: across all nodes it is an inter-node check, on a single node it is only intra-node. With **≥2 nodes, run it across all of them** — a 1-node run does not test the fabric and must never be labelled inter-node.
-5. **Compute:** `dcgmi diag -r 2` (hardware health), then `mamf-finder.py --search auto` sequentially on each GPU. Lemon GEMM on **every GPU of every given node**.
+5. **Compute:** `dcgmi diag -r 2` (hardware health), then `mamf-finder-all-gpus.py` (one GPU at a time while every other GPU runs a continuous matmul). Lemon GEMM on **every GPU of every given node**.
 6. **Network:** intra-node `all_reduce_bench.py`. Then, if **≥2 nodes**, GPU all-reduce on **all** of them (not a fixed 4). If **1 node**, stop after intra-node — no Inter-node heading.
 7. **Storage:** `fio-scan` on local disk and on shared FS. Concurrent write poke uses every given node when ≥2; skip that poke on 1 node.
 8. Write `reports/<cluster>-<YYYY-MM-DD-HHMMZ>.md` next to this skill (or in the working directory), with `reports/raw-<name>/` beside it and **plots inlined**. Write it for a reader who knows nothing you learned on the node: every tool and term gets defined where it is first used. End with **## Findings**, split into **### Healthy subsystems**, **### Underperforming subsystems**, and **### Needs operator input** — the last for subsystems measured cleanly but with no known target to judge them against; keep only the headings that have bullets. Compute may use % of official TFLOPS. Intra-node all-reduce may use % of NVLink spec (note NVLS). Storage: measured vs vendor advertised. **Never** flag multi-node all-reduce as “X% of NIC / rail spec.” Do not repeat the tables.
 9. **Clear the scratch you created** (see **Leave the filesystems as you found them**) — before the summary, not after the user notices.
 10. **Close-out:** **ask the user** to address each one, including every **Needs operator input** bullet — those are open questions addressed to them, and the eval stays unfinished until they supply the figures or say to drop it. For every gap: quote it, then give a **proposed plan of action** (commands, launcher, package, node count, or “accept and leave as-is”). Do not treat the eval as finished until they pick a plan, you execute it, or they explicitly accept the gap. If there are no Gaps sections, say the eval is complete.
 
-Keep siblings idle during sequential MAMF. Abort a GPU's run if `nvidia-smi` shows other compute processes on that node (except the connectivity test / the bench itself).
+Start the GPU performance pass and the lemon GEMM only on a node with no other compute processes in `nvidia-smi`; abort if one appears. During `mamf-finder-all-gpus.py`, a python process on every GPU is the script's own matmul and is expected.
 
 ## Leave the filesystems as you found them
 
@@ -153,12 +155,12 @@ A storage eval writes enormous scratch files onto shared filesystems that belong
 
 What this eval creates, all of which has to go:
 
-| what | where | size |
-| --- | --- | --- |
-| `fio` work files | `<scan path>/fio-test/` on **every** mount scanned | ~33 GiB per mount per six-run scan |
-| concurrent-write poke files | the share you wrote to, one per node | 1 GiB × nodes |
-| `mamf-finder` / bench outputs, job logs | wherever you pointed them | small, but still yours |
-| the isolated venv, cloned repos | `/tmp` or a share | leave only if under node-local `/tmp` |
+| what                                    | where                                              | size                                  |
+| --------------------------------------- | -------------------------------------------------- | ------------------------------------- |
+| `fio` work files                        | `<scan path>/fio-test/` on **every** mount scanned | ~33 GiB per mount per six-run scan    |
+| concurrent-write poke files             | the share you wrote to, one per node               | 1 GiB × nodes                         |
+| `mamf-finder` / bench outputs, job logs | wherever you pointed them                          | small, but still yours                |
+| the isolated venv, cloned repos         | `/tmp` or a share                                  | leave only if under node-local `/tmp` |
 
 Rules:
 
@@ -187,7 +189,7 @@ Pick the `cuNNN` index matching the driver (`nvidia-smi`); try the highest one t
 
 **Verify each phase actually ran on it.** Every bench prints its stack (`- software: torch=…, nccl=…`); MAMF logs it too. A launcher can silently substitute its own interpreter — `deepspeed`/`srun` run whatever `python3` is on the remote PATH, so a run can come back on the node’s old torch even with the venv sourced. Grep the log before you copy a number into the report.
 
-**`nvidia-ml-py` is required** (`import pynvml`) — without it `mamf-finder.py` skips filtering of shapes that look fast because of cache artifacts (the script labels those SUSPECT), and MSMF can be inflated. The pip name is `nvidia-ml-py`; the import is `pynvml`.
+**`nvidia-ml-py` is required** (`import pynvml`) — `mamf-finder.py` refuses to start without it, because it needs the SM clock to confirm MAMF was a boost burst and the power draw to drop MSMF shapes that never reached the power limit (the script labels those SUSPECT). Do not pass `--telemetry off` to get around it; install the package. The pip name is `nvidia-ml-py`; the import is `pynvml`.
 
 Host packages — install before the env dump, on **every** node you will measure. Prefix with `sudo` if the eval user is not root. Empty `ibstat` on EFA is OK; still install `infiniband-diags` and confirm fabric with `rdma link` / `/sys/class/infiniband`.
 
@@ -208,13 +210,13 @@ sudo dnf install -y infiniband-diags fio iproute rdma-core pdsh
 # DCGM: NVIDIA CUDA repo, then datacenter-gpu-manager-4-cuda${CUDA_VERSION} (CUDA major from nvidia-smi).
 ```
 
-| binary | package | why |
-| --- | --- | --- |
-| `ibstat` | `infiniband-diags` | InfiniBand/RoCE NIC (channel adapter) state, rate, LID. **Empty on EFA is OK** — then `rdma link` + sysfs rate |
-| `fio` | `fio` | `fio-scan` |
-| `rdma` | `iproute2` (+ `rdma-core`) | `rdma link` |
-| `pdsh` | `pdsh` | DeepSpeed multi-node launcher / torchrun helper |
-| `dcgmi` | `datacenter-gpu-manager-4-cudaN` (NVIDIA CUDA repo, not distro) | `dcgmi diag -r 2` hardware health |
+| binary   | package                                                         | why                                                                                                            |
+| -------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `ibstat` | `infiniband-diags`                                              | InfiniBand/RoCE NIC (channel adapter) state, rate, LID. **Empty on EFA is OK** — then `rdma link` + sysfs rate |
+| `fio`    | `fio`                                                           | `fio-scan`                                                                                                     |
+| `rdma`   | `iproute2` (+ `rdma-core`)                                      | `rdma link`                                                                                                    |
+| `pdsh`   | `pdsh`                                                          | DeepSpeed multi-node launcher / torchrun helper                                                                |
+| `dcgmi`  | `datacenter-gpu-manager-4-cudaN` (NVIDIA CUDA repo, not distro) | `dcgmi diag -r 2` hardware health                                                                              |
 
 If apt/dnf is blocked, record that in Gaps and fall back to `/sys/class/infiniband/*/ports/*/rate` + `nvidia-smi topo` — that is a last resort, not the default.
 
@@ -239,7 +241,7 @@ rdma link
 ls /sys/class/infiniband
 cat /sys/class/infiniband/*/ports/1/rate
 nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv
-sha256sum mamf-finder.py all_reduce_bench.py
+sha256sum mamf-finder.py mamf-finder-all-gpus.py all_reduce_bench.py
 ```
 
 Classify intra-node (NVLink vs PCIe from `topo`) and inter-node (InfiniBand / RoCE / EFA / Ethernet). HBM = `memory.total` reported in **GiB** (not MiB). SM clocks in the Environment GPU table: **boost** = `clocks.max.sm` (spec / short burst); **saturated** = SM clock at ~TDP under a dense GEMM (a range is fine; not a single nvidia-smi field); **parked idle** = `clocks.sm` when no compute. Do not label boost as “loaded” — a power-saturated GEMM sits well below boost. Do **not** name MAMF/MSMF in Environment — those terms start in Compute. Write the dump as **five tables** in the report: Host / GPU / Fabric / Filesystems / Software. Never one mega-table. **Software:** OS is **not** here — it is Host row 1. Python version + torch/NCCL. **Never** the eval venv path (temporal artifact). Tool versions (`mamf-finder`, …) belong under Compute.
@@ -266,24 +268,33 @@ One node is the minimum; extra nodes in parallel if you already have them. Repor
 
 ### GPU performance benchmarks
 
-Sequential MAMF — one GPU at a time, siblings idle:
+`mamf-finder-all-gpus.py` — one GPU at a time, while every other GPU of the node runs a continuous bf16 matmul that holds it at its power limit, as in a real workload:
 
 ```bash
-for i in $(seq 0 $((NGPU-1))); do
-  CUDA_VISIBLE_DEVICES=$i "$PY" -u mamf-finder.py --search auto --dtype bfloat16 \
-    --output_file "mamf-gpu$i.txt" > "mamf-gpu$i.console" 2>&1
-done
+OUT_DIR=mamf "$PY" mamf-finder-all-gpus.py --dtype bfloat16 > mamf-all.console 2>&1
 ```
 
-Optional concurrent all-8 is a **different** measurement (shared TDP/cooling); do not mix it into the per-GPU table. Compare MAMF/MSMF to official BF16 TFLOPS. Record per-GPU shape, power, SM clock. Flag any GPU >2% below the node median MAMF.
+On 8 H200s it took about 4.5 minutes.
+
+1. GPU0 runs the full `--search auto`: MAMF, MSMF and the MSMF shape (`mamf/gpu0.txt`).
+2. Each other GPU in turn measures GPU0's MSMF shape only (`mamf/gpu<N>.txt`); that is much shorter than a search. Their logs also print a MAMF line, which is a burst on that one shape, not a search result — ignore it.
+3. `mamf/summary.txt` lists each GPU's MSMF with shape, W and MHz, then the node MSMF (the slowest GPU, since synchronous work runs at its pace), the median and spread across GPUs, and GPU0's MAMF.
+
+Every GPU's MSMF is the same shape at full-node power, so the numbers compare directly. MAMF exists for GPU0 only; never present it as a per-GPU number. Compare MAMF and MSMF to official BF16 TFLOPS.
+
+**One pass cannot call a GPU slow.** On 8 healthy H200s each GPU's MSMF moved by up to 5% between passes (one went 727, 763, 745 TFLOPS), so half the passes had some GPU 2–3% below the node median. If any GPU lands >2% below the node median MSMF, rerun the pass twice with the shape pinned — `--m M --n N --k K` from the summary's MSMF shape, `OUT_DIR=mamf-rep2` and `mamf-rep3`, about 2 minutes each on 8 H200s. A GPU is under-performing only if it is >2% below its node median in **all three** passes; report it in **Findings** as described there. If the dip did not repeat, say so in one sentence with the three numbers, so the reader does not wonder about the first table.
+
+- A non-zero exit means a GPU's run failed: read `mamf/gpu<N>.err`, rerun or put it in **Gaps**.
+- A `saw idle siblings` warning in `summary.txt` means a sibling's matmul stopped during that GPU's measurement, so its MSMF reads high. Rerun; if it repeats, put it in **Gaps**.
+- Do not substitute plain `mamf-finder.py` per GPU with the others idle: that MSMF is a single-GPU upper bound, and its log ends with a note saying so.
 
 ### Find underperforming GPUs
 
-Cheap check for a slow, throttled, or dead card — **not** MAMF. Open with **TLDR: no under-performing or dead GPUs** or **TLDR: under-performing: gpu<N> on <node>**. One sentence: an under-performing GPU is slow or throttled, dead is the extreme case; same large `matmul` on every GPU, siblings idle. Run it on 1 node or 16 — the table has one row per node you have.
+Cheap check for a slow, throttled, or dead card — **not** MAMF. Open with **TLDR: no under-performing or dead GPUs** or **TLDR: under-performing: `<host>(node<I>):gpu<N>`**. One sentence: an under-performing GPU is slow or throttled, dead is the extreme case; same large `matmul` on every GPU, siblings idle. Run it on 1 node or 16 — the table has one row per node you have.
 
 Fixed **16384³ bf16**. Compute SM coverage from **this** GPU’s SM count (`torch.cuda.get_device_properties(0).multi_processor_count`) — never reuse an SM count from another GPU family. At 128×256 output tiles that is **8192** CTAs (`16384/128 × 16384/256`; a CTA is one CUDA thread block). Full waves = `8192 // SMs`, tail = `8192 % SMs`, wave efficiency = `1 - tail/8192`. Example only: 132 SMs → 62 waves + 8 CTA tail (**99.9%**).
 
-Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (MAMF used >2%); the min of a tight pack is noise.
+Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (the GPU performance pass uses >2%); the min of a tight pack is noise.
 
 ## Network
 
@@ -466,7 +477,7 @@ Need `python` on PATH for `fio-json-extract.py`, or patch the copy to `python3`.
 
 **`### Gaps` under Compute, Network, or Storage:** omit the subsection entirely when that phase is complete. Never write `### Gaps` / `None`. Only include it when something is actually missing or incomparable (busy siblings, lemon GPU, DCGM `-r 2` failed/unprivileged, rdzv failed on ≥2 nodes, fio missing, …). **1 node is not a gap** — inter-node is omitted, not missing. When the rest of the report is written, **ask the user to address every remaining Gaps item**, each with a **proposed plan of action** (loop step 9).
 
-```markdown
+````markdown
 # Cluster eval: <name> (<N> nodes of <G>× <GPU>)
 
 Example titles: `4 nodes of 8× H200`, `1 node of 8× B200`, `16 nodes of 8× H100`. Always include **node count and GPUs per node**, not only the GPU name.
@@ -496,7 +507,7 @@ Example:
 1. [Environment](#environment) — host, GPU, fabric, mounts, software (inventory, not a bench)
 2. [Compute](#compute)
    1. [Hardware health](#hardware-health) — `dcgmi diag -r 2`
-   2. [GPU performance benchmarks](#gpu-performance-benchmarks) — `mamf-finder.py` sequential, siblings idle
+   2. [GPU performance benchmarks](#gpu-performance-benchmarks) — `mamf-finder-all-gpus.py`, one GPU at a time while the others run a matmul
    3. [Find underperforming GPUs](#find-underperforming-gpus) — fixed 16384³ `matmul` on every GPU
 3. [Network](#network)
    1. [Inter-node connectivity](#…) — `torch-distributed-gpu-test.py`, R ranks (label it **Intra-node connectivity** if it only ran on one node)
@@ -540,18 +551,23 @@ Python version, torch, NCCL (`torch.cuda.nccl.version()`). Note that torch was t
 Name × count, SM count, HBM GiB, TDP, official BF16 TFLOPS. Not a benchmark dump. Then a **numbered list of the passes that follow**, each saying what the tool literally does:
 
 1. `dcgmi diag -r 2` — NVIDIA's own health check (software, memory, PCIe).
-2. `mamf-finder.py` — times many **matmul shapes** (M×N×K) per GPU to find the fastest; reports **MAMF** and **MSMF**, both vs the official spec.
+2. `mamf-finder-all-gpus.py` — times many **matmul shapes** (M×N×K) on GPU0 to find the fastest, then measures the sustainable winner on every other GPU, each while all the others run a matmul; reports **MAMF** and **MSMF**, both vs the official spec.
 3. Lemon GEMM — a throwaway inline script: one fixed matmul shape (M=N=K=16384) on every GPU, to catch a dead, slow, or throttled card.
 
 ### Hardware health
 **Pass** (or **Fail** on named plugins/GPUs; or Gaps: no hostengine / unprivileged). Never **Pass** and **No Fail** together.
 
 ### GPU performance benchmarks
-| GPU | MAMF | MSMF | MAMF shape | MSMF shape | MAMF W/MHz | MSMF W/MHz | MAMF % spec | MSMF % spec |
-min / median / max across GPUs. Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches — state how many matmul shapes it timed per GPU, as a range if the `auto` search tried a different count on each card (read the `Tried N shapes` line in every `mamf-gpu*.txt`, don't extrapolate from one). Then `Two numbers per GPU vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
+Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches. State how many matmul shapes GPU0's search timed (the `Tried N shapes` line in `mamf/gpu0.txt`), and that every other GPU then measured the sustainable winner while all the rest of the node ran a continuous matmul. Then `Two numbers vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
 
-- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS reached by any matmul shape (short burst at boost, board far under its power limit). A ceiling, not a rate any sustained workload holds.
-- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles. Compare a sustained workload to this number.
+- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS reached by any matmul shape on GPU0 (short burst at boost, board far under its power limit). A ceiling, not a rate any sustained workload holds. One number, with its shape and % spec.
+- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles, measured on every GPU while all the others compute. The node figure is the slowest GPU, since synchronous work runs at its pace. Compare a sustained workload to this number.
+
+Then the per-GPU table from `mamf/summary.txt`, and below it the node MSMF (slowest GPU), median and spread:
+
+| GPU | MSMF | MSMF shape | W / MHz | MSMF % spec |
+
+TFLOPS are integers, as the script prints them; compute % spec from the integer. On a 1-GPU box there is no "while the others compute" and no median or spread; say it is the only GPU.
 
 **Expand every acronym at first use in the report** — MAMF, MSMF, DCGM, NVLS, GEMM, busbw/algbw, MFU. The Terms table in this skill is for the agent; the reader of the report only sees the report.
 
@@ -560,7 +576,7 @@ min / median / max across GPUs. Official TFLOPS source = [TFLOPS comparison tabl
 After the bullets, say what the table's shape and `W/MHz` columns are: the M×N×K that won each regime, and the board power / SM clock measured while it ran.
 
 ### Find underperforming GPUs
-**TLDR:** `no under-performing or dead GPUs` — name both outcomes, since a dead card and a slow one are different findings. If something is wrong, say which: `under-performing: gpu<N> on <node>` or `dead: gpu<N> on <node>`. Then define an under-performing GPU (slow or throttled; dead is the extreme case) and the pass: the **same** matmul shape (M=N=K=16384) on every GPU, siblings idle, flag a card well below its node's median — explicitly **not** MAMF (no search over matmul shapes, no boost/sustain split). Then 16384³ SM coverage. Table: all GPU scores per node you have, min (gpu), max. Do **not** prefix the heading with node count — ranks belong in the TOC annotation, not the heading.
+**TLDR:** `no under-performing or dead GPUs` — name both outcomes, since a dead card and a slow one are different findings. If something is wrong, say which: `under-performing: <host>(node<I>):gpu<N>` or `dead: <host>(node<I>):gpu<N>`. Then define an under-performing GPU (slow or throttled; dead is the extreme case) and the pass: the **same** matmul shape (M=N=K=16384) on every GPU, siblings idle, flag a card well below its node's median — explicitly **not** MAMF (no search over matmul shapes, no boost/sustain split). Then 16384³ SM coverage. Table: all GPU scores per node you have, min (gpu), max. Do **not** prefix the heading with node count — ranks belong in the TOC annotation, not the heading.
 
 ## Network
 
@@ -614,6 +630,8 @@ Up to three headings, in this order — **### Healthy subsystems**, **### Underp
 
 Healthy subsystems: fabric and GPUs that met spec. Network headline is **fabric** (intra vs NVLink spec + NVLS; inter busbw + path + vs 1-node all-reduce) — **never** “X% of NIC/rail,” and **not** a launcher. Do not credit DeepSpeed / torchrun / srun in busbw or Findings.
 
+**Under-performing and dead GPUs** get one bullet each under Underperforming subsystems, from either GPU pass. Name each as `<host>(node<I>):gpu<N>`, e.g. `blah-176(node0):gpu7`: `<host>` is the hostname the Environment Host table uses, which an operator needs to drain or replace the card; `node<I>` is the node's 0-based position in the hostfile (the order the user gave the nodes), which stays readable when hostnames are cryptic; `<N>` is the GPU index `nvidia-smi` shows. Follow it with the pass that found it and its numbers against its node's median, e.g. "`blah-176(node0):gpu7` — MSMF 701 / 698 / 704 TFLOPS in three passes, 6.8–7.2% below the node median each time". List every one; never summarize as "two slow GPUs".
+
 Underperforming subsystems: measured vs **vendor advertised** for **this** product; not good enough for code (16 KiB) / checkpoint (1 GiB → 1 TiB) / dataloader; torchrun/rdzv if it failed; leftover Gaps. A broken launcher is **not** “the network is unhealthy.” Do not name a network FS this allocation does not use.
 
 **Needs operator input: a verdict requires a target, so a measurement without one goes here, not under Underperforming.** Calling a subsystem slow when you have nothing to compare it against is an opinion dressed as a finding — the reader cannot act on it and the operator can dismiss it. This heading is for a subsystem that was measured cleanly but whose expected figures only the operator has: a shared FS with no published provisioned throughput, a fabric whose purchased tier is unknown, any device whose spec sheet does not exist publicly. Open with one sentence saying these cannot be called healthy or underperforming until those figures arrive. Each bullet gives the measurements in full, then **what to obtain**.
@@ -635,38 +653,39 @@ Judge before you place a bullet: is there a number this is supposed to hit? Offi
 **Say who is slowed and by how much, in literal terms.** Hardware and files do not "feel", "suffer", "struggle", "get punished", or "care"; a filesystem is not "painful". Name the concrete operation and attach the measured rate to it — "a `git clone` or `pip install` on `/code` runs at the 16 KiB read rate of 204.7 MiB/s" — so the reader can check the claim against the table instead of trusting an adjective.
 
 If nothing underperformed, **omit that heading and its TOC line** — never write `Underperforming subsystems: none`. Same for **Needs operator input** when every target was known. No extra **Flags** section.
-```
+````
 
 ## Final pass before you show the report
 
 Prose rules get skipped. **Run this list against the finished report, line by line, before you tell the user it is ready.** Each item has failed a real review.
 
-| check | fix |
-| --- | --- |
-| Every acronym expanded at first use (MAMF, MSMF, DCGM, NVLS, GEMM, busbw, algbw) | `Maximum Achievable Matmul FLOPS`, … |
-| Every tool says what it literally does before its first number | how many shapes / payloads / runs, and what it varied |
-| No term used before it is defined ("any shape", `local/shared ×`, CTA, `O_DIRECT`) | define at first use, in a sentence — not as an equation |
-| Shared-vs-local stated as **times slower**, not percent | `8.0×`, not `12.4%` |
-| Prose numbers identical to the table cell they cite | table `26.5` → prose `26.5×`, never `27×` |
-| Findings bullets carry the full sweep, compactly | all three sizes × read/write on one line, not just 1 GiB |
-| Every number outside a table has its unit | `1_646.1 MiB/s / 1_658.3 MiB/s`, not a lead-in `MiB/s:` then bare numbers |
-| Nothing inanimate given feelings | not "small files will feel that" — name the operation and its measured rate |
-| Targets in the plural | "the figures they are supposed to hit", never "the figure" |
-| Missing vendor figures: target-unknown admission + why none are published + the ask, no search narrative | keep "provisioned throughput is unknown, so there is no target to compare against"; drop "the mounts show only the server address and size" |
-| No bullet judged without a target | no known figure to hit → **### Needs operator input**, not Underperforming |
-| Shared-FS figures scoped to the mount they came from, with its size | one mount's table is never "the shared FS"; differently-sized siblings each need their own scan |
-| Distinct shared mounts grouped only by the 5% rule | one table only if every corresponding bandwidth and IOPS cell is within 5%; otherwise separate tables |
-| The ask names one expected value per measured cell, with conditions | "expected MiB/s or IOPS at 16 KiB / 1 MiB / 1 GiB, read and write, one client, 16 jobs, 4 KiB blocks, `O_DIRECT`" — not "the provisioned throughput" |
-| Sizes in IEC units | `16 KiB` / `1 MiB` / `1 GiB`, never `16k` / `1m` / `1g` |
-| Storage table headers carry units in `()` | `size`, `rw`, `latency (msec)`, `bw (MiBps)`, `IOPS (M)` |
-| Numeric columns right-aligned, including `size` | `---:` for all but `rw` |
-| Every `###` heading matches its TOC label, and every anchor resolves | rebuild anchors from the headings you wrote |
-| Labels match what actually ran | a 1-node connectivity run is **intra**-node |
-| No absence asserted | no `Skip reasons: none`, `### Gaps` / `None`, `N/A` |
-| No redundant verdicts | `Pass`, not `Pass … No Fail` |
-| No filler sentences | "collects the results into one table", "as expected" |
-| No workload assumed | "sustained workload", not "training step" |
-| Scratch cleared from every mount you wrote to | `du -sh` each scan dir; `fio-test/` moved to that mount's `trash/`, paths and sizes named in your summary |
+| check                                                                                                          | fix                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every acronym expanded at first use (MAMF, MSMF, DCGM, NVLS, GEMM, busbw, algbw)                               | `Maximum Achievable Matmul FLOPS`, …                                                                                                                 |
+| Every tool says what it literally does before its first number                                                 | how many shapes / payloads / runs, and what it varied                                                                                                |
+| No term used before it is defined ("any shape", `local/shared ×`, CTA, `O_DIRECT`)                             | define at first use, in a sentence — not as an equation                                                                                              |
+| Shared-vs-local stated as **times slower**, not percent                                                        | `8.0×`, not `12.4%`                                                                                                                                  |
+| Prose numbers identical to the table cell they cite                                                            | table `26.5` → prose `26.5×`, never `27×`                                                                                                            |
+| Findings bullets carry the full sweep, compactly                                                               | all three sizes × read/write on one line, not just 1 GiB                                                                                             |
+| Every number outside a table has its unit                                                                      | `1_646.1 MiB/s / 1_658.3 MiB/s`, not a lead-in `MiB/s:` then bare numbers                                                                            |
+| Nothing inanimate given feelings                                                                               | not "small files will feel that" — name the operation and its measured rate                                                                          |
+| Targets in the plural                                                                                          | "the figures they are supposed to hit", never "the figure"                                                                                           |
+| Missing vendor figures: target-unknown admission + why none are published + the ask, no search narrative       | keep "provisioned throughput is unknown, so there is no target to compare against"; drop "the mounts show only the server address and size"          |
+| No bullet judged without a target                                                                              | no known figure to hit → **### Needs operator input**, not Underperforming                                                                           |
+| Shared-FS figures scoped to the mount they came from, with its size                                            | one mount's table is never "the shared FS"; differently-sized siblings each need their own scan                                                      |
+| Distinct shared mounts grouped only by the 5% rule                                                             | one table only if every corresponding bandwidth and IOPS cell is within 5%; otherwise separate tables                                                |
+| The ask names one expected value per measured cell, with conditions                                            | "expected MiB/s or IOPS at 16 KiB / 1 MiB / 1 GiB, read and write, one client, 16 jobs, 4 KiB blocks, `O_DIRECT`" — not "the provisioned throughput" |
+| Sizes in IEC units                                                                                             | `16 KiB` / `1 MiB` / `1 GiB`, never `16k` / `1m` / `1g`                                                                                              |
+| Storage table headers carry units in `()`                                                                      | `size`, `rw`, `latency (msec)`, `bw (MiBps)`, `IOPS (M)`                                                                                             |
+| Numeric columns right-aligned, including `size`                                                                | `---:` for all but `rw`                                                                                                                              |
+| Every `###` heading matches its TOC label, and every anchor resolves                                           | rebuild anchors from the headings you wrote                                                                                                          |
+| Labels match what actually ran                                                                                 | a 1-node connectivity run is **intra**-node                                                                                                          |
+| Every slow or dead GPU named as `<host>(node<I>):gpu<N>` in Findings, and a slow one confirmed in three passes | `blah-176(node0):gpu7`, not "GPU7" or "one slow card"                                                                                                |
+| No absence asserted                                                                                            | no `Skip reasons: none`, `### Gaps` / `None`, `N/A`                                                                                                  |
+| No redundant verdicts                                                                                          | `Pass`, not `Pass … No Fail`                                                                                                                         |
+| No filler sentences                                                                                            | "collects the results into one table", "as expected"                                                                                                 |
+| No workload assumed                                                                                            | "sustained workload", not "training step"                                                                                                            |
+| Scratch cleared from every mount you wrote to                                                                  | `du -sh` each scan dir; `fio-test/` moved to that mount's `trash/`, paths and sizes named in your summary                                            |
 
 Then fold any correction the user still makes back into this file (see **Keep this skill up to date**).
 

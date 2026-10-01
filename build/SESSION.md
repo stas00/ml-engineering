@@ -366,8 +366,9 @@ Cross-chapter:
 1. Keep each prose paragraph on one physical source line; do not wrap prose to a fixed line width.
 2. Keep each Markdown list item on one physical source line unless it contains nested block content.
 3. Preserve intentional blank lines between Markdown blocks.
-4. Only code is subject to a line-width limit, which is 119 characters.
-5. Wrap code according to the syntax and semantics of its language rather than applying prose-style reflow.
+4. Only code is subject to a line-width limit, which is 119 characters. This covers every code file in the book (e.g. the benchmark scripts) and all of its parts: statements, comments, docstrings, and string literals. Use the full width: fill comment and docstring paragraphs out to 119 rather than wrapping them at 80, and split a long call or string only when it would exceed 119. The one exception is an unbreakable token such as a URL, which goes on its own line even if that line is longer.
+5. Wrap code according to the syntax and semantics of its language rather than applying prose-style reflow: break calls after an argument with the continuation aligned to the open paren, split long strings into implicitly concatenated literals at word boundaries (keeping the `f` prefix only on pieces with placeholders), put a long argparse `help=` on its own line, and leave structured comments - lists, tables, ASCII separators, commented-out code - in their existing layout.
+6. When editing an existing code file, check the lines you touch against 119, and any file you reflow wholesale must be verified to be behavior-identical (e.g. its Python AST is unchanged apart from docstring whitespace) before it is kept.
 
 ## Unit formatting
 
