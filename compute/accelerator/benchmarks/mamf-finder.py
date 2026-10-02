@@ -1858,7 +1858,7 @@ def parse_args():
 
     what = parser.add_argument_group("what to measure")
     what.add_argument("--dtype", default="bfloat16",
-                      choices=SUPPORTED_DTYPES,
+                      choices=SUPPORTED_DTYPES, metavar="{" + ", ".join(SUPPORTED_DTYPES) + "}",
                       help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 and mxfp4 need "
                            "NVIDIA Blackwell or AMD MI355X; nvfp4 needs NVIDIA Blackwell")
     what.add_argument("--search", choices=["auto", "grid"], default="auto",
