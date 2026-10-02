@@ -394,11 +394,11 @@ Notes — the `Notes` column of both tables points here:
 6. NVIDIA B200 SXM, BF16: MAMF ~295 W @ 1965 MHz; MSMF 1429 @ 2560x16896x4096, ~978 W @ 1455 MHz
 7. AMD MI355X, BF16: `PYTORCH_TUNABLEOP_ENABLED=0`
 8. AMD MI325X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000W
-9. AMD MI300X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF ~210 W @ 2067 MHz; MSMF 659 @ 12288x9728x8192, 750 W @ 1290 MHz
+9. AMD MI300X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst - the card reaches its 750 W cap within the first ~4 ms kernel, and the `amdsmi` sample of ~210 W @ 2067 MHz lags it and reads close to idle (~180 W @ 2095 MHz); MSMF 659 @ 12288x9728x8192, 750 W @ 1290 MHz
 10. NVIDIA B300 SXM, FP8: MAMF ~262 W @ 2032 MHz; MSMF 2969 @ 6144x18432x3072, ~1057 W @ 1425 MHz
 11. NVIDIA H200 SXM, FP8: MAMF ~142 W @ 1980 MHz; MSMF 1290 @ 3840x2816x20480, ~690 W @ 1440 MHz
 12. NVIDIA B200 SXM, FP8: MAMF ~290 W @ 1965 MHz; MSMF 2829 @ 6144x12288x3072, ~965 W @ 1485 MHz
-13. AMD MI300X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF ~218 W @ 2058 MHz; MSMF 1187 @ 6912x19200x16384, 750 W @ 1189 MHz
+13. AMD MI300X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst, as in note 9 (the lagging `amdsmi` sample reads ~218 W @ 2058 MHz); MSMF 1187 @ 6912x19200x16384, 750 W @ 1189 MHz
 
 General notes:
 
@@ -415,7 +415,7 @@ General notes:
 
 **Why MSMF is well below Theory (and why that is not a broken GPU):** the advertised peak assumes the chip's *boost* clock (e.g. B200 ~1965 MHz → 2250 bf16 TFLOPS). A dense matmul that actually fills the SMs draws the full TDP (B200 1000 W / B300 1100 W / H200 700 W — those are the *spec* limits, not a sub-spec "cap"), so the SM clock settles well below boost. Rough ceiling: `Theory × sustained_clk / boost_clk` ≈ `2250 × 1425/1965 ≈ 1632` on B200 — in the ballpark of the measured ~1429 MSMF (the rest is real-kernel overhead). A sparse layout can hold a *higher* saturated clock while still pinned at TDP (H200 MSMF at 1695 MHz, B300 MSMF at 1455 MHz); that number is still sustainable.
 
-**Why MAMF sits above MSMF:** MAMF is a short unsaturated burst. The two headlines often land on *different* shapes — a fat GEMM can be the better boost burst, a skinnier one the better sustained rate (or the reverse). Concretely (B300): `10752×14336×3072` bursts at **2032 MHz / 286 W → 1892 TFLOPS** (MAMF) but holds only 1487 TFLOPS once saturated; `8192×18432×1024` bursts lower at 1809 yet holds **1455 MHz / 1066 W → 1519 TFLOPS** (MSMF). `mamf-finder.py` times a queued burst after an idle and reports the peak iteration only if the clock sampled across that iteration reached boost, so a throttled/base-clock reading can't masquerade as MAMF. After both headlines it prints each winning shape in both regimes.
+**Why MAMF sits above MSMF:** MAMF is a short unsaturated burst. The two headlines often land on *different* shapes — a fat GEMM can be the better boost burst, a skinnier one the better sustained rate (or the reverse). Concretely (B300): `10752×14336×3072` bursts at **2032 MHz / 286 W → 1892 TFLOPS** (MAMF) but holds only 1487 TFLOPS once saturated; `8192×18432×1024` bursts lower at 1809 yet holds **1455 MHz / 1066 W → 1519 TFLOPS** (MSMF). `mamf-finder.py` times a queued burst after an idle and reports the peak iteration only if the clock sampled across that iteration reached boost, so a throttled/base-clock reading can't masquerade as MAMF. After both headlines it prints each winning shape in both regimes. AMD MI300X has no such burst: it reaches its 750 W cap within the first ~4 ms kernel, so its MAMF is only 1-3% above MSMF and is a noisy reading of the same throttled state - use MSMF.
 
 Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are low that you will ever hit that exact shape. Instead, to know your system well, you'd run the [MAMF Finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder) with the actual shapes your model is using during its training. This really is the main intention of this tool. You will have a good sense of when you can stop optimizing by comparing the TFLOPS reported by your training to Maximum Achievable MatMul TFLOPS you measured on your specific accelerator cluster.
 

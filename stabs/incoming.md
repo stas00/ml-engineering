@@ -89,17 +89,19 @@ References:
 
 ### Diagnostics
 
+The fabric scope of these tools is done: [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues) explains which ones query the subnet manager and therefore answer only on InfiniBand, and which ask the local adapter and answer on any RDMA fabric. Marked `scope: done` below. What's still open for those is per-tool usage - what to run and what to look for in the output.
+
 Not-IB specific
 - `ifconfig` - display the status of the currently active interfaces
 - `ip addr show` - display the addresses for every link configured on the system
 
 Display the local Host’s IB device status (3 different views).
-- `ibstat`
-- `ibstatus`
-- `ibv_devinfo`
+- `ibstat` - scope: done
+- `ibstatus` - scope: done
+- `ibv_devinfo` - scope: done
 
 Scan IB network:
-- `ibnetdiscover` - scan topology
+- `ibnetdiscover` - scan topology - scope: done
 - `ibroute` - display the unicast and multicast forwarding tables for the switches
 - `ibdiagnet` - IB diagnostic net
 
@@ -113,21 +115,21 @@ Test IB network configuration:
 - `ibclearcounters` - clear port counters for the InfiniBand subnet
 
 Other checks:
-- `iblinkinfo`
+- `iblinkinfo` - scope: done
 - `ibcheck`
 - `wwibcheck`
 - `ibswitch` - verify that an IB-QNEM is installed in the shelf
-- `ibhosts` - list all hosts in the IB network.
-`ibswitches` - list all ib switches
+- `ibhosts` - list all hosts in the IB network. - scope: done
+- `ibswitches` - list all ib switches - scope: done
 
 Tracing:
 - `ibping` - ping/pong between InfiniBand nodes
 - `ibsysstat` - obtain basic information for remote nodes (hostname, cpus, memory, utilization)
-- `ibswitches` - scan the net or use existing net topology file and list all switches
-- `ibhosts` - scan the net or use existing net topology file and list all hosts
+- `ibswitches` - scan the net or use existing net topology file and list all switches - scope: done
+- `ibhosts` - scan the net or use existing net topology file and list all hosts - scope: done
 
 Display network topology:
-- `iblinkinfo -R`
+- `iblinkinfo -R` - scope: done
 
 Use `ifconfig` to discover `IPoIB` networks, e.g. if you get `ib0` device with `inet addr:100.1.1.102`, you can connect to it - e.g. `ping 100.1.1.102`
 
