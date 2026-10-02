@@ -76,12 +76,16 @@ except ModuleNotFoundError:
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 
-def get_torch_dtype(dtype_str):
-    """Convert string dtype to torch dtype object."""
-    try:
-        return getattr(torch, dtype_str)
-    except AttributeError:
-        raise ValueError(f"Unsupported dtype: {dtype_str}. Must be a valid torch dtype name.")
+# --dtype choices -> torch dtype. mxfp8 isn't a torch dtype: it is float8_e4m3fn data with float8_e8m0fnu block
+# scales (OCP MX), carried as the scale dtype, which torch<2.7 doesn't have
+SUPPORTED_DTYPES = {
+    "bfloat16":        torch.bfloat16,
+    "float16":         torch.float16,
+    "float32":         torch.float32,
+    "float8_e4m3fn":   torch.float8_e4m3fn,
+    "float8_e4m3fnuz": torch.float8_e4m3fnuz,
+    "mxfp8":           getattr(torch, "float8_e8m0fnu", None),
+}
 
 
 
@@ -136,6 +140,10 @@ class Arch:
     def set_device(self, index):
         """Make `index` the current device before anything is allocated; no-op on single-device archs."""
         pass
+
+    def dtype_unsupported(self, dtype_name):
+        """Why the current device can't run --dtype `dtype_name`, or None if nothing is known against it."""
+        return None
 
     # --- telemetry hooks --- An Arch opts into telemetry by setting telemetry_backend to a non-None id (see NVIDIAArch
     # / AMDArch / HPUArch). Once it does, it MUST implement telemetry_init + the readers below: the base raises
@@ -207,6 +215,12 @@ class NVIDIAArch(CudaLikeArch):
     @property
     def compute_info(self):
         return f"cuda={torch.version.cuda}"
+
+    def dtype_unsupported(self, dtype_name):
+        cc = torch.cuda.get_device_capability()
+        if dtype_name == "mxfp8" and cc < (10, 0):
+            return f"{torch.cuda.get_device_name()} is compute capability {cc[0]}.{cc[1]}"
+        return None
 
     def telemetry_init(self, index):
         import pynvml as m
@@ -291,6 +305,12 @@ class AMDArch(CudaLikeArch):
     @property
     def compute_info(self):
         return f"hip={torch.version.hip}, cuda={torch.version.cuda}"
+
+    def dtype_unsupported(self, dtype_name):
+        gfx = torch.cuda.get_device_properties(self.device).gcnArchName
+        if dtype_name == "mxfp8" and "gfx950" not in gfx:
+            return f"{torch.cuda.get_device_name()} is {gfx}"
+        return None
 
     def telemetry_init(self, index):
         import amdsmi as m
@@ -564,11 +584,23 @@ Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
 def prepare_gemm(m, n, k, dtype, device):
     """Allocate operands and return (op, l2_cache, C, C_rand, flos). `op()` writes into C."""
     l2_cache = torch.empty(int(256 * 2**20 / 4), dtype=torch.int, device=device)
-    C = torch.empty(m, n, dtype=dtype, device=device).contiguous()
-    C_rand = torch.randn(m, n, device=device).to(dtype=dtype).contiguous()
+    out_dtype = dtype
 
-    fp8_dtypes = [torch.float8_e4m3fn, torch.float8_e4m3fnuz]
-    if dtype in fp8_dtypes:
+    if dtype == SUPPORTED_DTYPES["mxfp8"]:
+        # mxfp8 (OCP MX): one float8_e8m0fnu scale per 32 elements along K. The scales are all 1.0, so the swizzled
+        # layout cuBLAS/hipBLASLt read holds the same values as any other and only the size matters: rows padded to
+        # 128 and K-blocks to 4 (oneDNN on XPU wants it unpadded).
+        out_dtype = torch.bfloat16
+        A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(torch.float8_e4m3fn)
+        B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(torch.float8_e4m3fn)
+        k_blocks = -(-k // 32)
+        def block_scales(rows):
+            numel = rows * k_blocks if arch.name == "xpu" else -(-rows // 128) * 128 * -(-k_blocks // 4) * 4
+            return torch.full((numel,), 1.0, dtype=torch.float8_e8m0fnu, device=device)
+        scale_a, scale_b = block_scales(m), block_scales(n)
+        def op():
+            torch._scaled_mm(A, B, scale_a, scale_b, out_dtype=out_dtype, out=C)
+    elif dtype in (SUPPORTED_DTYPES["float8_e4m3fn"], SUPPORTED_DTYPES["float8_e4m3fnuz"]):
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
         if dtype == torch.float8_e4m3fn and arch.name == "rocm":
@@ -584,6 +616,8 @@ def prepare_gemm(m, n, k, dtype, device):
         B = torch.randn(n, k, dtype=dtype, device=device).contiguous().t()
         def op():
             torch.mm(A, B, out=C)
+    C = torch.empty(m, n, dtype=out_dtype, device=device).contiguous()
+    C_rand = torch.randn(m, n, device=device).to(dtype=out_dtype).contiguous()
     return op, l2_cache, C, C_rand, 2 * m * n * k
 
 
@@ -1575,13 +1609,107 @@ def setup_checks():
                  "but it hasn't been set. Proceeding as is - expect potentially bad/invalid results.")
 
 
+def dtype_checks(dtype_name, device):
+    """Exit if the current device can't run --dtype `dtype_name`: a known torch/arch limit, else a tiny matmul, since
+    the vendor libraries don't support every dtype everywhere and failing here beats failing mid-search."""
+    if SUPPORTED_DTYPES[dtype_name] is None:
+        reason = f"torch {torch.__version__} is too old"
+    else:
+        reason = arch.dtype_unsupported(dtype_name)
+    if reason is None:
+        try:
+            prepare_gemm(128, 128, 128, SUPPORTED_DTYPES[dtype_name], device)[0]()
+            arch.synchronize()
+        except Exception as e:
+            reason = str(e).splitlines()[0].rstrip(".")
+    if reason:
+        hint = (" mxfp8 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch."
+                if dtype_name == "mxfp8" else "")
+        sys.exit(f"error: --dtype {dtype_name} doesn't run on this device: {reason}.{hint}")
+
+
+def telemetry_setup(telemetry, cuda_device):
+    """Return a Telemetry for the device torch uses, or None with --telemetry off. Power validates MSMF (SUSPECT
+    filter) and the SM clock validates MAMF (boost check), so where a backend exists but doesn't work, running would
+    publish unvalidated headlines - exit instead."""
+    if telemetry == "off":
+        return None
+    # sample the *physical* device: CUDA_VISIBLE_DEVICES[--cuda_device] if set
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES") or os.environ.get("HIP_VISIBLE_DEVICES")
+    try:
+        index = int(visible.split(",")[cuda_device]) if visible else cuda_device
+    except (ValueError, IndexError):
+        index = cuda_device
+    telem = Telemetry(arch, index)
+    if arch.telemetry_backend is None:
+        return telem
+    if not telem.available:
+        problem = telem.error
+    else:
+        broken = {k: v for k, v in telem.probe().items() if v and k != "max_clock"}
+        problem = "; ".join(f"{k} read failed ({v})" for k, v in broken.items())
+    if problem:
+        sys.exit(f"error: telemetry is required to validate MAMF/MSMF but is unavailable: {problem}."
+                 f"{telemetry_install_hint()}\nOr pass --telemetry off to run anyway with unvalidated MAMF/MSMF.")
+    return telem
+
+
+def search_setup(args):
+    """Return (mode, grid_shapes, range_info, warmup_shape) for the requested search, grid_shapes being None in auto
+    mode. Exit if the request can't be searched."""
+    # any explicit shape argument means the user wants a specific sweep -> grid mode
+    shape_args_given = args.shapes_file is not None or any(
+        x is not None for x in (args.m, args.m_range, args.n, args.n_range, args.k, args.k_range))
+    if args.search == "grid" or shape_args_given:
+        if args.shapes_file:
+            shapes = []
+            for lineno, line in enumerate(Path(args.shapes_file).read_text().splitlines(), 1):
+                line = line.split("#", 1)[0].strip()
+                if not line:
+                    continue
+                fields = re.split(r"[\s,xX]+", line)
+                if len(fields) != 3:
+                    sys.exit(f"error: {args.shapes_file}:{lineno}: expected M,N,K, got {line!r}")
+                shapes.append(tuple(map(int, fields)))
+            range_info = f"exact shapes from {args.shapes_file} ({len(shapes)} shapes)"
+        else:
+            dims = (("m", args.m, args.m_range), ("n", args.n, args.n_range), ("k", args.k, args.k_range))
+            missing = [name for name, vals, rng in dims if vals is None and rng is None]
+            if missing:
+                sys.exit(f"error: --search grid requires shapes for: {', '.join(missing)} (use --m/--n/--k, "
+                         "--m_range/--n_range/--k_range, or --shapes_file)")
+            shapes = list(itertools.product(*(resolve_dim(vals, rng) for _, vals, rng in dims)))
+            range_info = " | ".join(f"{name}={','.join(map(str, vals)) if vals is not None else f'range{tuple(rng)}'}"
+                                    for name, vals, rng in dims)
+        if not shapes:
+            sys.exit(f"error: no shapes to search in {range_info}")
+        return "grid", shapes, range_info, tuple(map(int, shapes[0]))
+
+    # auto search derives its candidate shapes from the compute-unit layout (compute_unit_count + gemm_tile_hint)
+    if arch.gemm_tile_hint is None or not arch.compute_unit_count():
+        sys.exit(f"error: --search auto derives its shapes from the GPU's compute-unit layout, which mamf-finder.py "
+                 f"doesn't model for {arch.name!r}; search an explicit range instead with --m/--n/--k (or "
+                 "--m_range/--n_range/--k_range) or --shapes_file")
+    if not arch.geometry_validated:
+        print(f"note: --search auto has not been checked against an exhaustive grid on {arch.name!r}; compare it with "
+              "a small --search grid before trusting the shapes it picks")
+    range_info = f"auto-search (CUs={arch.compute_unit_count()}, dtype={args.dtype}, max_size={args.tune.max_size})"
+    return "auto", None, range_info, (4096, 4096, 4096)
+
+
 # PyTorch TunableOp (ROCm, PYTORCH_TUNABLEOP_ENABLED=1) benchmarks the candidate kernels of every GEMM shape the first
 # time it sees it - ~2 min per shape on MI300X / ROCm 10 - so letting it tune during a search of thousands of shapes
 # would take days. Instead the search runs with tuning paused (unseen shapes get the default kernel, which is enough to
 # rank them) and only the confirm shortlist is tuned, before any of it is timed.
-def tunableop_enabled():
+def tunableop_setup(confirm_max):
+    """If TunableOp is on, pause tuning for the search and return True."""
     tunable = getattr(torch.cuda, "tunable", None)
-    return tunable is not None and tunable.is_enabled()
+    if tunable is None or not tunable.is_enabled():
+        return False
+    tunable.tuning_enable(False)
+    print(f"TunableOp: on - the search runs with tuning paused; up to {confirm_max} confirm shapes get tuned before "
+          "they are measured")
+    return True
 
 
 def tunableop_shortlist(msmf_cands, mamf_cands, max_shapes):
@@ -1685,17 +1813,19 @@ class _HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 
 
 def parse_args():
-    """Return (parser, args); the search/confirm knobs are in `args.tune` (see Tuning)."""
+    """Return the parsed args; the search/confirm knobs are in `args.tune` (see Tuning)."""
     parser = argparse.ArgumentParser(
         formatter_class=_HelpFormatter,
         description="Find the maximum achievable (MAMF, boost burst) and maximum sustainable (MSMF, power-saturated) "
-                    "matmul TFLOPS of one accelerator.\n\n**TLDR**: On NVIDIA and AMD GPUs start by running it without any "
-                    "arguments: the default --search auto finds the best shapes on its own. Other accelerators "
-                    "need --search grid with a --m/--n/--k range.")
+                    "matmul TFLOPS of one accelerator.\n\n**TLDR**: On NVIDIA and AMD GPUs start by running it "
+                    "without any arguments: the default --search auto finds the best shapes on its own. Other "
+                    "accelerators need --search grid with a --m/--n/--k range.")
 
     what = parser.add_argument_group("what to measure")
-    what.add_argument("--dtype", type=str, default="bfloat16",
-                      help="bfloat16, float16, float32, float8_e4m3fn, float8_e4m3fnuz, ...")
+    what.add_argument("--dtype", default="bfloat16",
+                      choices=SUPPORTED_DTYPES,
+                      help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 needs NVIDIA "
+                           "Blackwell or AMD MI355X")
     what.add_argument("--search", choices=["auto", "grid"], default="auto",
                       help="auto: find the best shape anywhere; grid: the best shape in the --m/--n/--k range you "
                            "give. Any shape argument implies grid")
@@ -1729,97 +1859,20 @@ def parse_args():
         args.tune = Tuning.from_overrides(args.tune)
     except ValueError as e:
         parser.error(str(e))
-    return parser, args
+    return args
 
 
 if __name__ == '__main__':
-    parser, args = parse_args()
+    args = parse_args()
 
-    dtype = get_torch_dtype(args.dtype)
     arch.set_device(args.cuda_device)
     device = arch.device
-
     setup_checks()
-    tunableop = tunableop_enabled()
-    if tunableop:
-        torch.cuda.tunable.tuning_enable(False)
-        print(f"TunableOp: on - the search runs with tuning paused; up to {args.tune.tunableop_confirm_max} confirm "
-              "shapes get tuned before they are measured")
-
-    # telemetry: sample the *physical* device torch is using (CUDA_VISIBLE_DEVICES[--cuda_device] if set)
-    _vis = os.environ.get("CUDA_VISIBLE_DEVICES") or os.environ.get("HIP_VISIBLE_DEVICES")
-    try:
-        telem_index = int(_vis.split(",")[args.cuda_device]) if _vis else args.cuda_device
-    except (ValueError, AttributeError, IndexError):
-        telem_index = args.cuda_device
-    telem = Telemetry(arch, telem_index) if args.telemetry == "on" else None
-    # power validates MSMF (SUSPECT filter) and the SM clock validates MAMF (boost check), so where a backend exists,
-    # running without it would publish unvalidated headlines - refuse instead
-    if telem is not None and arch.telemetry_backend is not None:
-        if not telem.available:
-            problem = telem.error
-        else:
-            broken = {k: v for k, v in telem.probe().items() if v and k != "max_clock"}
-            problem = "; ".join(f"{k} read failed ({v})" for k, v in broken.items())
-        if problem:
-            parser.error("telemetry is required to validate MAMF/MSMF but is unavailable: "
-                         f"{problem}.{telemetry_install_hint()}\nOr pass --telemetry off to run anyway with "
-                         "unvalidated MAMF/MSMF.")
-    # Any explicit shape argument means the user wants a specific sweep -> grid mode.
-    shape_args_given = args.shapes_file is not None or any(
-        x is not None for x in (args.m, args.m_range, args.n, args.n_range, args.k, args.k_range))
-    mode = "grid" if (args.search == "grid" or shape_args_given) else "auto"
-
-    # Auto search derives its candidate shapes from the compute-unit layout (compute_unit_count + gemm_tile_hint).
-    if mode == "auto":
-        if arch.gemm_tile_hint is None or not arch.compute_unit_count():
-            parser.error(f"--search auto derives its shapes from the GPU's compute-unit layout, which mamf-finder.py "
-                         f"doesn't model for {arch.name!r}; search an explicit range instead with --m/--n/--k (or "
-                         "--m_range/--n_range/--k_range) or --shapes_file")
-        if not arch.geometry_validated:
-            print(f"note: --search auto has not been checked against an exhaustive grid on {arch.name!r}; compare it "
-                  "with a small --search grid before trusting the shapes it picks")
-
-    m = n = k = None
-    explicit_shapes = None
-    if mode == "grid":
-        if args.shapes_file:
-            explicit_shapes = []
-            for lineno, line in enumerate(Path(args.shapes_file).read_text().splitlines(), 1):
-                line = line.split("#", 1)[0].strip()
-                if not line:
-                    continue
-                fields = re.split(r"[\s,xX]+", line)
-                if len(fields) != 3:
-                    parser.error(f"{args.shapes_file}:{lineno}: expected M,N,K, got {line!r}")
-                explicit_shapes.append(tuple(map(int, fields)))
-            if not explicit_shapes:
-                parser.error(f"--shapes_file {args.shapes_file!r} contains no shapes")
-            range_info = f"exact shapes from {args.shapes_file} ({len(explicit_shapes)} shapes)"
-            warmup_shape = explicit_shapes[0]
-        else:
-            missing = [name for name, val, rng in (
-                ("m", args.m, args.m_range), ("n", args.n, args.n_range), ("k", args.k, args.k_range))
-                if val is None and rng is None]
-            if missing:
-                parser.error(f"--search grid requires shapes for: {', '.join(missing)} "
-                             "(use --{dim}, --{dim}_range, or --shapes_file)")
-
-            m, n, k = args.m, args.n, args.k
-            def dim_info(vals, rng):
-                if vals is not None:
-                    return ",".join(map(str, vals))
-                return f"range({', '.join(map(str, rng))})"
-            range_info = (f"m={dim_info(args.m, args.m_range)} | n={dim_info(args.n, args.n_range)} | "
-                          f"k={dim_info(args.k, args.k_range)}")
-            m = resolve_dim(m, args.m_range)
-            n = resolve_dim(n, args.n_range)
-            k = resolve_dim(k, args.k_range)
-            warmup_shape = (int(m[0]), int(n[0]), int(k[0]))
-    else:
-        range_info = (f"auto-search (CUs={arch.compute_unit_count()}, dtype={args.dtype}, "
-                      f"max_size={args.tune.max_size})")
-        warmup_shape = (4096, 4096, 4096)
+    dtype_checks(args.dtype, device)
+    dtype = SUPPORTED_DTYPES[args.dtype]
+    tunableop = tunableop_setup(args.tune.tunableop_confirm_max)
+    telem = telemetry_setup(args.telemetry, args.cuda_device)
+    mode, grid_shapes, range_info, warmup_shape = search_setup(args)
 
     sys.stdout = Tee(args.output_file, args.verbose)
     print_benchmark_header(dtype, device, args.notes + f"\n- search mode: {mode}")
@@ -2181,18 +2234,10 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
         # without changing the headlines.
         scout_i, scout_w = args.tune.scout_num_iterations, args.tune.scout_num_warmup_iterations
         after = "without confirm" if args.tune.scout_only else "then confirm"
-        if explicit_shapes is not None:
-            print(f"Grid search: sweeping {len(explicit_shapes)} exact shapes (scout {scout_i} iters / {scout_w} "
-                  f"warmup), {after} ...")
-            for M, N, K in explicit_shapes:
-                measure(M, N, K, scout_i, scout_w, label="grid")
-        else:
-            print(f"Grid search: sweeping {len(m)}x{len(n)}x{len(k)} shapes (scout {scout_i} iters / {scout_w} "
-                  f"warmup), {after} ...")
-            for M in m:
-                for N in n:
-                    for K in k:
-                        measure(M, N, K, scout_i, scout_w, label="grid")
+        print(f"Grid search: sweeping {len(grid_shapes)} shapes (scout {scout_i} iters / {scout_w} warmup), "
+              f"{after} ...")
+        for M, N, K in grid_shapes:
+            measure(M, N, K, scout_i, scout_w, label="grid")
         if not args.tune.scout_only:
             confirm_phase()
     else:

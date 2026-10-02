@@ -76,7 +76,7 @@ On ROCm, `--search auto` prints a note that its wave/tile geometry is only valid
 
 ### Examples of usage
 
-`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16` (`--dtype` accepts any `torch` dtype, e.g. `float8_e4m3fn`, `float16`, `float32`). Default iterations are 50 warmup + 100 measured per shape (`--num_warmup_iterations`, `--num_iterations`).
+`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16`; `--dtype` also accepts `float16`, `float32`, `float8_e4m3fn` (NVIDIA's fp8), `float8_e4m3fnuz` (AMD MI300's fp8) and `mxfp8`: `float8_e4m3fn` operands with one `float8_e8m0fnu` scale per 32 elements and a `bfloat16` output, which needs hardware MX support such as NVIDIA Blackwell or AMD MI355X. Default iterations are 50 warmup + 100 measured per shape (`--num_warmup_iterations`, `--num_iterations`).
 
 #### 1. Auto search (default) — best the GPU can do anywhere
 
