@@ -26,11 +26,13 @@ Practical consequences for a benchmark:
 This is distinct from [numerical reproducibility](../../../training/reproducibility/README.md), which forces the *same results* via deterministic algorithms. Here the goal is the *same timing conditions* - same data, same power draw, same clock.
 
 
-## Maximum Achievable Matmul FLOPS finder
+<a id="maximum-achievable-matmul-flops-finder"></a>
+
+## Maximum Achievable and Sustainable Matmul FLOPS finder
 
 Maximum Achievable Matmul FLOPS (MAMF) Benchmark: [mamf-finder.py](./mamf-finder.py) was derived from research found in [The Case for Co-Designing Model Architectures with Hardware](https://arxiv.org/abs/2401.14489) paper.
 
-For a detailed discussion and the numbers for various accelerators see [Maximum Achievable FLOPS](../README.md#maximum-achievable-flops).
+For a detailed discussion and the numbers for various accelerators see [Maximum Achievable and Sustainable FLOPS](../README.md#maximum-achievable-and-sustainable-flops).
 
 While some accelerator manufacturers publish the theoretical TFLOPS these usually can't be reached. As a result of this when we try to optimize our software we have no realistic performance bar to compare ourselves to. The Model FLOPS Utilization (MFU) metric measures TFLOPS achieved against theoretical TFLOPS. Usually when one scores around 50% MFU it's considered a win. But this gives us no indication how far are we from the real achievable throughput.
 
@@ -76,7 +78,7 @@ On ROCm, `--search auto` prints a note that its wave/tile geometry is only valid
 
 ### Examples of usage
 
-`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16` (`--dtype` accepts any `torch` dtype, e.g. `float8_e4m3fn`, `float16`, `float32`). Default iterations are 50 warmup + 100 measured per shape (`--num_warmup_iterations`, `--num_iterations`).
+`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16`; `--dtype` also accepts `float16`, `float32`, `float8_e4m3fn` (NVIDIA's fp8), `float8_e4m3fnuz` (AMD MI300's fp8) and `mxfp8`: `float8_e4m3fn` operands with one `float8_e8m0fnu` scale per 32 elements and a `bfloat16` output, which needs hardware MX support such as NVIDIA Blackwell or AMD MI355X. Default iterations are 50 warmup + 100 measured per shape (`--num_warmup_iterations`, `--num_iterations`).
 
 #### 1. Auto search (default) — best the GPU can do anywhere
 
@@ -85,7 +87,7 @@ On ROCm, `--search auto` prints a note that its wave/tile geometry is only valid
 # equivalent: ./mamf-finder.py --search auto --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
-Finds near-peak shapes via hardware heuristics and reports **two** headlines. Great for a spec-sheet number; not tied to any particular model. This is what produced the [MAMF & MSMF table](../README.md#maximum-achievable-matmul-flops-comparison-table). On H200, B200 and B300, three fast-search repeats stayed within 0.43% of a 128,000-shape exhaustive scout and beat it on half the GPU/dtype pairs.
+Finds near-peak shapes via hardware heuristics and reports **two** headlines. Great for a spec-sheet number; not tied to any particular model. This is what produced the [MAMF & MSMF table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table). On H200, B200 and B300, three fast-search repeats stayed within 0.43% of a 128,000-shape exhaustive scout and beat it on half the GPU/dtype pairs.
 
 - **MAMF** (Maximum *Achievable* Matmul FLOPS) — the boost-clock burst ceiling.
 - **MSMF** (Maximum *Sustainable* Matmul FLOPS) — the power-saturated, sustained rate that matches real training throughput. **For picking shapes a real model will use, MSMF is the number that matters.**
@@ -136,7 +138,7 @@ Same protocol on both chips — five `--search auto` runs on GPU0 with siblings 
 | GPU0 while all 8 busy (n=5)  | 701.3 (−0.2%) |       2.9% | ~1440–1525 MHz |     825.8 |
 | All 8 GPUs × 5 rounds (n=40) | 698.6 (−0.6%) |       4.5% |  1405–1527 MHz |     823.9 |
 
-Lesson: the other GPUs computing at the same time barely moves **MAMF** (boost bursts still hit the boost clock — they draw only ~150–300 W, so board power/cooling still has headroom). It *does* move **MSMF**, and the severity is board-dependent: on B200 (1000 W TDP) concurrent siblings pulled GPU0's saturated clock down ~50 MHz (−1.2% MSMF) and opened a **~10% MSMF spread across the 8 GPUs**; on H200 (700 W TDP) the same protocol was much milder (−0.2% on GPU0, ~4.5% across the board). So the alone-GPU MSMF overstates what a full node sustains: a full-node training run sees the concurrent distribution, and since it waits on its slowest GPU, the bottom of that range is what it actually gets. How far that sits below the alone number depends on the board's shared power/cooling budget. In the [results table](../README.md#maximum-achievable-matmul-flops-comparison-table), `Sib` = `yes` is the `mamf-finder-all-gpus.py` measurement, every other GPU running a continuous matmul (MSMF is the slowest GPU); `Sib` = `no` is still one GPU with siblings idle, a single-GPU upper bound.
+Lesson: the other GPUs computing at the same time barely moves **MAMF** (boost bursts still hit the boost clock — they draw only ~150–300 W, so board power/cooling still has headroom). It *does* move **MSMF**, and the severity is board-dependent: on B200 (1000 W TDP) concurrent siblings pulled GPU0's saturated clock down ~50 MHz (−1.2% MSMF) and opened a **~10% MSMF spread across the 8 GPUs**; on H200 (700 W TDP) the same protocol was much milder (−0.2% on GPU0, ~4.5% across the board). So the alone-GPU MSMF overstates what a full node sustains: a full-node training run sees the concurrent distribution, and since it waits on its slowest GPU, the bottom of that range is what it actually gets. How far that sits below the alone number depends on the board's shared power/cooling budget. In the [results table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table), `Sib` = `yes` is the `mamf-finder-all-gpus.py` measurement, every other GPU running a continuous matmul (MSMF is the slowest GPU); `Sib` = `no` is still one GPU with siblings idle, a single-GPU upper bound.
 
 `mamf-finder.py -h` lists the options. The algorithm's own knobs, the names in backticks in the steps above (`confirm_reps`, `msmf_soak_s`, ...), live in the `Tuning` class near the end of the script with their defaults and a line on what each does. The published numbers were measured with those defaults; to try another value pass e.g. `--tune msmf_soak_s=30 --tune confirm_reps=7`.
 
@@ -172,7 +174,7 @@ MSMF (max sustainable, saturated):   743 TFLOPS @ 4096x4096x4096 (MxNxK)  679W 1
 
 The MSMF row shows the lock-in re-measurement (9 runs), which is what the headline uses.
 
-`W` and `MHz` are live NVML (or amdsmi/hlml) samples taken during the timed loop. On a short MAMF burst NVML's power sample can lag the kernel: on A100 PCIe a ~80 ms burst after an idle reads near-idle watts, so that `W` is not the burst's draw. The MAMF and MSMF headlines are integer TFLOPS; a half rounds up. Every row, plus the details behind each decision (confirm candidates, boost reference, shapes excluded from MSMF and why, lock-in, same-shape cross-check), is written to the `--output_file` log. Shapes that ran well below the run's peak power are excluded from the **MSMF** (sustainable) headline on validated backends — a low-power boost burst is not sustainable — while boost readings feed the **MAMF** (achievable) headline (see [MAMF & MSMF](../README.md#maximum-achievable-matmul-flops-comparison-table)).
+`W` and `MHz` are live NVML (or amdsmi/hlml) samples taken during the timed loop. On a short MAMF burst NVML's power sample can lag the kernel: on A100 PCIe a ~80 ms burst after an idle reads near-idle watts, so that `W` is not the burst's draw. The MAMF and MSMF headlines are integer TFLOPS; a half rounds up. Every row, plus the details behind each decision (confirm candidates, boost reference, shapes excluded from MSMF and why, lock-in, same-shape cross-check), is written to the `--output_file` log. Shapes that ran well below the run's peak power are excluded from the **MSMF** (sustainable) headline on validated backends — a low-power boost burst is not sustainable — while boost readings feed the **MAMF** (achievable) headline (see [MAMF & MSMF](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table)).
 
 #### What makes a fast shape
 
@@ -212,4 +214,4 @@ Architecture-specific setup (MI300X `numa_balancing` / TunableOp, Intel dGPU ins
 
 ### Results
 
-The measurements that I have gathered so far can be found at [Maximum Achievable Matmul FLOPS comparison table](../README.md#maximum-achievable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
+The measurements that I have gathered so far can be found at [Maximum Achievable and Sustainable Matmul FLOPS comparison table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).

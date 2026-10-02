@@ -155,7 +155,7 @@ You can take it as a self-guided course, or teach it to others yourself!
   - This is why "Maximum Achievable Matmul FLOPS" (MAMF) exists as a metric distinct from the theoretical spec: it's obtained by brute-force searching matmul shapes on your actual hardware/software with `mamf-finder.py`, giving you the realistic ceiling to optimize against.
   - Once your measured training TFLOPS get close to your own MAMF number (not the theoretical peak), it's time to stop optimizing and start training.
 
-  📖 [Maximum Achievable Matmul FLOPS comparison table](../../compute/accelerator/README.md#maximum-achievable-matmul-flops-comparison-table)
+  📖 [Maximum Achievable and Sustainable Matmul FLOPS comparison table](../../compute/accelerator/README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table)
 
 - 4.2. **Throughput optimization is a journey with diminishing returns, not a fixed destination you arrive at instantly.**
   - During BLOOM-176B's tuning phase, the team started below 100TFLOPS and, over a few weeks, worked up to 150TFLOPS by launch - no single silver bullet, just accumulated smaller wins.
