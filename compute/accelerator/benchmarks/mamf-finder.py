@@ -24,10 +24,10 @@ differ only in HOW the candidate shapes are chosen:
 python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 For the auto search, discussion, and important nuances see:
-https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-matmul-flops-finder
+https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-and-sustainable-matmul-flops-finder
 
 Results table:
-https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#maximum-achievable-matmul-flops-comparison-table
+https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#maximum-achievable-and-sustainable-matmul-flops-comparison-table
 
 Credits:
 - Parts of this benchmark have been derived from https://github.com/EleutherAI/cookbook/tree/main/benchmarks/sizing

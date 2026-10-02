@@ -19,7 +19,7 @@ Theoretical peak TFLOPS is [a ceiling nobody hits in practice](../../training/pe
 
 ## MAMF: the realistic ceiling, not the marketing number
 
-**MAMF (Maximum Achievable Matmul FLOPS)** is the actual best-case `matmul` throughput measured on real hardware/software (perfectly-aligned max-size shapes, no sparsity) — as opposed to the theoretical peak that's physically unreachable. Use it to sanity-check whether your own training TFLOPS have room left to optimize, or whether you're already near the ceiling (measure MAMF on your own GPUs with [`mamf-finder.py`](../../compute/accelerator/benchmarks/mamf-finder.py)). Source and full comparison across multiple vendors: [MAMF comparison table](../../compute/accelerator/README.md#maximum-achievable-matmul-flops-comparison-table).
+**MAMF (Maximum Achievable Matmul FLOPS)** is the actual best-case `matmul` throughput measured on real hardware/software (perfectly-aligned max-size shapes, no sparsity) — as opposed to the theoretical peak that's physically unreachable. Use it to sanity-check whether your own training TFLOPS have room left to optimize, or whether you're already near the ceiling (measure MAMF on your own GPUs with [`mamf-finder.py`](../../compute/accelerator/benchmarks/mamf-finder.py)). Source and full comparison across multiple vendors: [MAMF comparison table](../../compute/accelerator/README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table).
 
 **BF16:**
 

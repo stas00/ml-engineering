@@ -79,6 +79,7 @@ As most of us rent the compute, and we never see what it looks like, here is how
 - MFU: Model FLOPS Utilization
 - MIG: Multi-Instance GPU - NVIDIA's partitioning of one GPU into isolated instances
 - MME: Matrix Multiplication Engine
+- MSMF: Maximum Sustainable Matmul FLOPS
 - NVL72: an NVLink domain of 72 accelerators; likewise NVL8 and NVL36
 - OAM: OCP Accelerator Module - the Open Compute Project's accelerator form factor
 - PSU: Power Supply Unit
@@ -327,7 +328,9 @@ General notes:
 
 
 
-#### Maximum Achievable FLOPS
+<a id="maximum-achievable-flops"></a>
+
+#### Maximum Achievable and Sustainable FLOPS
 
 The problem with the advertised theoretical peak FLOPS is that they are **very** theoretical and can't be achieved in practice even if all the perfect conditions have been provided. Each accelerator has its own realistic FLOPS which is not advertised and there are anecdotal community reports that do their best to find the actual best value, but I'm yet to find any official reports.
 
@@ -335,13 +338,15 @@ If you find solid reports (papers?) showing the actual TFLOPS one can expect fro
 
 To provide a numerical sense to what I'm talking about let's take an A100 with its 312TFLOPS bf16 peak performance in the specs of this card. Until the invention of FlashAttention it was known that 150TFLOPS was close to the highest one could get for fp16/bf16 mixed precision training regime. And with FlashAttention it's around 180+TFLOPS. This is, of course, measured for training LLMs where the network and IO are involved which create additional overheads. So here the maximum achievable peak performance probably lays somewhere between 200 and 300TFLOPS.
 
-You could measure the actual achievable peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable Matmul FLOPS finder](benchmarks/README.md#maximum-achievable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
+You could measure the actual achievable peak TFLOPS by doing a perfectly aligned max-size matrices `matmul` measured on a single accelerator. You can use [Maximum Achievable and Sustainable Matmul FLOPS finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder) to reproduce the results. But, of course, this will only tell you how well your given accelerator and its software stack do `matmul` - depending on the workload this might be all you need to know, or not.
 
-MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flops-comparison-table), which is a term coined by yours truly. It is very practical for those who do performance optimization work.
+MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-and-sustainable-matmul-flops-comparison-table), which is a term coined by yours truly, and MSMF for Maximum Sustainable Matmul FLOPS - what the accelerator holds once it is saturated at its power limit. Both are very practical for those who do performance optimization work.
 
-#### Maximum Achievable Matmul FLOPS comparison table
+<a id="maximum-achievable-matmul-flops-comparison-table"></a>
 
-The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see [Maximum Achievable FLOPS](#maximum-achievable-flops) for what MAMF stands for). **MAMF** is the short boost-clock burst; **MSMF** is what it holds once the chip is saturated at its power limit — use MSMF for training throughput. `—` means MSMF is not measured yet. Sorted by MAMF %. Reproduce with the [MAMF finder](benchmarks/README.md#maximum-achievable-matmul-flops-finder).
+#### Maximum Achievable and Sustainable Matmul FLOPS comparison table
+
+The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see [Maximum Achievable and Sustainable FLOPS](#maximum-achievable-and-sustainable-flops) for what MAMF and MSMF stand for). **MAMF** is the short boost-clock burst; **MSMF** is what it holds once the chip is saturated at its power limit — use MSMF for training throughput. `—` means MSMF is not measured yet. Sorted by MAMF %. Reproduce with the [MAMF finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
 
 **BF16**:
 
@@ -401,7 +406,7 @@ General notes:
 - `MAMF %` / `MSMF %` are `MAMF/Theory*100` and `MSMF/Theory*100`
 - While `mean` is probably what most users are interested in, the script reports `max`, `median` and `mean` - should you want the other numbers.
 - The `Shape` column is the MAMF shape; the MSMF shape, its power and its clock are in the numbered notes. There are usually many shapes with near-identical performance — these are listed for reproducibility.
-- `Sib` = `yes`: the other GPUs of the node ran a continuous matmul during the measurement, and MSMF is the slowest GPU. `Sib` = `no`: measured alone, so MSMF is a single-GPU upper bound. How `mamf-finder.py` measures either is explained [here](benchmarks/README.md#maximum-achievable-matmul-flops-finder).
+- `Sib` = `yes`: the other GPUs of the node ran a continuous matmul during the measurement, and MSMF is the slowest GPU. `Sib` = `no`: measured alone, so MSMF is a single-GPU upper bound. How `mamf-finder.py` measures either is explained [here](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
 - Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
@@ -412,7 +417,7 @@ General notes:
 
 **Why MAMF sits above MSMF:** MAMF is a short unsaturated burst. The two headlines often land on *different* shapes — a fat GEMM can be the better boost burst, a skinnier one the better sustained rate (or the reverse). Concretely (B300): `10752×14336×3072` bursts at **2032 MHz / 286 W → 1892 TFLOPS** (MAMF) but holds only 1487 TFLOPS once saturated; `8192×18432×1024` bursts lower at 1809 yet holds **1455 MHz / 1066 W → 1519 TFLOPS** (MSMF). `mamf-finder.py` times a queued burst after an idle and reports the peak iteration only if the clock sampled across that iteration reached boost, so a throttled/base-clock reading can't masquerade as MAMF. After both headlines it prints each winning shape in both regimes.
 
-Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are low that you will ever hit that exact shape. Instead, to know your system well, you'd run the [MAMF Finder](benchmarks/README.md#maximum-achievable-matmul-flops-finder) with the actual shapes your model is using during its training. This really is the main intention of this tool. You will have a good sense of when you can stop optimizing by comparing the TFLOPS reported by your training to Maximum Achievable MatMul TFLOPS you measured on your specific accelerator cluster.
+Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are low that you will ever hit that exact shape. Instead, to know your system well, you'd run the [MAMF Finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder) with the actual shapes your model is using during its training. This really is the main intention of this tool. You will have a good sense of when you can stop optimizing by comparing the TFLOPS reported by your training to Maximum Achievable MatMul TFLOPS you measured on your specific accelerator cluster.
 
 And to conclude this section I'd like to repeat again that **the intention here is not to point fingers at which accelerator is less efficient than another, but to give a sense of what's what and how to navigate those theoretical specs and to help you understand when you need to continue optimizing your system and when to stop. So begin with these notes and numbers as a starting point, then measure your own use case and use that latter measurement to gain the best outcome.**
 
@@ -551,7 +556,7 @@ bw = p.memory_clock_rate * 1e3 * (p.memory_bus_width / 8) * 2 / 1e12
 print(f"{p.name}: {p.memory_clock_rate/1e6:.3f}GHz x {p.memory_bus_width}-bit bus -> {bw:.2f}TBps")
 ```
 
-Two things to watch. Take the **peak** memory clock rather than the current one - an idle accelerator clocks its memory down, so `nvidia-smi`'s `Clocks` section will read low while `Max Clocks` reads the figure this arithmetic needs, and PyTorch's `memory_clock_rate` is already the peak. And this gives the *theoretical* ceiling; what a real workload achieves is lower, which is what [Maximum Achievable Matmul FLOPS](#maximum-achievable-matmul-flops-comparison-table) is to TFLOPS - see [Do more SMs give more TFLOPS?](../../training/performance/README.md#do-more-sms-give-more-tflops) for why aggregate peaks and achieved throughput diverge in general.
+Two things to watch. Take the **peak** memory clock rather than the current one - an idle accelerator clocks its memory down, so `nvidia-smi`'s `Clocks` section will read low while `Max Clocks` reads the figure this arithmetic needs, and PyTorch's `memory_clock_rate` is already the peak. And this gives the *theoretical* ceiling; what a real workload achieves is lower, which is what [Maximum Achievable Matmul FLOPS](#maximum-achievable-and-sustainable-matmul-flops-comparison-table) is to TFLOPS - see [Do more SMs give more TFLOPS?](../../training/performance/README.md#do-more-sms-give-more-tflops) for why aggregate peaks and achieved throughput diverge in general.
 
 Memory speed (bandwidth) is, of course, very important since if it's not fast enough, the compute ends up idling waiting for the data to be moved to and from the memory.
 
