@@ -665,8 +665,8 @@ A published peak is an **aggregate over the whole part**, never a per-SM rate: B
 | :---- | --------: | ------------: | ---------: |
 | bf16  |      2250 |         15.20 |       2311 |
 | fp8   |      4500 |         30.41 |       4622 |
-| fp4   |     12600 |         85.14 |      12941 |
-| nvfp4 |     15000 |        101.35 |      15405 |
+| mxfp4 |     13500 |         91.22 |      13865 |
+| nvfp4 |     13500 |         91.22 |      13865 |
 
 Every dtype moves by that same 1.027x, which leaves a corollary: **NVIDIA publishes one set of numbers for `B300 SXM`, and two real SKUs cannot both match them.** If 2250 belongs to the 148-SM part then the 152-SM part is entitled to 2311; if it belongs to the 152-SM part then the 148-SM one reaches only 2191. So a peak quoted without its SM count is approximate for at least one of the parts sold under that name. Note the asymmetry: that 2.7% gap in *published* peak is exact, while the gap in *achievable* throughput is the staircase above - nothing, 2x, or 2.7% depending entirely on shape.
 

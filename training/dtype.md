@@ -67,7 +67,7 @@ Luckily bf16 came out and replaced fp16 using the same mixed precision protocol.
 
 Then fp8 came and mixed precision could switch to [that](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html), which makes the training even faster. See [FP8 Formats for Deep Learning](https://arxiv.org/abs/2209.05433). As of 2026-08 bf16 mixed precision is still the default for most training runs, but fp8 training is no longer experimental - [DeepSeek-V3](https://arxiv.org/abs/2412.19437) was trained in fp8.
 
-And then Blackwell added fp6, fp4 and NVIDIA's own nvfp4. So far these are mostly inference formats - fp4 training is still a research topic.
+And then Blackwell added fp6, fp4 and NVIDIA's own nvfp4. So far these are mostly inference formats, though nvfp4 pretraining recipes have started to appear - see [FP4 formats](#fp4-formats).
 
 To appreciate the speed ups between the different formats here is a table for NVIDIA B200 TFLOPS spec (w/o sparsity), along with the accelerator that first supported each dtype in non-CPU hardware (cpu is weak for deep learning). It's sorted by `B200 TFLOPS` ascending, and where several dtypes run at the same speed, by the year the hardware support arrived:
 
@@ -80,8 +80,8 @@ To appreciate the speed ups between the different formats here is a table for NV
 | int8      |        4500 | Google TPU v1 (2015)<br>NVIDIA P4/P40 (Pascal, 2016) |
 | fp8       |        4500 | NVIDIA H100 (Hopper, 2022)<br>Intel Gaudi 2 (2022)   |
 | fp6       |        4500 | NVIDIA B200 (Blackwell, 2024)                        |
-| fp4       |        9000 | NVIDIA B200 (Blackwell, 2024)                        |
-| nvfp4     |       10000 | NVIDIA B200 (Blackwell, 2024)                        |
+| mxfp4     |        9000 | NVIDIA B200 (Blackwell, 2024)                        |
+| nvfp4     |        9000 | NVIDIA B200 (Blackwell, 2024)                        |
 
 int8 is TOPS rather than TFLOPS, since those are integer ops.
 
@@ -90,6 +90,27 @@ Some of these dates mark when a dtype became usable rather than when it became f
 The doubling holds all the way down to fp8 - each halving of the element width buys about 2x the throughput. Then it stops: fp6 runs at the same 4500TFLOPS as fp8, so it buys you memory and bandwidth but no compute. fp4 doubles again over fp8, and on GB300 it's 3x (15000 vs 5000). So don't assume the pattern continues - check the spec for the dtype you're actually planning to use.
 
 In parallel with the mixed training regime the ML community started coming up with various quantization approaches. Probably one of the best examples is Tim Dettmers' [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) which provides many 4 and 8-bit quantization solutions. DeepSpeed also has some [interesting quantization solutions](https://www.deepspeed.ai/tutorials/model-compression/).
+
+## FP4 formats
+
+An fp4 `e2m1` element has 16 bit patterns: ±0, ±0.5, ±1, ±1.5, ±2, ±3, ±4 and ±6. That is far too few to cover a tensor's range with one scale, so fp4 is only usable block-scaled: every small block of elements shares a scale that stretches those values over the block's actual range. There are two block-scaled fp4 formats, and they differ only in that scale:
+
+|             | mxfp4                                             | nvfp4                                  |
+| :---------- | :------------------------------------------------ | :------------------------------------- |
+| block size  | 32 elements                                       | 16 elements                            |
+| block scale | `E8M0`, a power of two                            | `E4M3`, plus one FP32 scale per tensor |
+| storage     | 4.25 bits per element                             | 4.5 bits per element                   |
+| defined by  | the OCP Microscaling (MX) spec                    | NVIDIA                                 |
+| hardware    | NVIDIA Blackwell, AMD MI355X, Huawei Ascend 950DT | NVIDIA only, Blackwell and newer       |
+
+Speed is not what separates them. NVIDIA's Blackwell tensor cores run both through the same instruction at the same peak, which is why the [theoretical TFLOPS table](../compute/accelerator/README.md#tflops-comparison-table) has the same number in both columns. [Measured](../compute/accelerator/README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) on B200 with torch 2.14, nvfp4 came out ~8% faster, which is a software difference, not a hardware one.
+
+Accuracy is what separates them. A smaller block means one outlier distorts the scale of 15 neighbours rather than 31, and an `E4M3` scale can sit between powers of two where `E8M0` has to round to one. In NVIDIA's [8B-parameter, 1T-token pretraining comparison](https://developer.nvidia.com/blog/train-models-faster-with-jax-and-maxtext-using-nvfp4-on-nvidia-blackwell/), MXFP4 needed ~36% more tokens to reach NVFP4's final loss; see also [Introducing NVFP4](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/) for the inference side. Both claims are NVIDIA's own.
+
+So:
+- On NVIDIA Blackwell or newer, use nvfp4: the same compute and better accuracy, for 0.25 extra bits per element.
+- Use mxfp4 where nvfp4 doesn't exist - AMD MI355X and the other non-NVIDIA accelerators that implement OCP MX - or when one checkpoint has to run on more than one vendor's hardware.
+- When a model is released in one of them, as OpenAI's gpt-oss ships its MoE weights in MXFP4, running it in that format saves you requantizing it.
 
 ## TF32
 
