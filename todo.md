@@ -17,6 +17,8 @@ Grouped by the hardware a task needs, since that is usually what blocks it. The 
 
 ## 1 node, 8x accelerators
 
+- add symmetric memory support to [all_reduce_bench.py](network/benchmarks/all_reduce_bench.py), so the benchmark can compare a regular `all-reduce` against one on symmetric-memory buffers (PyTorch's `torch.distributed._symmetric_memory` / NCCL's registered symmetric windows) and show what that path gains intra-node.
+
 - refresh the illustrative `busbw` table in [network/benchmarks/README.md](network/benchmarks/README.md) under `### all_reduce benchmark`, whose top figure is 91.69GBps from an earlier cluster. Left alone on 2026-08-04 because it does illustrate the output format correctly and the 4-node plot beside it matches - so this is a "is a current example better than an old one" call, not a correctness fix. A current 8x H200 plot and its environment now sit directly beneath it if you want to swap the table too.
 
 - reference notes for any future attempt to force a collective onto the NIC path, which is harder than it looks: `NCCL_P2P_DISABLE=1` alone does not do it, because NCCL falls back P2P -> SHM -> network, so `NCCL_SHM_DISABLE=1` is needed as well, and even then libfabric's EFA provider serves intra-node traffic from the instance's shared memory unless `FI_EFA_ENABLE_SHM_TRANSFER=0`. Also confirm GPUDirect RDMA is actually active, since NCCL disables it when the accelerator-to-NIC distance exceeds its threshold and then stages through host RAM, and on a virtualized instance ACS cannot be turned off and redirects PCIe peer-to-peer traffic through the CPU root complex unless the adapter has ATS enabled - each of these changes what the measurement means.
