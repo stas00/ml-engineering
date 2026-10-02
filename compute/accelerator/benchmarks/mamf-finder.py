@@ -76,8 +76,11 @@ except ModuleNotFoundError:
 
 file_dir = os.path.abspath(os.path.dirname(__file__))
 
-# --dtype choices -> torch dtype. mxfp8 isn't a torch dtype: it is float8_e4m3fn data with float8_e8m0fnu block
-# scales (OCP MX), carried as the scale dtype, which torch<2.7 doesn't have
+# --dtype choices -> torch dtype, None when this torch is too old for it. The block-scaled formats aren't torch dtypes,
+# so they carry the dtype that old torch lacks: mxfp8 (OCP MX) is float8_e4m3fn data with float8_e8m0fnu scales
+# (torch>=2.7); mxfp4 (OCP MX) and nvfp4 (NVIDIA) are float4_e2m1fn_x2 data, two values per byte, with float8_e8m0fnu
+# and float8_e4m3fn scales respectively; mxfp4 also needs torch._scaled_mm_v2. The code passes the --dtype name around,
+# since these can't be told apart by torch dtype.
 SUPPORTED_DTYPES = {
     "bfloat16":        torch.bfloat16,
     "float16":         torch.float16,
@@ -85,7 +88,10 @@ SUPPORTED_DTYPES = {
     "float8_e4m3fn":   torch.float8_e4m3fn,
     "float8_e4m3fnuz": torch.float8_e4m3fnuz,
     "mxfp8":           getattr(torch, "float8_e8m0fnu", None),
+    "mxfp4":           getattr(torch, "float4_e2m1fn_x2", None) if hasattr(torch, "_scaled_mm_v2") else None,
+    "nvfp4":           getattr(torch, "float4_e2m1fn_x2", None),
 }
+BLOCK_SCALED_DTYPES = ("mxfp8", "mxfp4", "nvfp4")
 
 
 
@@ -218,7 +224,7 @@ class NVIDIAArch(CudaLikeArch):
 
     def dtype_unsupported(self, dtype_name):
         cc = torch.cuda.get_device_capability()
-        if dtype_name == "mxfp8" and cc < (10, 0):
+        if dtype_name in BLOCK_SCALED_DTYPES and cc < (10, 0):
             return f"{torch.cuda.get_device_name()} is compute capability {cc[0]}.{cc[1]}"
         return None
 
@@ -308,7 +314,7 @@ class AMDArch(CudaLikeArch):
 
     def dtype_unsupported(self, dtype_name):
         gfx = torch.cuda.get_device_properties(self.device).gcnArchName
-        if dtype_name == "mxfp8" and "gfx950" not in gfx:
+        if dtype_name in BLOCK_SCALED_DTYPES and "gfx950" not in gfx:
             return f"{torch.cuda.get_device_name()} is {gfx}"
         return None
 
@@ -582,38 +588,58 @@ Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
 # C_rand: re-copied into C each iter so the write actually happens (else the rerun is a no-op and draws no power —
 # invalid emulation of a real use case).
 def prepare_gemm(m, n, k, dtype, device):
-    """Allocate operands and return (op, l2_cache, C, C_rand, flos). `op()` writes into C."""
+    """Allocate operands for --dtype `dtype` (a SUPPORTED_DTYPES name) and return (op, l2_cache, C, C_rand, flos).
+    `op()` writes into C."""
     l2_cache = torch.empty(int(256 * 2**20 / 4), dtype=torch.int, device=device)
-    out_dtype = dtype
+    out_dtype = SUPPORTED_DTYPES[dtype]
 
-    if dtype == SUPPORTED_DTYPES["mxfp8"]:
-        # mxfp8 (OCP MX): one float8_e8m0fnu scale per 32 elements along K. The scales are all 1.0, so the swizzled
-        # layout cuBLAS/hipBLASLt read holds the same values as any other and only the size matters: rows padded to
-        # 128 and K-blocks to 4 (oneDNN on XPU wants it unpadded).
+    if dtype in BLOCK_SCALED_DTYPES:
+        # One scale per block of 32 elements along K (OCP MX, float8_e8m0fnu) or 16 (nvfp4, float8_e4m3fn). The scales
+        # are all 1.0, so the swizzled layout cuBLAS/hipBLASLt read holds the same values as any other and only the
+        # size matters: rows padded to 128 and K-blocks to 4 (oneDNN on XPU wants it unpadded).
         out_dtype = torch.bfloat16
-        A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(torch.float8_e4m3fn)
-        B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(torch.float8_e4m3fn)
-        k_blocks = -(-k // 32)
+        if dtype == "mxfp8":
+            A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(torch.float8_e4m3fn)
+            B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(torch.float8_e4m3fn)
+        else:
+            # fp4 packs two e2m1 values per byte along K, and torch can't cast to it. e2m1 has no NaN/Inf, so random
+            # bytes are random fp4 data.
+            if k % 32:
+                raise ValueError(f"--dtype {dtype} needs K to be a multiple of 32, got {k}")
+            A = torch.randint(0, 256, (m, k // 2), dtype=torch.uint8, device=device).view(torch.float4_e2m1fn_x2)
+            B = torch.randint(0, 256, (n, k // 2), dtype=torch.uint8, device=device).view(torch.float4_e2m1fn_x2).t()
+        block, scale_dtype = (16, torch.float8_e4m3fn) if dtype == "nvfp4" else (32, torch.float8_e8m0fnu)
+        k_blocks = -(-k // block)
         def block_scales(rows):
             numel = rows * k_blocks if arch.name == "xpu" else -(-rows // 128) * 128 * -(-k_blocks // 4) * 4
-            return torch.full((numel,), 1.0, dtype=torch.float8_e8m0fnu, device=device)
+            return torch.full((numel,), 1.0, dtype=scale_dtype, device=device)
         scale_a, scale_b = block_scales(m), block_scales(n)
-        def op():
-            torch._scaled_mm(A, B, scale_a, scale_b, out_dtype=out_dtype, out=C)
-    elif dtype in (SUPPORTED_DTYPES["float8_e4m3fn"], SUPPORTED_DTYPES["float8_e4m3fnuz"]):
+        if dtype == "mxfp4":
+            # torch._scaled_mm takes float8_e8m0fnu block scales only with fp8 data, so mxfp4 needs the
+            # explicit-recipe op behind torch.nn.functional.scaled_mm, which has no `out=`
+            F = torch.nn.functional
+            recipe = [F.ScalingType.BlockWise1x32.value]
+            swizzle = [(F.SwizzleType.NO_SWIZZLE if arch.name == "xpu" else F.SwizzleType.SWIZZLE_32_4_4).value]
+            def op():
+                torch._scaled_mm_v2(A, B, [scale_a], recipe, swizzle, [scale_b], recipe, swizzle, None, out_dtype,
+                                    out=C)
+        else:
+            def op():
+                torch._scaled_mm(A, B, scale_a, scale_b, out_dtype=out_dtype, out=C)
+    elif dtype in ("float8_e4m3fn", "float8_e4m3fnuz"):
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
-        if dtype == torch.float8_e4m3fn and arch.name == "rocm":
+        if dtype == "float8_e4m3fn" and arch.name == "rocm":
             raise ValueError("ROCm doesn't support float8_e4m3fn, use --dtype float8_e4m3fnuz instead")
-        A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(dtype)
-        B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(dtype)
+        A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(out_dtype)
+        B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(out_dtype)
         scale = torch.tensor([1.0]).to(device)
         # must not move `out=C` as `C = ...` — Gaudi needs it this way
         def op():
             torch._scaled_mm(A, B, scale, scale, out=C)
     else:
-        A = torch.randn(m, k, dtype=dtype, device=device).contiguous()
-        B = torch.randn(n, k, dtype=dtype, device=device).contiguous().t()
+        A = torch.randn(m, k, dtype=out_dtype, device=device).contiguous()
+        B = torch.randn(n, k, dtype=out_dtype, device=device).contiguous().t()
         def op():
             torch.mm(A, B, out=C)
     C = torch.empty(m, n, dtype=out_dtype, device=device).contiguous()
@@ -777,11 +803,12 @@ def measure_boost_burst(m, n, k, dtype, device, iters, telem=None, idle_before_s
 # with a note, or refuses it where the arch has no compute-unit count / tile hint - see the geometry check there.
 
 def dtype_element_size(dtype):
-    """Size in bytes of one element of `dtype` (bf16->2, fp8->1, fp32->4)."""
-    try:
-        return torch.empty(0, dtype=dtype).element_size()
-    except Exception:
-        return max(torch.finfo(dtype).bits // 8, 1)
+    """Size in bytes of one element of --dtype `dtype` (bf16->2, fp8->1, fp4->0.5, fp32->4)."""
+    if dtype in ("mxfp4", "nvfp4"):
+        return 0.5
+    if dtype == "mxfp8":
+        return 1
+    return torch.empty(0, dtype=SUPPORTED_DTYPES[dtype]).element_size()
 
 def wave_efficiency(m, n, sms, tile_m=128, tile_n=256):
     """Fraction of the scheduled waves that do useful work for an m x n output on `sms` SMs; 1.0
@@ -1618,13 +1645,16 @@ def dtype_checks(dtype_name, device):
         reason = arch.dtype_unsupported(dtype_name)
     if reason is None:
         try:
-            prepare_gemm(128, 128, 128, SUPPORTED_DTYPES[dtype_name], device)[0]()
+            prepare_gemm(128, 128, 128, dtype_name, device)[0]()
             arch.synchronize()
         except Exception as e:
             reason = str(e).splitlines()[0].rstrip(".")
     if reason:
-        hint = (" mxfp8 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch."
-                if dtype_name == "mxfp8" else "")
+        hint = {
+            "mxfp8": " mxfp8 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch.",
+            "mxfp4": " mxfp4 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch.",
+            "nvfp4": " nvfp4 needs NVIDIA Blackwell and a recent PyTorch.",
+        }.get(dtype_name, "")
         sys.exit(f"error: --dtype {dtype_name} doesn't run on this device: {reason}.{hint}")
 
 
@@ -1683,6 +1713,11 @@ def search_setup(args):
                                     for name, vals, rng in dims)
         if not shapes:
             sys.exit(f"error: no shapes to search in {range_info}")
+        if args.dtype in ("mxfp4", "nvfp4"):
+            bad_k = sorted({k for _, _, k in shapes if k % 32})
+            if bad_k:
+                sys.exit(f"error: --dtype {args.dtype} needs K to be a multiple of 32, "
+                         f"got K={','.join(map(str, bad_k))}")
         return "grid", shapes, range_info, tuple(map(int, shapes[0]))
 
     # auto search derives its candidate shapes from the compute-unit layout (compute_unit_count + gemm_tile_hint)
@@ -1824,8 +1859,8 @@ def parse_args():
     what = parser.add_argument_group("what to measure")
     what.add_argument("--dtype", default="bfloat16",
                       choices=SUPPORTED_DTYPES,
-                      help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 needs NVIDIA "
-                           "Blackwell or AMD MI355X")
+                      help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 and mxfp4 need "
+                           "NVIDIA Blackwell or AMD MI355X; nvfp4 needs NVIDIA Blackwell")
     what.add_argument("--search", choices=["auto", "grid"], default="auto",
                       help="auto: find the best shape anywhere; grid: the best shape in the --m/--n/--k range you "
                            "give. Any shape argument implies grid")
@@ -1869,7 +1904,7 @@ if __name__ == '__main__':
     device = arch.device
     setup_checks()
     dtype_checks(args.dtype, device)
-    dtype = SUPPORTED_DTYPES[args.dtype]
+    dtype = args.dtype
     tunableop = tunableop_setup(args.tune.tunableop_confirm_max)
     telem = telemetry_setup(args.telemetry, args.cuda_device)
     mode, grid_shapes, range_info, warmup_shape = search_setup(args)
@@ -2073,7 +2108,7 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
         sms = arch.compute_unit_count()  # main() checked that both geometry hooks return usable values
         tile_m, tile_n = arch.gemm_tile_hint
         elem = dtype_element_size(dtype)
-        align = max(128 // elem, 1)   # tensor-core element alignment (bf16->64, fp8->128, fp32->32)
+        align = max(int(128 // elem), 1)  # tensor-core element alignment (bf16->64, fp8->128, fp4->256, fp32->32)
         base = 256                    # M/N step: a multiple of `align` and of the 256-wide tile
         if base % align:
             base = ((base // align) + 1) * align

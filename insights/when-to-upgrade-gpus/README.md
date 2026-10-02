@@ -51,7 +51,7 @@ Treat "does my stack support this feature?" as a hard gate on any feature-motiva
 
 Everything else a new GPU brings — more memory, more bandwidth, faster interconnect, more raw FLOPS — is a *bigger quantity of what you already have*, not a brand-new capability, so it doesn't settle the decision by itself; it comes down to measurement. That's [part 2](#decision-framework-part-2--is-it-worth-it-on-performance).
 
-[^unlocks]: Dtype peak TFLOPS (theoretical), H200 → B200: bf16 989→2250, fp8 1979→4500, plus formats Hopper can't execute at all — fp6 →4500, fp4 →9000, nvfp4 →10000. FP4 roughly doubles fp8 throughput and halves the memory/bandwidth of the quantized tensors. What makes 4-bit actually *usable* is Blackwell's **2nd-gen Transformer Engine with microscaling**: FP4 has only ~16 representable values, so one scale factor per tensor can't span its dynamic range (small values flush to zero, large ones saturate). Microscaling (MX / NVFP4) instead uses a separate scale per small block (e.g. per 16–32 values), applied by the tensor cores in hardware at no throughput cost — so you keep accuracy near fp8/bf16 at FP4's ~2× speed and half memory, which naive per-tensor FP4 can't. (Hopper's 1st-gen TE did this for fp8 via per-tensor scales; Blackwell's 2nd-gen extends it to block-scaled fp4/fp6.)
+[^unlocks]: Dtype peak TFLOPS (theoretical), H200 → B200: bf16 989→2250, fp8 1979→4500, plus formats Hopper can't execute at all — fp6 →4500, mxfp4 and nvfp4 →9000. FP4 roughly doubles fp8 throughput and halves the memory/bandwidth of the quantized tensors. What makes 4-bit actually *usable* is Blackwell's **2nd-gen Transformer Engine with microscaling**: FP4 has only ~16 representable values, so one scale factor per tensor can't span its dynamic range (small values flush to zero, large ones saturate). Microscaling (MX / NVFP4) instead uses a separate scale per small block (e.g. per 16–32 values), applied by the tensor cores in hardware at no throughput cost — so you keep accuracy near fp8/bf16 at FP4's ~2× speed and half memory, which naive per-tensor FP4 can't. (Hopper's 1st-gen TE did this for fp8 via per-tensor scales; Blackwell's 2nd-gen extends it to block-scaled fp4/fp6.)
 
 ## Decision framework, part 2 — is it worth it on performance?
 
@@ -215,19 +215,19 @@ If you use [FSDP](../../training/model-parallelism/README.md) for scaling — it
 
 Everything above compared two *generations* (Hopper → Blackwell). A within-generation refresh — e.g. B200 → **B300** ("Blackwell Ultra") — is a different, usually smaller, decision. The same two-part decision framework applies — [part 1 (do you need a new dtype?)](#decision-framework-part-1--do-you-need-a-new-dtype) and [part 2 (is it worth it on performance?)](#decision-framework-part-2--is-it-worth-it-on-performance) — but the answers shift in predictable ways.
 
-| spec                             |     B200 SXM |      B300 SXM |     ratio |
-| -------------------------------- | -----------: | ------------: | --------: |
-| bf16 / fp8 TFLOPS (theoretical)  |  2250 / 4500 |   2250 / 4500 |      1.0× |
-| fp4 / nvfp4 TFLOPS (theoretical) | 9000 / 10000 | 12600 / 15000 | ~1.4–1.5× |
-| bf16 MAMF (achievable)           |         1745 |          1769 |    ~1.01× |
-| HBM (usable)                     |      ~180GiB |       ~288GiB |  **1.6×** |
-| HBM bandwidth                    |      8.0TBps |       8.0TBps |      1.0× |
-| TDP                              |        1000W |         1300W |      1.3× |
+| spec                               | B200 SXM    | B300 SXM      | ratio    |
+| ---------------------------------- | ----------: | ------------: | -------: |
+| bf16 / fp8 TFLOPS (theoretical)    | 2250 / 4500 |   2250 / 4500 |     1.0× |
+| mxfp4 / nvfp4 TFLOPS (theoretical) | 9000 / 9000 | 13500 / 13500 |     1.5× |
+| bf16 MAMF (achievable)             |        1745 |          1769 |   ~1.01× |
+| HBM (usable)                       |     ~180GiB |       ~288GiB | **1.6×** |
+| HBM bandwidth                      |     8.0TBps |       8.0TBps |     1.0× |
+| TDP                                |       1000W |         1300W |     1.3× |
 
 What this means for the should-you-upgrade framework:
 
 - **[Part 1](#decision-framework-part-1--do-you-need-a-new-dtype) (do you need a new dtype?) rarely fires.** B300 introduces no dtype B200 lacks. The one thing that *can* act like a part-1 gap is **memory**: 288 vs 180GiB (1.6×) is a big jump, so a model/config that can't be made to fit a B200 node even with parallelism may fit a B300 node outright.
-- **[Part 2](#decision-framework-part-2--is-it-worth-it-on-performance) (is it worth it on performance?): the only real compute uplift is fp4 (~1.4–1.5×)** — bf16/fp8 are unchanged, so B300 mainly pays off for low-precision inference/training and for the extra memory.
+- **[Part 2](#decision-framework-part-2--is-it-worth-it-on-performance) (is it worth it on performance?): the only real compute uplift is fp4 (1.5×)** — bf16/fp8 are unchanged, so B300 mainly pays off for low-precision inference/training and for the extra memory.
 - **Software-maturity risk is low.** Same architecture family (`sm_100`), same FA4/kernel stack — none of the "switching too early" cost from the cross-generation case.
 
 ## Reproduce this benchmark

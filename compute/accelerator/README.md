@@ -247,18 +247,18 @@ To check the actual clock speed when your accelerator is under load see the [clo
 
 #### TFLOPS comparison table
 
-Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Both tables are sorted by the bf16 column, and they share one set of notes, listed after them.
+Let's look at the supported [dtypes](../../training/dtype.md) and the corresponding theoretical peak TFLOPS specs across the high end accelerators (w/o sparsity). Both tables are sorted by the bf16 column, and they share one set of notes, listed after them. The two FP4 columns are the two block-scaled FP4 formats: `mxfp4` is the OCP microscaling one, one power-of-two E8M0 scale per 32 elements, and `nvfp4` is NVIDIA's, one E4M3 scale per 16 elements plus a per-tensor FP32 scale - see [fp4 formats](../../training/dtype.md#fp4-formats) for which to use.
 
 **Generally available:**
 
-| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8  | int8 | fp6   | fp4   | nvfp4 | Notes |
+| Accelerator \ TFLOPS  | fp32  | tf32   | fp16 | bf16 | fp8  | int8 | fp6   | mxfp4 | nvfp4 | Notes |
 | :-------------------- | ----: | -----: | ---: | ---: | ---: | ---: | ----: | ----: | ----: | ----: |
-| NVIDIA GB300 SXM      |  80.0 | 1250.0 | 2500 | 2500 | 5000 | 5000 |  5000 | 15000 |     ? |    24 |
-| NVIDIA GB200 SXM      |  80.0 | 1250.0 | 2500 | 2500 | 5000 | 5000 |  5000 | 10000 |     ? |    23 |
+| NVIDIA GB300 SXM      |  80.0 | 1250.0 | 2500 | 2500 | 5000 | 5000 |  5000 | 15000 | 15000 |    24 |
+| NVIDIA GB200 SXM      |  80.0 | 1250.0 | 2500 | 2500 | 5000 | 5000 |  5000 | 10000 | 10000 |    23 |
 | AMD MI355X            | 157.3 |      ? | 2500 | 2500 | 5000 | 5000 | 10100 | 10100 |     X |    22 |
 | Google TPU v7x        |     ? |      ? | 2307 | 2307 | 4614 |    ? |     ? |     ? |     ? |    25 |
-| NVIDIA B300 SXM       |  80.0 | 1125.0 | 2250 | 2250 | 4500 | 4500 |  4500 | 12600 | 15000 |    21 |
-| NVIDIA B200 SXM       |  80.0 | 1125.0 | 2250 | 2250 | 4500 | 4500 |  4500 |  9000 | 10000 |    20 |
+| NVIDIA B300 SXM       |  80.0 | 1125.0 | 2250 | 2250 | 4500 | 4500 |  4500 | 13500 | 13500 |    21 |
+| NVIDIA B200 SXM       |  80.0 | 1125.0 | 2250 | 2250 | 4500 | 4500 |  4500 |  9000 |  9000 |    20 |
 | Intel Gaudi3          | 229.0 |  459.0 |  459 | 1677 | 1677 |    V |     X |     X |     X |  8,19 |
 | AMD MI325X            | 163.4 |  653.7 | 1300 | 1300 | 2610 | 2600 |     X |     X |     X |    18 |
 | AMD MI300X            | 163.4 |  653.7 | 1300 | 1300 | 2610 | 2600 |     X |     X |     X |    17 |
@@ -280,7 +280,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 
 **Announced, availability not confirmed:**
 
-| Accelerator \ TFLOPS | fp32  | tf32   | fp16 | bf16 | fp8   | int8 | fp6   | fp4   | nvfp4 | Notes |
+| Accelerator \ TFLOPS | fp32  | tf32   | fp16 | bf16 | fp8   | int8 | fp6   | mxfp4 | nvfp4 | Notes |
 | :------------------- | ----: | -----: | ---: | ---: | ----: | ---: | ----: | ----: | ----: | ----: |
 | AMD MI455X           | 315.0 |      ? | 5000 | 5000 | 10000 | 5000 | 10000 | 20000 |     X |    27 |
 | NVIDIA Rubin SXM     | 130.0 | 2000.0 | 4000 | 4000 | 17500 | 2500 | 17500 | 35000 | 35000 |    26 |
@@ -307,8 +307,8 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 17. [AMD Instinct MI300X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
 18. MI325X is the same compute as MI300X, but has more memory and more power (more efficient compute). See [AMD Instinct MI325X specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi325x.html).
 19. Gaudi3 as of 2026-08 is running at 1600MHz (MME) and not the planned 1750MHz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
-20. [NVIDIA DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet)
-21. [NVIDIA DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet)
+20. [NVIDIA DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet) - `FP4 Tensor Core: 144|72` petaFLOPS sparse|dense for 8 GPUs, so 9000 dense per GPU; the [HGX page](https://www.nvidia.com/en-us/data-center/hgx/) agrees (read 2026-10-02). NVIDIA publishes a single FP4 rate for Blackwell, which its GB200 NVL72 page labels `NVFP4`, and the tensor cores run both FP4 formats through the same `tcgen05.mma.kind::mxf4nvf4` instruction at the same rate (see the [CUTLASS Blackwell docs](https://docs.nvidia.com/cutlass/latest/media/docs/cpp/blackwell_functionality.html)), so the `mxfp4` and `nvfp4` columns of every NVIDIA Blackwell row carry the same number.
+21. [NVIDIA DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet) - `FP4 Tensor Core 144|108` PFLOPS sparse|dense for 8 GPUs, so 13500 dense per GPU, the "1.5x dense FP4" over B200 the datasheet advertises; the [HGX page](https://www.nvidia.com/en-us/data-center/hgx/) agrees (read 2026-10-02). The 15000 often quoted for B300 is GB300's per-GPU figure.
 22. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) - these are AMD's dense figures. AMD also publishes `with Structured Sparsity` variants at exactly 2x - 10.1PFLOPS for OCP-FP8 and 5PFLOPS for FP16 matrix - so a 10.1PFLOPS fp8 number quoted elsewhere is the sparse one, not this table's. The `fp6` and `fp4` entries carry no sparsity qualifier on AMD's page and are dense. MI350X is the same silicon at 2200MHz and 1000W, with everything scaled by the clock ratio (144.2 vs 157.3 fp32); it is left out because MI355X is the part you can actually rent.
 23. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute). See [NVIDIA GB200 NVL72 specifications](https://www.nvidia.com/en-us/data-center/gb200-nvl72/).
 24. GB200 NVL72 and GB300 NVL72 seem to be the same but faster fp4 and more memory for the latter. See [NVIDIA GB300 NVL72 specifications](https://www.nvidia.com/en-us/data-center/gb300-nvl72/).
@@ -346,7 +346,7 @@ MAMF stands for [Maximum Achievable Matmul FLOPS](#maximum-achievable-and-sustai
 
 #### Maximum Achievable and Sustainable Matmul FLOPS comparison table
 
-The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsity) TFLOPS (see [Maximum Achievable and Sustainable FLOPS](#maximum-achievable-and-sustainable-flops) for what MAMF and MSMF stand for). **MAMF** is the short boost-clock burst; **MSMF** is what it holds once the chip is saturated at its power limit — use MSMF for training throughput. `—` means MSMF is not measured yet. Sorted by MAMF %. Reproduce with the [MAMF finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
+The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sparsity) TFLOPS (see [Maximum Achievable and Sustainable FLOPS](#maximum-achievable-and-sustainable-flops) for what MAMF and MSMF stand for). **MAMF** is the short boost-clock burst; **MSMF** is what it holds once the chip is saturated at its power limit — use MSMF for training throughput. `—` means MSMF is not measured yet. Sorted by MAMF %. Reproduce with the [MAMF finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
 
 **BF16**:
 
@@ -382,9 +382,17 @@ The following measurements are for `matmul` with BF16 and FP8 inputs (no sparsit
 | AMD MI300X       | 1201 | 1187 |   2600 |     46.2% |     45.7% | no           | 4096x19456x16384      | 2.12.0+rocm10.0.0   |    13 |
 
 
+**FP4 (`nvfp4`, `mxfp4`)**:
+
+| Accelerator     | Format | MAMF | MSMF | Theory | MAMF<br>% | MSMF<br>% | Sib<br>lings | Shape MxNxK<br>(MAMF) | torch<br>version | Notes |
+| :-------------- | :----- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :--------------- | ----: |
+| NVIDIA B200 SXM | nvfp4  | 6624 | 5713 |   9000 |     73.6% |     63.5% | yes          | 2304x18944x16384      | 2.14.0+cu130     |    14 |
+| NVIDIA B200 SXM | mxfp4  | 6087 | 5232 |   9000 |     67.6% |     58.1% | yes          | 2048x18944x20480      | 2.14.0+cu130     |    15 |
+
+
 Caveat emptor: these numbers come from `mamf-finder.py --search auto` (or grid confirm of the same / equivalent shapes) using the software stack available at measurement time. Re-run on your setup for numbers that are true to your box — they are a rough estimate, not absolute. As software improves they climb toward the theoretical spec, so ideally re-measure every 6 months or so.
 
-Notes — the `Notes` column of both tables points here:
+Notes — the `Notes` column of all three tables points here:
 
 1. Intel Gaudi 2 and Intel Gaudi 3 (both tables): `PT_HPU_LAZY_MODE=1`
 2. NVIDIA A100 PCIe, BF16: 300 W; MAMF @ 1395 MHz; MSMF 255 @ 1152x3072x11264, ~298 W @ 1260 MHz
@@ -399,6 +407,8 @@ Notes — the `Notes` column of both tables points here:
 11. NVIDIA H200 SXM, FP8: MAMF ~142 W @ 1980 MHz; MSMF 1290 @ 3840x2816x20480, ~690 W @ 1440 MHz
 12. NVIDIA B200 SXM, FP8: MAMF ~290 W @ 1965 MHz; MSMF 2829 @ 6144x12288x3072, ~965 W @ 1485 MHz
 13. AMD MI300X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst, as in note 9 (the lagging `amdsmi` sample reads ~218 W @ 2058 MHz); MSMF 1187 @ 6912x19200x16384, 750 W @ 1189 MHz
+14. NVIDIA B200 SXM, nvfp4: one `float8_e4m3fn` scale per 16 elements; MAMF ~296 W @ 1965 MHz; MSMF 5713 @ 2304x18944x16384, ~981 W @ 1515 MHz, with a median of 5772 and a 2.1% spread across the 8 GPUs. Theory is NVIDIA's single dense FP4 figure, see the B200 note under the [TFLOPS comparison table](#tflops-comparison-table). At 73.6% / 63.5% of it, nvfp4 tracks this GPU's FP8 row (74.0% / 62.9%), i.e. it delivers the full 2x over FP8 that the spec promises.
+15. NVIDIA B200 SXM, mxfp4: one `float8_e8m0fnu` scale per 32 elements; MAMF ~311 W @ 1965 MHz; MSMF 5232 @ 1792x18944x16384, ~981 W @ 1540 MHz, with a median of 5314 and a 3.2% spread across the 8 GPUs. It trails nvfp4 by ~8% although NVIDIA quotes one FP4 rate for both and mxfp4 carries half as many scales, which points at the software path rather than the hardware: torch 2.14's `_scaled_mm` doesn't accept mxfp4, so `mamf-finder.py` runs it through `torch._scaled_mm_v2`, the op behind `torch.nn.functional.scaled_mm`.
 
 General notes:
 
