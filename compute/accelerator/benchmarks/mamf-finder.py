@@ -5,7 +5,7 @@
 This is the Maximum Achievable and Sustainable Matmul FLOPS finder
 (MAMF + MSMF).
 
-Both search modes report the SAME two numbers from the shapes they measure; they
+All search modes report the SAME two numbers from the shapes they measure; they
 differ only in HOW the candidate shapes are chosen:
 
 - **MAMF** — Maximum *Achievable* Matmul FLOPS: the boost-clock burst a short
@@ -17,6 +17,8 @@ differ only in HOW the candidate shapes are chosen:
 - `--search auto` (default): derive near-peak shapes from hardware heuristics and
   report the best MAMF/MSMF the GPU can do anywhere. Great for a spec-sheet
   headline, not tied to any particular model.
+- `--search long-k`: test longer reduction dimensions with a separate K limit,
+  then measure short MAMF bursts after longer idle periods.
 - `--search grid`: sweep the M/N/K range YOU give and report the best MAMF/MSMF
   within it. This is the practical case — find the best (and most sustainable)
   shape for a model you're actually running:
@@ -42,10 +44,11 @@ Credits:
 from pathlib import Path
 
 import argparse
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 import datetime
 from decimal import Decimal, ROUND_HALF_UP
 import itertools
+import json
 import math
 import numpy as np
 import os
@@ -64,7 +67,9 @@ from warnings import warn
 # differentiated from the new ones. v3: dual MAMF (boost burst, clock-validated) + MSMF (power-saturated) headlines
 # from one `--search auto` run; wave/tile-aware auto search; thermal soak, lock-in and SUSPECT/boost filters for MSMF;
 # queued MAMF burst with per-iteration clocks from a sampler timeline; telemetry required where a backend exists.
-benchmark_version = 3
+# v4 adds an explicit long-K search and longer idle periods for its short MAMF bursts.
+# Auto and grid retain their existing search and timing defaults.
+benchmark_version = 4
 
 has_hpu = False
 try:
@@ -846,6 +851,38 @@ def wave_mn_layouts(sms, max_size, tile_m=128, tile_n=256, waves=range(1, 17), m
             layouts.add((sq[1], sq[0]))
         out[w] = (sq, layouts)
     return out
+
+
+def long_k_shapes(sms, max_size, tile_hint, k_min, k_max, free_bytes):
+    """Return a bounded long-K sweep with balanced output layouts.
+
+    Tile sizes are search hints. The BLAS library still selects its kernel, tile,
+    and cluster shape. The memory bound includes FP32 initialization buffers,
+    outputs, block scales, and the cache-reset buffer, with additional headroom.
+    """
+    if not sms or max_size < 1024 or k_min < 1024 or k_max < k_min:
+        raise ValueError("long-K search needs compute units, M/N >= 1024, and 1024 <= Kmin <= Kmax")
+    if k_min % 1024 or k_max % 1024:
+        raise ValueError("long-K bounds must be multiples of 1024")
+    if not math.isfinite(free_bytes) or free_bytes <= 0:
+        raise ValueError("long-K search requires a positive free-memory reading")
+    ks = {k_max}
+    k = k_min
+    while k <= k_max:
+        ks.add(k)
+        k *= 2
+    layouts = set()
+    tm, tn = tile_hint
+    for tile in {(tm, tn), (max(256, tm), max(256, tn))}:
+        for square, _ in wave_mn_layouts(
+            sms, max_size, *tile, waves=(1, 2, 4, 8, 16),
+        ).values():
+            layouts.add(square)
+            layouts.add((square[1], square[0]))
+    return [
+        (m, n, k) for m, n in sorted(layouts) for k in sorted(ks)
+        if 8 * (m * k + n * k + 2 * m * n) + 1024 * 2**20 < 0.8 * free_bytes
+    ]
 
 
 def trimmed_median(xs):
@@ -1690,6 +1727,25 @@ def search_setup(args):
     # any explicit shape argument means the user wants a specific sweep -> grid mode
     shape_args_given = args.shapes_file is not None or any(
         x is not None for x in (args.m, args.m_range, args.n, args.n_range, args.k, args.k_range))
+    if args.search == "long-k":
+        if shape_args_given:
+            sys.exit("error: --search long-k cannot be combined with explicit grid shapes")
+        if arch.gemm_tile_hint is None or not arch.compute_unit_count():
+            sys.exit("error: --search long-k requires a compute-unit count and a tile hint")
+        try:
+            free, _ = torch.cuda.mem_get_info()
+            shapes = long_k_shapes(
+                arch.compute_unit_count(), args.tune.max_size, arch.gemm_tile_hint,
+                args.tune.long_k_min, args.tune.long_k_max, free,
+            )
+        except (ValueError, RuntimeError) as error:
+            sys.exit(f"error: cannot build long-K search: {error}")
+        if not shapes:
+            sys.exit("error: no long-K shapes fit the free-memory budget")
+        info = (f"long-K search (K={args.tune.long_k_min}..{args.tune.long_k_max}, "
+                f"max_MN={args.tune.max_size}, {len(shapes)} shapes, free_bytes={free})")
+        print("note: long-K is an experimental bounded search; BLAS selects the kernel tile and cluster shape.")
+        return "long-k", shapes, info, shapes[0]
     if args.search == "grid" or shape_args_given:
         if args.shapes_file:
             shapes = []
@@ -1779,6 +1835,8 @@ class Tuning:
 
     # search
     max_size: int = 20480               # auto: largest M/N/K to consider
+    long_k_min: int = 32768            # long-k: first reduction length
+    long_k_max: int = 131072           # long-k: finite upper bound, independent of M/N
     warmup: str = "adaptive"            # adaptive: until throughput plateaus; fixed: a flat 30s
     scout_num_iterations: int = 20      # timed iterations per shape while scouting
     scout_num_warmup_iterations: int = 8
@@ -1815,9 +1873,13 @@ class Tuning:
     suspect_power_ratio: float = 0.9    # below this x the max power a shape is SUSPECT (only NVIDIA excludes it)
 
     @classmethod
-    def from_overrides(cls, pairs):
+    def from_overrides(cls, pairs, search="auto"):
         """Build from `NAME=VALUE` strings; raise ValueError naming the bad one."""
         tune, types = cls(), {f.name: f.type for f in fields(cls)}
+        if search == "long-k":
+            tune.mamf_screen_idle_s = 5.0
+            tune.mamf_idle_s = 5.0
+            tune.mamf_burst_iters = 3
         for pair in pairs:
             name, sep, value = pair.partition("=")
             if not sep or name not in types:
@@ -1833,6 +1895,17 @@ class Tuning:
                     raise ValueError(f"--tune {pair!r}: expected a{'n' * (types[name] is int)} {types[name].__name__}")
         if tune.warmup not in ("adaptive", "fixed"):
             raise ValueError(f"--tune warmup={tune.warmup!r}: expected adaptive or fixed")
+        if search == "long-k":
+            if tune.long_k_min < 1024 or tune.long_k_max < tune.long_k_min:
+                raise ValueError("long-K bounds require 1024 <= long_k_min <= long_k_max")
+            if tune.long_k_min % 1024 or tune.long_k_max % 1024:
+                raise ValueError("long-K bounds must be multiples of 1024")
+            for name in ("mamf_screen_idle_s", "mamf_idle_s"):
+                if not math.isfinite(getattr(tune, name)) or getattr(tune, name) <= 0:
+                    raise ValueError(f"{name} must be finite and positive in long-K mode")
+            for name in ("mamf_screen_iters", "mamf_burst_iters"):
+                if getattr(tune, name) < 1:
+                    raise ValueError(f"{name} must be positive")
         return tune
 
 
@@ -1861,9 +1934,10 @@ def parse_args():
                       choices=SUPPORTED_DTYPES, metavar="{" + ", ".join(SUPPORTED_DTYPES) + "}",
                       help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 and mxfp4 need "
                            "NVIDIA Blackwell or AMD MI355X; nvfp4 needs NVIDIA Blackwell")
-    what.add_argument("--search", choices=["auto", "grid"], default="auto",
+    what.add_argument("--search", choices=["auto", "grid", "long-k"], default="auto",
                       help="auto: find the best shape anywhere; grid: the best shape in the --m/--n/--k range you "
-                           "give. Any shape argument implies grid")
+                           "give; long-k: bounded long reductions with short, cooled MAMF bursts. "
+                           "Any shape argument implies grid, except with long-k")
     for dim, desc in (("m", "first dimension"), ("n", "last dimension"), ("k", "shared (reduction) dimension")):
         g = what.add_mutually_exclusive_group()
         g.add_argument(f"--{dim}", nargs="+", type=int, help=f"grid: the GEMM's {desc}, one or more values")
@@ -1891,7 +1965,7 @@ def parse_args():
 
     args = parser.parse_args()
     try:
-        args.tune = Tuning.from_overrides(args.tune)
+        args.tune = Tuning.from_overrides(args.tune, search=args.search)
     except ValueError as e:
         parser.error(str(e))
     return args
@@ -1911,6 +1985,7 @@ if __name__ == '__main__':
 
     sys.stdout = Tee(args.output_file, args.verbose)
     print_benchmark_header(dtype, device, args.notes + f"\n- search mode: {mode}")
+    print("Effective tuning: " + json.dumps(asdict(args.tune), sort_keys=True))
 
     best_tflops = dict(max=0, median=0, mean=0)
     best_config = dict(max="", median="", mean="")
@@ -2263,7 +2338,7 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
                              args.num_warmup_iterations)
         print("accelerator warmup finished")
 
-    if mode == "grid":
+    if mode in ("grid", "long-k"):
         # Sweep every shape in the user's range as short SCOUTS (same budget as auto), then the shared confirm phase
         # re-measures the winners for MAMF + MSMF. Full iters on every grid point would just re-pay the confirm cost
         # without changing the headlines.

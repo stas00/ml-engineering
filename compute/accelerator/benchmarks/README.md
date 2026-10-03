@@ -53,6 +53,26 @@ Important notes:
 - since a big part of the overhead comes from HBM IO, if you're using a fused kernel with 2 or more matmuls, whose results don't leave the accelerator's registers, the performance will be definitely faster than what this benchmark reports.
 - It also helps to sample your accelerator's actual clock speed. If your accelerator is running at a slower clock than the one used in the spec, there is no chance you can get the theoretical TFLOPS (see [How To Calculate Theoretical TFLOPS](../README.md#how-to-calculate-theoretical-tflops)).
 
+### Experimental long-K search
+
+Version 4 adds `--search long-k` to test longer inner loops. The existing `auto` and `grid` defaults remain unchanged.
+
+```bash
+python mamf-finder.py --search long-k --dtype bfloat16 --output_file long-k-bf16.out
+```
+
+This mode searches K values of 32768, 65536, and 131072. It uses balanced M/N layouts for 1, 2, 4, 8, and 16 compute-unit waves. It considers the architecture tile hint and a larger hint of at least 256 by 256. BLAS still selects the actual kernel, per-core tile, and cluster shape. The search does not force those kernel settings.
+
+The K limit is separate from the M/N limit. The search excludes shapes whose conservative allocation estimate exceeds 80% of free device memory. The estimate includes temporary initialization buffers and 1 GiB of workspace headroom. It cannot guarantee that every BLAS implementation fits.
+
+The MSMF confirmation, power checks, and repeat checks remain unchanged. MAMF screening uses 2 queued samples after 5 seconds of idle. Each MAMF confirmation burst uses 3 queued samples after 5 seconds of idle. These idle periods permit cooling but do not prove a cold GPU or a specific temperature. The existing clock checks still apply.
+
+Use `--tune long_k_min=32768 --tune long_k_max=262144` to extend the search. Both limits must be multiples of 1024. A winner at the largest K warrants another run with a larger limit. This is a finite search and does not establish an infinite-K limit or the theoretical hardware peak.
+
+The log records every effective tuning value. Existing dtype support checks still apply. AMD measurements still require separate hardware validation, and an H100 run does not validate AMD kernel selection.
+
+CPU-only checks run with `python test_long_k.py` from this directory. They cover geometry, memory limits, profile defaults, and explicit overrides.
+
 ### Architecture specific notes:
 
 Follow the special setup instructions before running the benchmark to achieve the best results:
