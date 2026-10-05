@@ -309,7 +309,7 @@ The number to report is **`busbw`** (unidirectional). Intra-node: compare to adv
 
 **MAMF sequential, siblings idle.** [`mamf-finder.py`](../compute/accelerator/benchmarks/mamf-finder.py) `--search auto` on **each GPU** of the node, one at a time (`CUDA_VISIBLE_DEVICES=i`). That is the lemon-detection pass: one slow GPU ruins the node. Compare MAMF/MSMF to official TFLOPS in the [accelerator tables](../compute/accelerator/README.md#tflops-comparison-table). Details: [benchmarks README](../compute/accelerator/benchmarks/README.md).
 
-**DCGM (`dcgmi diag -r 2`).** Hardware health (memory, PCIe/NVLink), not a FLOPS number (≲10.5 min on 8 GPUs). `-r 1` is software-only and not enough; `-r 3` is optional soak. Needs `nv-hostengine` (NVIDIA CUDA repo package `datacenter-gpu-manager-4-cudaN`). If the container cannot run it, write that down and keep MAMF.
+**DCGM (`dcgmi diag -r 2`).** Hardware health (memory, PCIe/NVLink), not a FLOPS number (≲10.5 min on 8 GPUs). `-r 1` is software-only and not enough; `-r 3` is an optional longer stress test. Needs `nv-hostengine` (NVIDIA CUDA repo package `datacenter-gpu-manager-4-cudaN`). If the container cannot run it, write that down and keep MAMF.
 
 A second *concurrent* all-8 run is a different question (shared power/cooling pulls the saturated clock down). Useful, but it is not the headline for "are these GPUs healthy."
 
