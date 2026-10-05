@@ -6,41 +6,46 @@
 
 [all_reduce_bench.py](all_reduce_bench.py) - a tool to benchmark the real network bandwidth while performing `all_reduce` on a largish amount of data. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to `nccl-tests`, but requires just PyTorch to run.
 
-It generates output like this:
+On 4 8x-B200 nodes it give us:
 ```
+The average bandwidth of all_reduce over 32 ranks (5 warmups / 20 trials, up to 10 queued calls per trial):
+
 | payload |    busbw   |    algbw   |
 | ------: | ---------: | ---------: |
-|   32KiB |   0.92GBps |   0.48GBps |
-|   64KiB |   1.61GBps |   0.83GBps |
-|  128KiB |   3.05GBps |   1.58GBps |
-|  256KiB |   5.18GBps |   2.67GBps |
-|  512KiB |   9.17GBps |   4.73GBps |
-|    1MiB |  17.13GBps |   8.84GBps |
-|    2MiB |  23.79GBps |  12.28GBps |
-|    4MiB |  40.30GBps |  20.80GBps |
-|    8MiB |  68.62GBps |  35.42GBps |
-|   16MiB |  93.93GBps |  48.48GBps |
-|   32MiB |  98.34GBps |  50.76GBps |
-|   64MiB |  84.90GBps |  43.82GBps |
-|  128MiB |  88.23GBps |  45.54GBps |
-|  256MiB |  91.01GBps |  46.97GBps |
-|  512MiB |  92.95GBps |  47.98GBps |
-|    1GiB |  94.15GBps |  48.59GBps |
-|    2GiB |  92.66GBps |  47.83GBps |
-|    4GiB |  92.09GBps |  47.53GBps |
-|    8GiB |  91.80GBps |  47.38GBps |
-|   16GiB |  91.69GBps |  47.32GBps |
+|   32KiB |   0.65GBps |   0.33GBps |
+|   64KiB |   1.27GBps |   0.66GBps |
+|  128KiB |   2.35GBps |   1.21GBps |
+|  256KiB |   4.06GBps |   2.10GBps |
+|  512KiB |   6.99GBps |   3.61GBps |
+|    1MiB |  12.47GBps |   6.44GBps |
+|    2MiB |  20.79GBps |  10.73GBps |
+|    4MiB |  31.63GBps |  16.33GBps |
+|    8MiB |  50.61GBps |  26.12GBps |
+|   16MiB |  71.80GBps |  37.06GBps |
+|   32MiB | 142.90GBps |  73.76GBps |
+|   64MiB | 197.77GBps | 102.07GBps |
+|  128MiB | 260.50GBps | 134.45GBps |
+|  256MiB | 283.23GBps | 146.18GBps |
+|  512MiB | 309.91GBps | 159.95GBps |
+|    1GiB | 365.99GBps | 188.90GBps |
+|    2GiB | 371.26GBps | 191.62GBps |
+|    4GiB | 374.66GBps | 193.37GBps |
+|    8GiB | 376.14GBps | 194.14GBps |
+|   16GiB | 376.71GBps | 194.43GBps |
 ```
 
-And it also creates a plot:
+And if you have the `matplotlib` pip package installed, it also creates a plot:
 
-![all-reduce-bench-plot 4 nodes](images/all-reduce-bench-plot-4n.png)
+![all-reduce-bench-plot 4x 8x B200 nodes](images/all-reduce-bench-plot-4n.png)
 
-Here is the same benchmark on a single 8x H200 node (`torch=2.9.1+cu130`, `cuda=13.0`, `nccl=2.27.7`, 5 warmup and 20 trial iterations per payload, 47 seconds for the whole sweep):
+
+Here is the same benchmark on a single 8x H200 node (`torch=2.14.0+cu130`, `cuda=13.0`, `nccl=2.30.7`, 5 warmup and 20 trial iterations per payload, 13 seconds for the whole sweep):
 
 ![all-reduce-bench-plot 8x H200](images/all-reduce-bench-plot-8xh200.png)
 
-Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the printed table than off the curve. That sweep tops out at 482.26GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
+Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the `default` column of the table in [How the calls are timed](#how-the-calls-are-timed), measured on the same node, than off the curve. That sweep tops out at 482.35GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
+
+[Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed) explains why a 4 node-benchmark (32 ranks) tops out at 376.71GBps when a single node (8 ranks) of the same B200s reaches 838.97GBps, and what the number means for each NIC.
 
 For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
 
@@ -55,6 +60,48 @@ To check the stability of all-reduce over time, rather than averaging the result
 
 ![all-reduce-bench 2GiB profile](images/all-reduce-bench-profile-2gib.png)
 
+#### How the calls are timed
+
+By default each trial keeps the GPU busy for ~2ms, queues up to 10 back-to-back `dist.all_reduce` calls behind that, and divides the elapsed time by the number of calls. Starting with 10 calls for payloads from 32k to 64MiB, then fewer, and a single call from 1GiB and up, where one call takes milliseconds anyway. This hides PyTorch's 20-30µs of host overhead per call, the way it's hidden in a training loop whose host runs ahead of the GPU, and the multiple calls average out the ranks reaching the first one at slightly different times.
+
+Here are the measurements on the same 8x H200 node as the plot above, next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - it is what code calling NCCL API directly:
+
+| payload | default    | nccl-tests | difference |
+| ------: | ---------: | ---------: | ---------: |
+|   32KiB |   3.15GBps |   3.20GBps |        +2% |
+|   64KiB |   6.16GBps |   6.26GBps |        +2% |
+|  128KiB |  12.46GBps |  12.40GBps |      -0.5% |
+|  256KiB |  24.68GBps |  24.63GBps |      -0.2% |
+|  512KiB |  48.15GBps |  48.30GBps |      +0.3% |
+|    1MiB |  74.57GBps |  72.45GBps |        -3% |
+|    2MiB |  96.26GBps |  91.48GBps |        -5% |
+|    4MiB | 145.14GBps | 139.97GBps |        -4% |
+|    8MiB | 196.56GBps | 182.03GBps |        -7% |
+|   16MiB | 255.90GBps | 242.45GBps |        -5% |
+|   32MiB | 301.25GBps | 298.44GBps |      -0.9% |
+|   64MiB | 368.86GBps | 369.82GBps |      +0.3% |
+|  128MiB | 414.54GBps | 411.21GBps |      -0.8% |
+|  256MiB | 441.87GBps | 442.27GBps |      +0.1% |
+|  512MiB | 456.23GBps | 455.82GBps |      -0.1% |
+|    1GiB | 465.91GBps | 464.00GBps |      -0.4% |
+|    2GiB | 471.06GBps | 468.31GBps |      -0.6% |
+|    4GiB | 474.13GBps | 473.10GBps |      -0.2% |
+|    8GiB | 478.24GBps | 475.16GBps |      -0.6% |
+|   16GiB | 482.25GBps | 480.70GBps |      -0.3% |
+
+The two agree within 2%, except from 1MiB to 16MiB, where `nccl-tests` reads 3-7% lower. Whether to measure with this benchmark or with `nccl-tests` depends on whether you are writing a PyTorch program or a NCCL kernel - see [nccl-tests](#nccl-tests).
+
+If your workload captures its all-reduce calls in a CUDA graph through PyTorch, expect lower `busbw` at small payloads than this benchmark's default timing reports. Replaying PyTorch-captured all-reduces on B200 left a gap of about 2.5µs between consecutive ones, which cost regular all-reduces up to 9% and symmetric memory ones 12-26% at 2MiB and below, where a call takes only 10-35µs.
+
+Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else.
+
+
+#### Symmetric memory
+
+Symmetric memory can speed up NCCL comms significantly at lower payloads. See [Symmetric memory](../README.md#symmetric-memory) for details.
+
+To all-reduce buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`). Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get.
+
 
 ### all_gather_object vs all_reduce
 
@@ -66,17 +113,24 @@ To check the stability of all-reduce over time, rather than averaging the result
 
 ### nccl-tests
 
-[NVIDIA/nccl-tests](https://github.com/NVIDIA/nccl-tests) benchmarks collectives - `all-reduce`, `all-gather`, `reduce-scatter` and the rest. It reports the same `busbw`/`algbw` columns as [all_reduce_bench.py](all_reduce_bench.py) and the two agree closely, but it covers every collective rather than just `all-reduce`.
+[NVIDIA/nccl-tests](https://github.com/NVIDIA/nccl-tests) benchmarks collectives - `all-reduce`, `all-gather`, `reduce-scatter` and the rest - and reports the same `busbw`/`algbw` columns as [all_reduce_bench.py](all_reduce_bench.py).
 
-`MPI=0` is fine for a single node, and `NCCL_HOME` points at whichever NCCL you want to test - the one bundled with PyTorch being the convenient choice, since that is what your training will actually use:
+Which of the two to use depends on what you're writing. If it's a PyTorch program, use `all_reduce_bench.py`: it calls `all-reduce` through `torch.distributed`, the way your program will, so its numbers are what your program gets. If you're writing code that calls NCCL directly, such as a custom communication kernel or a C++/CUDA layer on top of NCCL, use `nccl-tests`, which calls the NCCL C API the same way your code will. `nccl-tests` is also the tool for the other collectives.
+
+`MPI=0` is fine for a single node, and `NCCL_HOME` points at whichever NCCL you want to test - the one PyTorch uses being the convenient choice, since that is what your training will actually use. pip-installed PyTorch gets it from the `nvidia-nccl` wheel, which as of `nvidia-nccl-cu13==2.30.7` ships `libnccl.so.2` but no `libnccl.so`, so give the linker a `libnccl.so` next to the headers:
 
 ```bash
 git clone https://github.com/NVIDIA/nccl-tests
 cd nccl-tests
-make -j MPI=0 NCCL_HOME=$(python -c "import torch, os; print(os.path.dirname(torch.__file__) + '/lib')")
+NCCL_PIP=$(python -c "import nvidia.nccl; print(list(nvidia.nccl.__path__)[0])")
+mkdir -p nccl-home/lib
+ln -s $NCCL_PIP/include nccl-home/include
+ln -s $NCCL_PIP/lib/libnccl.so.2 nccl-home/lib/libnccl.so
+make -j MPI=0 NCCL_HOME=$PWD/nccl-home
+export LD_LIBRARY_PATH=$NCCL_PIP/lib:$LD_LIBRARY_PATH
 ```
 
-That puts one binary per collective under `build/` - `all_reduce_perf`, `all_gather_perf`, `reduce_scatter_perf`, `alltoall_perf` and others. If they fail to find `libnccl` at run time, add the same directory to `LD_LIBRARY_PATH`. Add `-z 1` for a blocking run, which matches how `all_reduce_bench.py` measures.
+That puts one binary per collective under `build/` - `all_reduce_perf`, `all_gather_perf`, `reduce_scatter_perf`, `alltoall_perf` and others. The `LD_LIBRARY_PATH` line makes them load that same NCCL at run time rather than a system one - check the `NCCL version` line they print. A default run times back-to-back calls, which matches `all_reduce_bench.py`'s default timing, and `-R 2` registers the buffers as a symmetric memory window, which matches `all_reduce_bench.py --sym-mem`.
 
 ### nvbandwidth
 
@@ -167,7 +221,7 @@ Notes:
 - You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
 - You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
 
-You may get results anywhere between 5Gbps and 6800Gbps (as of 2026-08), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 845.67GBps and four nodes 381.80GBps - about 6800Gbps and 3050Gbps - while at 32KiB those same runs report 1.20GBps and 0.01GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
+You may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 838.97GBps and four nodes 376.60GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
 
 Frameworks that shard weights and optim stages like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
 
