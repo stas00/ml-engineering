@@ -660,7 +660,7 @@ The third table restores the per-product detail from the earlier comparison whil
 | NVIDIA | GH100 full implementation         | 256KiB combined L1/texture/shared memory/SM; 144 SMs | 36MiB                      | up to 60MB L2             | Earlier `GH100 SXM` mixed 132 enabled SMs with the full-die 60MB L2       | 6, 7 |
 | NVIDIA | GH200 SXM (original label)        | uses its installed Hopper GPU cache hierarchy        | not derived                | use the GPU configuration | Earlier 256KiB x 132 = 33MiB and 60MiB L2 mixed product/full-die scopes   | 6, 7 |
 | NVIDIA | H100 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
-| NVIDIA | H200 NVL                          | not disclosed in the cited product-specific form     | not derived                | not disclosed             | New row; NVIDIA doesn't publish the NVL's SM count or caches              | 8    |
+| NVIDIA | H200 NVL                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 60MiB L2                  | New row                                                                   | 8    |
 | NVIDIA | H200 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
 
 Sources:
