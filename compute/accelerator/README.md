@@ -266,6 +266,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | NVIDIA H100 SXM       |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 |     X |     X |     X | 12,15 |
 | NVIDIA GH200 SXM      |  67.0 |  494.5 |  989 |  989 | 1979 | 1979 |     X |     X |     X |    14 |
 | Google TPU v6e        |     ? |      ? |  918 |  918 |  918 | 1836 |     X |     X |     X |    13 |
+| NVIDIA H200 NVL       |  60.0 |  417.5 |  835 |  835 | 1670 | 1670 |     X |     X |     X |    29 |
 | NVIDIA H100 PCIe      |  51.0 |  378.0 |  756 |  756 | 1513 | 1513 |     X |     X |     X |    12 |
 | AWS Trainium2 / Ultra | 181.0 |  667.0 |  667 |  667 | 1299 |    X |     X |     X |     X |    11 |
 | Google TPU v5p        |     X |      X |    X |  459 |    X |  918 |     X |     X |     X |    10 |
@@ -316,6 +317,7 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 26. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) - pre-release, so these are announced figures rather than a shipped part's spec sheet
 27. AMD's MI455X figures come from its [product page](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html), read on 2026-08-06. `fp32` 315, `fp16` 5000, `bf16` 5000 and `int8` 5000 are AMD's own dense numbers. `fp8`, `fp6` and `fp4` are halved from the 20100, 20100 and 40300 that AMD publishes, because those three are almost certainly with-sparsity figures that AMD did not declare as such: it labels the sparsity variants of FP16, BF16 and INT8 explicitly on the same page, all at 10100, and taking the three unlabelled numbers at face value would make fp8 4x bf16 where every other accelerator here is 2x - MI355X runs 2500, 5000, 10100. Halving restores that doubling exactly. AMD publishes no TF32 figure for this part, hence `?`. All of it remains AMD Performance Labs projections carrying "Results subject to change when products are released in market".
 28. Ascend 950DT figures are from the Atlas 950 SuperPoD product-spec table on [Ascend Community](https://www.hiascend.com/en/hardware/cluster?tag=950) (read 2026-08-10): `114.1 / 58.8 / 31.1` PFLOPS @ `mxFP4` / `mxFP8/HiF8` / `FP16/BF16` for **64×** Ascend 950DT, divided by 64 → **1783 / 919 / 486**. Do not mix with the 1024-card SuperPoD totals on the Chinese page (those give ~1953 / 977 mxFP4/mxFP8 and no bf16). The `fp8` column is Huawei's single published `mxFP8/HiF8` rate; [HiF8](https://arxiv.org/abs/2409.16626) is tapered-precision, not OCP E4M3/E5M2, so the chapter's `e`/`m` dtype decoder does not apply to it. Unpublished columns are `X`.
+29. H200 NVL is the PCIe card version of the H200: the same chip and the same 141GB of HBM3e at 4.8TBps as the H200 SXM, but with a 600W power limit instead of 700W, and NVIDIA rates its compute about 16% lower. The `tf32`, `fp16`, `bf16`, `fp8` and `int8` columns are half of the 835 / 1671 / 1671 / 3341 / 3341 that NVIDIA publishes with sparsity, rounded down like the H200 SXM row. Its NVLink connects only 2 or 4 cards through a bridge, at 900GBps per GPU, and GPUs in different bridge groups talk over PCIe Gen5 at 128GBps - unlike the H200 SXM, where NVSwitch connects all 8 GPUs of the node. See [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/).
 General notes:
 
 * int8 is measured in TeraOperations as it's not a floating operation.
@@ -524,6 +526,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | NVIDIA B200 SXM       |            180 | HBM3e |                        8.00 |
 | NVIDIA GH200 SXM (2)  |            141 | HBM3e |                        4.80 |
 | NVIDIA H200 SXM       |            141 | HBM3e |                        4.80 |
+| NVIDIA H200 NVL       |            141 | HBM3e |                        4.80 |
 | Intel Gaudi3          |            128 | HBM2e |                        3.70 |
 | AMD MI250             |            128 | HBM2e |                        3.28 |
 | AMD MI250X            |            128 | HBM2e |                        3.28 |
@@ -657,6 +660,7 @@ The third table restores the per-product detail from the earlier comparison whil
 | NVIDIA | GH100 full implementation         | 256KiB combined L1/texture/shared memory/SM; 144 SMs | 36MiB                      | up to 60MB L2             | Earlier `GH100 SXM` mixed 132 enabled SMs with the full-die 60MB L2       | 6, 7 |
 | NVIDIA | GH200 SXM (original label)        | uses its installed Hopper GPU cache hierarchy        | not derived                | use the GPU configuration | Earlier 256KiB x 132 = 33MiB and 60MiB L2 mixed product/full-die scopes   | 6, 7 |
 | NVIDIA | H100 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
+| NVIDIA | H200 NVL                          | not disclosed in the cited product-specific form     | not derived                | not disclosed             | New row; NVIDIA doesn't publish the NVL's SM count or caches              | 8    |
 | NVIDIA | H200 SXM                          | 256KiB combined L1/texture/shared memory/SM; 132 SMs | 33MiB                      | 50MiB L2                  | Earlier 192KiB x 132 = 24.75MiB distributed-capacity value is preserved   | 6, 7 |
 
 Sources:
@@ -668,6 +672,7 @@ Sources:
 5. [NVIDIA Blackwell Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)
 6. [NVIDIA Hopper Tuning Guide](https://docs.nvidia.com/cuda/hopper-tuning-guide/index.html)
 7. [NVIDIA Hopper architecture white paper](https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c)
+8. [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/)
 
 When comparing these specifications:
 
@@ -720,6 +725,7 @@ The table is sorted by compute clock, highest first. Products whose vendors do n
 | NVIDIA A100 PCIe |                1410 | 7; GPU Boost Clock                           |
 | NVIDIA B300 SXM  |       not disclosed | 8                                            |
 | NVIDIA GB300 SXM |       not disclosed | 8                                            |
+| NVIDIA H200 NVL  |       not disclosed | 13                                           |
 
 **Announced, availability not confirmed:**
 
@@ -742,6 +748,7 @@ Notes:
 10. [Intel Gaudi architecture documentation](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 11. Intel Gaudi exposes separate clocks for its Matrix Multiplication Engine (MME) and Tensor Processing Core (TPC).
 12. 1830MHz is NVIDIA's official compute clock for H200 and H100, superseding the 1980MHz that was widely published earlier. It is also self-consistent: it reproduces the 989TFLOPS bf16 spec exactly through the [TFLOPS calculation](#how-to-calculate-theoretical-tflops), where 1980MHz would give 1070.
+13. [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/) publish no clock for H200 NVL. Its 835TFLOPS bf16 spec works back to about 1545MHz through the [TFLOPS calculation](#how-to-calculate-theoretical-tflops), if it has the same 132 SMs as H200 SXM, which NVIDIA doesn't publish for the NVL either.
 
 
 Here is how to get the actual clock speed (in particular when your accelerator is under load):
