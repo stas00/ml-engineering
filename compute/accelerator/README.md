@@ -353,13 +353,13 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | Accelerator      | MAMF | MSMF | Theory | MAMF<br>% | MSMF<br>% | Sib<br>lings | Shape MxNxK<br>(MAMF) | torch<br>version    | Notes |
 | :--------------- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :------------------ | ----: |
 | Intel Gaudi 2    |  419 |    — |    432 |     97.0% |         — | no           | 14336x15360x2048      | 2.6.0+hpu_1.21.2-76 |     1 |
-| NVIDIA A100 PCIe |  284 |  255 |    312 |     91.0% |     81.7% | no           | 18432x1536x20480      | 2.12.1+cu130        |     2 |
+| NVIDIA A100 PCIe |  285 |  258 |    312 |     91.3% |     82.7% | no           | 18432x1536x30720      | 2.14.1+cu130        |     2 |
 | NVIDIA A100 SXM  |  271 |    — |    312 |     86.9% |         — | no           | 1024x10240x5120       | 2.6.0+cu126         |       |
-| NVIDIA H200 SXM  |  834 |  755 |    989 |     84.3% |     76.3% | no           | 3072x2816x16384       | 2.14.0+cu130        |     3 |
+| NVIDIA H200 SXM  |  850 |  755 |    989 |     85.9% |     76.3% | yes          | 1536x2816x40960       | 2.14.0+cu130        |     3 |
 | NVIDIA B300 SXM  | 1892 | 1519 |   2250 |     84.1% |     67.5% | no           | 10752x14336x3072      | 2.14.0+cu130        |     4 |
 | NVIDIA GH200 SXM |  829 |    — |    989 |     83.8% |         — | no           | 1024x15360x4096       | 2.6.0+cu126         |     5 |
 | NVIDIA H100 SXM  |  795 |    — |    989 |     80.4% |         — | no           | 2048x2048x13312       | 2.7.0+cu126         |       |
-| NVIDIA B200 SXM  | 1703 | 1429 |   2250 |     75.7% |     63.5% | yes          | 4864x8960x2048        | 2.14.0+cu130        |     6 |
+| NVIDIA B200 SXM  | 1737 | 1439 |   2250 |     77.2% |     64.0% | yes          | 4096x8192x3072        | 2.14.0+cu130        |     6 |
 | Intel Gaudi 3    | 1243 |    — |   1677 |     74.1% |         — | no           | 16384x4096x768        | 2.6.0+hpu_1.21.4-3  |     1 |
 | NVIDIA GB200 SXM | 1822 |    — |   2500 |     72.9% |         — | no           | 4096x9728x2048        | 2.10.0+cu130        |       |
 | AMD MI355X       | 1565 |    — |   2500 |     62.6% |         — | no           | 12288x8192x8192       | 2.8.0+rocm7.0.2     |     7 |
@@ -374,9 +374,9 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | Intel Gaudi 2    |  827 |    — |    865 |     95.6% |         — | no           | 6144x11264x5120       | 2.6.0+hpu_1.21.2-76 |     1 |
 | NVIDIA B300 SXM  | 3608 | 2969 |   4500 |     80.2% |     66.0% | no           | 6144x18432x3072       | 2.14.0+cu130        |    10 |
 | NVIDIA GH200 SXM | 1535 |    — |   1979 |     77.6% |         — | no           | 1024x14336x14336      | 2.6.0+cu126         |     5 |
+| NVIDIA H200 SXM  | 1525 | 1354 |   1979 |     77.1% |     68.4% | yes          | 1280x16896x16384      | 2.14.0+cu130        |    11 |
 | Intel Gaudi 3    | 1290 |    — |   1677 |     76.9% |         — | no           | 16640x1536x3072       | 2.6.0+hpu_1.21.4-3  |     1 |
-| NVIDIA H200 SXM  | 1503 | 1290 |   1979 |     75.9% |     65.2% | no           | 3840x2816x20480       | 2.14.0+cu130        |    11 |
-| NVIDIA B200 SXM  | 3331 | 2829 |   4500 |     74.0% |     62.9% | yes          | 6144x11520x2048       | 2.14.0+cu130        |    12 |
+| NVIDIA B200 SXM  | 3350 | 2788 |   4500 |     74.4% |     62.0% | yes          | 6912x19968x1024       | 2.14.0+cu130        |    12 |
 | NVIDIA GB200 SXM | 3616 |    — |   5000 |     72.3% |         — | no           | 19456x5120x1536       | 2.10.0+cu130        |       |
 | NVIDIA H100 SXM  | 1403 |    — |   1979 |     70.9% |         — | no           | 1024x9216x14336       | 2.7.0+cu126         |       |
 | AMD MI300X       | 1201 | 1187 |   2600 |     46.2% |     45.7% | no           | 4096x19456x16384      | 2.12.0+rocm10.0.0   |    13 |
@@ -386,46 +386,49 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 
 | Accelerator     | Format | MAMF | MSMF | Theory | MAMF<br>% | MSMF<br>% | Sib<br>lings | Shape MxNxK<br>(MAMF) | torch<br>version | Notes |
 | :-------------- | :----- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :--------------- | ----: |
-| NVIDIA B200 SXM | nvfp4  | 6624 | 5713 |   9000 |     73.6% |     63.5% | yes          | 2304x18944x16384      | 2.14.0+cu130     |    14 |
-| NVIDIA B200 SXM | mxfp4  | 6087 | 5232 |   9000 |     67.6% |     58.1% | yes          | 2048x18944x20480      | 2.14.0+cu130     |    15 |
+| NVIDIA B200 SXM | nvfp4  | 6746 | 5627 |   9000 |     75.0% |     62.5% | yes          | 2816x18944x14336      | 2.14.0+cu130     |    14 |
+| NVIDIA B200 SXM | mxfp4  | 6183 | 5222 |   9000 |     68.7% |     58.0% | yes          | 2048x18944x16384      | 2.14.0+cu130     |    15 |
 
 
-Caveat emptor: these numbers come from `mamf-finder.py --search auto` (or grid confirm of the same / equivalent shapes) using the software stack available at measurement time. Re-run on your setup for numbers that are true to your box — they are a rough estimate, not absolute. As software improves they climb toward the theoretical spec, so ideally re-measure every 6 months or so.
+Caveat emptor: these numbers come from `mamf-finder.py --search auto` (or a grid confirm of the same or equivalent shapes), using the software stack available at measurement time. The rows with `Siblings` = `yes` were measured with [`mamf-finder-all-gpus.py`](benchmarks/mamf-finder-all-gpus.py), which runs `mamf-finder.py` on each GPU of the node in turn while all the others run a continuous matmul, the way they all compute at once in training, and reports the median GPU. The rows with `Siblings` = `no` are one GPU measured alone with its siblings idle; on a board whose GPUs share power and cooling that can read higher than the same GPU sustains in a busy node. Re-run on your setup for numbers that are true to your box — they are a rough estimate, not absolute. As software improves they climb toward the theoretical spec, so ideally re-measure every 6 months or so.
+
+**How precise these numbers are:** the measurements vary, so don't read any row as an exact value - and most of the variation is between chips, not between runs. Two examples, not an account of every row: on an 8x H200 node every GPU ran the same MSMF shape at the same 685–688 W, yet they sustained 745–765 TFLOPS, and the faster GPUs ran at higher clocks - 1860 MHz on the slowest against 1913 MHz on the fastest; on an 8x B200 node the same test gave 1421–1460 TFLOPS at 978–987 W, with clocks of 1399 against 1438 MHz. At the same power a better chip holds a higher clock - the [silicon lottery](#silicon-lottery) - and on these nodes cooling added little: every GPU was held back by its power cap, not its temperature, and the 8–11°C between the hottest and coolest GPUs accounted for under a tenth of their clock gap (see [Cooling](#cooling)). Rerunning the same GPU typically moved its numbers by under 1%, and by 2.2% at most. So a `Siblings` = `yes` row describes the median GPU of one node and a `Siblings` = `no` row one GPU, measured with the software of its day, and another node, driver or `torch` version will move it; other GPUs may vary by different amounts, so treat a gap of a few percent between two rows, or between a row and your own measurement, as noise rather than a real difference.
 
 Notes — the `Notes` column of all three tables points here:
 
 1. Intel Gaudi 2 and Intel Gaudi 3 (both tables): `PT_HPU_LAZY_MODE=1`
-2. NVIDIA A100 PCIe, BF16: 300 W; MAMF @ 1395 MHz; MSMF 255 @ 1152x3072x11264, ~298 W @ 1260 MHz
-3. NVIDIA H200 SXM, BF16: MAMF ~169 W @ 1980 MHz; MSMF 755 @ 1536x2816x16384, ~688 W @ 1695 MHz
+2. NVIDIA A100 PCIe, BF16: 80GB, 300 W; the median of 3 runs; MAMF @ 1395 MHz; MSMF 258 @ 2304x1536x6144, ~299 W @ 1326 MHz
+3. NVIDIA H200 SXM, BF16: MAMF ~148–167 W @ 1980 MHz; MSMF 755 @ 1536x2816x6144, ~685–688 W @ 1860–1918 MHz, 63–71°C
 4. NVIDIA B300 SXM, BF16: B300 SXM6 AC 1100 W; MAMF ~286 W @ 2032 MHz; MSMF 1519 @ 8192x18432x1024, ~1066 W @ 1455 MHz
 5. NVIDIA GH200 SXM (both tables): 900W 141GiB HBM3e version
-6. NVIDIA B200 SXM, BF16: MAMF ~295 W @ 1965 MHz; MSMF 1429 @ 2560x16896x4096, ~978 W @ 1455 MHz
+6. NVIDIA B200 SXM, BF16: MAMF ~274–300 W @ 1965 MHz; MSMF 1439 @ 3072x18944x4608, ~978–987 W @ 1399–1443 MHz, 61–74°C
 7. AMD MI355X, BF16: `PYTORCH_TUNABLEOP_ENABLED=0`
 8. AMD MI325X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000W
 9. AMD MI300X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst - the card reaches its 750 W cap within the first ~4 ms kernel, and the `amdsmi` sample of ~210 W @ 2067 MHz lags it and reads close to idle (~180 W @ 2095 MHz); MSMF 659 @ 12288x9728x8192, 750 W @ 1290 MHz
 10. NVIDIA B300 SXM, FP8: MAMF ~262 W @ 2032 MHz; MSMF 2969 @ 6144x18432x3072, ~1057 W @ 1425 MHz
-11. NVIDIA H200 SXM, FP8: MAMF ~142 W @ 1980 MHz; MSMF 1290 @ 3840x2816x20480, ~690 W @ 1440 MHz
-12. NVIDIA B200 SXM, FP8: MAMF ~290 W @ 1965 MHz; MSMF 2829 @ 6144x12288x3072, ~965 W @ 1485 MHz
+11. NVIDIA H200 SXM, FP8: MAMF ~154–163 W @ 1980 MHz; MSMF 1354 @ 1536x2816x10240, ~683–689 W @ 1767–1848 MHz, 63–72°C
+12. NVIDIA B200 SXM, FP8: MAMF ~270–312 W @ 1965 MHz; MSMF 2788 @ 3072x18944x6144, ~975–982 W @ 1399–1447 MHz, 61–73°C
 13. AMD MI300X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst, as in note 9 (the lagging `amdsmi` sample reads ~218 W @ 2058 MHz); MSMF 1187 @ 6912x19200x16384, 750 W @ 1189 MHz
-14. NVIDIA B200 SXM, nvfp4: one `float8_e4m3fn` scale per 16 elements; MAMF ~296 W @ 1965 MHz; MSMF 5713 @ 2304x18944x16384, ~981 W @ 1515 MHz, with a median of 5772 and a 2.1% spread across the 8 GPUs. Theory is NVIDIA's single dense FP4 figure, see the B200 note under the [TFLOPS comparison table](#tflops-comparison-table). At 73.6% / 63.5% of it, nvfp4 tracks this GPU's FP8 row (74.0% / 62.9%), i.e. it delivers the full 2x over FP8 that the spec promises.
-15. NVIDIA B200 SXM, mxfp4: one `float8_e8m0fnu` scale per 32 elements; MAMF ~311 W @ 1965 MHz; MSMF 5232 @ 1792x18944x16384, ~981 W @ 1540 MHz, with a median of 5314 and a 3.2% spread across the 8 GPUs. It trails nvfp4 by ~9% on both MAMF and MSMF although NVIDIA quotes one FP4 rate for both and mxfp4 carries half as many scales, which points at the software path rather than the hardware: torch 2.14's `_scaled_mm` doesn't accept mxfp4, so `mamf-finder.py` runs it through `torch._scaled_mm_v2`, the op behind `torch.nn.functional.scaled_mm`.
+14. NVIDIA B200 SXM, nvfp4: one `float8_e4m3fn` scale per 16 elements; MAMF ~281–323 W @ 1965 MHz; MSMF 5627 @ 18944x3328x12288, ~983–991 W @ 1489–1521 MHz, 60–73°C. Theory is NVIDIA's single dense FP4 figure, see the B200 note under the [TFLOPS comparison table](#tflops-comparison-table). At 75.0% / 62.5% of it, nvfp4 tracks this GPU's FP8 row (74.4% / 62.0%), i.e. it delivers the full 2x over FP8 that the spec promises.
+15. NVIDIA B200 SXM, mxfp4: one `float8_e8m0fnu` scale per 32 elements; MAMF ~279–320 W @ 1965 MHz; MSMF 5222 @ 2048x18944x20480, ~975–988 W @ 1452–1505 MHz, 60–73°C. It trails nvfp4 by 7–8% on both MAMF and MSMF although NVIDIA quotes one FP4 rate for both and mxfp4 carries half as many scales, which points at the software path rather than the hardware: torch 2.14's `_scaled_mm` doesn't accept mxfp4, so `mamf-finder.py` runs it through `torch._scaled_mm_v2`, the op behind `torch.nn.functional.scaled_mm`.
 
 General notes:
 
 - For the full set of theoretical ones see [Theoretical accelerator TFLOPS](#tflops-comparison-table)
 - `MAMF %` / `MSMF %` are `MAMF/Theory*100` and `MSMF/Theory*100`
 - While `mean` is probably what most users are interested in, the script reports `max`, `median` and `mean` - should you want the other numbers.
-- The `Shape` column is the MAMF shape; the MSMF shape, its power and its clock are in the numbered notes. There are usually many shapes with near-identical performance — these are listed for reproducibility.
-- `Sib` = `yes`: the other GPUs of the node ran a continuous matmul during the measurement, and MSMF is the slowest GPU. `Sib` = `no`: measured alone, so MSMF is a single-GPU upper bound. How `mamf-finder.py` measures either is explained [here](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
+- The `Shape` column is the MAMF shape; the MSMF shape, its power, its clock and the GPU temperature are in the numbered notes. There are usually many shapes with near-identical performance — these are listed for reproducibility.
+- `Siblings` = `yes`: every GPU of the node was measured while all the others ran a continuous matmul, and MAMF and MSMF are the median GPU. `Siblings` = `no`: one GPU measured alone, with its siblings idle. How `mamf-finder.py` measures either is explained [here](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder).
 - If you get a much lower performance than the numbers in this table, check that the target hardware has an adequate cooling, if the accelerator is overheated it'd usually throttle its performance down. And, of course, the assumption here is that the power supply matches the spec. The latter is rarely a problem in data centers, but bad cooling is not unheard of.
 - Which software you use can make a huge difference - e.g., with MI300X I clocked 450TFLOPS using ROCm-6.1, but as you can see there was a dramatic improvement in ROCm-6.2 where it jumped a whooping additional 300TFLOPS up. BLAS library type/version may have a big impact as well.
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - Rows are not always exactly comparable with each other. Each is the best shape found for *that* accelerator, and often on a different `torch`/CUDA or ROCm version, so any gap between two rows mixes hardware, shape and software. But it's a good enough of indication to compare with the theoretical spec. As software evolves remeasuring is needed and likely to give better results, but yours truly doesn't have access to all the gpus, especially the older ones, thus contributions are very welcome.
+- Of the rows with an MSMF, H200, B200 and A100 PCIe were measured with benchmark version 4 of `mamf-finder.py` (the report header prints it), and B300 and MI300X with an earlier version that defined both headlines differently, so compare those two with the rest only roughly.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383TFLOPS is reported for 2 GCDs.
 
-**Why MSMF is well below Theory (and why that is not a broken GPU):** the advertised peak assumes the chip's *boost* clock (e.g. B200 ~1965 MHz → 2250 bf16 TFLOPS). A dense matmul that actually fills the SMs draws the full TDP (B200 1000 W / B300 1100 W / H200 700 W — those are the *spec* limits, not a sub-spec "cap"), so the SM clock settles well below boost. Rough ceiling: `Theory × sustained_clk / boost_clk` ≈ `2250 × 1425/1965 ≈ 1632` on B200 — in the ballpark of the measured ~1429 MSMF (the rest is real-kernel overhead). A sparse layout can hold a *higher* saturated clock while still pinned at TDP (H200 MSMF at 1695 MHz, B300 MSMF at 1455 MHz); that number is still sustainable.
+**Why MSMF is well below Theory (and why that is not a broken GPU):** the advertised peak assumes the chip's *boost* clock (e.g. B200 ~1965 MHz → 2250 bf16 TFLOPS). A dense matmul that actually fills the SMs draws the full TDP (B200 1000 W / B300 1100 W / H200 700 W — those are the *spec* limits, not a sub-spec "cap"), so the SM clock settles well below boost. Rough ceiling: `Theory × sustained_clk / boost_clk` ≈ `2250 × 1410/1965 ≈ 1615` on B200 — in the ballpark of the measured 1439 MSMF (the rest is real-kernel overhead). A sparse layout can hold a *higher* saturated clock while still pinned at TDP (H200 MSMF at ~1900 MHz, B300 MSMF at 1455 MHz); that number is still sustainable.
 
-**Why MAMF sits above MSMF:** MAMF is a short unsaturated burst. The two headlines often land on *different* shapes — a fat GEMM can be the better boost burst, a skinnier one the better sustained rate (or the reverse). Concretely (B300): `10752×14336×3072` bursts at **2032 MHz / 286 W → 1892 TFLOPS** (MAMF) but holds only 1487 TFLOPS once saturated; `8192×18432×1024` bursts lower at 1809 yet holds **1455 MHz / 1066 W → 1519 TFLOPS** (MSMF). `mamf-finder.py` times a queued burst after an idle and reports the peak iteration only if the clock sampled across that iteration reached boost, so a throttled/base-clock reading can't masquerade as MAMF. After both headlines it prints each winning shape in both regimes. AMD MI300X has no such burst: it reaches its 750 W cap within the first ~4 ms kernel, so its MAMF is only 1-3% above MSMF and is a noisy reading of the same throttled state - use MSMF.
+**Why MAMF sits above MSMF:** MAMF is a short unsaturated burst. The two headlines often land on *different* shapes — a fat GEMM can be the better boost burst, a skinnier one the better sustained rate (or the reverse). Concretely (B300): `10752×14336×3072` bursts at **2032 MHz / 286 W → 1892 TFLOPS** (MAMF) but holds only 1487 TFLOPS once saturated; `8192×18432×1024` bursts lower at 1809 yet holds **1455 MHz / 1066 W → 1519 TFLOPS** (MSMF). `mamf-finder.py` times queued bursts after an idle and reports the median of the 5 fastest iterations whose sampled clock reached boost, so a throttled/base-clock reading can't masquerade as MAMF. After both headlines it prints each winning shape in both regimes. AMD MI300X has no such burst: it reaches its 750 W cap within the first ~4 ms kernel, so its MAMF is only 1-3% above MSMF and is a noisy reading of the same throttled state - use MSMF.
 
 Also it's important to understand that knowing the Maximum Achievable Matmul TFLOPS at some particular shape like `4352x3840x13568` doesn't mean you can expect to get the same performance in your real application because chances are low that you will ever hit that exact shape. Instead, to know your system well, you'd run the [MAMF Finder](benchmarks/README.md#maximum-achievable-and-sustainable-matmul-flops-finder) with the actual shapes your model is using during its training. This really is the main intention of this tool. You will have a good sense of when you can stop optimizing by comparing the TFLOPS reported by your training to Maximum Achievable MatMul TFLOPS you measured on your specific accelerator cluster.
 
@@ -454,17 +457,26 @@ In data-center accelerators the boost-clock and TDP spec is set conservatively s
 
 Therefore, you want to measure the performance of all accelerators on the node and do it at the same time. For example, on NVIDIA nodes, if each benchmark measures a single accelerator, you could do:
 ```bash
-CUDA_VISIBLE_DEVICES=0 ./some-benchmark
-CUDA_VISIBLE_DEVICES=2 ./some-benchmark
+CUDA_VISIBLE_DEVICES=0 ./some-benchmark &
+CUDA_VISIBLE_DEVICES=1 ./some-benchmark &
 ...
-CUDA_VISIBLE_DEVICES=7 ./some-benchmark
+CUDA_VISIBLE_DEVICES=7 ./some-benchmark &
+wait
 ```
 
-Now here what you want is the slowest performance as when used in an ensemble that slowest accelerator (struggler) will set the speed for all other accelerators.
+Now here what you want is the slowest performance as when used in an ensemble that slowest accelerator (straggler) will set the speed for all other accelerators.
 
 If you do multi-node training then, of course, you'd want to measure them all.
 
 So if you decide to calculate your achievable [MFU](../../training/performance/README.md#mfu-vs-hfu) (rather than theoretical one) you'd want to measure the achievable FLOPS across all participating accelerators and pick the value of the slowest accelerator. (If it really is an outlier you might want to consider replacing it as well).
+
+##### A measured example
+
+On one 8x B200 node, measured with [`mamf-finder-all-gpus.py`](benchmarks/mamf-finder-all-gpus.py) while all 8 GPUs computed at once, the GPUs' MAMF ranged from 1693 to 1766 TFLOPS, 4.3% apart, and their [MSMF](#maximum-achievable-and-sustainable-matmul-flops-comparison-table) from 1421 to 1460, 2.7% apart. This isn't measurement noise: over 5 rounds of the same measurement each GPU stayed in its own part of the range (GPU0 averaged an MSMF of 1417 TFLOPS, GPU5 1472), while any one GPU moved by at most 1.7% from round to round. An 8x H200 node showed the same picture, with MSMF 2.7% apart.
+
+In synchronous training every step waits for the slowest GPU, so this node trains at 1421 TFLOPS, not at the 1439 of its median GPU, and a multi-node job runs at the slowest GPU among all its nodes. One GPU that is 5% slower than the rest makes the compute of a 1,024-GPU job about 5% slower - as if about 50 of its GPUs sat idle.
+
+So know your slowest GPU, and replace one that stays well below its node's median. A few percent is the normal silicon lottery, and every node has a slowest GPU: here GPU0 is 1.3% below the median, which is no reason to replace it. A GPU that stays further below - the [evaluate-cluster skill](../../skills/evaluate-cluster/SKILL.md) flags one that is more than 5% below its node's median in three passes in a row - is worth checking for a cooling problem first, and if the gap remains, asking your provider to replace it.
 
 
 
@@ -837,7 +849,9 @@ The only important practical understanding for cooling is that if the accelerato
 
 It's hard to tell the exact best temperature to strive for when a GPU is heavily loaded, but probably anything under +80C is good, but lower is better - perhaps 70-75C is an excellent range to be in. The throttling down is likely to start at around 84-90C. But other than throttling performance a prolonged very high temperature is likely to reduce the lifespan of a GPU.
 
-It's important to understand that on modern GPUs throttling is not just a hard cliff at the thermal limit, the boost clock itself is a continuous function of temperature (and power and current). NVIDIA's GPU Boost (and AMD's equivalent on Instinct) continuously samples die temperature, board power, and per-rail current, and picks the highest stable point on the chip's [V-F-T curve](#silicon-lottery) that fits inside all of those budgets. Cross any one of them and the clock steps down; come back under and it steps back up. In practice this means **the cooler you keep the GPU, the higher the sustained clock you get**, well before you hit the official throttle threshold. A GPU running steady at 60°C will hold a meaningfully higher average clock than the same GPU running at 78°C on the same workload - even though neither is "throttling" in the alarming sense. This is why liquid-cooled nodes typically deliver higher sustained MAMF than air-cooled nodes with identical silicon, and why a node with one poorly-seated heatsink can have one obvious straggler GPU.
+It's important to understand that on modern GPUs throttling is not just a hard cliff at the thermal limit, the boost clock itself is a continuous function of temperature (and power and current). NVIDIA's GPU Boost (and AMD's equivalent on Instinct) continuously samples die temperature, board power, and per-rail current, and picks the highest stable point on the chip's [V-F-T curve](#silicon-lottery) that fits inside all of those budgets. Cross any one of them and the clock steps down; come back under and it steps back up. Which budget binds first depends on the workload: a heavy matmul usually hits the power cap first, and then a cooler GPU gains little until it gets close to its slowdown temperature (see the measured example below). A GPU that does run hot - one with a poorly seated heatsink or blocked airflow - hits its temperature budget first and becomes an obvious straggler.
+
+**What temperature does below the throttle point - a measured example.** On an 8x H200 node and an 8x B200 node we ran the same matmul on all 8 GPUs at once for 10 minutes, starting from a cool idle, and logged each GPU's temperature, power, clock and the driver's clock-limit reasons every second. Throughout the run every GPU was held back by its power cap (700 W on H200, 1000 W on B200), never by its temperature: the thermal slowdown flags never fired, and the GPUs peaked at 65–75°C, 11–26°C below their slowdown point (the hottest H200 GPU came within 6°C). While each GPU warmed up by 10–13°C its clock barely moved - by a median of 0.3 MHz per °C on H200 and 1 MHz per °C on B200 - which cost a median of under 1% of its throughput over the whole warm-up, and about 2% on the most affected B200 GPU. The GPUs in the hot slots ran 8–11°C hotter than those in the cool ones, yet that difference accounts for only 2 of the 40 MHz between the H200 GPUs' clocks and 11 of the 142 MHz between the B200 ones; the rest is the chip (see [Silicon lottery](#silicon-lottery)). These are the numbers of these two nodes, and they might be different for a different set of GPUs, but the pattern should hold: on a power-capped workload like a large matmul, a GPU comfortably below its slowdown temperature gains almost nothing from running cooler, and cooling pays off by keeping a GPU away from its slowdown point, where temperature does take over the clock. To see which limit is holding your GPU back, run `nvidia-smi --query-gpu=temperature.gpu,temperature.gpu.tlimit,clocks_event_reasons.sw_power_cap,clocks_event_reasons.sw_thermal_slowdown,clocks_event_reasons.hw_thermal_slowdown --format=csv -l 1` under load: `temperature.gpu.tlimit` is how many °C the GPU is below its maximum operating temperature.
 
 For NVIDIA GPUs to check if your GPU gets throttled down, run `nvidia-smi -q -d PERFORMANCE` - if `SW Thermal Slowdown` or some other entries are `Active` - then your are not getting the full performance of your GPU and you need to investigate better cooling.
 

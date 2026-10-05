@@ -8,11 +8,11 @@ This is the Maximum Achievable and Sustainable Matmul FLOPS finder
 Both search modes report the SAME two numbers from the shapes they measure; they
 differ only in HOW the candidate shapes are chosen:
 
-- **MAMF** — Maximum *Achievable* Matmul FLOPS: the boost-clock burst a short
-  kernel can catch (validated against the SM boost clock).
-- **MSMF** — Maximum *Sustainable* Matmul FLOPS: what the chip holds once
-  saturated near TDP (matches sustained training throughput). For picking a real
-  model's shapes this is the number that matters.
+- **MAMF** — Maximum *Achievable* Matmul FLOPS: the median of a shape's 5 fastest
+  iterations that ran at the boost clock, each burst started after an idle gap.
+- **MSMF** — Maximum *Sustainable* Matmul FLOPS: the highest throughput a shape
+  holds steady over a 2s window under full load (matches sustained training
+  throughput). For picking a real model's shapes this is the number that matters.
 
 - `--search auto` (default): derive near-peak shapes from hardware heuristics and
   report the best MAMF/MSMF the GPU can do anywhere. Great for a spec-sheet
@@ -62,9 +62,11 @@ from warnings import warn
 
 # important: when changing how the benchmark measures things bump up its version, so that the old reports could be
 # differentiated from the new ones. v3: dual MAMF (boost burst, clock-validated) + MSMF (power-saturated) headlines
-# from one `--search auto` run; wave/tile-aware auto search; thermal soak, lock-in and SUSPECT/boost filters for MSMF;
+# from one `--search auto` run; wave/tile-aware auto search; settle clock, lock-in and SUSPECT/boost filters for MSMF;
 # queued MAMF burst with per-iteration clocks from a sampler timeline; telemetry required where a backend exists.
-benchmark_version = 3
+# v4: MSMF = steady throughput over a timed window, with a lower-K walk; MAMF = median of the 5 fastest boost
+# iterations; MAMF screen retries hot-start bursts and screens K past the K ceiling.
+benchmark_version = 4
 
 has_hpu = False
 try:
@@ -102,10 +104,6 @@ class Arch:
     # (telemetry_backend = None) runs without power/clock reporting; an arch that declares one refuses to run if it
     # can't be used, unless --telemetry off. See the Telemetry sampler.
     telemetry_backend   = None    # short id reported in logs, e.g. "nvml" / "amdsmi" / "hlml"
-    # True only where power readings were shown to separate a low-power boost burst from a saturated run (an idle-gap
-    # burst reads much higher TFLOPS at much lower power than a continuous run); only then is power used to exclude
-    # SUSPECT shapes
-    telemetry_validated = False
 
     # --- auto-search geometry --- `--search auto` derives near-peak GEMM shapes from tile + wave quantization, which
     # needs (a) the compute-unit count for wave packing (compute_unit_count) and (b) a representative kernel tile
@@ -166,16 +164,24 @@ class Arch:
         """Acquire and return an opaque per-device handle."""
         self._telemetry_required("telemetry_init")
 
-    def read_power(self, handle):        # Watts
+    def read_power(self, handle, instant=False):
+        """Power draw in Watts; `instant` asks for the unaveraged reading where the vendor has one."""
         self._telemetry_required("read_power")
 
-    def read_clock(self, handle):        # SM/GFX clock in MHz
+    def read_clock(self, handle):
+        """Current SM/GFX clock in MHz."""
         self._telemetry_required("read_clock")
 
-    def read_device_name(self, handle):  # vendor device name
+    def read_device_name(self, handle):
+        """Vendor device name."""
         self._telemetry_required("read_device_name")
 
-    def read_max_clock(self, handle):    # rated max SM/GFX clock in MHz; optional
+    def read_max_clock(self, handle):
+        """Rated max SM/GFX clock in MHz. Optional: the default returns None."""
+        return None
+
+    def read_temp(self, handle):
+        """GPU die temperature in C. Optional: the default returns None."""
         return None
 
     def siblings_idle(self, handle, self_index=0, util_pct=10):
@@ -187,7 +193,7 @@ class CudaLikeArch(Arch):
     """ Shared timing/device plumbing for CUDA and ROCm - both are torch device 'cuda'.
     NVIDIAArch and AMDArch below add the vendor-specific bits (compute_info + telemetry). """
     def set_device(self, index):
-        # in-process pinning: otherwise gpus running within a VM will not see the gpus via visible devices env vars
+        """Pin the device in-process: GPUs running within a VM don't see the GPUs via visible-devices env vars."""
         torch.cuda.set_device(index)
 
     @property
@@ -205,13 +211,12 @@ class CudaLikeArch(Arch):
         torch.cuda.synchronize()
 
     def compute_unit_count(self):
-        # NVIDIA: SM count. ROCm: torch reports the CU count through the same field.
+        """NVIDIA: SM count. ROCm: torch reports the CU count through the same field."""
         return torch.cuda.get_device_properties(0).multi_processor_count
 
 class NVIDIAArch(CudaLikeArch):
     """ NVIDIA GPUs (CUDA). Telemetry via NVML - pip install nvidia-ml-py. """
     telemetry_backend   = "nvml"
-    telemetry_validated = True    # NVML power separates boost bursts from saturated runs
     geometry_validated  = True    # wave/tile auto-search matched exhaustive H200/B200 grids
     gemm_tile_hint      = (128, 256)  # representative cuBLAS tile the auto rules were derived against
 
@@ -235,7 +240,14 @@ class NVIDIAArch(CudaLikeArch):
         self._clk_arg = m.NVML_CLOCK_SM
         return m.nvmlDeviceGetHandleByIndex(index)
 
-    def read_power(self, handle):
+    def read_power(self, handle, instant=False):
+        """nvmlDeviceGetPowerUsage averages over the last 1s on Ampere (except GA100) and newer. The instantaneous
+        field costs ~170us per read against ~6us, so only the MSMF window sampler, which reads every 20ms, asks for it.
+        """
+        if instant:
+            fv = self._nvml.nvmlDeviceGetFieldValues(handle, [186])[0]  # NVML_FI_DEV_POWER_INSTANT
+            if fv.nvmlReturn == 0:
+                return fv.value.uiVal / 1000.0
         return self._nvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # mW -> W
 
     def read_clock(self, handle):
@@ -243,6 +255,9 @@ class NVIDIAArch(CudaLikeArch):
 
     def read_max_clock(self, handle):
         return float(self._nvml.nvmlDeviceGetMaxClockInfo(handle, self._clk_arg))
+
+    def read_temp(self, handle):
+        return float(self._nvml.nvmlDeviceGetTemperature(handle, self._nvml.NVML_TEMPERATURE_GPU))
 
     def read_device_name(self, handle):
         name = self._nvml.nvmlDeviceGetName(handle)
@@ -294,10 +309,9 @@ class NVIDIAArch(CudaLikeArch):
 class AMDArch(CudaLikeArch):
     """ AMD GPUs (ROCm). Telemetry via amdsmi (ships with ROCm).
 
-    The amdsmi power/clock/name reads below were confirmed on MI300X (ROCm 10.0, SR-IOV VF, SPX). telemetry_validated
-    stays False: MI300X shows no boost/saturated gap to police (its 750 W cap is hit within one kernel), so power is
-    reported but not used to exclude shapes. If a call is wrong on another MI part, Telemetry catches it and
-    degrades to unavailable - the benchmark still runs, just without power/clock.
+    The amdsmi power/clock/name reads below were confirmed on MI300X (ROCm 10.0, SR-IOV VF, SPX). If a call is wrong on
+    another MI part, Telemetry catches it and degrades to unavailable - the benchmark still runs, just without
+    power/clock.
     """
     telemetry_backend = "amdsmi"
     # geometry_validated stays False (inherited), so auto runs with a note. On one MI300X (BF16) CU-count wave packing
@@ -325,10 +339,10 @@ class AMDArch(CudaLikeArch):
         self._clk_arg = m.AmdSmiClkType.GFX   # docs-confirmed enum member (graphics/compute clock)
         return m.amdsmi_get_processor_handles()[index]
 
-    def read_power(self, handle):
-        # amdsmi_get_power_info() returns Watts (confirmed on MI300X): current_socket_power (MI300+), with
-        # average_socket_power as the fallback (Navi / MI200 and earlier). Unsupported fields may come back as "N/A" or
-        # UINT32_MAX (0xFFFFFFFF).
+    def read_power(self, handle, instant=False):
+        """amdsmi_get_power_info() returns Watts (confirmed on MI300X): current_socket_power (MI300+), with
+        average_socket_power as the fallback (Navi / MI200 and earlier). Unsupported fields may come back as "N/A" or
+        UINT32_MAX (0xFFFFFFFF)."""
         info = self._amdsmi.amdsmi_get_power_info(handle)
         INVALID = (None, "N/A")
         # UINT32_MAX guard: some builds report an unsupported field as 0xFFFFFFFF instead of "N/A". Enable this wider
@@ -340,11 +354,17 @@ class AMDArch(CudaLikeArch):
         return float(w) if w not in INVALID else None
 
     def read_clock(self, handle):
-        # ["clk"] is the GFX clock in MHz (confirmed on MI300X, ROCm 10.0).
+        """["clk"] is the GFX clock in MHz (confirmed on MI300X, ROCm 10.0)."""
         return float(self._amdsmi.amdsmi_get_clock_info(handle, self._clk_arg)["clk"])
 
+    def read_temp(self, handle):
+        """UNTESTED on hardware: the hotspot (junction) temperature in C, per the amdsmi docs."""
+        m = self._amdsmi
+        return float(m.amdsmi_get_temp_metric(handle, m.AmdSmiTemperatureType.HOTSPOT,
+                                              m.AmdSmiTemperatureMetric.CURRENT))
+
     def read_device_name(self, handle):
-        # amdsmi_get_gpu_asic_info() exposes market_name per the docs.
+        """amdsmi_get_gpu_asic_info() exposes market_name per the docs."""
         info = self._amdsmi.amdsmi_get_gpu_asic_info(handle)
         return info.get("market_name") or info.get("vendor_id") or "AMD GPU"
 
@@ -352,10 +372,10 @@ class HPUArch(Arch):
     """ Intel Gaudi*. Telemetry via pyhlml (pip install habana-pyhlml).
 
     UNTESTED ON HARDWARE: the pyhlml calls below were verified against the Habana pyhlml API docs but have never been
-    run on a real Gaudi box, so telemetry_validated stays False (power is reported but not used to exclude shapes). A
-    wrong call is caught by Telemetry and degrades to unavailable - the benchmark still runs, just without power/clock.
+    run on a real Gaudi box. A wrong call is caught by Telemetry and degrades to unavailable - the benchmark still
+    runs, just without power/clock.
     """
-    telemetry_backend = "hlml"   # telemetry_validated stays False until checked on real hardware
+    telemetry_backend = "hlml"
 
     def __init__(self):
         self.arch = "hpu"
@@ -379,24 +399,24 @@ class HPUArch(Arch):
         ht.hpu.synchronize()
 
     def telemetry_init(self, index):
-        # UNTESTED on hardware; API verified against Habana pyhlml docs.
+        """UNTESTED on hardware; API verified against Habana pyhlml docs."""
         import pyhlml as m
         m.hlmlInit()
         self._hlml = m
         return m.hlmlDeviceGetHandleByIndex(index)
 
-    def read_power(self, handle):
-        # UNTESTED on hardware. Docs confirm hlmlDeviceGetPowerUsage() returns milliwatts (like NVML), so /1000 ->
-        # Watts. Confirm on the first Gaudi box.
+    def read_power(self, handle, instant=False):
+        """UNTESTED on hardware. Docs confirm hlmlDeviceGetPowerUsage() returns milliwatts (like NVML), so /1000 ->
+        Watts. Confirm on the first Gaudi box."""
         return self._hlml.hlmlDeviceGetPowerUsage(handle) / 1000.0
 
     def read_clock(self, handle):
-        # UNTESTED on hardware. clock_type 0 == HLML_CLOCK_SOC, which the docs list as the only clock domain supported
-        # on Gaudi (IC/MME/TPC are Goya-only). Confirm on the first Gaudi box.
+        """UNTESTED on hardware. clock_type 0 == HLML_CLOCK_SOC, which the docs list as the only clock domain
+        supported on Gaudi (IC/MME/TPC are Goya-only). Confirm on the first Gaudi box."""
         return float(self._hlml.hlmlDeviceGetClockInfo(handle, 0))
 
     def read_device_name(self, handle):
-        # UNTESTED on hardware. pyhlml has no documented market-name call, so report the handle.
+        """UNTESTED on hardware. pyhlml has no documented market-name call, so report the handle."""
         return f"Gaudi:{handle}"
 
 class XPUArch(Arch):
@@ -848,15 +868,6 @@ def wave_mn_layouts(sms, max_size, tile_m=128, tile_n=256, waves=range(1, 17), m
     return out
 
 
-def trimmed_median(xs):
-    """Median after dropping the single lowest+highest when >=5 samples (kills a lone spike
-    or throttle dip). Otherwise plain median. Shrinks run-to-run spread toward ~0.5% noise."""
-    xs = sorted(xs)
-    if len(xs) >= 5:
-        xs = xs[1:-1]
-    return float(np.median(xs))
-
-
 def shape_str(shape):
     """`MxNxK` for a (M,N,K) tuple."""
     return f"{shape[0]}x{shape[1]}x{shape[2]}"
@@ -868,7 +879,7 @@ def round_tflops(x):
 
 
 def format_headline(r):
-    """One-line MAMF/MSMF headline: `TFLOPS @ MxNxK  WWW MHz` (or `n/a`)."""
+    """One-line MAMF/MSMF headline: `TFLOPS @ MxNxK  WWW MHz C` (or `n/a`)."""
     if not r:
         return "n/a"
     extra = ""
@@ -876,6 +887,8 @@ def format_headline(r):
         extra += f"  {r['power']:.0f}W"
     if r.get("clock") is not None:
         extra += f" {r['clock']:.0f}MHz"
+    if r.get("temp") is not None:
+        extra += f" {r['temp']:.0f}C"
     return f"{round_tflops(r['tflops'])} TFLOPS @ {shape_str(r['shape'])} (MxNxK){extra}"
 
 
@@ -885,7 +898,7 @@ def phase_result(row, label):
 
 
 def fmt_runs(xs):
-    """Space-joined 1-decimal list for confirm/lock-in rows."""
+    """Space-joined 1-decimal list for confirm rows."""
     return " ".join(f"{x:.1f}" for x in xs)
 
 
@@ -906,8 +919,7 @@ def apply_headlines(headline, best_tflops, best_config, msmf, mamf):
                        max=(f"{shape_str(mamf['shape'])} (MxNxK)" if mamf else cfg))
 
 
-# Populated by benchmark_mm() when a Telemetry sampler is passed. Declared here (before MSMF helpers) so
-# confirm/lock-in can read it without forward-ref confusion.
+# Populated by benchmark_mm() when a Telemetry sampler is passed; the scouts read it.
 _last_telem = {}
 
 
@@ -926,13 +938,6 @@ def telem_ok(telem):
     return telem is not None and getattr(telem, "available", False)
 
 
-def is_suspect(power, ref_power, ratio=0.9):
-    """True if `power` is meaningfully below the saturated reference (a boost / idle-gap burst)."""
-    if power is None or ref_power is None or ref_power <= 0:
-        return False
-    return power < ratio * ref_power
-
-
 def power_rank_score(tflops, power, pmax):
     """Scout ranking score: discount TFLOPS from shapes that drew much less power than the busiest scout."""
     if pmax and power:
@@ -949,30 +954,171 @@ def median_or_none(xs):
     return float(np.median(xs)) if xs else None
 
 
-def measure_saturated_reps(shape, n_reps, args, dtype, device, telem, *,
-                           warmup_passes=None, collect_means=None):
-    """Throwaway warmup passes + `n_reps` saturated benchmarks.
+def measure_window(shape, dtype, device, telem, window_s, warm_s, n_sub=8):
+    """Back-to-back iterations: `warm_s` untimed, then `window_s` timed in `n_sub` consecutive sub-windows.
 
-    Returns (means, powers, clocks). Optionally appends each mean into `collect_means` (used for the run-wide
-    geometric/arithmetic means in the finish report).
+    Each iteration does the same work as benchmark_mm() and only op() is timed, so the TFLOPS are comparable. Returns
+    dict(tflops over the whole window, subs=per-sub-window TFLOPS, drop=% the second half is slower than the first,
+    spread, power/clock = means of the samples taken during the timed part).
     """
     m, n, k = shape
-    n_it, n_wu = args.num_iterations, args.num_warmup_iterations
-    if warmup_passes is None:
-        warmup_passes = args.tune.confirm_warmup_passes
-    for _ in range(max(0, warmup_passes)):
-        benchmark_mm(m, n, k, dtype, device, n_it, n_wu, telem=telem)
-    means, powers, clocks = [], [], []
-    for _ in range(n_reps):
-        a, _b, _c = benchmark_mm(m, n, k, dtype, device, n_it, n_wu, telem=telem)
-        means.append(a)
-        if collect_means is not None:
-            collect_means.append(a)
-        if _last_telem.get("power") is not None:
-            powers.append(_last_telem["power"])
-        if _last_telem.get("clock_mean") is not None:
-            clocks.append(_last_telem["clock_mean"])
-    return means, powers, clocks
+    op, l2_cache, C, C_rand, flos = prepare_gemm(m, n, k, dtype, device)
+
+    def run(count, starts=None, ends=None):
+        with torch.no_grad():
+            for i in range(count):
+                l2_cache.zero_()
+                C.copy_(C_rand)
+                if starts is not None:
+                    starts[i].record()
+                op()
+                if ends is not None:
+                    ends[i].record()
+
+    s, e = arch.event(enable_timing=True), arch.event(enable_timing=True)
+    run(2)
+    s.record()
+    run(5)
+    e.record()
+    arch.synchronize()
+    t_it = max(s.elapsed_time(e) / 5 / 1000, 1e-6)
+    run(max(1, int(warm_s / t_it)))
+    n_it = max(n_sub, int(window_s / t_it))
+    starts = [arch.event(enable_timing=True) for _ in range(n_it)]
+    ends = [arch.event(enable_timing=True) for _ in range(n_it)]
+    arch.synchronize()
+    pw, clk, tmp, stop, th = [], [], [], threading.Event(), None
+    if telem_ok(telem):
+        def _sample_loop():
+            while not stop.is_set():
+                p, c, t = telem.power(instant=True), telem.clock(), telem.temp()
+                if p is not None: pw.append(p)
+                if c is not None: clk.append(c)
+                if t is not None: tmp.append(t)
+                stop.wait(0.02)
+        th = threading.Thread(target=_sample_loop, daemon=True)
+        th.start()
+    try:
+        run(n_it, starts, ends)
+        arch.synchronize()
+    finally:
+        if th is not None:
+            stop.set()
+            th.join()
+    times = np.array([a.elapsed_time(b) for a, b in zip(starts, ends)])
+    subs = [flos * len(c) / (c.sum() / 1000) / 10**12 for c in np.array_split(times, n_sub)]
+    half = n_sub // 2
+    drop = (1 - np.mean(subs[half:]) / np.mean(subs[:half])) * 100
+    return dict(shape=shape, tflops=flos * n_it / (times.sum() / 1000) / 10**12, subs=subs, drop=float(drop),
+                spread=spread_pct(subs), power=float(np.mean(pw)) if pw else None,
+                clock=float(np.mean(clk)) if clk else None, temp=float(np.mean(tmp)) if tmp else None)
+
+
+def msmf_k_walk(full, ranked, steady, fmt, args, dtype, device, telem, walk_mn=()):
+    """Walk K down from the fastest steady (M,N) layouts and the `walk_mn` ones, measuring each step over a full
+    window.
+
+    At the power cap a shorter K can sustain a higher clock than the K the boost-regime search favoured, so the confirm
+    set may hold the right layout at the wrong K: H200 bf16's 2816x1536 holds 727 TFLOPS at K=20480 and 749 at K=6144,
+    where the clock reaches its ceiling just as the power reaches the cap. A walk starts at the seed's K, or at max_size
+    if the seed's K is past it: the K-edge screen adds such shapes for MAMF, and past that point a longer K only
+    sustains less. Steps are K/8 rounded down to a power of two; a walk ends after msmf_kwalk_steps steps or once a
+    step is more than msmf_kwalk_stop % below the best seen in it.
+
+    The fastest layouts at long K can sit within noise of each other, so which ones are walked is partly luck. The
+    `walk_mn` layouts, the most-square 1-wave ones, are walked regardless: on H200 fp8 six layouts held 1276-1291
+    TFLOPS at long K, 1536x2816 read lowest of them yet sustains 1337 at K=10240, and walks from the 4 fastest missed
+    it.
+    """
+    if args.tune.msmf_kwalk_seeds <= 0:
+        return []
+    seeds, seen, by_shape = [], {r["shape"] for r in full}, {r["shape"]: r for r in full}
+    for r in sorted((r for r in full if steady(r)), key=lambda r: r["tflops"], reverse=True):
+        if r["shape"][:2] not in [s["shape"][:2] for s in seeds]:
+            seeds.append(r)
+        if len(seeds) >= args.tune.msmf_kwalk_seeds:
+            break
+    for mn in walk_mn:
+        if mn in [s["shape"][:2] for s in seeds]:
+            continue
+        cands = [r for r in full if r["shape"][:2] == mn] or [r for r in ranked if r["shape"][:2] == mn]
+        if cands:
+            seeds.append(max(cands, key=lambda r: r["tflops"]))
+    out = []
+    for seed in seeds:
+        m, n, k = seed["shape"]
+        k0 = min(k, args.tune.max_size - args.tune.max_size % 1024 or args.tune.max_size)
+        step = max(256, 2 ** int(np.log2(k0 / 8)))
+        best = by_shape.get((m, n, k0), {}).get("tflops", 0.0)
+        for i in range(0 if k0 < k else 1, args.tune.msmf_kwalk_steps + 1):
+            shp = (m, n, k0 - i * step)
+            if shp[2] < step or shp in seen:
+                continue
+            seen.add(shp)
+            r = measure_window(shp, dtype, device, telem, args.tune.msmf_window_s, args.tune.msmf_warm_s)
+            r["row"] = fmt(r, "  k-walk" + ("" if steady(r) else ", not steady"))
+            detail(r["row"])
+            out.append(r)
+            best = max(best, r["tflops"])
+            if r["tflops"] < best * (1 - args.tune.msmf_kwalk_stop / 100):
+                break
+    return out
+
+
+def confirm_msmf(shapes, args, dtype, device, telem, all_mean_tflops, walk_mn=()):
+    """MSMF: the highest throughput a shape holds, steady, over a timed window under full load.
+
+    After settle clock every confirm shape is ranked on a short window (0.2s warm + msmf_rank_s timed), and the
+    msmf_top fastest get the full window: msmf_warm_s untimed, then msmf_window_s timed in 8 sub-windows. A shape is
+    steady if its second half is at most msmf_max_drop % slower than its first and its sub-windows spread at most
+    msmf_max_spread %; the window's TFLOPS is total FLOPs over total kernel time. The K walk then extends the
+    msmf_kwalk_seeds fastest steady layouts and the `walk_mn` ones downward in K. The fastest shape that was steady,
+    or faster than every steady one (a shape can still be settling in its first window), is re-measured over
+    msmf_lock_s and published if steady there, else the next one is tried. Returns (results for every shape, chosen
+    result or None).
+    """
+    print(f"\nMSMF (sustainable) confirm: {len(shapes)} shapes ...")
+    detail(f"  rank: {args.tune.msmf_rank_s}s each; top {args.tune.msmf_top}: {args.tune.msmf_warm_s}s warm + "
+           f"{args.tune.msmf_window_s}s timed; lock-in {args.tune.msmf_lock_s}s")
+    settle_clock(device, telem, args.tune.max_size, args.tune.msmf_settle_clock_s)
+    fmt = lambda r, tag="": (f"  {shape_str(r['shape']):<18} {r['tflops']:6.1f} {fmt_opt(r['power'], 5)} "
+                             f"{fmt_opt(r['clock'], 5)} {fmt_opt(r['temp'], 3)} drop {r['drop']:5.1f}% "
+                             f"spread {r['spread']:4.1f}%{tag}")
+    print(f"  {'MxNxK':<18} {'TFLOPS':>6} {'W':>5} {'MHz':>5} {'C':>3}")
+    ranked = []
+    for shp in shapes:
+        r = measure_window(shp, dtype, device, telem, args.tune.msmf_rank_s, 0.2, n_sub=2)
+        r["row"], r["rank"] = fmt(r, "  rank"), True
+        status(r["row"])
+        detail(r["row"])
+        ranked.append(r)
+    ranked.sort(key=lambda r: r["tflops"], reverse=True)
+    steady = lambda r: r["drop"] <= args.tune.msmf_max_drop and r["spread"] <= args.tune.msmf_max_spread
+    full = []
+    for r0 in ranked[:max(1, args.tune.msmf_top)]:
+        r = measure_window(r0["shape"], dtype, device, telem, args.tune.msmf_window_s, args.tune.msmf_warm_s)
+        r["row"] = fmt(r, "" if steady(r) else "  not steady")
+        print(r["row"], end="\r", flush=True)
+        full.append(r)
+    full += msmf_k_walk(full, ranked, steady, fmt, args, dtype, device, telem, walk_mn)
+    all_mean_tflops.extend(r["tflops"] for r in full)
+    results = {r["shape"]: r for r in ranked}
+    results.update({r["shape"]: r for r in full})
+    floor = max((r["tflops"] for r in full if steady(r)), default=0.0)
+    order = sorted([r for r in full if steady(r) or r["tflops"] > floor], key=lambda r: r["tflops"], reverse=True)
+    for cand in order[:max(1, args.tune.msmf_lock_tries)]:
+        lock = measure_window(cand["shape"], dtype, device, telem, args.tune.msmf_lock_s, args.tune.msmf_warm_s)
+        ok = steady(lock)
+        lock["row"] = fmt(lock, "  locked in" if ok else "  lock-in not steady")
+        detail(lock["row"])
+        if ok:
+            results[cand["shape"]] = lock
+            return list(results.values()), lock
+    order = [r for r in order if steady(r)]
+    if order:
+        return list(results.values()), order[0]
+    print("WARNING: no confirm shape held a steady rate over its window; MSMF is the fastest unsteady one")
+    return list(results.values()), max(full, key=lambda r: r["tflops"]) if full else None
 
 
 def gemm_fits(M, N, K, elem):
@@ -1018,7 +1164,7 @@ def build_mamf_recall_pool(scout_meta, wave_layouts_by_wave, args):
     """Bounded boost-screen pool: raw leaders plus top-K scouts per wave (M,N) layout.
 
     A saturated scout mean cannot predict an idle+burst winner. Keeping several K choices for every wave layout
-    prevents a noisy 20-iteration scout from dropping a disconnected boost basin (the v5 H200/B200 regression) before
+    prevents a noisy 20-iteration scout from dropping a disconnected boost basin (seen on H200 and B200) before
     it is measured in the MAMF regime.
     """
     raw = top_shapes_by_peak(scout_meta, args.tune.mamf_raw_forced)
@@ -1045,6 +1191,59 @@ def boost_reference(boost_clk, iters):
     return max([boost_clk or 0.0] + clks)
 
 
+def screen_burst(shp, args, dtype, device, telem, boost_min):
+    """A screening burst. The GPU can still be hot from scouting - H200's first screened shapes burst at 1635MHz
+    against a 1980MHz boost - so a burst that never reaches boost_min is retried once after the confirm's idle."""
+    iters = max(1, args.tune.mamf_screen_iters)
+    burst = measure_boost_burst(*shp, dtype, device, iters, telem=telem,
+                                idle_before_s=max(0.0, args.tune.mamf_screen_idle_s))
+    if boost_min and not any(c is not None and c >= boost_min for _, c, _ in burst):
+        burst += measure_boost_burst(*shp, dtype, device, iters, telem=telem,
+                                     idle_before_s=max(0.0, args.tune.mamf_idle_s))
+    return burst
+
+
+def screen_k_edge(scored, args, dtype, device, telem, boost_min):
+    """Screen K past the search's K ceiling for the layouts still rising at that ceiling.
+
+    Some layouts keep gaining past max_size: H200 bf16's 2816x1536 bursts 828 TFLOPS at K=20480 and 842 at K=32768.
+    Scouts can't see it - they run hot, and a long-K call throttles more, so they read a falling curve - but a burst
+    after an idle gap compares K values fairly. Walks K up per layout while the peak still rises.
+    """
+    if args.tune.k_edge_layouts <= 0 or not scored:
+        return []
+    k_ceil = max(shp[2] for _, shp, *_ in scored)
+    at_ceil, below = {}, {}
+    for peak, shp, *_ in scored:
+        if shp[2] == k_ceil:
+            at_ceil[shp[:2]] = (peak, shp)
+        else:
+            below[shp[:2]] = max(below.get(shp[:2], 0.0), peak)
+    # still climbing into the ceiling, steepest first: a flat layout's long K just ties it
+    edge = sorted(((peak / below[mn] - 1, peak, shp) for mn, (peak, shp) in at_ceil.items()
+                   if below.get(mn) and peak > below[mn]), reverse=True)[:args.tune.k_edge_layouts]
+    elem = dtype_element_size(dtype)
+    out = []
+    for _, last, (mm, nn, k0) in edge:
+        for f in (1.5, 2):
+            kk = int(k0 * f) // 1024 * 1024
+            if kk > args.tune.k_edge_max or not gemm_fits(mm, nn, kk, elem):
+                break
+            burst = screen_burst((mm, nn, kk), args, dtype, device, telem, boost_min)
+            at_boost = [x for x in burst if not boost_min or (x[1] is not None and x[1] >= boost_min)]
+            valid = at_boost or burst
+            if not valid:
+                break
+            peak, clk, power = max(valid, key=lambda x: x[0])
+            out.append((float(peak), (mm, nn, kk), clk, power, bool(at_boost)))
+            if peak <= last:
+                break
+            last = peak
+    detail(f"  k-edge: {len(edge)} layouts rising at K={k_ceil}, {len(out)} shapes screened past it: " +
+           ", ".join(f"{shape_str(s)}={tf:.1f}" for tf, s, *_ in out))
+    return out
+
+
 def screen_mamf_candidates(pool, args, dtype, device, telem, boost_clk):
     """Cheap MAMF-regime screen; return the strongest boost-validated candidates."""
     if not pool:
@@ -1055,13 +1254,14 @@ def screen_mamf_candidates(pool, args, dtype, device, telem, boost_clk):
     print(f"  {'#':>4}  {'MxNxK':<18} {'peak':>6} {'MHz':>5}")
     bursts = []
     row = lambda i, shp, tf, ck: f"  {i:>4}  {shape_str(shp):<18} {tf:6.1f} {fmt_opt(ck, 5)}"
+    retry_min = args.tune.boost_clock_ratio * boost_clk if boost_clk else 0.0
     for i, shp in enumerate(pool, 1):
-        burst = measure_boost_burst(
-            shp[0], shp[1], shp[2], dtype, device, max(1, args.tune.mamf_screen_iters),
-            telem=telem, idle_before_s=max(0.0, args.tune.mamf_screen_idle_s))
+        burst = screen_burst(shp, args, dtype, device, telem, retry_min)
         bursts.append((shp, burst))
         tf, ck, _ = max(burst, key=lambda x: x[0]) if burst else (0.0, None, None)
         print(row(i, shp, tf, ck), end="\r", flush=True)
+    retried = [shape_str(s) for s, b in bursts if len(b) > max(1, args.tune.mamf_screen_iters)]
+    detail(f"  {len(retried)} shapes re-burst below boost clock: {', '.join(retried[:12])}")
     boost_clk = boost_reference(boost_clk, [x for _, b in bursts for x in b])
     boost_min = args.tune.boost_clock_ratio * boost_clk if boost_clk else 0.0
     for shp, burst in bursts:
@@ -1071,9 +1271,10 @@ def screen_mamf_candidates(pool, args, dtype, device, telem, boost_clk):
             peak, clk, power = max(valid, key=lambda x: x[0])
             scored.append((float(peak), shp, clk, power, bool(at_boost)))
     scored.sort(reverse=True)
+    scored = sorted(scored + screen_k_edge(scored, args, dtype, device, telem, boost_min), reverse=True)
     if scored:
         peak, shp, clk, _, _ = scored[0]
-        phase_result(row(pool.index(shp) + 1, shp, peak, clk), "best peak")
+        phase_result(row(pool.index(shp) + 1 if shp in pool else "k", shp, peak, clk), "best peak")
     chosen = [shp for _, shp, _, _, _ in scored[:max(1, args.tune.mamf_confirm_top)]]
     preview = ", ".join(f"{shape_str(s)}={tf:.1f}" for tf, s, _, _, _ in
                         scored[:min(8, len(scored))])
@@ -1088,7 +1289,7 @@ def build_msmf_confirm_set(measured, scout_meta, seen, square_by_wave, args):
     """
     def best_k_for_mn(mm, nn, *, raw=False):
         """Best measured K for this (M,N). raw=True → max scout TFLOPS (for forced shapes:
-        high-K often reads SUSPECT/low-power during a noisy scout, and power-rank would wrongly
+        high-K often reads low-power during a noisy scout, and power-rank would wrongly
         lock onto Kmin; confirm re-measures sustainably)."""
         pmax = max((p for _, p, _ in measured if p is not None), default=None)
         best_s, best_shp = -1.0, None
@@ -1113,9 +1314,8 @@ def build_msmf_confirm_set(measured, scout_meta, seen, square_by_wave, args):
             if shp and shp not in forced:
                 forced.append(shp)
     # Force the FATTEST scouts (largest min(M,N,K), then volume). A 20-iter scout is too short to saturate, so
-    # everything boosts during scouting - but a shape large in ALL dims saturates to TDP under the 100-iter confirm and
-    # anchors the saturated-clock reference. Without fat forcing a confirm set can be all small/skinny (boosting)
-    # shapes (seen on fp8).
+    # everything boosts during scouting - but a shape large in ALL dims saturates to TDP over the MSMF window. Without
+    # fat forcing a confirm set can be all small/skinny (boosting) shapes (seen on fp8).
     fat_forced = sorted(scout_meta.keys(),
                         key=lambda s: (min(s), s[0] * s[1] * s[2]), reverse=True)[:args.tune.confirm_fat_forced]
     for shp in fat_forced:
@@ -1133,21 +1333,21 @@ def build_msmf_confirm_set(measured, scout_meta, seen, square_by_wave, args):
     return shapes, n_confirm
 
 
-def thermal_soak(device, telem, max_size, soak_s):
-    """Drive the chip to thermal steady state before MSMF confirm.
+def settle_clock(device, telem, max_size, settle_s):
+    """Run the chip at full load until its SM clock stops dropping, before MSMF confirm.
 
-    Biggest reproducibility lever: a cold/cooler GPU boosts and reads high, so without soaking the MSMF headline
-    depends on how warm the card happened to be. Soak in bf16 (heat is heat) on a big square; stop early once the SM
-    clock stops dropping.
+    Biggest reproducibility lever: an idle GPU boosts and reads high, so without this the MSMF headline depends on
+    what the card was doing before the run. Runs bf16 on a big square; the temperature is not waited for, as below
+    the throttle point it barely moves the clock.
     """
-    if not soak_s or soak_s <= 0:
+    if not settle_s or settle_s <= 0:
         return
-    detail(f"  thermal soak (<= {soak_s}s) to reach steady-state clock ...")
+    detail(f"  settle clock: full load until the SM clock stops dropping (<= {settle_s}s) ...")
     s = min(8192, max_size)
     sa = torch.randn(s, s, dtype=torch.bfloat16, device=device)
     sb = torch.randn(s, s, dtype=torch.bfloat16, device=device)
     sc = torch.empty(s, s, dtype=torch.bfloat16, device=device)
-    t_end = time.time() + soak_s
+    t_end = time.time() + settle_s
     prev_clk, stable_ticks = None, 0
     t0 = time.time()
     while time.time() < t_end:
@@ -1155,7 +1355,7 @@ def thermal_soak(device, telem, max_size, soak_s):
             torch.mm(sa, sb, out=sc)
         arch.synchronize()
         clk = telem.clock() if telem_ok(telem) else None
-        status(f"  thermal soak {time.time() - t0:4.1f}s" + (f"  {clk:.0f}MHz" if clk is not None else ""))
+        status(f"  settle clock {time.time() - t0:4.1f}s" + (f"  {clk:.0f}MHz" if clk is not None else ""))
         if telem_ok(telem):
             if clk is not None and prev_clk is not None and clk >= prev_clk - 5:
                 stable_ticks += 1
@@ -1167,134 +1367,6 @@ def thermal_soak(device, telem, max_size, soak_s):
     del sa, sb, sc
     if telem_ok(telem) and telem.clock() is not None:
         detail(f"  settled at ~{telem.clock():.0f}MHz")
-
-
-def select_and_lock_msmf(msmf_results, args, dtype, device, telem, reps):
-    """Filter confirm results (SUSPECT / boosting / jittery) and lock-in the MSMF headline.
-
-    Returns the chosen result dict (or None). Lock-in re-measures the winner with extra reps and re-applies the
-    boost+spread gates — a shape can look saturated in the short confirm then drift toward boost over the longer
-    re-measure (seen on H200).
-    """
-    ref_p = max((r["power"] for r in msmf_results if r["power"] is not None), default=None)
-    exclude_ok = telem is not None and telem.validated
-
-    def _suspect(r):
-        return exclude_ok and is_suspect(r["power"], ref_p, args.tune.suspect_power_ratio)
-
-    sat_pool = [r for r in msmf_results if not _suspect(r)] or msmf_results
-    # Saturated-clock reference = lowest clock among the most power-saturated shapes. A shape running materially above
-    # it is still boosting (near-TDP but with clock headroom).
-    hi_p = [r for r in sat_pool if r["power"] is not None and ref_p
-            and r["power"] >= args.tune.msmf_sat_power_ratio * ref_p and r["clock"] is not None]
-    sat_clock = min((r["clock"] for r in hi_p), default=None)
-    if exclude_ok and sat_clock is None:
-        # Common with a narrow grid that has no fat/high-K shape: everything still floats above the true saturated
-        # floor, so there is no honest low-clock reference to filter against.
-        print("WARNING: no saturated-clock anchor in the confirm set (no near-TDP shape with a usable clock). MSMF "
-              "filters are weakened — widen the range (esp. larger min(M,N,K) / higher K) so a truly sustainable "
-              "shape can pin the floor.")
-
-    def _saturated(p):
-        return ref_p is not None and p is not None and p >= args.tune.msmf_sat_power_ratio * ref_p
-
-    def _boosting(r, clk=None, pw=None):
-        c = r["clock"] if clk is None else clk
-        if not (exclude_ok and sat_clock is not None and c is not None
-                and c > sat_clock * args.tune.msmf_clock_ratio):
-            return False
-        # A high clock alone does not prove the shape is still riding a boost transient: a less dense layout can sit
-        # pinned at TDP *and* hold a higher clock, and then its number is genuinely sustainable (measured on B300,
-        # where the clock-only gate rejected the true MSMF winner). Only reject when the power draw is also short of
-        # saturation.
-        return not _saturated(r["power"] if pw is None else pw)
-
-    stable_pool = ([r for r in sat_pool if r["spread"] <= args.tune.msmf_max_spread and not _boosting(r)]
-                   or [r for r in sat_pool if r["spread"] <= args.tune.msmf_max_spread]
-                   or [r for r in sat_pool if not _boosting(r)] or sat_pool)
-    prelim = max(stable_pool, key=lambda r: r["tflops"]) if stable_pool else None
-    beats = [r for r in sat_pool if prelim and r["tflops"] > prelim["tflops"]]
-    skipped = {
-        f"still boosting above the {sat_clock:.0f}MHz saturated clock (trends toward MAMF)":
-            [r for r in beats if _boosting(r)],
-        f"spread > {args.tune.msmf_max_spread:.0f}%, too jittery to reproduce":
-            [r for r in beats if not _boosting(r) and r["spread"] > args.tune.msmf_max_spread],
-        "unsaturated clock-boost, not sustainable (counts toward MAMF)":
-            [r for r in msmf_results if _suspect(r) and prelim and r["tflops"] > prelim["tflops"]],
-    }
-    for why, rs in skipped.items():
-        if rs:
-            detail(f"  ignored ({why}): {', '.join(shape_str(r['shape']) for r in rs)}")
-
-    ordered = sorted(stable_pool, key=lambda r: r["tflops"], reverse=True)
-    if not (ordered and args.tune.msmf_lock_reps > reps):
-        return prelim
-
-    tries = ordered[:max(1, args.tune.msmf_lock_tries)]
-    detail(f"\nMSMF lock-in: re-measuring the leader x{args.tune.msmf_lock_reps}, next candidate if it fails ...")
-    for idx, cand in enumerate(tries):
-        shp = cand["shape"]
-        status(f"  {shape_str(shp):<18} lock-in x{args.tune.msmf_lock_reps} ...")
-        lm, lp, lc = measure_saturated_reps(shp, args.tune.msmf_lock_reps, args, dtype, device, telem)
-        lock_tf = trimmed_median(lm)
-        lock_spread = spread_pct(lm) if lm else cand["spread"]
-        lock_clk = median_or_none(lc) if lc else cand.get("clock")
-        lock_pw = median_or_none(lp) if lp else cand.get("power")
-        lock_boosting = _boosting(cand, clk=lock_clk, pw=lock_pw)
-        spread_ok = lock_spread <= args.tune.msmf_max_spread
-        row = (f"  {shape_str(shp):<18} {lock_tf:6.1f} {fmt_opt(lock_pw, 5)} {fmt_opt(lock_clk, 5)} "
-               f"{lock_spread:5.1f}%  {fmt_runs(lm)}")
-        if (spread_ok and not lock_boosting) or idx == len(tries) - 1:
-            cand["tflops"] = lock_tf
-            cand["spread"] = lock_spread
-            if lock_pw is not None: cand["power"] = lock_pw
-            if lock_clk is not None: cand["clock"] = lock_clk
-            tags = []
-            if not spread_ok: tags.append("still jittery")
-            if lock_boosting: tags.append("still boosting")
-            cand["row"] = row
-            detail(row + (f"  locked in (best available; {', '.join(tags)})" if tags else "  locked in"))
-            if tags:
-                cand["warning"] = (
-                    f"WARNING: MSMF headline is a best-available fallback ({', '.join(tags)}). "
-                    "For a reproducible sustainable number, widen the shape range so a fat/high-K shape can saturate "
-                    "and pass the spread+clock gates — common with a narrow grid.")
-            return cand
-        why = []
-        if not spread_ok:
-            why.append(f"spread {lock_spread:.1f}% > {args.tune.msmf_max_spread:.0f}%")
-        if lock_boosting:
-            why.append(f"clock {lock_clk:.0f}MHz > {sat_clock:.0f}*{args.tune.msmf_clock_ratio:.2f} saturated floor")
-        detail(row + f"  rejected ({'; '.join(why)})")
-    return prelim
-
-
-def confirm_msmf(shapes, args, dtype, device, telem, reps, all_mean_tflops):
-    """Thermal soak + per-shape MSMF confirm measurements.
-
-    Returns a list of result dicts (shape/tflops/power/clock/spread). Caller runs `select_and_lock_msmf` to pick and
-    lock-in the headline.
-    """
-    red = "trimmed-median" if reps >= 5 else "median"
-    print(f"\nMSMF (sustainable) confirm: {len(shapes)} shapes ...")
-    detail(f"  {args.num_iterations} iters x {reps} reps, TFLOPS = {red} of per-shape-warmed means")
-    thermal_soak(device, telem, args.tune.max_size, args.tune.msmf_soak_s)
-    print(f"  {'MxNxK':<18} {'TFLOPS':>6} {'W':>5} {'MHz':>5} {'spread':>6}  runs")
-    msmf_results = []
-    for shp in shapes:
-        # thermal pre-warmup: throwaway saturated passes so the first TIMED rep is at steady-state clock (a
-        # freshly-switched shape otherwise reads cold on rep 1).
-        means, powers, clocks = measure_saturated_reps(
-            shp, reps, args, dtype, device, telem, collect_means=all_mean_tflops)
-        pmed = median_or_none(powers)
-        cmed = median_or_none(clocks)
-        spread = spread_pct(means)
-        tf = trimmed_median(means)
-        row = (f"  {shape_str(shp):<18} {tf:6.1f} {fmt_opt(pmed, 5)} {fmt_opt(cmed, 5)} {spread:5.1f}%  "
-               f"{fmt_runs(means)}")
-        msmf_results.append(dict(shape=shp, tflops=tf, power=pmed, clock=cmed, spread=spread, row=row))
-        print(row, end="\r", flush=True)
-    return msmf_results
 
 
 def select_mamf(mamf_results, boost_clk):
@@ -1315,21 +1387,19 @@ def select_mamf(mamf_results, boost_clk):
 def confirm_mamf(cands, args, dtype, device, telem, reps, boost_clk, all_mean_tflops, quiet=False):
     """Boost-burst confirm; returns one result dict per candidate (caller picks the headline).
 
-    Each candidate gets `reps` short bursts preceded by idle so the SM clock recovers to boost. Only iterations whose
-    bracketed clock reached boost count toward the headline. Fat/saturated scouts are included: idle+burst recovers
-    boost even when the scout itself ran at the floor.
+    MAMF: the median of the 5 fastest boost-clock iterations of a shape. Each candidate gets `reps` bursts of
+    mamf_burst_iters queued iterations, each burst after mamf_idle_s of idle so the SM clock recovers to boost (see
+    measure_boost_burst). An iteration counts as boost if the lowest clock sampled during it is at least
+    boost_clock_ratio x the highest clock seen this run. Fat/saturated scouts are included: idle+burst recovers boost
+    even when the scout itself ran at the floor.
     """
     burst_iters = max(1, args.tune.mamf_burst_iters)
     idle_s = max(0.0, args.tune.mamf_idle_s)
     say = detail if quiet else print
     say(f"\nMAMF (achievable) confirm: {len(cands)} shapes ...")
     detail(f"  same set as MSMF, {burst_iters} iters x {reps} reps, {idle_s*1000:.0f}ms idle, no warmup, TFLOPS = "
-           "peak iteration")
-    # rigorous path: time each iteration in isolation, bracketed by synchronous clock reads, `reps` bursts each
-    # preceded by a short idle so the clock recovers to boost. Every (tflops, clk) pair is thus self-validating - no
-    # reliance on a loosely-timed background sampler for the achievable headline.
+           "median of the 5 fastest boost iterations")
     def evaluate(shp, iters_all, ref):
-        # only iterations whose bracketed clock reached boost count toward the achievable headline
         boost_min = args.tune.boost_clock_ratio * ref if ref else 0.0
         at_boost = [x for x in iters_all if boost_min and x[1] is not None and x[1] >= boost_min]
         valid = at_boost or iters_all
@@ -1338,10 +1408,10 @@ def confirm_mamf(cands, args, dtype, device, telem, reps, boost_clk, all_mean_tf
         pmed = median_or_none(boost_pw) if boost_pw else ppk
         is_boost = bool(cpk is not None and boost_min and cpk >= boost_min)
         flag = "" if is_boost or not ref else "  base-clock, not boost"
-        top_pk = sorted((t for t, _, _ in iters_all), reverse=True)[:reps]
-        row = (f"  {shape_str(shp):<18} {peak:6.1f} {fmt_opt(pmed, 5)} {fmt_opt(cpk, 5)}  {fmt_runs(top_pk)}{flag}")
-        return dict(shape=shp, tflops=float(peak), power=pmed, clock=cpk, boost=is_boost, boost_ref=ref,
-                    row=row)
+        top_pk = sorted((t for t, _, _ in iters_all), reverse=True)[:5]
+        top5 = float(np.median(sorted((t for t, _, _ in valid), reverse=True)[:5])) if valid else 0.0
+        row = (f"  {shape_str(shp):<18} {top5:6.1f} {fmt_opt(pmed, 5)} {fmt_opt(cpk, 5)}  {fmt_runs(top_pk)}{flag}")
+        return dict(shape=shp, tflops=top5, power=pmed, clock=cpk, boost=is_boost, boost_ref=ref, row=row)
 
     say(f"  {'MxNxK':<18} {'TFLOPS':>6} {'W':>5} {'MHz':>5}  top peaks")
     measured = []  # (shape, [(tflops, clk, power) across all reps])
@@ -1404,12 +1474,9 @@ def print_regime_crosscheck(msmf, mamf, msmf_results, mamf_results, args, dtype,
             filled = _burst_one(shp, args, dtype, device, telem, reps, boost_clk, all_mean_tflops)
             if filled:
                 mamf_map[shp] = filled
-        if shp not in msmf_map:
-            means, powers, clocks = measure_saturated_reps(
-                shp, reps, args, dtype, device, telem, collect_means=all_mean_tflops)
-            msmf_map[shp] = dict(shape=shp, tflops=trimmed_median(means),
-                                 power=median_or_none(powers), clock=median_or_none(clocks),
-                                 spread=spread_pct(means))
+        if shp not in msmf_map or msmf_map[shp].get("rank"):
+            msmf_map[shp] = measure_window(shp, dtype, device, telem, args.tune.msmf_window_s, args.tune.msmf_warm_s)
+            all_mean_tflops.append(msmf_map[shp]["tflops"])
         m, s = mamf_map.get(shp), msmf_map.get(shp)
         ratio = f"{100.0 * s['tflops'] / m['tflops']:.0f}%" if m and s and m["tflops"] else "—"
         roles = []
@@ -1433,27 +1500,19 @@ def resolve_dim(vals, rng):
 
 ### Power / clock telemetry (optional, best-effort, per vendor) ###
 #
-# Used for (a) a self-validating power check per shape and (b) adaptive warmup. Only fast in-process libraries are used
-# (NVML / amdsmi / pyhlml), so a read is ~1us and can be sampled per iteration. If the vendor library is missing or a
-# read fails, main() refuses to run (override: --telemetry off).
-#   NVIDIA : pip install nvidia-ml-py    (pynvml)   - VALIDATED (SUSPECT exclusion trusted)
-#   AMD    : amdsmi (ships with ROCm)               - reads confirmed on MI300X; sample+report only
-#   Gaudi  : pip install habana-pyhlml   (pyhlml)   - UNTESTED: sample+report only until first-boot
+# Used for (a) the SM clock that certifies a MAMF iteration ran at boost, (b) power-aware scout ranking, (c) adaptive
+# warmup and (d) the power/clock reported next to each number. MSMF itself is judged on throughput alone. Only fast
+# in-process libraries are used (NVML / amdsmi / pyhlml), so a read is ~1us and can be sampled per iteration. If the
+# vendor library is missing or a read fails, main() refuses to run (override: --telemetry off).
+#   NVIDIA : pip install nvidia-ml-py    (pynvml)
+#   AMD    : amdsmi (ships with ROCm)               - reads confirmed on MI300X
+#   Gaudi  : pip install habana-pyhlml   (pyhlml)   - UNTESTED until first-boot
 # XPU/MPS have no fast in-process telemetry wired (would need a slow `xpu-smi` subprocess), so they fall through to
 # unavailable and the benchmark still runs, just without power/clock reporting. The vendor-specific reads live on the
 # Arch subclasses (NVIDIAArch / AMDArch / HPUArch) as telemetry_init / read_power / read_clock / read_device_name /
 # siblings_idle, exactly like event() and synchronize(). Telemetry below is a thin, vendor-agnostic sampler: it holds
-# the per-device handle and the failure/validated state and delegates every read to `arch`. Add a vendor by overriding
-# those hooks on its Arch subclass - nothing here changes.
-
-# Backends whose power readings separate a boost burst from a saturated run (see Arch.telemetry_validated).
-# Derived from the Arch subclasses so there is a single source of truth: a backend graduates by flipping
-# telemetry_validated = True on its Arch subclass. Others may still *sample* (for logging) but must not *exclude*
-# shapes from the headline.
-VALIDATED_BACKENDS = frozenset(
-    a.telemetry_backend for a in (NVIDIAArch, AMDArch, HPUArch)
-    if a.telemetry_backend is not None and a.telemetry_validated
-)
+# the per-device handle and the failure state and delegates every read to `arch`. Add a vendor by overriding those
+# hooks on its Arch subclass - nothing here changes.
 
 
 class Telemetry:
@@ -1502,7 +1561,8 @@ class Telemetry:
                 out[name] = f"{type(e).__name__}: {e}"
         return out
 
-    def max_clock(self):  # rated max SM/GFX clock in MHz, or None
+    def max_clock(self):
+        """Rated max SM/GFX clock in MHz, or None."""
         if self._h is None:
             return None
         try:
@@ -1514,27 +1574,35 @@ class Telemetry:
     def available(self):
         return self._h is not None
 
-    @property
-    def validated(self):
-        """If False, sample+report power but do NOT use it to exclude shapes from the headline."""
-        return self._h is not None and self.arch.telemetry_validated
-
     # NotImplementedError propagates (a declared backend forgot a hook); other errors degrade to None.
-    def power(self):  # Watts, or None
+    def power(self, instant=False):
+        """Power draw in Watts, or None."""
         if self._h is None:
             return None
         try:
-            return self.arch.read_power(self._h)
+            return self.arch.read_power(self._h, instant=instant)
         except NotImplementedError:
             raise
         except Exception:
             return None
 
-    def clock(self):  # SM/GFX clock in MHz, or None
+    def clock(self):
+        """Current SM/GFX clock in MHz, or None."""
         if self._h is None:
             return None
         try:
             return self.arch.read_clock(self._h)
+        except NotImplementedError:
+            raise
+        except Exception:
+            return None
+
+    def temp(self):
+        """GPU die temperature in C, or None."""
+        if self._h is None:
+            return None
+        try:
+            return self.arch.read_temp(self._h)
         except NotImplementedError:
             raise
         except Exception:
@@ -1580,7 +1648,7 @@ class Telemetry:
 
 
 class FakeTelemetry(Telemetry):
-    """Scripted (power_W, clock_MHz) sequence for offline SUSPECT / ranking tests. No GPU.
+    """Scripted (power_W, clock_MHz) sequence for offline ranking tests. No GPU.
 
     Each `power()` call advances one step; `clock()` returns the clock paired with the last `power()` reading (mirrors
     how the Telemetry sampler calls power then clock each tick).
@@ -1600,11 +1668,7 @@ class FakeTelemetry(Telemetry):
     def available(self):
         return True
 
-    @property
-    def validated(self):
-        return True  # tests exercise the validated exclusion path
-
-    def power(self):
+    def power(self, instant=False):
         if not self._samples:
             return None
         if self._i >= len(self._samples):
@@ -1659,9 +1723,9 @@ def dtype_checks(dtype_name, device):
 
 
 def telemetry_setup(telemetry, cuda_device):
-    """Return a Telemetry for the device torch uses, or None with --telemetry off. Power validates MSMF (SUSPECT
-    filter) and the SM clock validates MAMF (boost check), so where a backend exists but doesn't work, running would
-    publish unvalidated headlines - exit instead."""
+    """Return a Telemetry for the device torch uses, or None with --telemetry off. The SM clock validates MAMF (boost
+    check), so where a backend exists but doesn't work, running would publish an unvalidated headline - exit
+    instead."""
     if telemetry == "off":
         return None
     # sample the *physical* device: CUDA_VISIBLE_DEVICES[--cuda_device] if set
@@ -1679,8 +1743,8 @@ def telemetry_setup(telemetry, cuda_device):
         broken = {k: v for k, v in telem.probe().items() if v and k != "max_clock"}
         problem = "; ".join(f"{k} read failed ({v})" for k, v in broken.items())
     if problem:
-        sys.exit(f"error: telemetry is required to validate MAMF/MSMF but is unavailable: {problem}."
-                 f"{telemetry_install_hint()}\nOr pass --telemetry off to run anyway with unvalidated MAMF/MSMF.")
+        sys.exit(f"error: telemetry is required to validate MAMF but is unavailable: {problem}."
+                 f"{telemetry_install_hint()}\nOr pass --telemetry off to run anyway with an unvalidated MAMF.")
     return telem
 
 
@@ -1757,7 +1821,7 @@ def tunableop_shortlist(msmf_cands, mamf_cands, max_shapes):
 
 def tunableop_tune(shapes, dtype, device):
     """Tune each shape once, then pause tuning again: the tuned kernels stay in use, while any other shape (e.g. the
-    thermal soak's) runs the default kernel instead of stalling on a fresh tune."""
+    settle clock's) runs the default kernel instead of stalling on a fresh tune."""
     print(f"TunableOp: tuning {len(shapes)} confirm shapes (~2 min each on MI300X / ROCm 10)")
     torch.cuda.tunable.tuning_enable(True)
     try:
@@ -1790,9 +1854,8 @@ class Tuning:
 
     # confirm
     confirm_top: int = 10               # best scouted shapes re-measured for MSMF
-    confirm_fat_forced: int = 3         # largest-in-every-dimension shapes always added, to anchor the saturated clock
-    confirm_reps: int = 5               # repeats per confirmed shape; 5 or more drops the min and max
-    confirm_warmup_passes: int = 1      # untimed passes before each shape's MSMF repeats
+    confirm_fat_forced: int = 3         # largest-in-every-dimension shapes always added: they reach the power cap
+    confirm_reps: int = 10              # MAMF bursts per confirmed shape
     tunableop_confirm_max: int = 8      # with TunableOp on: shapes tuned and confirmed (~2 min each on MI300X)
 
     # MAMF (boost burst)
@@ -1801,18 +1864,26 @@ class Tuning:
     mamf_wave_k: int = 3                # auto: K values screened per wave-packed M,N layout
     mamf_screen_iters: int = 2          # iterations per screened shape
     mamf_screen_idle_s: float = 0.05    # idle seconds before each screened burst
+    k_edge_layouts: int = 8             # auto: layouts still rising at the K ceiling whose K is screened past it...
+    k_edge_max: int = 65536             # ...at 1.5x and 2x the ceiling, up to this K
     mamf_burst_iters: int = 20          # iterations per confirm burst; short, so it ends before the clock drops
     mamf_idle_s: float = 0.25           # idle seconds before each confirm burst, so the clock recovers to boost
-    boost_clock_ratio: float = 0.97     # a burst counts as boost if its SM clock is at least this x the run's highest
+    boost_clock_ratio: float = 0.97     # an iteration is boost if its SM clock is at least this x the run's highest
 
-    # MSMF (power-saturated)
-    msmf_soak_s: float = 20.0           # seconds to heat the GPU to steady state before MSMF; 0 to skip
-    msmf_max_spread: float = 3.0        # a shape whose repeats spread more than this % is kept out of the headline
-    msmf_lock_reps: int = 9             # repeats re-measuring the MSMF leader
+    # MSMF (sustained window)
+    msmf_settle_clock_s: float = 20.0   # max seconds of full load to let the SM clock settle before MSMF; 0 to skip
+    msmf_rank_s: float = 1.0            # timed seconds per confirm shape to rank them...
+    msmf_top: int = 10                  # ...then this many get the full window
+    msmf_warm_s: float = 1.0            # untimed seconds before each full window
+    msmf_window_s: float = 2.0          # timed seconds per full window, split into 8 sub-windows
+    msmf_max_drop: float = 1.0          # a window whose second half is this % slower than its first isn't steady
+    msmf_max_spread: float = 10.0       # sub-window sanity limit; at the power cap 0.25s sub-windows jitter ~4%
+    msmf_kwalk_seeds: int = 4           # auto: walk K down from this many fastest steady (M,N) layouts (0 = off)
+    msmf_kwalk_waves: int = 1           # auto: also walk the most-square layouts of up to this many waves, both ways
+    msmf_kwalk_steps: int = 10          # at most this many K steps per walk
+    msmf_kwalk_stop: float = 1.0        # end a walk once a step is this % below the best seen in it
+    msmf_lock_s: float = 4.0            # timed seconds re-measuring the leader
     msmf_lock_tries: int = 4            # leaders tried before accepting the best available
-    msmf_sat_power_ratio: float = 0.97  # drawing at least this x the run's max power counts as saturated
-    msmf_clock_ratio: float = 1.04      # an unsaturated shape clocked this x above the saturated clock still boosts
-    suspect_power_ratio: float = 0.9    # below this x the max power a shape is SUSPECT (only NVIDIA excludes it)
 
     @classmethod
     def from_overrides(cls, pairs):
@@ -1875,8 +1946,6 @@ def parse_args():
 
     run = parser.add_argument_group("how to run")
     run.add_argument("--cuda_device", type=int, default=0, help="index of the device to measure")
-    run.add_argument("--num_iterations", type=int, default=100, help="timed iterations per confirmed shape")
-    run.add_argument("--num_warmup_iterations", type=int, default=50, help="warmup iterations per confirmed shape")
     run.add_argument("--telemetry", choices=["on", "off"], default="on",
                      help="sample power and SM clock to validate both headlines; off runs without validation")
     run.add_argument("--tune", action="append", default=[], metavar="NAME=VALUE",
@@ -1908,6 +1977,8 @@ if __name__ == '__main__':
     tunableop = tunableop_setup(args.tune.tunableop_confirm_max)
     telem = telemetry_setup(args.telemetry, args.cuda_device)
     mode, grid_shapes, range_info, warmup_shape = search_setup(args)
+    if mode == "grid":  # grid reports the best shape within the user's range, so nothing measures K outside it
+        args.tune.k_edge_layouts = args.tune.msmf_kwalk_seeds = 0
 
     sys.stdout = Tee(args.output_file, args.verbose)
     print_benchmark_header(dtype, device, args.notes + f"\n- search mode: {mode}")
@@ -2030,15 +2101,13 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
 
         Both modes populate `measured`/`scout_meta` first (auto via heuristic scouts, grid via its user-supplied
         sweep); this then ranks candidates and produces the two headlines:
-          MSMF (sustainable): the number the chip HOLDS once saturated (~TDP). Per-shape warmup
-            burns off the cold-boost transient, trimmed-median of the steady mean, then drop
-            shapes that ran below saturation power (clock-boost bursts) via the SUSPECT filter.
-          MAMF (achievable):  the boost BURST a short real kernel can catch. Short idle+burst,
-            opening iterations kept, peak iteration, clock-validated. No saturation filter.
-            The full confirms share the union of independently ranked MAMF and MSMF candidates:
-            a fat shape that saturated while scouting still recovers boost after idle, while a
-            low-power wave candidate cannot be crowded out by MSMF's power-aware ranking.
-        The wave metadata is populated by auto; grid uses raw scout leaders from its supplied range.
+          MSMF (sustainable): the highest throughput a shape holds steady over a timed window under full load (see
+            confirm_msmf).
+          MAMF (achievable): the median of a shape's 5 fastest boost-clock iterations, each burst after an idle gap
+            (see confirm_mamf).
+        Both confirms measure the union of independently ranked MAMF and MSMF candidates: a fat shape that saturated
+        while scouting still recovers boost after idle, while a low-power wave candidate cannot be crowded out by
+        MSMF's power-aware ranking. The wave metadata is populated by auto; grid uses raw scout leaders from its range.
         """
         seen = seen or set()
         square_by_wave = square_by_wave or {}
@@ -2067,14 +2136,13 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
             tunableop_tune(top, dtype, device)
 
         stop_watch = telem.watch_siblings() if telem_ok(telem) else None
-        msmf_results = confirm_msmf(top, args, dtype, device, telem, reps, all_mean_tflops)
-        msmf = select_and_lock_msmf(msmf_results, args, dtype, device, telem, reps)
+        walk_mn = [mn for w in range(1, args.tune.msmf_kwalk_waves + 1) if (sq := square_by_wave.get(w))
+                   for mn in dict.fromkeys([sq, sq[::-1]])]
+        msmf_results, msmf = confirm_msmf(top, args, dtype, device, telem, all_mean_tflops, walk_mn)
         if stop_watch:
             headline["msmf_idle_siblings"] = stop_watch()
         if msmf and msmf.get("row"):
             phase_result(msmf["row"], "MSMF")
-            if msmf.get("warning"):
-                print(msmf["warning"])
 
         mamf_results = confirm_mamf(top, args, dtype, device, telem, reps, boost_clk, all_mean_tflops)
         boost_clk = max([boost_clk] + [r["boost_ref"] for r in mamf_results])
@@ -2087,9 +2155,6 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
                                 reps, boost_clk, all_mean_tflops)
 
         apply_headlines(headline, best_tflops, best_config, msmf, mamf)
-        if telem_ok(telem) and not telem.validated:
-            print(f"note: '{telem.backend}' power is reported but not used to exclude shapes on this vendor, so MSMF "
-                  "isn't checked for boost-burst inflation")
 
     def auto_search():
         """Lean directed search that reports both MAMF (boost) and MSMF (saturated).
@@ -2101,9 +2166,10 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
           1. wave-quantization (M,N) @ a short K set (every wave candidate, not top-N only)
           2. coarse M×N plane @ Kmin                             - many-waves / min-K basin
           3. tight local grid around the top scout seeds         - endgame polish
-          4. MSMF confirm: saturated, per-shape-warmed, trimmed-median, SUSPECT-filtered
-          5. MAMF recall screen: raw leaders + several K choices per wave-layout basin
-          6. both full confirms over their candidate union (same shapes, different regimes)
+          4. MAMF recall screen: raw leaders + several K choices per wave-layout basin, plus K past the K ceiling for
+             the layouts still rising at it
+          5. both confirms over their candidate union (same shapes, different regimes); MSMF walks K down from its
+             fastest steady layout
         """
         sms = arch.compute_unit_count()  # main() checked that both geometry hooks return usable values
         tile_m, tile_n = arch.gemm_tile_hint
@@ -2131,8 +2197,8 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
             """Phases 1–3: wave / plane / refine scouting plus wave provenance for confirm."""
             # Phase 1: wave-quantization-aware (M,N) at a short K set (not just the extremes). Measuring *every* wave
             # (M,N) at several Ks is what gets H200's wave-perfect mid/high-K winners (e.g. 1536x2816x20480) into the
-            # confirm set.
-            wave_ks = sorted({v for v in (k_min, 8192, 12288, 14336, 16384, k_max) if v <= max_size})
+            # confirm set, and B200's low-K ones (e.g. 3072x18944x2048), which burst fastest at K=2048-3072.
+            wave_ks = sorted({v for v in (k_min, 2048, 3072, 4096, 8192, 12288, 14336, 16384, k_max) if v <= max_size})
             seen = set()
             square_by_wave = {}  # w -> most-square (M,N); forced into MSMF confirm later
             wave_layouts_by_wave = {}
@@ -2217,17 +2283,16 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
     #   MAX - a plain hang guard so an accelerator/telemetry that never plateaus can't spin forever.
     WARMUP_MIN_SECONDS, WARMUP_MAX_SECONDS = 2.0, 45.0
     if telem_ok(telem):
-        print(f"telemetry: {telem.backend} (power/clock sampling "
-              f"on{'' if telem.validated else '; UNTESTED — report only, no SUSPECT exclusion'})")
+        print(f"telemetry: {telem.backend} (power/clock sampling on)")
         rated = telem.max_clock()
         if rated:
             print(f"  rated max SM clock {rated:.0f} MHz")
     elif args.telemetry == "off":
-        print("*** telemetry: off - MAMF is not boost-validated and SUSPECT filtering is off")
+        print("*** telemetry: off - MAMF is not boost-validated")
 
     def warmup_adaptive(shape, min_s, max_s, chunk=25, window=4, cov_thr=0.02, drift_thr=0.01):
-        # run saturated chunks of matmuls and watch the throughput; converged once a rolling window is both stable (low
-        # CoV) and no longer drifting vs the previous window.
+        """Run saturated chunks of matmuls and watch the throughput; converged once a rolling window is both stable
+        (low CoV) and no longer drifting vs the previous window."""
         M0, N0, K0 = shape
         hist = []
         t0 = time.monotonic()
@@ -2259,8 +2324,7 @@ geometric mean:  {all_tried_shapes_geometric_mean_tflops:.1f} TFLOPS
         end_time = time.monotonic() + accelerator_warmup_seconds
         print(f"Warming up the accelerator for {accelerator_warmup_seconds} secs ... ", end="", flush=True)
         while time.monotonic() < end_time:
-            _ = benchmark_mm(warmup_shape[0], warmup_shape[1], warmup_shape[2], dtype, device, args.num_iterations,
-                             args.num_warmup_iterations)
+            _ = benchmark_mm(warmup_shape[0], warmup_shape[1], warmup_shape[2], dtype, device, 100, 50)
         print("accelerator warmup finished")
 
     if mode == "grid":
