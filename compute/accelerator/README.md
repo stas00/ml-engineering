@@ -353,7 +353,6 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | Accelerator      | MAMF | MSMF | Theory | MAMF<br>% | MSMF<br>% | Sib<br>lings | Shape MxNxK<br>(MAMF) | torch<br>version    | Notes |
 | :--------------- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :------------------ | ----: |
 | Intel Gaudi 2    |  419 |    — |    432 |     97.0% |         — | no           | 14336x15360x2048      | 2.6.0+hpu_1.21.2-76 |     1 |
-| NVIDIA H200 NVL  |  765 |  662 |    835 |     91.6% |     79.3% | no           | 1536x2816x30720       | 2.14.1+cu132        |       |
 | NVIDIA A100 PCIe |  285 |  258 |    312 |     91.3% |     82.7% | no           | 18432x1536x30720      | 2.14.1+cu130        |     2 |
 | NVIDIA H200 NVL  |  761 |  665 |    835 |     91.1% |     79.6% | yes          | 2816x1536x30720       | 2.14.1+cu132        |       |
 | NVIDIA A100 SXM  |  271 |    — |    312 |     86.9% |         — | no           | 1024x10240x5120       | 2.6.0+cu126         |       |
@@ -374,7 +373,6 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | Accelerator      | MAMF | MSMF | Theory | MAMF<br>% | MSMF<br>% | Sib<br>lings | Shape MxNxK<br>(MAMF) | torch<br>version    | Notes |
 | :--------------- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :------------------ | ----: |
 | Intel Gaudi 2    |  827 |    — |    865 |     95.6% |         — | no           | 6144x11264x5120       | 2.6.0+hpu_1.21.2-76 |     1 |
-| NVIDIA H200 NVL  | 1380 | 1157 |   1670 |     82.6% |     69.3% | no           | 1536x2816x30720       | 2.14.1+cu132        |       |
 | NVIDIA H200 NVL  | 1366 | 1160 |   1670 |     81.8% |     69.5% | yes          | 1536x2816x40960       | 2.14.1+cu132        |       |
 | NVIDIA B300 SXM  | 3608 | 2969 |   4500 |     80.2% |     66.0% | no           | 6144x18432x3072       | 2.14.0+cu130        |    10 |
 | NVIDIA GH200 SXM | 1535 |    — |   1979 |     77.6% |         — | no           | 1024x14336x14336      | 2.6.0+cu126         |     5 |
