@@ -189,7 +189,7 @@ Pick the `cuNNN` index matching the driver (`nvidia-smi`); try the highest one t
 
 **Verify each phase actually ran on it.** Every bench prints its stack (`- software: torch=…, nccl=…`); MAMF logs it too. A launcher can silently substitute its own interpreter — `deepspeed`/`srun` run whatever `python3` is on the remote PATH, so a run can come back on the node’s old torch even with the venv sourced. Grep the log before you copy a number into the report.
 
-**`nvidia-ml-py` is required** (`import pynvml`) — `mamf-finder.py` refuses to start without it, because it needs the SM clock to confirm MAMF was a boost burst and the power draw to drop MSMF shapes that never reached the power limit (the script labels those SUSPECT). Do not pass `--telemetry off` to get around it; install the package. The pip name is `nvidia-ml-py`; the import is `pynvml`.
+**`nvidia-ml-py` is required** (`import pynvml`) — `mamf-finder.py` refuses to start without it, because it needs the SM clock to confirm MAMF was a boost burst and the power draw to rank the scouted shapes. Do not pass `--telemetry off` to get around it; install the package. The pip name is `nvidia-ml-py`; the import is `pynvml`.
 
 Host packages — install before the env dump, on **every** node you will measure. Prefix with `sudo` if the eval user is not root. Empty `ibstat` on EFA is OK; still install `infiniband-diags` and confirm fabric with `rdma link` / `/sys/class/infiniband`.
 
@@ -254,7 +254,7 @@ Open Compute with the **GPUs that are here** (name, count per node, SM count, HB
 
 ### Hardware health
 
-Hardware health, not a FLOPS number. `-r 1` is seconds of software/deployment only — skip it as a named step. **`-r 2`** is the light hardware suite (GPU memory, memory bandwidth, PCIe/NVLink; NVIDIA: ≲10.5 min on 8 GPUs). `-r 3` is a longer soak, optional.
+Hardware health, not a FLOPS number. `-r 1` is seconds of software/deployment only — skip it as a named step. **`-r 2`** is the light hardware suite (GPU memory, memory bandwidth, PCIe/NVLink; NVIDIA: ≲10.5 min on 8 GPUs). `-r 3` is a longer stress test, optional.
 
 Needs `nv-hostengine` and usually `CAP_SYS_ADMIN` (these trial pods are typically root with it). If install or diag fails, **Gaps** and continue with MAMF — do not skip the lemon pass.
 
@@ -278,11 +278,11 @@ On 8 H200s it took about 4.5 minutes.
 
 1. GPU0 runs the full `--search auto`: MAMF, MSMF and the MSMF shape (`mamf/gpu0.txt`).
 2. Each other GPU in turn measures GPU0's MSMF shape only (`mamf/gpu<N>.txt`); that is much shorter than a search. Their logs also print a MAMF line, which is a burst on that one shape, not a search result — ignore it.
-3. `mamf/summary.txt` lists each GPU's MSMF with shape, W and MHz, then the node MSMF (the slowest GPU, since synchronous work runs at its pace), the median and spread across GPUs, and GPU0's MAMF.
+3. `mamf/summary.txt` lists each GPU's MAMF and MSMF with shapes, W and MHz, then for each headline the node figure (the median GPU), the slowest GPU, which synchronous work runs at, and the spread across GPUs.
 
 Every GPU's MSMF is the same shape at full-node power, so the numbers compare directly. MAMF exists for GPU0 only; never present it as a per-GPU number. Compare MAMF and MSMF to official BF16 TFLOPS.
 
-**One pass cannot call a GPU slow.** On 8 healthy H200s each GPU's MSMF moved by up to 5% between passes (one went 727, 763, 745 TFLOPS), so half the passes had some GPU 2–3% below the node median. If any GPU lands >2% below the node median MSMF, rerun the pass twice with the shape pinned — `--m M --n N --k K` from the summary's MSMF shape, `OUT_DIR=mamf-rep2` and `mamf-rep3`, about 2 minutes each on 8 H200s. A GPU is under-performing only if it is >2% below its node median in **all three** passes; report it in **Findings** as described there. If the dip did not repeat, say so in one sentence with the three numbers, so the reader does not wonder about the first table.
+**One pass cannot call a GPU slow, and a few percent is not slow.** Healthy GPUs differ from chip to chip: on healthy 8x H200 and 8x B200 nodes the slowest GPU's MSMF sat 0.9–1.7% below its node median, and a single GPU's MSMF moves by up to 2.2% between passes on top of that, so a healthy GPU can read about 4% below the median in one pass. A GPU is a candidate only if it is more than 5% below the node median MSMF, well beyond that spread. Then rerun the pass twice with the shape pinned — `--m M --n N --k K` from the summary's MSMF shape, `OUT_DIR=mamf-rep2` and `mamf-rep3`, about 3.5 minutes each on 8 H200s. A GPU is under-performing only if it is more than 5% below its node median in **all three** passes; report it in **Findings** as described there. If the dip did not repeat, say so in one sentence with the three numbers, so the reader does not wonder about the first table.
 
 - A non-zero exit means a GPU's run failed: read `mamf/gpu<N>.err`, rerun or put it in **Gaps**.
 - A `saw idle siblings` warning in `summary.txt` means a sibling's matmul stopped during that GPU's measurement, so its MSMF reads high. Rerun; if it repeats, put it in **Gaps**.
@@ -294,7 +294,7 @@ Cheap check for a slow, throttled, or dead card — **not** MAMF. Open with **TL
 
 Fixed **16384³ bf16**. Compute SM coverage from **this** GPU’s SM count (`torch.cuda.get_device_properties(0).multi_processor_count`) — never reuse an SM count from another GPU family. At 128×256 output tiles that is **8192** CTAs (`16384/128 × 16384/256`; a CTA is one CUDA thread block). Full waves = `8192 // SMs`, tail = `8192 % SMs`, wave efficiency = `1 - tail/8192`. Example only: 132 SMs → 62 waves + 8 CTA tail (**99.9%**).
 
-Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (the GPU performance pass uses >2%); the min of a tight pack is noise.
+Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (the GPU performance pass uses >5%); the min of a tight pack is noise.
 
 ## Network
 
@@ -558,14 +558,14 @@ Name × count, SM count, HBM GiB, TDP, official BF16 TFLOPS. Not a benchmark dum
 **Pass** (or **Fail** on named plugins/GPUs; or Gaps: no hostengine / unprivileged). Never **Pass** and **No Fail** together.
 
 ### GPU performance benchmarks
-Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches. State how many matmul shapes GPU0's search timed (the `Tried N shapes` line in `mamf/gpu0.txt`), and that every other GPU then measured the sustainable winner while all the rest of the node ran a continuous matmul. Then `Two numbers vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
+Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches. State how many matmul shapes GPU0's search timed (the `Tried N shapes` line in `mamf/gpu0.txt`), and that every other GPU then measured GPU0's two winning shapes while all the rest of the node ran a continuous matmul. Then `Two numbers vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
 
-- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS reached by any matmul shape on GPU0 (short burst at boost, board far under its power limit). A ceiling, not a rate any sustained workload holds. One number, with its shape and % spec.
-- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles, measured on every GPU while all the others compute. The node figure is the slowest GPU, since synchronous work runs at its pace. Compare a sustained workload to this number.
+- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS a short burst at boost reaches, with the board far under its power limit, measured on every GPU at GPU0's MAMF shape; the node figure is the median GPU. A ceiling, not a rate any sustained workload holds. One number, with its shape and % spec.
+- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles, measured on every GPU while all the others compute. The node figure is the median GPU, so one weak or strong chip doesn't set it; synchronous work runs at the slowest GPU, which the summary also gives. Compare a sustained workload to the median, and a synchronous job's ceiling to the slowest.
 
-Then the per-GPU table from `mamf/summary.txt`, and below it the node MSMF (slowest GPU), median and spread:
+Then the per-GPU table from `mamf/summary.txt`, and below it the node MAMF and MSMF (median GPU), the slowest GPU and the spread:
 
-| GPU | MSMF | MSMF shape | W / MHz | MSMF % spec |
+| GPU | MAMF | MSMF | MSMF shape | W / MHz | MSMF % spec |
 
 TFLOPS are integers, as the script prints them; compute % spec from the integer. On a 1-GPU box there is no "while the others compute" and no median or spread; say it is the only GPU.
 

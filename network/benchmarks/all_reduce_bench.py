@@ -180,7 +180,8 @@ class CudaLikeArch(Arch):
         return repr(torch.cuda.get_device_properties('cuda'))
 
     def busy_wait(self, ms):
-        # torch.cuda._sleep spins for a number of device clock cycles, which tick at a different rate on each GPU
+        """Keep the GPU busy for `ms` milliseconds. torch.cuda._sleep spins for a number of device clock cycles, which
+        tick at a different rate on each GPU, so the cycles per ms are measured on the first call."""
         if self.sleep_cycles_per_ms is None:
             cycles = 1_000_000
             start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
