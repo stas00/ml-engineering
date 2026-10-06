@@ -67,6 +67,9 @@ The listing is in no particular order other than being grouped by the year.
 - Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
 
+### 2026
+
+- [Supercharging Olmo-core for Efficient and Scalable MoE Training](https://allenai.org/papers/olmocore3) - practical recommendations for training large scale MoE models in 2026!
 
 
 ## Hardware setup logbooks
