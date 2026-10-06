@@ -1,3 +1,7 @@
+<!-- not-in-ebook-start -->
+<a href="#ebook-versions-of-the-book"><img src="images/Machine-Learning-Engineering-book-cover-200x259.png" align="right" width="200" height="259" alt="Machine Learning Engineering Open Book cover"></a>
+<!-- not-in-ebook-end -->
+
 # Machine Learning Engineering Open Book
 
 This is an open collection of methodologies, tools and step by step instructions to help with successful training and fine-tuning of large language models and multi-modal models and their inference.
