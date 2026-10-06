@@ -108,8 +108,10 @@ class Arch:
     # --- auto-search geometry --- `--search auto` derives near-peak GEMM shapes from tile + wave quantization, which
     # needs (a) the compute-unit count for wave packing (compute_unit_count) and (b) a representative kernel tile
     # (gemm_tile_hint). An arch without them can't run auto (main() points the user at grid); geometry_validated=True
-    # marks the archs where auto was checked against an exhaustive grid - the others run it with a note.
+    # marks the archs where auto was checked against an exhaustive grid - the others run it with a note, which names
+    # geometry_checked, the partial check done so far, if any.
     geometry_validated = False
+    geometry_checked = None
     # Representative (tile_m, tile_n) of the vendor GEMM kernel, used ONLY to seed wave-quantized candidates.
     #
     # What the value implies: the search assumes the kernel emits tile_m x tile_n output tiles, so it builds candidate
@@ -317,6 +319,7 @@ class AMDArch(CudaLikeArch):
     # geometry_validated stays False (inherited), so auto runs with a note. On one MI300X (BF16) CU-count wave packing
     # with this (128,256) placeholder tile matched a 16,000-shape grid to 0.1%; flip to True once FP8 and a second box
     # agree.
+    geometry_checked = "one MI300X in BF16, where it came within 0.1% of a 16,000-shape grid"
     gemm_tile_hint = (128, 256)
 
     def __init__(self):
@@ -1789,7 +1792,10 @@ def search_setup(args):
         sys.exit(f"error: --search auto derives its shapes from the GPU's compute-unit layout, which mamf-finder.py "
                  f"doesn't model for {arch.name!r}; search an explicit range instead with --m/--n/--k (or "
                  "--m_range/--n_range/--k_range) or --shapes_file")
-    if not arch.geometry_validated:
+    if not arch.geometry_validated and arch.geometry_checked:
+        print(f"note: --search auto was checked against an exhaustive grid only on {arch.geometry_checked}; on "
+              "other GPUs and dtypes compare it with a small --search grid before trusting the shapes it picks")
+    elif not arch.geometry_validated:
         print(f"note: --search auto has not been checked against an exhaustive grid on {arch.name!r}; compare it with "
               "a small --search grid before trusting the shapes it picks")
     range_info = f"auto-search (CUs={arch.compute_unit_count()}, dtype={args.dtype}, max_size={args.tune.max_size})"
@@ -1815,7 +1821,9 @@ def tunableop_shortlist(msmf_cands, mamf_cands, max_shapes):
     """Up to max_shapes shapes, alternating the two best-first candidate lists so each keeps its leaders."""
     out = []
     for pair in itertools.zip_longest(msmf_cands, mamf_cands):
-        out += [s for s in pair if s is not None and s not in out]
+        for s in pair:
+            if s is not None and s not in out:
+                out.append(s)
     return out[:max_shapes]
 
 
