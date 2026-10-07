@@ -206,6 +206,15 @@ class CudaLikeArch(Arch):
     def device_info(self):
         return torch.cuda.get_device_properties(device)
 
+    def pci_address(self):
+        """domain:bus:device of the device torch uses. The telemetry libraries can number the GPUs in a different order
+        than torch and *_VISIBLE_DEVICES do, so the PCI address is what finds the benchmarked GPU's handle."""
+        props = torch.cuda.get_device_properties(self.device)
+        if not hasattr(props, "pci_bus_id"):
+            raise RuntimeError(f"{self.telemetry_backend} telemetry requires torch>=2.8 (to find the benchmarked GPU "
+                               f"by its PCI address), found torch=={torch.__version__}")
+        return f"{props.pci_domain_id:04x}:{props.pci_bus_id:02x}:{props.pci_device_id:02x}"
+
     def event(self, enable_timing=True):
         return torch.cuda.Event(enable_timing)
 
@@ -240,7 +249,7 @@ class NVIDIAArch(CudaLikeArch):
         m.nvmlInit()
         self._nvml = m
         self._clk_arg = m.NVML_CLOCK_SM
-        return m.nvmlDeviceGetHandleByIndex(index)
+        return m.nvmlDeviceGetHandleByPciBusId(self.pci_address().encode())
 
     def read_power(self, handle, instant=False):
         """nvmlDeviceGetPowerUsage averages over the last 1s on Ampere (except GA100) and newer. The instantaneous
@@ -282,10 +291,11 @@ class NVIDIAArch(CudaLikeArch):
         try:
             count = m.nvmlDeviceGetCount()
             my_name = self.read_device_name(handle)
+            my_index = m.nvmlDeviceGetIndex(handle)
         except Exception:
             return out
         for i in range(count):
-            if i == self_index:
+            if i == my_index:
                 continue
             try:
                 h = m.nvmlDeviceGetHandleByIndex(i)
@@ -1530,6 +1540,7 @@ class Telemetry:
         self.arch = arch
         self.index = index
         self._h = None
+        self.missing_package = False
         self.error = None if arch is not None and arch.telemetry_backend is not None \
             else f"no telemetry backend for {arch}"
         # Only archs that opted into telemetry (telemetry_backend set) are asked for a handle; the rest
@@ -1547,6 +1558,7 @@ class Telemetry:
                 # the deprecated `pynvml` PyPI package
                 pkg = TELEMETRY_PACKAGE_NAMES.get(arch.telemetry_backend, arch.telemetry_backend)
                 self.error = f"Python package `{pkg}` is not installed"
+                self.missing_package = True
             except Exception as e:
                 self._h = None
                 self.error = f"{type(e).__name__}: {e}"
@@ -1746,8 +1758,9 @@ def telemetry_setup(telemetry, cuda_device):
         broken = {k: v for k, v in telem.probe().items() if v and k != "max_clock"}
         problem = "; ".join(f"{k} read failed ({v})" for k, v in broken.items())
     if problem:
+        hint = telemetry_install_hint() if telem.missing_package else ""
         sys.exit(f"error: telemetry is required to validate MAMF but is unavailable: {problem}."
-                 f"{telemetry_install_hint()}\nOr pass --telemetry off to run anyway with an unvalidated MAMF.")
+                 f"{hint}\nOr pass --telemetry off to run anyway with an unvalidated MAMF.")
     return telem
 
 
