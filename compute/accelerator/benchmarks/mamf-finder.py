@@ -346,11 +346,16 @@ class AMDArch(CudaLikeArch):
         return None
 
     def telemetry_init(self, index):
+        """amdsmi lists GPUs in PCI order and HIP in KFD topology order, so match on the PCI address, not the index."""
         import amdsmi as m
         m.amdsmi_init()
         self._amdsmi = m
         self._clk_arg = m.AmdSmiClkType.GFX   # docs-confirmed enum member (graphics/compute clock)
-        return m.amdsmi_get_processor_handles()[index]
+        bdf = self.pci_address()
+        for handle in m.amdsmi_get_processor_handles():
+            if m.amdsmi_get_gpu_device_bdf(handle).lower().startswith(bdf):
+                return handle
+        raise RuntimeError(f"no amdsmi GPU at PCI address {bdf}")
 
     def read_power(self, handle, instant=False):
         """amdsmi_get_power_info() returns Watts (confirmed on MI300X): current_socket_power (MI300+), with
