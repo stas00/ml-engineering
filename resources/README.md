@@ -70,7 +70,7 @@ The listing is in no particular order other than being grouped by the year.
 ### 2026
 
 - [Supercharging Olmo-core for Efficient and Scalable MoE Training](https://allenai.org/papers/olmocore3) - practical recommendations for training large scale MoE models in 2026!
-
+- [Marin 535B-A23B MoE](https://mtracker.oa.dev/hero-run-535b) - each short entry goes to a details GitHub Issue where you can read the details.
 
 ## Hardware setup logbooks
 
