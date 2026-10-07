@@ -35,6 +35,10 @@ Typically, as long as the training doesn't crash, these errors often indicate is
 
 The full list of Xid Errors and their interpretation can be found [here](https://docs.nvidia.com/deploy/xid-errors/latest/index.html).
 
+Many Xid log lines carry far more fields than the one above, and they are cryptic. [Xid 31 MMU Faults: What Causes Them and How to Fix Production GPU Crashes](https://www.abhik.ai/articles/gpu-xid31-mmu-faults) is a good example of how to decipher one: it decodes every field of an Xid 31 line from `dmesg` - the faulting engine and hardware unit, the virtual address, `FAULT_PDE` vs `FAULT_PTE` and the access type - and follows them to the cause, a use-after-free between the PyTorch, CuPy and NVDEC memory allocators. It also shows that not every Xid is a hardware problem - this one was caused by software.
+
+NVIDIA's [Xid Catalog](https://docs.nvidia.com/deploy/xid-errors/analyzing-xid-catalog.html) goes further for Ampere and newer GPUs: for each Xid it lists which GPUs can log it, what triggers it, and what to do about it - an immediate action, such as `RESTART_APP` or `CONTACT_SUPPORT`, and a follow-up one, such as `CHECK_APP/CUDA`. It can be downloaded as a spreadsheet, which helps when mapping the Xids in your logs to actions automatically. For Xid 13 and 31, which it says are typically bugs in the application, its first recommendation is Compute Sanitizer's `memcheck` - see [Debugging CUDA kernel memory errors with `compute-sanitizer`](../../../debug/pytorch.md#debugging-cuda-kernel-memory-errors-with-compute-sanitizer) for how to run it on a PyTorch program.
+
 You can run `nvidia-smi -q` and see if there are any error counts reported. For example, in this case of Xid 63, you will see something like:
 
 ```
