@@ -346,9 +346,7 @@ class AMDArch(CudaLikeArch):
         return None
 
     def telemetry_init(self, index):
-        """Find the amdsmi handle by the PCI address of the device torch is using.
-        amdsmi lists GPUs in PCI address order, while HIP (torch and HIP_VISIBLE_DEVICES) numbers them in KFD topology order.
-        The two orders can differ on some nodes, so indexing amdsmi by the torch index can sample the wrong GPU."""
+        """amdsmi lists GPUs in PCI order and HIP in KFD topology order, so match on the PCI address, not the index."""
         import amdsmi as m
         m.amdsmi_init()
         self._amdsmi = m
