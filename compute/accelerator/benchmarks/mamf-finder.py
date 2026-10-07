@@ -353,8 +353,7 @@ class AMDArch(CudaLikeArch):
         m.amdsmi_init()
         self._amdsmi = m
         self._clk_arg = m.AmdSmiClkType.GFX   # docs-confirmed enum member (graphics/compute clock)
-        props = torch.cuda.get_device_properties(self.device)
-        bdf = f"{props.pci_domain_id:04x}:{props.pci_bus_id:02x}:{props.pci_device_id:02x}"
+        bdf = self.pci_address()
         for handle in m.amdsmi_get_processor_handles():
             if m.amdsmi_get_gpu_device_bdf(handle).lower().startswith(bdf):
                 return handle
