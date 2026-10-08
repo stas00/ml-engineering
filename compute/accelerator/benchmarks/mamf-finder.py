@@ -147,10 +147,6 @@ class Arch:
         """Make `index` the current device before anything is allocated; no-op on single-device archs."""
         pass
 
-    def dtype_unsupported(self, dtype_name):
-        """Why the current device can't run --dtype `dtype_name`, or None if nothing is known against it."""
-        return None
-
     # --- telemetry hooks --- An Arch opts into telemetry by setting telemetry_backend to a non-None id (see NVIDIAArch
     # / AMDArch / HPUArch). Once it does, it MUST implement telemetry_init + the readers below: the base raises
     # NotImplementedError (naming the class + missing method) so a half-wired backend fails loudly instead of silently
@@ -163,7 +159,8 @@ class Arch:
             f"{method}(); implement it, or set telemetry_backend=None to opt out.")
 
     def telemetry_init(self, index):
-        """Acquire and return an opaque per-device handle."""
+        """Acquire and return an opaque per-device handle. `index` is --cuda_device, for the archs that can't find the
+        device torch uses by its PCI address."""
         self._telemetry_required("telemetry_init")
 
     def read_power(self, handle, instant=False):
@@ -186,7 +183,7 @@ class Arch:
         """GPU die temperature in C. Optional: the default returns None."""
         return None
 
-    def siblings_idle(self, handle, self_index=0, util_pct=10):
+    def siblings_idle(self, handle, util_pct=10):
         """OTHER same-board accelerators that are idle. Optional even for telemetry backends: the safe default is
         "none reported" (only NVIDIAArch enumerates siblings), so this is a real no-op, not a required override."""
         return []
@@ -238,12 +235,6 @@ class NVIDIAArch(CudaLikeArch):
     def compute_info(self):
         return f"cuda={torch.version.cuda}"
 
-    def dtype_unsupported(self, dtype_name):
-        cc = torch.cuda.get_device_capability()
-        if dtype_name in BLOCK_SCALED_DTYPES and cc < (10, 0):
-            return f"{torch.cuda.get_device_name()} is compute capability {cc[0]}.{cc[1]}"
-        return None
-
     def telemetry_init(self, index):
         import pynvml as m
         m.nvmlInit()
@@ -274,7 +265,7 @@ class NVIDIAArch(CudaLikeArch):
         name = self._nvml.nvmlDeviceGetName(handle)
         return name.decode() if isinstance(name, bytes) else name
 
-    def siblings_idle(self, handle, self_index=0, util_pct=10):
+    def siblings_idle(self, handle, util_pct=10):
         """Return [(idx, util%)] for OTHER same-board GPUs that are not computing.
 
         Sibling GPUs on the same board share a power/cooling budget. In real work they all compute at once, so an MSMF
@@ -339,12 +330,6 @@ class AMDArch(CudaLikeArch):
     def compute_info(self):
         return f"hip={torch.version.hip}, cuda={torch.version.cuda}"
 
-    def dtype_unsupported(self, dtype_name):
-        gfx = torch.cuda.get_device_properties(self.device).gcnArchName
-        if dtype_name in BLOCK_SCALED_DTYPES and "gfx950" not in gfx:
-            return f"{torch.cuda.get_device_name()} is {gfx}"
-        return None
-
     def telemetry_init(self, index):
         """amdsmi lists GPUs in PCI order and HIP in KFD topology order, so match on the PCI address, not the index."""
         import amdsmi as m
@@ -353,9 +338,12 @@ class AMDArch(CudaLikeArch):
         self._clk_arg = m.AmdSmiClkType.GFX   # docs-confirmed enum member (graphics/compute clock)
         bdf = self.pci_address()
         for handle in m.amdsmi_get_processor_handles():
-            if m.amdsmi_get_gpu_device_bdf(handle).lower().startswith(bdf):
+            if m.amdsmi_get_gpu_device_bdf(handle).lower().startswith(bdf + "."):
                 return handle
-        raise RuntimeError(f"no amdsmi GPU at PCI address {bdf}")
+        seen = [m.amdsmi_get_gpu_device_bdf(h) for h in m.amdsmi_get_processor_handles()]
+        raise RuntimeError(f"no amdsmi GPU at PCI address {bdf} - the amdsmi at {m.__file__} sees "
+                           f"{', '.join(seen) or 'no GPUs'}. If torch's GPU is missing, that amdsmi may not match "
+                           f"the ROCm torch uses, e.g. when PYTHONPATH points to another ROCm's amdsmi")
 
     def read_power(self, handle, instant=False):
         """amdsmi_get_power_info() returns Watts (confirmed on MI300X): current_socket_power (MI300+), with
@@ -667,8 +655,6 @@ def prepare_gemm(m, n, k, dtype, device):
     elif dtype in ("float8_e4m3fn", "float8_e4m3fnuz"):
         if version.parse(torch.__version__) < version.parse("2.5"):
             raise ValueError("float8 dtypes require torch>=2.5")
-        if dtype == "float8_e4m3fn" and arch.name == "rocm":
-            raise ValueError("ROCm doesn't support float8_e4m3fn, use --dtype float8_e4m3fnuz instead")
         A = torch.randn(m, k, dtype=torch.float32, device=device).contiguous().to(out_dtype)
         B = torch.randn(n, k, dtype=torch.float32, device=device).contiguous().t().to(out_dtype)
         scale = torch.tensor([1.0]).to(device)
@@ -1543,7 +1529,6 @@ class Telemetry:
 
     def __init__(self, arch, index=0):
         self.arch = arch
-        self.index = index
         self._h = None
         self.missing_package = False
         self.error = None if arch is not None and arch.telemetry_backend is not None \
@@ -1633,7 +1618,7 @@ class Telemetry:
         if self._h is None:
             return []
         try:
-            return self.arch.siblings_idle(self._h, self_index=self.index, util_pct=util_pct)
+            return self.arch.siblings_idle(self._h, util_pct=util_pct)
         except Exception:
             return []
 
@@ -1720,25 +1705,32 @@ def setup_checks():
                  "but it hasn't been set. Proceeding as is - expect potentially bad/invalid results.")
 
 
+def gemm_error(dtype_name, device):
+    """The first line of the error a tiny `dtype_name` matmul raises on `device`, or None if it runs"""
+    try:
+        prepare_gemm(128, 128, 128, dtype_name, device)[0]()
+        arch.synchronize()
+    except Exception as e:
+        return str(e).splitlines()[0].rstrip(".")
+    return None
+
+
 def dtype_checks(dtype_name, device):
-    """Exit if the current device can't run --dtype `dtype_name`: a known torch/arch limit, else a tiny matmul, since
-    the vendor libraries don't support every dtype everywhere and failing here beats failing mid-search."""
+    """Exit if the current device can't run --dtype `dtype_name`. A tiny matmul finds out, since the vendor libraries
+    raise on whatever the device or the software stack doesn't support, and failing here beats failing mid-search."""
     if SUPPORTED_DTYPES[dtype_name] is None:
         reason = f"torch {torch.__version__} is too old"
     else:
-        reason = arch.dtype_unsupported(dtype_name)
-    if reason is None:
-        try:
-            prepare_gemm(128, 128, 128, dtype_name, device)[0]()
-            arch.synchronize()
-        except Exception as e:
-            reason = str(e).splitlines()[0].rstrip(".")
+        reason = gemm_error(dtype_name, device)
     if reason:
         hint = {
-            "mxfp8": " mxfp8 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch.",
-            "mxfp4": " mxfp4 needs hardware MX support (NVIDIA Blackwell or AMD MI355X) and a recent PyTorch.",
+            "mxfp8": " mxfp8 needs hardware MX support (NVIDIA Blackwell or AMD MI350X/MI355X) and a recent PyTorch.",
+            "mxfp4": " mxfp4 needs hardware MX support (NVIDIA Blackwell or AMD MI350X/MI355X) and a recent PyTorch.",
             "nvfp4": " nvfp4 needs NVIDIA Blackwell and a recent PyTorch.",
         }.get(dtype_name, "")
+        other_fp8 = {"float8_e4m3fn": "float8_e4m3fnuz", "float8_e4m3fnuz": "float8_e4m3fn"}.get(dtype_name)
+        if other_fp8 and SUPPORTED_DTYPES[other_fp8] is not None and gemm_error(other_fp8, device) is None:
+            hint = f" This device's fp8 is {other_fp8}, use --dtype {other_fp8}."
         sys.exit(f"error: --dtype {dtype_name} doesn't run on this device: {reason}.{hint}")
 
 
@@ -1748,13 +1740,7 @@ def telemetry_setup(telemetry, cuda_device):
     instead."""
     if telemetry == "off":
         return None
-    # sample the *physical* device: CUDA_VISIBLE_DEVICES[--cuda_device] if set
-    visible = os.environ.get("CUDA_VISIBLE_DEVICES") or os.environ.get("HIP_VISIBLE_DEVICES")
-    try:
-        index = int(visible.split(",")[cuda_device]) if visible else cuda_device
-    except (ValueError, IndexError):
-        index = cuda_device
-    telem = Telemetry(arch, index)
+    telem = Telemetry(arch, cuda_device)
     if arch.telemetry_backend is None:
         return telem
     if not telem.available:
@@ -1956,8 +1942,9 @@ def parse_args():
     what = parser.add_argument_group("what to measure")
     what.add_argument("--dtype", default="bfloat16",
                       choices=SUPPORTED_DTYPES, metavar="{" + ", ".join(SUPPORTED_DTYPES) + "}",
-                      help="float8_e4m3fn is NVIDIA's fp8 and float8_e4m3fnuz AMD MI300's; mxfp8 and mxfp4 need "
-                           "NVIDIA Blackwell or AMD MI355X; nvfp4 needs NVIDIA Blackwell")
+                      help="float8_e4m3fn is the fp8 of NVIDIA and AMD MI350X/MI355X, float8_e4m3fnuz that of AMD "
+                           "MI300X/MI325X; mxfp8 and mxfp4 need NVIDIA Blackwell or AMD MI350X/MI355X; nvfp4 needs "
+                           "NVIDIA Blackwell")
     what.add_argument("--search", choices=["auto", "grid"], default="auto",
                       help="auto: find the best shape anywhere; grid: the best shape in the --m/--n/--k range you "
                            "give. Any shape argument implies grid")

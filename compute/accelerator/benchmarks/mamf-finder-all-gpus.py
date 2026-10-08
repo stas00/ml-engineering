@@ -181,7 +181,9 @@ def run_finder(gpu, args, out_dir):
     """Run mamf-finder.py on `gpu` and wait for it to exit; return its exit code."""
     global finder
     log = out_dir / f"gpu{gpu}.txt"
-    cmd = [sys.executable, str(FINDER), *args, "--cuda_device", str(gpu), "--output_file", str(log)]
+    # the child gets this interpreter's flags, e.g. -I, or it may import other packages than this process does
+    cmd = [sys.executable, *subprocess._args_from_interpreter_flags(), str(FINDER), *args,
+           "--cuda_device", str(gpu), "--output_file", str(log)]
     if gpu == 0:
         finder = subprocess.Popen(cmd)
     else:
