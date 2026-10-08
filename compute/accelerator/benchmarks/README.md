@@ -98,7 +98,7 @@ On ROCm, `--search auto` prints a note that it was checked against an exhaustive
 
 ### Examples of usage
 
-`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16`; `--dtype` also accepts `float16`, `float32`, `float8_e4m3fn` (NVIDIA's fp8), `float8_e4m3fnuz` (AMD MI300's fp8), and three block-scaled formats with a `bfloat16` output: `mxfp8` (`float8_e4m3fn` operands with one `float8_e8m0fnu` scale per 32 elements), `mxfp4` (fp4 `e2m1` operands with one `float8_e8m0fnu` scale per 32 elements) and `nvfp4` (fp4 `e2m1` operands with one `float8_e4m3fn` scale per 16 elements). `mxfp8` and `mxfp4` need hardware MX support such as NVIDIA Blackwell or AMD MI355X; `nvfp4` needs NVIDIA Blackwell, and both fp4 formats need `K` to be a multiple of 32. How each shape is timed is in [How MAMF and MSMF are defined](#how-mamf-and-msmf-are-defined).
+`K` is the reduction dimension: `(MxK)*(KxN)=(MxN)`. Default dtype is `bfloat16`; `--dtype` also accepts `float16`, `float32`, `float8_e4m3fn` (the fp8 of NVIDIA and AMD MI350X/MI355X), `float8_e4m3fnuz` (the fp8 of AMD MI300X/MI325X), and three block-scaled formats with a `bfloat16` output: `mxfp8` (`float8_e4m3fn` operands with one `float8_e8m0fnu` scale per 32 elements), `mxfp4` (fp4 `e2m1` operands with one `float8_e8m0fnu` scale per 32 elements) and `nvfp4` (fp4 `e2m1` operands with one `float8_e4m3fn` scale per 16 elements). `mxfp8` and `mxfp4` need hardware MX support such as NVIDIA Blackwell or AMD MI350X/MI355X; `nvfp4` needs NVIDIA Blackwell, and both fp4 formats need `K` to be a multiple of 32. Before searching, `mamf-finder.py` runs a tiny matmul in the requested dtype and exits with the vendor library's error if the device or the software stack can't run it - and for an fp8 dtype, it names the other fp8 variant if that one runs. How each shape is timed is in [How MAMF and MSMF are defined](#how-mamf-and-msmf-are-defined).
 
 #### 1. Auto search (default) — best the GPU can do anywhere
 
@@ -238,3 +238,16 @@ Architecture-specific setup (MI300X `numa_balancing` / TunableOp, Intel dGPU ins
 ### Results
 
 The measurements that I have gathered so far can be found at [Maximum Achievable and Sustainable Matmul FLOPS comparison table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table). When I had access to a particular accelerator I run the benchmarks myself, when I didn't it was the kind contributors who invested their time to get these numbers. So I'm very grateful to [those](../../../contributors.md).
+
+### How to report MAMF/MSMF entries
+
+On a node with more than one GPU, measure with [`mamf-finder-all-gpus.py`](mamf-finder-all-gpus.py) rather than running `mamf-finder.py` on its own. In training every GPU of the node computes at once and they share the board's power and cooling budget, so a GPU measured while its siblings sit idle gets headroom a busy node never has, and its MSMF is only a single-GPU upper bound. The GPUs of one node also differ from chip to chip - by up to 4% in MSMF on the 8x H200 and 8x B200 nodes measured above - so one GPU's numbers describe that chip rather than the GPU model. The wrapper measures every GPU while all the others run a continuous matmul and reports the median GPU, which is what the table's `Siblings` = `yes` rows are, along with the slowest GPU and the spread. With a single GPU it runs `mamf-finder.py` on its own, which gives a `Siblings` = `no` row. Pass it the same arguments you'd give `mamf-finder.py`:
+
+```bash
+python mamf-finder-all-gpus.py                        # bf16
+python mamf-finder-all-gpus.py --dtype float8_e4m3fn  # fp8
+```
+
+On 8 H200s or 8 B200s the default bf16 run takes about 9 minutes.
+
+If you get a better MAMF or MSMF than the [table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) shows, e.g. with a more recent `torch`, CUDA or ROCm, BLAS library or driver, or you measured an accelerator or a dtype the table doesn't have yet, please contribute it via a [PR](https://github.com/stas00/ml-engineering/pulls) that updates the table or an [Issue](https://github.com/stas00/ml-engineering/issues). Share the full log files of the run: the wrapper's output directory (`results/all-gpus-<timestamp>/` next to the script, or `OUT_DIR`) with `summary.txt` and every GPU's `gpu<N>.txt`, or the `--output_file` log of a single-GPU run. The logs record the software stack, the shapes, the power and the clocks, which is what makes the entry checkable and reproducible. Also mention any system settings the logs don't show, such as a disabled `numa_balancing`. A re-run of the same GPU can move its numbers by up to 2.2%, so a gain smaller than that is noise rather than an improvement.
