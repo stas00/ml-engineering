@@ -93,15 +93,14 @@ In parallel with the mixed training regime the ML community started coming up wi
 
 ## FP4 formats
 
-An fp4 `e2m1` element has 16 bit patterns: ±0, ±0.5, ±1, ±1.5, ±2, ±3, ±4 and ±6. That is far too few to cover a tensor's range with one scale, so fp4 is only usable block-scaled: every small block of elements shares a scale that stretches those values over the block's actual range. There are two block-scaled fp4 formats, and they differ only in that scale:
+An fp4 `e2m1` element has 16 bit patterns: ±0, ±0.5, ±1, ±1.5, ±2, ±3, ±4 and ±6. That is far too few to cover a tensor's range with one scale, so fp4 is only usable block-scaled: every small block of elements shares a scale that stretches those values over the block's actual range. There are two block-scaled fp4 formats, and they differ only in that scale. Sorted by block size, descending:
 
-|             | mxfp4                                             | nvfp4                                  |
-| :---------- | :------------------------------------------------ | :------------------------------------- |
-| block size  | 32 elements                                       | 16 elements                            |
-| block scale | `E8M0`, a power of two                            | `E4M3`, plus one FP32 scale per tensor |
-| storage     | 4.25 bits per element                             | 4.5 bits per element                   |
-| defined by  | the OCP Microscaling (MX) spec                    | NVIDIA                                 |
-| hardware    | NVIDIA Blackwell, AMD MI355X, Huawei Ascend 950DT | NVIDIA only, Blackwell and newer       |
+| Format | Block<br>size | Block<br>scale                 | Bits per<br>element | Defined by  | Hardware                                                     |
+| :----- | ------------: | :----------------------------- | ------------------: | :---------- | :----------------------------------------------------------- |
+| mxfp4  |            32 | `E8M0`                         |                4.25 | OCP MX spec | NVIDIA Blackwell<br>AMD MI350X/MI355X<br>Huawei Ascend 950DT |
+| nvfp4  |            16 | `E4M3`<br>+ FP32<br>per tensor |                 4.5 | NVIDIA      | NVIDIA only,<br>Blackwell<br>and newer                       |
+
+The block size is in elements, and the bits per element include the block's share of its scale. An `E8M0` scale is a power of two, and nvfp4 adds one FP32 scale per tensor to its `E4M3` block scales. OCP MX is the Open Compute Project's Microscaling spec.
 
 Speed is not what separates them. NVIDIA's Blackwell tensor cores run both through the same instruction at the same peak, which is why the [theoretical TFLOPS table](../compute/accelerator/README.md#tflops-comparison-table) has the same number in both columns. [Measured](../compute/accelerator/README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) on B200 with torch 2.14, nvfp4 came out 8–9% faster than mxfp4 on both MAMF (6746 vs 6183 TFLOPS) and MSMF (5627 vs 5222 TFLOPS), which is a software difference, not a hardware one.
 
