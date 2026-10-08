@@ -82,6 +82,11 @@ SHAPE_SELECTION = ("--m", "--n", "--k", "--m_range", "--n_range", "--k_range", "
 HEADLINE = re.compile(r"^(MAMF|MSMF) \(max [^)]*\):\s+([\d.]+) TFLOPS @ (\d+x\d+x\d+) \(MxNxK\)"
                       r"(?:\s+(\d+)W)?(?:\s+(\d+)MHz)?(?:\s+(\d+)C)?")
 IDLE_SHARE = re.compile(r"Share of the time each was idle: (.*)")
+UNSTEADY = "WARNING: no confirm shape held a steady rate over its window"
+# an MSMF window this much hotter than the coolest GPU's, or below this share of the highest power, gets flagged;
+# GPUs of a well-cooled node at their power cap stay within ~12C and a few % of each other
+HOT_C = 15
+LOW_POWER = 0.9
 # a cold torch import from a network filesystem can take a minute, and all the matmuls import it at once
 MATMUL_START_TIMEOUT_S = 300
 
@@ -212,15 +217,43 @@ def physical_gpus(num_gpus):
 
 
 def parse_log(path):
-    """The MAMF/MSMF headlines of a mamf-finder.py log, and how long (%) each idle sibling sat idle."""
-    result = {"idle": {}}
+    """The MAMF/MSMF headlines of a mamf-finder.py log, how long (%) each idle sibling sat idle, and whether MSMF is
+    the fallback to the fastest unsteady window."""
+    result = {"idle": {}, "unsteady": False}
     if path.exists():
         for line in path.read_text(errors="replace").splitlines():
-            if m := HEADLINE.match(line):
+            if line.startswith(UNSTEADY):
+                result["unsteady"] = True
+            elif m := HEADLINE.match(line):
                 result[m[1]] = dict(tflops=float(m[2]), shape=m[3], W=m[4] or "-", MHz=m[5] or "-", C=m[6] or "-")
             elif m := IDLE_SHARE.search(line):
                 result["idle"] = {int(g): int(p) for g, p in re.findall(r"GPU(\d+) (\d+)%", m[1])}
     return result
+
+
+def msmf_warnings(rows):
+    """Warnings for GPUs whose MSMF isn't a steady rate at the power cap: they pull the node median down for reasons
+    of this node (cooling, a throttling GPU) rather than of the GPU model."""
+    out = []
+    gpus = lambda xs: ",".join(str(g) for g in xs)
+    if unsteady := [gpu for gpu, r in enumerate(rows) if r["unsteady"] and "MSMF" in r]:
+        out.append(f"\nwarning: GPU(s) {gpus(unsteady)} held no MSMF window steady, so their MSMF is the fastest "
+                   "unsteady window, not\n         a sustained rate - usually a GPU throttling as it heats up; see "
+                   "their logs")
+    msmf = [(gpu, r["MSMF"]) for gpu, r in enumerate(rows) if "MSMF" in r]
+    temps = {gpu: int(s["C"]) for gpu, s in msmf if s["C"] != "-"}
+    if hot := [gpu for gpu, c in temps.items() if c >= min(temps.values()) + HOT_C]:
+        lo, hi = min(temps[g] for g in hot), max(temps[g] for g in hot)
+        out.append(f"\nwarning: GPU(s) {gpus(hot)} ran their MSMF window at {lo}-{hi}C, {HOT_C}C+ hotter than the "
+                   f"coolest GPU ({min(temps.values())}C):\n         the node cools them unevenly, and a hotter GPU "
+                   "clocks lower at the same power, so the node MSMF\n         reflects this node's cooling as well "
+                   "as the GPU")
+    watts = {gpu: int(s["W"]) for gpu, s in msmf if s["W"] != "-"}
+    if low := [gpu for gpu, w in watts.items() if w < LOW_POWER * max(watts.values())]:
+        out.append(f"\nwarning: GPU(s) {gpus(low)} drew under {LOW_POWER:.0%} of the node's highest MSMF power "
+                   f"({max(watts.values())}W), so something\n         other than the power cap held them back, "
+                   "usually temperature")
+    return out
 
 
 def summarize(rows, ours):
@@ -264,6 +297,7 @@ def summarize(rows, ours):
         gpus = ",".join(map(str, sorted(outside)))
         out.append(f"\nnote: driver GPU(s) {gpus} share the board but are left out of this run (CUDA_VISIBLE_DEVICES"
                    " / NUM_GPUS)\n      and sat idle, so MSMF reads higher than with the whole node computing")
+    out += msmf_warnings(rows)
     if len(measured) < len(rows):
         out.append(f"\nwarning: only {len(measured)} of {len(rows)} GPUs produced an MSMF result - see the per-GPU "
                    "logs")
