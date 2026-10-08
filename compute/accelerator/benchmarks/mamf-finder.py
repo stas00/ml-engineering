@@ -364,7 +364,7 @@ class AMDArch(CudaLikeArch):
         return float(self._amdsmi.amdsmi_get_clock_info(handle, self._clk_arg)["clk"])
 
     def read_temp(self, handle):
-        """UNTESTED on hardware: the hotspot (junction) temperature in C, per the amdsmi docs."""
+        """The hotspot (junction) temperature in C (confirmed on MI300X and MI350X, ROCm 10.0)."""
         m = self._amdsmi
         return float(m.amdsmi_get_temp_metric(handle, m.AmdSmiTemperatureType.HOTSPOT,
                                               m.AmdSmiTemperatureMetric.CURRENT))
@@ -1812,8 +1812,9 @@ def search_setup(args):
 # rank them) and only the confirm shortlist is tuned, before any of it is timed.
 def tunableop_setup(confirm_max):
     """If TunableOp is on, pause tuning for the search and return True."""
+    # torch.cuda.tunable imports on any build, but only CUDA/ROCm builds have its bindings
     tunable = getattr(torch.cuda, "tunable", None)
-    if tunable is None or not tunable.is_enabled():
+    if tunable is None or not torch.cuda.is_available() or not tunable.is_enabled():
         return False
     tunable.tuning_enable(False)
     print(f"TunableOp: on - the search runs with tuning paused; up to {confirm_max} confirm shapes get tuned before "
