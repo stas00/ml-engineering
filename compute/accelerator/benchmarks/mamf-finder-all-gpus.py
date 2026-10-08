@@ -9,7 +9,8 @@ while every GPU not being measured runs a continuous bf16 matmul that keeps it a
   1. GPU0: the full mamf-finder.py search (console shown) -> MAMF, MSMF and their shapes
   2. every other GPU in turn: those 1-2 shapes pinned (--shapes_file), while the others, GPU0 included, run the matmul
   3. summary: per-GPU MAMF and MSMF; node MAMF and MSMF = the median across GPUs, so one weak or strong chip doesn't
-     set the node's figure; the slowest GPU, which synchronous training runs at, and the spread
+     set the node's figure; the slowest GPU, which synchronous training runs at, and the spread; warnings for GPUs
+     whose MSMF window wasn't steady, ran much hotter than the coolest GPU's, or drew well under the highest power
 
 For a single-GPU measurement with idle siblings, run mamf-finder.py on its own. With only one GPU visible (e.g. a
 1-GPU VM) this script runs just step 1, which is the same as running mamf-finder.py on its own.
@@ -58,7 +59,8 @@ Output:
   $OUT_DIR/gpu<N>.txt   GPU N's full mamf-finder.py log.
   $OUT_DIR/gpu<N>.err   Anything GPU N's run printed before its log opened, e.g. a traceback (GPUs 1+ only).
   $OUT_DIR/shapes.txt   GPU0's MAMF and MSMF shapes, which the other GPUs measure.
-  $OUT_DIR/summary.txt  The table printed at the end: per-GPU MAMF and MSMF, the node medians, slowest GPU, spread.
+  $OUT_DIR/summary.txt  The table printed at the end: per-GPU MAMF and MSMF, the node medians, slowest GPU, spread,
+                        and the warnings.
 
 Ctrl-C stops the current mamf-finder.py gracefully (it still prints its results) and skips the remaining GPUs; the
 summary covers the GPUs measured so far. If GPU0 had no MSMF yet, there is nothing to summarize and it exits 1.
@@ -84,7 +86,7 @@ HEADLINE = re.compile(r"^(MAMF|MSMF) \(max [^)]*\):\s+([\d.]+) TFLOPS @ (\d+x\d+
 IDLE_SHARE = re.compile(r"Share of the time each was idle: (.*)")
 UNSTEADY = "WARNING: no confirm shape held a steady rate over its window"
 # an MSMF window this much hotter than the coolest GPU's, or below this share of the highest power, gets flagged;
-# GPUs of a well-cooled node at their power cap stay within ~12C and a few % of each other
+# GPUs of a well-cooled node at their power cap stay within ~13C and a few % of each other
 HOT_C = 15
 LOW_POWER = 0.9
 # a cold torch import from a network filesystem can take a minute, and all the matmuls import it at once

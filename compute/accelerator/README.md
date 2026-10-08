@@ -411,7 +411,7 @@ Notes — the `Notes` column of all three tables points here:
 5. NVIDIA GH200 SXM (both tables): 900W 141GiB HBM3e version
 6. NVIDIA B200 SXM, BF16: MAMF ~274–300 W @ 1965 MHz; MSMF 1439 @ 3072x18944x4608, ~978–987 W @ 1399–1443 MHz, 61–74°C
 7. AMD MI355X, BF16: `PYTORCH_TUNABLEOP_ENABLED=0`
-8. AMD MI350X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000 W; the `amdsmi` sample of ~340 W @ 2181 MHz lags the MAMF burst, as on MI300X (note 10); MSMF 1195 @ 4096x4096x8192, 1000 W, 74–100°C. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
+8. AMD MI350X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000 W; the `amdsmi` sample of ~340 W @ 2181 MHz lags the MAMF burst, as on MI300X (note 10); MSMF 1195 @ 4096x4096x8192, 1000 W, 74–100°C. This node's cooling limited its MSMF: the 4 GPUs at 74–77°C held 1212–1274 at the 1000 W cap, the 4 at 95–100°C 898–1177, one of them throttling below the cap at 100°C, so a well-cooled node may read higher. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
 9. AMD MI325X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000W
 10. AMD MI300X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst - the card reaches its 750 W cap within the first ~4 ms kernel, and the `amdsmi` sample of ~198 W @ 2088 MHz lags it and reads close to idle (~180 W @ 2095 MHz); MSMF 616 @ 9216x9728x8192, 750 W @ 1203–1261 MHz, 77–89°C. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
 11. NVIDIA B300 SXM, FP8: MAMF ~262 W @ 2032 MHz; MSMF 2969 @ 6144x18432x3072, ~1057 W @ 1425 MHz
