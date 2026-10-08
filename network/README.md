@@ -227,7 +227,7 @@ note: the PCIe rows assume an x16 attachment, which is what current accelerators
 
 When peer-to-peer bandwidth is much lower than all-to-all it means that if you don't use all of the accelerators on the node by the same application, you will end up with a much lower bandwidth and your application will have a performance impact if the accelerators have to communicate between each others.
 
-To validate this the [all_reduce_bench.py](benchmarks/all_reduce_bench.py) was run on a 8x GPU AMD MI300X node with a 4GiB payload and the `busbw` measurements were:
+To validate this the [torch-dist-bench.py](benchmarks/torch-dist-bench.py) was run on a 8x GPU AMD MI300X node with a 4GiB payload and the `busbw` measurements were:
 
 - 2 GPUs:  47.671GBps
 - 8 GPUs:  312.912GBps
@@ -912,7 +912,7 @@ Recent NCCL versions will automatically use this technology if it is available v
 
 The SHARP hardware, that is part of the NVSwitch or InfiniBand switches and also NVLink 4 and higher, includes arithmetic logic units (ALU) that perform the compute directly rather than using GPUs. It's said that it can perform math in FP64, FP32, FP16 and BF16 dtypes.
 
-case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [all-reduce](benchmarks/all_reduce_bench.py) benchmark reported 480GBps for a 4GiB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo, which engaged NVLink SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
+case study: I discovered SHARP accidentally when an H100 intra-node NVLink 4.0 [torch-collective-bench](benchmarks/torch-dist-bench.py) benchmark reported 480GBps for a 4GiB payload when the theoretical spec was only 450GBps! We figured out it's because NCCL turned on the new `NVLS` algo, which engaged NVLink SHARP. I still don't understand how it clocked speed faster than what the physical medium allows. I'm pretty sure that `busbw` calculation algorithm needs to be adjusted there from 2N to N+1 to get the real speed. There is a detailed discussion about this [here](https://github.com/NVIDIA/nccl-tests/issues/153#issuecomment-1628415956). Bottom line: `busbw` may or may not be giving you the real bandwidth number depending on the `algo` NCCL chose to use, where only when `Ring` algo is used the `busbw` is correct.
 
 To take advantage of this great feature:
 - the collective has to engage enough GPUs that NCCL actually selects `NVLS` - see the measurements below; the switch is above 4 on H200 and above 5 on B200, so measure yours rather than assuming either number.
@@ -964,9 +964,9 @@ To see it for yourself on your own node, run the same benchmark twice - `NCCL_NV
 
 ```bash
 # SHARP (default)
-torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d all_reduce_bench.py
+torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d torch-dist-bench.py
 # ring
-NCCL_NVLS_ENABLE=0 torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d all_reduce_bench.py
+NCCL_NVLS_ENABLE=0 torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d torch-dist-bench.py
 ```
 
 On 8x H200 with `nccl=2.27.7` that gives 482.26GBps against 367.61GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the slide above. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
@@ -1247,10 +1247,10 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MiB the throughput is very low - and it starts saturating around payload size of 512MiB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is the same sweep on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), using this repo's [all_reduce_bench.py](benchmarks/all_reduce_bench.py), which reports the same two columns:
+Here is the same sweep on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), using this repo's [torch-dist-bench.py](benchmarks/torch-dist-bench.py), which reports the same two columns:
 
 ```bash
-$ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_bench.py
+$ python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py
 
 | payload |    busbw   |    algbw   |
 | ------: | ---------: | ---------: |
@@ -1395,7 +1395,7 @@ Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](h
 
 Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer.
 
-To measure it, add `--sym-mem` to [all_reduce_bench.py](benchmarks/all_reduce_bench.py), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
+To measure it, add `--sym-mem` to [torch-dist-bench.py](benchmarks/torch-dist-bench.py), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
 
 To check that the symmetric kernels are used, add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`: each call that took one is logged as `AllReduce [Symmetric]: ... -> Kernel ...`.
 
@@ -1461,7 +1461,7 @@ The specs make inter-node networking look hopeless. On a P6-B200 node (AWS) each
 
 footnote: the spec for IB NDR400 for this type of a node is 50GBps per accelerator as well.
 
-The following table aggregates the `busbw` measurements for `all_reduce` measured with [all_reduce_bench.py](benchmarks/all_reduce_bench.py) on 1x and 4x P6-B200 nodes - 8x B200 per node, NVLink 5 inside, 8x 50GBps EFA v4 out - on `torch=2.14.0+cu130, cuda=13.0, nccl=2.30.7`, each column the mean of 2 sweeps. The `slowdown` column is the price of leaving the node, and the last one is the algorithm the 4-node run used at that payload, read from `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`:
+The following table aggregates the `busbw` measurements for `all_reduce` measured with [torch-dist-bench.py](benchmarks/torch-dist-bench.py) on 1x and 4x P6-B200 nodes - 8x B200 per node, NVLink 5 inside, 8x 50GBps EFA v4 out - on `torch=2.14.0+cu130, cuda=13.0, nccl=2.30.7`, each column the mean of 2 sweeps. The `slowdown` column is the price of leaving the node, and the last one is the algorithm the 4-node run used at that payload, read from `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`:
 
 | payload | 1 node     | 4 nodes    | slowdown | 4-node algorithm |
 | ------: | ---------: | ---------: | -------: | :--------------- |
@@ -1575,6 +1575,25 @@ Here is an old but good plot demonstrating how the latencies change with message
 ([source](https://ieeexplore.ieee.org/document/5238655))
 
 Typically the more "hops" the message has to travel, the bigger the latency. 2 accelerators residing on the same node and connected directly to each other (e.g., NVLink) will have the least amount of latency. If their communication path traverses a PCIe switch the latency will be bigger. 2 accelerators residing on 2 different nodes sharing a single switch will have a bigger latency because there is a switch to traverse. The further they get away from each other, the more switches the message has to travel through, the bigger the latency.
+
+#### Which collective to measure latency with
+
+The latency of a small all-reduce is the most flattering of all collectives, so on its own it says little about the latency of other traffic:
+
+- **It gets the only tree.** NCCL implements its tree algorithm for all-reduce only; the other collectives use rings. A NCCL maintainer models the tree's latency as `2*(G-1)*l + 2*log2(N)*L`, which grows with the log of the node count, and the ring's as `N*(G-1)*l + N*L`, which grows linearly ([NCCL #1049](https://github.com/NVIDIA/nccl/issues/1049); `N` nodes, `G` accelerators per node, `L` network latency, `l` NVLink latency).
+- **The other collectives lack an equivalent.** NCCL 2.23 added the PAT algorithm for all-gather and reduce-scatter, but only for one GPU per node, and a maintainer says it's "not yet as low-latency as the Tree allreduce" ([NCCL #1473](https://github.com/NVIDIA/nccl/issues/1473), [NVIDIA blog](https://developer.nvidia.com/blog/new-scaling-algorithm-and-initialization-with-nvidia-collective-communications-library-2-23/)).
+- **The switch may do the work.** With [NVLS](#sharp) (NVLink SHARP) or InfiniBand [SHARP](#sharp), a small all-reduce is reduced inside the switch, so its latency describes the switch's reduction rather than the path ordinary traffic takes.
+
+No single collective stands for latency - what each one's small-payload latency tells you, and the workload where it is on the critical path:
+
+| Collective                    | What its small-payload latency shows                                                                                            | Workload where it's the critical path                                                                       |
+| :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------- |
+| point-to-point send/recv      | How much latency the NIC and switches add, without any collective algorithm in the way                                          | Pipeline parallelism, KV-cache transfer                                                                     |
+| all-to-all                    | Every accelerator sends to every other at once, which exposes oversubscription and incast (many senders converging on one port) | MoE expert-parallel dispatch and combine, the most latency-sensitive inter-node pattern in inference decode |
+| all-reduce                    | The best case, using the tree or in-switch reduction                                                                            | Tensor-parallel inference within a node, where it really is the workload                                    |
+| all-gather and reduce-scatter | Ring latency, growing linearly with the rank count                                                                              | FSDP/ZeRO training at scale with small buckets                                                              |
+
+[`torch-dist-bench.py`](benchmarks/README.md#other-collectives) times the per-call latency of all of them, e.g. with `--collectives all`.
 
 
 ### Proprietary network hardware and NCCL

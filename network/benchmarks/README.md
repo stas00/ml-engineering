@@ -2,9 +2,13 @@
 
 ## Tools
 
-### all_reduce benchmark
+<a id="all_reduce-benchmark"></a>
 
-[all_reduce_bench.py](all_reduce_bench.py) - a tool to benchmark the real network bandwidth while performing `all_reduce` on a largish amount of data. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to `nccl-tests`, but requires just PyTorch to run.
+### torch-dist-bench
+
+[torch-dist-bench.py](torch-dist-bench.py) - a tool to benchmark the real network bandwidth and latency while performing `all_reduce` and [other collectives](#other-collectives), over a range of payloads. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to `nccl-tests`, but requires just PyTorch to run. You want to use this benchmark if your application uses NCCL collectives via `torch.distributed`, and `nccl-tests` if you write CUDA NCCL kernels. This benchmark calls the collectives the way your program does: through PyTorch, which runs some of them with different NCCL calls than `nccl-tests` does, e.g. `scatter` and `batch_isend_irecv` - see [Other collectives](#other-collectives) - and with `--with-host-overhead` it also includes PyTorch's per-call host overhead of some 20-30µs, which at small payloads is about as long as the collective itself.
+
+footnote: Its previous incarnation was known as `all_reduce_bench.py` as it measured just the all-reduce collective.
 
 On 4 8x-B200 nodes it give us:
 ```
@@ -34,6 +38,8 @@ The average bandwidth of all_reduce over 32 ranks (5 warmups / 20 trials, up to 
 |   16GiB | 376.71GBps | 194.43GBps |
 ```
 
+Read the normalized `busbw` column rather than `algbw` - [PERFORMANCE.md](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth) explains why. Like `nccl-tests`, the benchmark measures a unidirectional bandwidth, so compare it against the advertised unidirectional peak throughput, not the bidirectional (duplex) one.
+
 And if you have the `matplotlib` pip package installed, it also creates a plot:
 
 ![all-reduce-bench-plot 4x 8x B200 nodes](images/all-reduce-bench-plot-4n.png)
@@ -43,11 +49,11 @@ Here is the same benchmark on a single 8x H200 node (`torch=2.14.0+cu130`, `cuda
 
 ![all-reduce-bench-plot 8x H200](images/all-reduce-bench-plot-8xh200.png)
 
-Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the `default` column of the table in [How the calls are timed](#how-the-calls-are-timed), measured on the same node, than off the curve. That sweep tops out at 482.35GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
+Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the `default` column of the table in [How the bandwidth is measured](#how-the-bandwidth-is-measured), measured on the same node, than off the curve. That sweep tops out at 482.35GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
 
 [Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed) explains why a 4 node-benchmark (32 ranks) tops out at 376.71GBps when a single node (8 ranks) of the same B200s reaches 838.97GBps, and what the number means for each NIC.
 
-For launching examples and notes please see the top of [all_reduce_bench.py](all_reduce_bench.py).
+For launching examples please see the top of [torch-dist-bench.py](torch-dist-bench.py). You can interrupt the benchmark with Ctrl-C, and it'll still report the results it measured up to that point.
 
 This table should give a good sense for what scores you should expect for all-reduce collective on a well-tuned network (left is intra-node and right is inter-node):
 
@@ -60,9 +66,13 @@ To check the stability of all-reduce over time, rather than averaging the result
 
 ![all-reduce-bench 2GiB profile](images/all-reduce-bench-profile-2gib.png)
 
-#### How the calls are timed
+<a id="how-the-calls-are-timed"></a>
 
-By default each trial keeps the GPU busy for ~2ms, queues up to 10 back-to-back `dist.all_reduce` calls behind that, and divides the elapsed time by the number of calls. Starting with 10 calls for payloads from 32k to 64MiB, then fewer, and a single call from 1GiB and up, where one call takes milliseconds anyway. This hides PyTorch's 20-30µs of host overhead per call, the way it's hidden in a training loop whose host runs ahead of the GPU, and the multiple calls average out the ranks reaching the first one at slightly different times.
+#### How the bandwidth is measured
+
+By default each trial keeps the GPU busy for ~2ms, queues up to 10 back-to-back `dist.all_reduce` calls behind that, and divides the elapsed time by the number of calls. Payloads up to 64MiB get 10 calls, larger ones fewer, and those from 1GiB up a single call, where one call takes milliseconds anyway. This hides PyTorch's 20-30µs of host overhead per call, as it is hidden in a program whose host stays ahead of the GPU, e.g. a training loop with enough compute queued between its collectives - where the host doesn't stay ahead, such as with small collectives issued back to back or a program waiting on each result, use `--with-host-overhead`. The multiple calls also average out the ranks reaching the first one at slightly different times.
+
+These bandwidth trials record a CUDA event only before the first call and after the last. The [latency](#latency) is measured by separate trials with an event after every call, because an event recorded between two queued calls slows them down: on an 8x B200 node a 1MiB all-reduce takes 35µs with one and 30µs without, and `nccl-tests` shows the same difference between its `-I 1` and its default timing. Timing the bandwidth with the per-call events would cost an all-reduce 9-13% of its bandwidth from 8KiB to 2MiB there, and the [other collectives](#other-collectives) up to 35%.
 
 Here are the measurements on the same 8x H200 node as the plot above, next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - it is what code calling NCCL API directly:
 
@@ -93,14 +103,123 @@ The two agree within 2%, except from 1MiB to 16MiB, where `nccl-tests` reads 3-7
 
 If your workload captures its all-reduce calls in a CUDA graph through PyTorch, expect lower `busbw` at small payloads than this benchmark's default timing reports. Replaying PyTorch-captured all-reduces on B200 left a gap of about 2.5µs between consecutive ones, which cost regular all-reduces up to 9% and symmetric memory ones 12-26% at 2MiB and below, where a call takes only 10-35µs.
 
-Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else.
+Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else. Its latency then also includes the ranks reaching the call at different times, as the latency of OSU's `osu_allreduce` does.
+
+Neither mode times a collective that runs concurrently with compute kernels, as it does in a training loop that overlaps them. The kernels compete for the SMs and the memory bandwidth, so an overlapped collective can take longer than reported here if it can't access immediately all the SMs it needs; `nccl-tests` doesn't time that either.
+
+#### Latency
+
+Next to the bandwidth, the benchmark reports how long a single call takes - the median, the 99th percentile (p99) and the mean - and plots the median and the p99 against the payload size. For small payloads this is the number that matters, as they move next to nothing: on an 8x H200 node an 8B all-reduce still takes 15µs, and every payload up to 512KiB takes 15-23µs, so a faster link wouldn't help them - fewer calls or cheaper ones would. This adds up fast in inference: a model served with tensor parallelism over 8 accelerators does 2 all-reduces per layer for every generated token, and with a hidden size of 8192 in bf16 a batch of up to 32 tokens makes each a 16-512KiB all-reduce, right in that flat range - so an 80-layer model waits 160 x 15µs = 2.4ms per token on all-reduces alone, however fast its links. Training has small all-reduces too, to sync flags, scalars or loss values across ranks, and MoE pays the same toll on the [all-to-all](#other-collectives) of its token routing.
+
+And all-reduce is the best case: NCCL gives only all-reduce its tree algorithm, and NVLS can reduce it inside the switch, so other collectives can take longer at the same payload - see [which collective to measure latency with](../README.md#which-collective-to-measure-latency-with), and time them with `--collectives`.
+
+![all-reduce-bench latency 8x H200](images/all-reduce-bench-latency-8xh200.png)
+
+#### How the latency is measured
+
+- Each call's time is the time from the end of the previous queued call to its own end, as in `nccl-tests`' per-iteration timing (`-I 1`), which it reports in its `i_*` columns, and as the median in its `-J` JSON output. The first call of a trial is left out, and a 1-element all-reduce after the busy wait lines the ranks up on the GPU before it: otherwise a rank whose busy wait ends first spends the difference waiting in its first calls - in one call for most collectives, but in up to ranks-1 calls for `batch_isend_irecv`, whose ring passes the wait on one rank per call.
+- A call isn't done until it's done on every rank, so each call's time is that of its slowest rank, as in `nccl-tests`' per-iteration median and p99. Its `time` column is instead each rank's time per call averaged over the ranks, which is close for an all-reduce, whose ranks finish together, but lower for collectives whose ranks don't, such as `broadcast`.
+- Small payloads get up to 1000 calls each, so that the p99 is the 10th slowest of them, and larger payloads fewer, once 1000 calls would move more than 40MiB - [Intel MPI Benchmarks](https://github.com/intel/mpi-benchmarks) counts its repetitions the same way. `nccl-tests` times 20 calls by default and OSU's `osu_allreduce` 1000 up to 8KiB and 100 above.
+- Median and p99 rather than the mean, because one slow call moves the mean but not the median, and the p99 shows how slow the slow calls get. The mean is printed too.
+- A rank's Python thread occasionally pauses for a few milliseconds. When that happens while it queues a trial's calls, its GPU runs out of queued work before the 2ms busy wait is over, and the trial times the pause rather than the all-reduce. Such trials are left out on all ranks, and the report says how many: on the 8x H200 node it was 50-60 of 1904 trials per run. Without this, the p99 at small payloads read anywhere from 19µs to 380µs and changed from run to run.
+
+On the same 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), compared with `nccl-tests` timing 1000 calls per payload one by one (`-n 1000 -w 200 -I 1`, in-place):
+
+| payload | median | p99    | sym-mem<br>median | sym-mem<br>p99 | host<br>overhead<br>median | host<br>overhead<br>p99 | nccl-tests<br>`time` | nccl-tests<br>p99 |
+| ------: | -----: | -----: | ----------------: | -------------: | -------------------------: | ----------------------: | -------------------: | ----------------: |
+|      8B | 15.2µs | 16.1µs |             8.1µs |          9.0µs |                     36.6µs |                  3668µs |               14.9µs |            16.1µs |
+|     64B | 17.9µs | 19.0µs |             8.1µs |          9.2µs |                     38.0µs |                  5166µs |               17.0µs |            19.0µs |
+|    1KiB | 18.8µs | 19.8µs |             8.4µs |          9.3µs |                     39.1µs |                  5213µs |               18.2µs |            19.7µs |
+|   32KiB | 20.9µs | 21.7µs |            11.6µs |         12.4µs |                     41.7µs |                  4877µs |               20.4µs |            21.6µs |
+|  256KiB | 21.4µs | 21.9µs |            12.6µs |         13.8µs |                     43.5µs |                  3607µs |               21.0µs |            21.7µs |
+|    1MiB | 27.7µs | 28.5µs |            16.3µs |         17.2µs |                     50.9µs |                    75µs |               27.8µs |            28.6µs |
+
+sym-mem: run with `--sym-mem`; host overhead: run with `--with-host-overhead`.
+
+The default timing agrees with `nccl-tests` within 1µs at the p99, and [symmetric memory](#symmetric-memory) roughly halves the latency up to 16KiB. On an 8x B200 node with the same software the two agreed within 1µs as well - an 8B all-reduce took 23.5µs at the median and 24.7µs at the p99, and 11.6µs and 12.5µs with `--sym-mem` - so a small all-reduce costs more there than on the H200 node. `--with-host-overhead` keeps the trials in which a host paused, as that's what a program that waits on each all-reduce gets: its median adds the ~20µs of PyTorch's per-call overhead, and its p99 up to 256KiB is 3.6-5.2ms, because more than 1 call in 100 waited for some rank's paused host.
+
+The report also names the smallest payload that reaches half the peak `busbw` - 16MiB or 32MiB on the 8x H200 node above, as 16MiB sits right at the half. Payloads below it get less than half the bandwidth the setup can give, and are better judged by their latency.
+
+By default the latency is measured from 8B to 16GiB and the bandwidth from 32KiB to 16GiB, since below 32KiB a call's time is nearly all latency, so its `busbw` says little. `--min-payload` moves where the latency range starts, `--min-busbw-payload` where the bandwidth range starts, and `--max-payload` where both end - e.g. `--max-payload 16K` for a quick latency-only run.
+
+#### Other collectives
+
+The benchmark times `all_reduce` by default. To time other collectives, add `--collectives` with one or more of their names, comma separated, e.g. `--collectives all_gather,reduce_scatter` or `all` for all nine of them - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce`, `gather`, `scatter` and `batch_isend_irecv`. Examples:
+
+```bash
+python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py --collectives all_gather,reduce_scatter
+python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py --collectives all
+```
+
+Each collective gets the same timing and plots as `all_reduce`, saved as `busbw-mean-<collective>-<host>-<ranks>.png` and `latency-<collective>-<host>-<ranks>.png`. When more than one is benchmarked, they share one table with each collective's `busbw` and latency median per payload - add `--separate-tables` for a table each with `algbw` and the latency's p99 and mean as well - and a summary table and two plots comparing them follow, saved as `busbw-mean-collectives-<host>-<ranks>.png` and `latency-collectives-<host>-<ranks>.png`. All nine from 8B to 16GiB take under 2 minutes on one 8x B200 node.
+
+The payload, `algbw` and `busbw` follow `nccl-tests`, whose [PERFORMANCE.md](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md) explains them. The payload is the larger of a rank's input and output buffers, and `busbw` is `algbw` multiplied by a factor that makes it comparable across collectives and numbers of ranks `n`:
+
+| collective          | a rank's input            | a rank's output                 | `busbw`<br>factor |
+| :------------------ | :------------------------ | :------------------------------ | :---------------- |
+| `all_reduce`        | the payload               | the payload                     | 2(n-1)/n          |
+| `all_gather`        | 1/n of the payload        | the payload                     | (n-1)/n           |
+| `reduce_scatter`    | the payload               | 1/n of the payload              | (n-1)/n           |
+| `all_to_all`        | the payload, 1/n per rank | the payload, 1/n from each rank | (n-1)/n           |
+| `broadcast`         | the payload, on the root  | the payload                     | 1                 |
+| `reduce`            | the payload               | the payload, on the root        | 1                 |
+| `gather`            | 1/n of the payload        | the payload, on the root        | (n-1)/n           |
+| `scatter`           | the payload, on the root  | 1/n of the payload              | (n-1)/n           |
+| `batch_isend_irecv` | the payload, to rank+1    | the payload, from rank-1        | 1                 |
+
+The root is rank 0, and `batch_isend_irecv` has each rank send to the next rank and receive from the previous one, as `nccl-tests` does. The send and the receive are issued together as one batch: unbatched, they'd run one after the other on the same stream, and each rank's send would wait on its neighbour's receive, which is queued behind that neighbour's own send.
+
+As in `nccl-tests`, the 1/n pieces are rounded down to a multiple of 16 bytes, so payloads with less than 16 bytes per rank are skipped - those below 128B on 8 ranks - and with a number of ranks that isn't a power of 2, `all_gather`, `gather`, `reduce_scatter`, `scatter` and `all_to_all` move a little less than the payload, and the table reports what they did move.
+
+Here are all nine on an 8x B200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), with and without `--sym-mem`:
+
+| collective          | 1KiB<br>median | 1KiB<br>p99 | sym-mem<br>1KiB<br>median | busbw<br>at 16GiB | sym-mem<br>busbw<br>at 16GiB | half-peak<br>payload |
+| :------------------ | -------------: | ----------: | ------------------------: | ----------------: | ---------------------------: | -------------------: |
+| `all_reduce`        |         29.7µs |      31.7µs |                    12.3µs |        839.63GBps |                   819.63GBps |                64MiB |
+| `all_gather`        |         20.5µs |      22.6µs |                    12.1µs |        668.28GBps |                   748.32GBps |                64MiB |
+| `reduce_scatter`    |         20.5µs |      22.5µs |                    12.3µs |        692.63GBps |                   488.22GBps |                64MiB |
+| `all_to_all`        |         15.6µs |      17.5µs |                    15.6µs |        659.71GBps |                   690.73GBps |                32MiB |
+| `broadcast`         |         12.3µs |      14.4µs |                    11.7µs |        672.71GBps |                   693.71GBps |                32MiB |
+| `reduce`            |         12.3µs |      14.4µs |                    12.3µs |        692.63GBps |                   693.79GBps |                32MiB |
+| `gather`            |         12.3µs |      13.3µs |                    12.3µs |        718.33GBps |                   718.30GBps |                16MiB |
+| `scatter`           |         16.4µs |      18.4µs |                    15.4µs |        717.11GBps |                   723.19GBps |                16MiB |
+| `batch_isend_irecv` |         18.4µs |      22.5µs |                    18.3µs |        658.84GBps |                   691.51GBps |               256MiB |
+
+sym-mem: run with `--sym-mem`. The half-peak payload is the smallest one reaching half the collective's peak `busbw`, as in [Latency](#latency).
+
+![torch-dist-bench bus bandwidth 8x B200](images/torch-dist-bench-busbw-8xb200.png)
+
+![torch-dist-bench latency 8x B200](images/torch-dist-bench-latency-8xb200.png)
+
+At small payloads `all_to_all`, which MoE dispatch and combine use, takes 15.6µs - about half of an `all_reduce` - and `broadcast`, `reduce` and `gather` take 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to the same 12µs and leaves the others' small payloads about where they were. At larger payloads it helps some collectives and hurts others: `all_gather` gets 748GBps at 16GiB instead of 668GBps and `batch_isend_irecv` up to twice the `busbw` from 4MiB to 128MiB, while `broadcast` loses up to half its `busbw` from 4MiB to 128MiB, and `reduce_scatter` tops out at 488GBps instead of 693GBps.
+
+`gather` reads 764GBps at 1GiB, more than at 16GiB - read its peak off the larger payloads.
+
+Against `nccl-tests` built with the same NCCL on the same node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:
+
+- `scatter` takes 3-4µs more up to 128KiB and 6-7µs more from 256KiB to 1MiB, and gets 7-24% less `busbw` from 8KiB to 256MiB. `torch.distributed.scatter` sends each rank its piece with separate NCCL sends, while `nccl-tests` calls NCCL's own `ncclScatter`, added in NCCL 2.28. For `gather` the benchmark calls `torch.distributed.gather_single`, which uses `ncclGather` when PyTorch was built with NCCL>=2.28.3, and agrees with `nccl-tests`. The older `torch.distributed.gather`, which takes a list of output tensors and uses separate sends and receives, took 3.7µs longer at 1KiB.
+- `batch_isend_irecv` takes 2-4µs more up to 128KiB. Its send to the next rank and receive from the previous one go through PyTorch's point-to-point path rather than a single collective call. Its `busbw` agrees within 9% from 8KiB up, and within 1% from 32MiB up.
+- `broadcast` and `reduce` get 7-15% less `busbw` from 4MiB to 2GiB, because back-to-back `broadcast`s and `reduce`s overlap, unlike `all_reduce`s, and `nccl-tests` times 20 calls in a row, while this benchmark times trials of at most 10 calls, and of 1 call from 1GiB. Against a single `nccl-tests` call (`-n 1`) its 1GiB `broadcast`, at 1.89ms, is within 5%. Its latency median at 1GiB is 2.09ms, because a call's latency is the slowest rank's while the bandwidth, like `nccl-tests`' `time` column, averages over the ranks, and a `broadcast`'s ranks don't finish together.
+
+#### Other implementations
+
+Other benchmarks that measure the latency of collectives, with the payload range each one sweeps by default:
+
+- [nccl-tests](https://github.com/NVIDIA/nccl-tests) - NVIDIA's benchmark of every NCCL collective through the NCCL C API; `time` is the mean per call, `-I 1` adds per-call min, max and p99. One 32MiB payload by default, while its README sweeps `-b 8 -e 128M` on one node and `-b 8 -e 8G` on 8 nodes - see [nccl-tests](#nccl-tests).
+- [rccl-tests](https://github.com/ROCm/rccl-tests) - the same benchmark for AMD's RCCL, with the same flags and columns.
+- [OSU Micro-Benchmarks](https://mvapich.cse.ohio-state.edu/benchmarks/) - the MPI benchmarks from the MVAPICH team; `osu_allreduce` and its siblings report the average, min and max latency per call, 1B to 1MiB by default.
+- [Intel MPI Benchmarks](https://github.com/intel/mpi-benchmarks) - `IMB-MPI1 Allreduce` and the other collectives report `t_min`, `t_max` and `t_avg` per call, 0B to 4MiB by default.
+- [PARAM](https://github.com/facebookresearch/param) - Meta's benchmarks, whose `train/comms/pt/comms.py` times collectives through `torch.distributed` like this benchmark does and reports p50, p75 and p95 latency, 8B to 64B by default.
+- [UCC perftest](https://github.com/openucx/ucc) - `ucc_perftest` times collectives through UCC, which can run over NCCL, and reports the average, min and max latency; one 128-element payload by default.
+- [MSCCL++](https://github.com/microsoft/mscclpp) - its `python/mscclpp_benchmark/allreduce_bench.py` times MSCCL++'s all-reduce kernels against NCCL's from 4KiB to 1GiB.
+- [DeepEP](https://github.com/deepseek-ai/DeepEP) - DeepSeek's MoE expert-parallel all-to-all library, whose tests time its dispatch and combine kernels at realistic token counts rather than sweeping payload sizes.
 
 
 #### Symmetric memory
 
 Symmetric memory can speed up NCCL comms significantly at lower payloads. See [Symmetric memory](../README.md#symmetric-memory) for details.
 
-To all-reduce buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`). Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get.
+To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. It needs torch>=2.9, the first release whose `ProcessGroupNCCL.register_mem_pool()` takes `symm`. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Other collectives](#other-collectives) shows which collectives it speeds up on a B200 node, and which it slows down.
 
 
 ### all_gather_object vs all_reduce
@@ -113,9 +232,9 @@ To all-reduce buffers registered as an NCCL symmetric memory window, add `--sym-
 
 ### nccl-tests
 
-[NVIDIA/nccl-tests](https://github.com/NVIDIA/nccl-tests) benchmarks collectives - `all-reduce`, `all-gather`, `reduce-scatter` and the rest - and reports the same `busbw`/`algbw` columns as [all_reduce_bench.py](all_reduce_bench.py).
+[NVIDIA/nccl-tests](https://github.com/NVIDIA/nccl-tests) benchmarks collectives - `all-reduce`, `all-gather`, `reduce-scatter` and the rest - and reports the same `busbw`/`algbw` columns as [torch-dist-bench.py](torch-dist-bench.py).
 
-Which of the two to use depends on what you're writing. If it's a PyTorch program, use `all_reduce_bench.py`: it calls `all-reduce` through `torch.distributed`, the way your program will, so its numbers are what your program gets. If you're writing code that calls NCCL directly, such as a custom communication kernel or a C++/CUDA layer on top of NCCL, use `nccl-tests`, which calls the NCCL C API the same way your code will. `nccl-tests` is also the tool for the other collectives.
+Which of the two to use depends on what you're writing. If it's a PyTorch program, use `torch-dist-bench.py`: it calls the collectives through `torch.distributed`, the way your program will, so its numbers are what your program gets - [Other collectives](#other-collectives) shows where that differs from `nccl-tests`. If you're writing code that calls NCCL directly, such as a custom communication kernel or a C++/CUDA layer on top of NCCL, use `nccl-tests`, which calls the NCCL C API the same way your code will.
 
 `MPI=0` is fine for a single node, and `NCCL_HOME` points at whichever NCCL you want to test - the one PyTorch uses being the convenient choice, since that is what your training will actually use. pip-installed PyTorch gets it from the `nvidia-nccl` wheel, which as of `nvidia-nccl-cu13==2.30.7` ships `libnccl.so.2` but no `libnccl.so`, so give the linker a `libnccl.so` next to the headers:
 
@@ -130,7 +249,7 @@ make -j MPI=0 NCCL_HOME=$PWD/nccl-home
 export LD_LIBRARY_PATH=$NCCL_PIP/lib:$LD_LIBRARY_PATH
 ```
 
-That puts one binary per collective under `build/` - `all_reduce_perf`, `all_gather_perf`, `reduce_scatter_perf`, `alltoall_perf` and others. The `LD_LIBRARY_PATH` line makes them load that same NCCL at run time rather than a system one - check the `NCCL version` line they print. A default run times back-to-back calls, which matches `all_reduce_bench.py`'s default timing, and `-R 2` registers the buffers as a symmetric memory window, which matches `all_reduce_bench.py --sym-mem`.
+That puts one binary per collective under `build/` - `all_reduce_perf`, `all_gather_perf`, `reduce_scatter_perf`, `alltoall_perf` and others. The `LD_LIBRARY_PATH` line makes them load that same NCCL at run time rather than a system one - check the `NCCL version` line they print. A default run times back-to-back calls, which matches `torch-dist-bench.py`'s default timing, and `-R 2` registers the buffers as a symmetric memory window, which matches `torch-dist-bench.py --sym-mem`.
 
 ### nvbandwidth
 
@@ -180,11 +299,11 @@ Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set 
 
 Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
 
-[all_reduce_bench.py](all_reduce_bench.py)
+[torch-dist-bench.py](torch-dist-bench.py)
 
-On CSPs that have enabled [SLURM Pyxis Container Plugin](https://github.com/NVIDIA/pyxis), such as CoreWeave, Crusoe, AWS, Oracle, Azure, GCP, etc, `all_reduce_bench.py` can be easily ran & reproduced via the following command:
+On CSPs that have enabled [SLURM Pyxis Container Plugin](https://github.com/NVIDIA/pyxis), such as CoreWeave, Crusoe, AWS, Oracle, Azure, GCP, etc, `torch-dist-bench.py` can be easily ran & reproduced via the following command:
 ```bash
-sbatch -n <num_of_nodes> ./all_reduce_bench_pyxis.sbatch
+sbatch -n <num_of_nodes> ./torch-dist-bench-pyxis.sbatch
 ```
 
 Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
@@ -205,7 +324,7 @@ python -u -m torch.distributed.run \
     --max_restarts 0 \
     --role `hostname -s`: \
     --tee 3 \
-    all_reduce_bench.py
+    torch-dist-bench.py
 ```
 
 Notes:
@@ -214,7 +333,7 @@ Notes:
 Here is how to launch it in a SLURM env with 4 nodes:
 ```bash
 salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
-srun --cpus-per-task=$SLURM_CPUS_PER_TASK --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d all_reduce_bench.py
+srun --cpus-per-task=$SLURM_CPUS_PER_TASK --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d torch-dist-bench.py
 ```
 
 Notes:

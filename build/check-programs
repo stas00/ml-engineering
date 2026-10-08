@@ -23,7 +23,7 @@ cd "$(dirname "$0")/.."
 # The book's reader-facing programs - the ones a reader copies out of a chapter and runs. Build
 # tooling is deliberately out of scope. Add new ones here.
 PROGRAMS=(
-    network/benchmarks/all_reduce_bench.py
+    network/benchmarks/torch-dist-bench.py
     compute/accelerator/benchmarks/mamf-finder.py
     training/checkpoints/torch-checkpoint-shrink.py
 )

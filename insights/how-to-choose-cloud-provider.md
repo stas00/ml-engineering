@@ -301,7 +301,7 @@ Before expensive sweeps, run [`torch-distributed-gpu-test.py`](../debug/torch-di
 
 ### A. Network
 
-Intra-node: [`all_reduce_bench.py`](../network/benchmarks/all_reduce_bench.py) with `torchrun --nproc_per_node=8` (or however many GPUs the node has). Inter-node: the same script on **at least 4 nodes**. Passwordless SSH between those nodes is required for the `pdsh` recipe in the script header; SLURM `srun` is the other supported launcher. See [Networking Benchmarks](../network/benchmarks/README.md) and [Real network throughput](../network/README.md#real-network-throughput).
+Intra-node: [`torch-dist-bench.py`](../network/benchmarks/torch-dist-bench.py) with `torchrun --nproc_per_node=8` (or however many GPUs the node has). Inter-node: the same script on **at least 4 nodes**. Passwordless SSH between those nodes is required for the `pdsh` recipe in the script header; SLURM `srun` is the other supported launcher. See [Networking Benchmarks](../network/benchmarks/README.md) and [Real network throughput](../network/README.md#real-network-throughput).
 
 The number to report is **`busbw`** (unidirectional). Intra-node: compare to advertised NVLink (not duplex); NVLS/SHARP can push the ring-formula number past 100% of that spec and only helps **all-reduce**. Inter-node: quote `busbw` and the NCCL path; **do not** divide by advertised IB/RoCE/EFA GBps — that collective is never a NIC-only measurement. If you only have one node, skip inter-node and write that down; a 1-node NVLink number does not tell you how the fabric behaves at 4 nodes.
 
