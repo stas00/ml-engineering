@@ -6,9 +6,11 @@ MSMF (sustainable) is what a GPU holds while every GPU of the node computes and 
 budget; measured with idle siblings it gets headroom a full node never has. So this script measures one GPU at a time
 while every GPU not being measured runs a continuous bf16 matmul that keeps it at its power limit:
 
-  1. GPU0: the full mamf-finder.py search (console shown) -> MAMF, MSMF and the MSMF shape
-  2. every other GPU in turn: the MSMF shape pinned (--m/--n/--k), while the others, GPU0 included, run the matmul
-  3. summary: per-GPU MSMF, node MSMF = the slowest GPU (synchronous training runs at its pace), median, spread
+  1. GPU0: the full mamf-finder.py search (console shown) -> MAMF, MSMF and their shapes
+  2. every other GPU in turn: those 1-2 shapes pinned (--shapes_file), while the others, GPU0 included, run the matmul
+  3. summary: per-GPU MAMF and MSMF; node MAMF and MSMF = the median across GPUs, so one weak or strong chip doesn't
+     set the node's figure; the slowest GPU, which synchronous training runs at, and the spread; warnings for GPUs
+     whose MSMF window wasn't steady, ran much hotter than the coolest GPU's, or drew well under the highest power
 
 For a single-GPU measurement with idle siblings, run mamf-finder.py on its own. With only one GPU visible (e.g. a
 1-GPU VM) this script runs just step 1, which is the same as running mamf-finder.py on its own.
@@ -24,9 +26,9 @@ Run it with the python whose torch you want measured: mamf-finder.py and the mat
 Your arguments go to the mamf-finder.py runs:
 
   step 1, GPU0:          mamf-finder.py with all your arguments, i.e. the full search you asked for.
-  step 2, GPU1, GPU2...: one at a time, mamf-finder.py on GPU0's MSMF shape only (--m/--n/--k), with your remaining
-                         arguments (--dtype etc.). Your shape selection (--m/--n/--k, --*_range, --shapes_file,
-                         --search) is dropped there, since the shape is already chosen.
+  step 2, GPU1, GPU2...: one at a time, mamf-finder.py on GPU0's MAMF and MSMF shapes only (--shapes_file), with your
+                         remaining arguments (--dtype etc.). Your shape selection (--m/--n/--k, --*_range,
+                         --shapes_file, --search) is dropped there, since the shapes are already chosen.
 
 The script sets --cuda_device, --output_file and --verbose/--no-verbose per run itself, so passing any of them is an
 error.
@@ -34,13 +36,13 @@ error.
 Examples:
 
   python mamf-finder-all-gpus.py
-      bf16, --search auto on GPU0, then its MSMF shape on each other visible GPU in turn.
+      bf16, --search auto on GPU0, then its MAMF and MSMF shapes on each other visible GPU in turn.
 
   python mamf-finder-all-gpus.py --dtype float8_e4m3fn
       The same for fp8.
 
   python mamf-finder-all-gpus.py --m_range 2048 8193 256 --n 4096 --k 4096
-      GPU0 searches only your model's shape range; then each other GPU in turn measures the MSMF shape GPU0 found.
+      GPU0 searches only your model's shape range; then each other GPU in turn measures the shapes GPU0 found.
 
   CUDA_VISIBLE_DEVICES=0,1,2,3 python mamf-finder-all-gpus.py
       Only those 4 GPUs are measured or run the matmul; the rest of the node is left alone. GPU0 here means the first
@@ -56,7 +58,9 @@ Output:
 
   $OUT_DIR/gpu<N>.txt   GPU N's full mamf-finder.py log.
   $OUT_DIR/gpu<N>.err   Anything GPU N's run printed before its log opened, e.g. a traceback (GPUs 1+ only).
-  $OUT_DIR/summary.txt  The table printed at the end: per-GPU MSMF, node MSMF, median and spread, GPU0's MAMF.
+  $OUT_DIR/shapes.txt   GPU0's MAMF and MSMF shapes, which the other GPUs measure.
+  $OUT_DIR/summary.txt  The table printed at the end: per-GPU MAMF and MSMF, the node medians, slowest GPU, spread,
+                        and the warnings.
 
 Ctrl-C stops the current mamf-finder.py gracefully (it still prints its results) and skips the remaining GPUs; the
 summary covers the GPUs measured so far. If GPU0 had no MSMF yet, there is nothing to summarize and it exits 1.
@@ -78,8 +82,13 @@ FINDER = HERE / "mamf-finder.py"
 SET_PER_RUN = ("--output_file", "--cuda_device", "--verbose", "--no-verbose")
 SHAPE_SELECTION = ("--m", "--n", "--k", "--m_range", "--n_range", "--k_range", "--shapes_file", "--search")
 HEADLINE = re.compile(r"^(MAMF|MSMF) \(max [^)]*\):\s+([\d.]+) TFLOPS @ (\d+x\d+x\d+) \(MxNxK\)"
-                      r"(?:\s+(\d+)W)?(?:\s+(\d+)MHz)?")
+                      r"(?:\s+(\d+)W)?(?:\s+(\d+)MHz)?(?:\s+(\d+)C)?")
 IDLE_SHARE = re.compile(r"Share of the time each was idle: (.*)")
+UNSTEADY = "WARNING: no confirm shape held a steady rate over its window"
+# an MSMF window this much hotter than the coolest GPU's, or below this share of the highest power, gets flagged;
+# GPUs of a well-cooled node at their power cap stay within ~13C and a few % of each other
+HOT_C = 15
+LOW_POWER = 0.9
 # a cold torch import from a network filesystem can take a minute, and all the matmuls import it at once
 MATMUL_START_TIMEOUT_S = 300
 
@@ -179,7 +188,9 @@ def run_finder(gpu, args, out_dir):
     """Run mamf-finder.py on `gpu` and wait for it to exit; return its exit code."""
     global finder
     log = out_dir / f"gpu{gpu}.txt"
-    cmd = [sys.executable, str(FINDER), *args, "--cuda_device", str(gpu), "--output_file", str(log)]
+    # the child gets this interpreter's flags, e.g. -I, or it may import other packages than this process does
+    cmd = [sys.executable, *subprocess._args_from_interpreter_flags(), str(FINDER), *args,
+           "--cuda_device", str(gpu), "--output_file", str(log)]
     if gpu == 0:
         finder = subprocess.Popen(cmd)
     else:
@@ -208,15 +219,43 @@ def physical_gpus(num_gpus):
 
 
 def parse_log(path):
-    """The MAMF/MSMF headlines of a mamf-finder.py log, and how long (%) each idle sibling sat idle."""
-    result = {"idle": {}}
+    """The MAMF/MSMF headlines of a mamf-finder.py log, how long (%) each idle sibling sat idle, and whether MSMF is
+    the fallback to the fastest unsteady window."""
+    result = {"idle": {}, "unsteady": False}
     if path.exists():
         for line in path.read_text(errors="replace").splitlines():
-            if m := HEADLINE.match(line):
-                result[m[1]] = dict(tflops=float(m[2]), shape=m[3], W=m[4] or "-", MHz=m[5] or "-")
+            if line.startswith(UNSTEADY):
+                result["unsteady"] = True
+            elif m := HEADLINE.match(line):
+                result[m[1]] = dict(tflops=float(m[2]), shape=m[3], W=m[4] or "-", MHz=m[5] or "-", C=m[6] or "-")
             elif m := IDLE_SHARE.search(line):
                 result["idle"] = {int(g): int(p) for g, p in re.findall(r"GPU(\d+) (\d+)%", m[1])}
     return result
+
+
+def msmf_warnings(rows):
+    """Warnings for GPUs whose MSMF isn't a steady rate at the power cap: they pull the node median down for reasons
+    of this node (cooling, a throttling GPU) rather than of the GPU model."""
+    out = []
+    gpus = lambda xs: ",".join(str(g) for g in xs)
+    if unsteady := [gpu for gpu, r in enumerate(rows) if r["unsteady"] and "MSMF" in r]:
+        out.append(f"\nwarning: GPU(s) {gpus(unsteady)} held no MSMF window steady, so their MSMF is the fastest "
+                   "unsteady window, not\n         a sustained rate - usually a GPU throttling as it heats up; see "
+                   "their logs")
+    msmf = [(gpu, r["MSMF"]) for gpu, r in enumerate(rows) if "MSMF" in r]
+    temps = {gpu: int(s["C"]) for gpu, s in msmf if s["C"] != "-"}
+    if hot := [gpu for gpu, c in temps.items() if c >= min(temps.values()) + HOT_C]:
+        lo, hi = min(temps[g] for g in hot), max(temps[g] for g in hot)
+        out.append(f"\nwarning: GPU(s) {gpus(hot)} ran their MSMF window at {lo}-{hi}C, {HOT_C}C+ hotter than the "
+                   f"coolest GPU ({min(temps.values())}C):\n         the node cools them unevenly, and a hotter GPU "
+                   "clocks lower at the same power, so the node MSMF\n         reflects this node's cooling as well "
+                   "as the GPU")
+    watts = {gpu: int(s["W"]) for gpu, s in msmf if s["W"] != "-"}
+    if low := [gpu for gpu, w in watts.items() if w < LOW_POWER * max(watts.values())]:
+        out.append(f"\nwarning: GPU(s) {gpus(low)} drew under {LOW_POWER:.0%} of the node's highest MSMF power "
+                   f"({max(watts.values())}W), so something\n         other than the power cap held them back, "
+                   "usually temperature")
+    return out
 
 
 def summarize(rows, ours):
@@ -225,27 +264,33 @@ def summarize(rows, ours):
            f"{len(rows)} GPUs, each measured while all the others ran a continuous matmul")
     out = [f"\n{'-' * 80}\n",
            f"** Node results ({how}):\n",
-           f"  {'GPU':>3}  {'MSMF':>7}  {'MxNxK':<18} {'W':>4} {'MHz':>5}  sibling idle"]
+           f"  {'GPU':>3}  {'MAMF':>7}  {'MxNxK':<18}  {'MSMF':>7}  {'MxNxK':<18} {'W':>4} {'MHz':>5} {'C':>3}  "
+           "sibling idle"]
     outside = set()
     for gpu, r in enumerate(rows):
         r["idle_ours"] = max((p for g, p in r["idle"].items() if ours is None or g in ours), default=0)
         outside |= {g for g, p in r["idle"].items() if ours is not None and g not in ours and p >= 10}
+        a = f"{half_up(r['MAMF']['tflops']):7d}  {r['MAMF']['shape']:<18}" if "MAMF" in r else f"{'n/a':>7}  {'':<18}"
         if s := r.get("MSMF"):
-            msmf = f"{half_up(s['tflops']):7d}  {s['shape']:<18} {s['W']:>4} {s['MHz']:>5}"
+            msmf = f"{half_up(s['tflops']):7d}  {s['shape']:<18} {s['W']:>4} {s['MHz']:>5} {s['C']:>3}"
         else:
-            msmf = f"{'n/a':>7}  {'':<18} {'':>4} {'':>5}"
-        out.append(f"  {gpu:>3}  {msmf}  {r['idle_ours']:>3}%")
+            msmf = f"{'n/a':>7}  {'':<18} {'':>4} {'':>5} {'':>3}"
+        out.append(f"  {gpu:>3}  {a}  {msmf}  {r['idle_ours']:>3}%")
 
-    measured = [(gpu, r["MSMF"]) for gpu, r in enumerate(rows) if "MSMF" in r]
-    lo_gpu, lo = min(measured, key=lambda gm: gm[1]["tflops"])
-    hi = max(s["tflops"] for _, s in measured)
-    median = statistics.median(s["tflops"] for _, s in measured)
-    spread = 100 * (hi - lo["tflops"]) / hi
-    out += ["", f"MSMF (node = slowest GPU):  {half_up(lo['tflops'])} TFLOPS @ {lo['shape']} (GPU{lo_gpu})"]
-    if len(measured) > 1:
-        out.append(f"MSMF median / spread:       {half_up(median)} TFLOPS / {spread:.1f}% across {len(measured)} GPUs")
-    if a := rows[0].get("MAMF"):
-        out.append(f"MAMF (GPU0 search):         {half_up(a['tflops'])} TFLOPS @ {a['shape']}")
+    out.append("")
+    for key in ("MAMF", "MSMF"):
+        measured = [(gpu, r[key]) for gpu, r in enumerate(rows) if key in r]
+        if not measured:
+            continue
+        lo_gpu, lo = min(measured, key=lambda gm: gm[1]["tflops"])
+        hi = max(s["tflops"] for _, s in measured)
+        median = statistics.median(s["tflops"] for _, s in measured)
+        shape = rows[0].get(key, lo)["shape"]
+        out.append(f"{key} (node = median GPU):  {half_up(median)} TFLOPS @ {shape} (GPU0's shape)")
+        if len(measured) > 1:
+            out.append(f"{key} slowest / spread:     {half_up(lo['tflops'])} TFLOPS (GPU{lo_gpu}) / "
+                       f"{100 * (hi - lo['tflops']) / hi:.1f}% across {len(measured)} GPUs")
+    measured = [r for r in rows if "MSMF" in r]
 
     if idle := [str(gpu) for gpu, r in enumerate(rows) if r["idle_ours"] >= 10]:
         out.append(f"\nwarning: GPU(s) {','.join(idle)} saw idle siblings during their MSMF measurement - the "
@@ -254,6 +299,7 @@ def summarize(rows, ours):
         gpus = ",".join(map(str, sorted(outside)))
         out.append(f"\nnote: driver GPU(s) {gpus} share the board but are left out of this run (CUDA_VISIBLE_DEVICES"
                    " / NUM_GPUS)\n      and sat idle, so MSMF reads higher than with the whole node computing")
+    out += msmf_warnings(rows)
     if len(measured) < len(rows):
         out.append(f"\nwarning: only {len(measured)} of {len(rows)} GPUs produced an MSMF result - see the per-GPU "
                    "logs")
@@ -287,13 +333,15 @@ def main():
     gpu0 = parse_log(out_dir / "gpu0.txt")
     if "MSMF" not in gpu0:
         die("GPU0 produced no MSMF result, so there is no shape to measure on the other GPUs")
-    shape = gpu0["MSMF"]["shape"]
-    m, n, k = shape.split("x")
-    pinned = [*without_shape_selection(args), "--m", m, "--n", n, "--k", k]
+    shapes = list(dict.fromkeys(gpu0[key]["shape"] for key in ("MAMF", "MSMF") if key in gpu0))
+    shapes_file = out_dir / "shapes.txt"
+    shapes_file.write_text("".join(f"{s}\n" for s in shapes))
+    pinned = [*without_shape_selection(args), "--shapes_file", str(shapes_file)]
 
     failed = []
     if num_gpus > 1 and not interrupted:
-        print(f"\nOther GPUs: MSMF shape {shape} pinned, each in turn while all the others run the matmul")
+        print(f"\nOther GPUs: GPU0's shapes {', '.join(shapes)} pinned, each in turn while all the others run the "
+              "matmul")
         for gpu in range(1, num_gpus):
             if interrupted:
                 break

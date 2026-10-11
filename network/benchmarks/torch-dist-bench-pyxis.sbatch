@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=all_reduce_bench_pyxis
+#SBATCH --job-name=torch-dist-bench-pyxis
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:8
@@ -21,4 +21,4 @@ srun --container-image=nvcr.io#nvidia/pytorch:25.08-py3 \
          --max_restarts 0 \
          --role `hostname -s`':' \
          --tee 3 \
-         all_reduce_bench.py
+         torch-dist-bench.py

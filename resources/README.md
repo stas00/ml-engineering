@@ -67,7 +67,10 @@ The listing is in no particular order other than being grouped by the year.
 - Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
 
+### 2026
 
+- [Supercharging Olmo-core for Efficient and Scalable MoE Training](https://allenai.org/papers/olmocore3) - practical recommendations for training large scale MoE models in 2026!
+- [Marin 535B-A23B MoE live](https://mtracker.oa.dev/hero-run-535b) - each short entry goes to a details GitHub Issue where you can read the details. Finished trainings retrospectives: [8B](https://marin.readthedocs.io/en/latest/reports/marin-8b-retro/), [32B](https://marin.readthedocs.io/en/latest/reports/marin-32b-retro/)
 
 ## Hardware setup logbooks
 

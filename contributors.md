@@ -23,6 +23,7 @@ Multiple contributors kindly helped to improve these ever improving and expandin
 - [Quentin Anthony](https://github.com/Quentin-Anthony)
 - [Ross Wightman](https://github.com/rwightman)
 - [Samyam Rajbhandari](https://github.com/samyam)
+- [Satyaki Upadhyay](https://github.com/satyaki-up)
 - [Shikib Mehri](https://github.com/Shikib)
 - [Siddharth Singh](https://github.com/siddharth9820)
 - [Stéphane Requena](https://twitter.com/s_requena)

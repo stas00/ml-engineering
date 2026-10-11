@@ -59,7 +59,7 @@ Full chapter: [Network](https://github.com/stas00/ml-engineering/blob/master/net
 
 - **Inter-node speed can dominate the whole training's speed.** For sharded/parallel training, slow inter-node links stall everyone. Understand why before scaling out: [why inter-node speed is hugely important](https://github.com/stas00/ml-engineering/blob/master/network/README.md#understanding-why-inter-node-network-speed-is-of-a-huge-importance).
 - **Know the two speeds:** [intra-node](https://github.com/stas00/ml-engineering/blob/master/network/README.md#intra-node-networking) (NVLink/PCIe) vs [inter-node](https://github.com/stas00/ml-engineering/blob/master/network/README.md#inter-node-networking) (InfiniBand/RoCE/Ethernet), and [RDMA](https://github.com/stas00/ml-engineering/blob/master/network/README.md#rdma-networking).
-- **Benchmark real collective throughput,** not marketing numbers, with [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py) (far simpler than nccl-tests). Mind the [important nuances](https://github.com/stas00/ml-engineering/blob/master/network/README.md#important-nuances) (e.g. unidirectional vs bidirectional, payload size, busbw vs algbw). Intra-node plus ≥4-node inter-node is part of [How to evaluate the cluster](https://github.com/stas00/ml-engineering/blob/master/insights/how-to-choose-cloud-provider.md#how-to-evaluate-the-cluster).
+- **Benchmark real collective throughput,** not marketing numbers, with [`torch-dist-bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/torch-dist-bench.py) (far simpler than nccl-tests). Mind the [important nuances](https://github.com/stas00/ml-engineering/blob/master/network/README.md#important-nuances) (e.g. unidirectional vs bidirectional, payload size, busbw vs algbw). Intra-node plus ≥4-node inter-node is part of [How to evaluate the cluster](https://github.com/stas00/ml-engineering/blob/master/insights/how-to-choose-cloud-provider.md#how-to-evaluate-the-cluster).
 - **When collectives hang or crawl:** see [network debug](https://github.com/stas00/ml-engineering/tree/master/network/debug) and [NCCL performance debug](https://github.com/stas00/ml-engineering/blob/master/debug/nccl-performance-debug.md).
 
 ## Orchestration & SLURM
@@ -132,7 +132,7 @@ Full chapter: [Testing](https://github.com/stas00/ml-engineering/blob/master/tes
 | Need | Tool |
 |---|---|
 | Verify all GPUs/nodes can talk & allocate | [`torch-distributed-gpu-test.py`](https://github.com/stas00/ml-engineering/blob/master/debug/torch-distributed-gpu-test.py) |
-| Real network throughput (all-reduce busbw) | [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py) |
+| Real network throughput (all-reduce busbw) | [`torch-dist-bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/torch-dist-bench.py) |
 | Actual achievable matmul FLOPS of an accelerator | [`mamf-finder.py`](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py) |
 | Tiny models/tokenizers/datasets for fast iteration | [make-tiny guide](https://github.com/stas00/ml-engineering/blob/master/debug/make-tiny-models-tokenizers-datasets.md) |
 | Better `trace` for distributed hangs | [NicerTrace](https://github.com/stas00/ml-engineering/blob/master/debug/tools.md) |
@@ -143,7 +143,7 @@ Full chapter: [Testing](https://github.com/stas00/ml-engineering/blob/master/tes
 |---|---|
 | Low TFLOPS / MFU, "GPUs feel idle" | Find the bottleneck: `mamf-finder`, [performance checklist](https://github.com/stas00/ml-engineering/blob/master/training/performance/README.md#how-to-improve-speed-and-save-memory), DataLoader, NUMA, dim divisibility |
 | Training OOM | Memory anatomy → activation checkpointing/offload/parallelism; profile; `PYTORCH_ALLOC_CONF` |
-| Slow steps but GPUs busy on comms | Benchmark network (`all_reduce_bench`), check intra/inter-node, NCCL settings |
+| Slow steps but GPUs busy on comms | Benchmark network (`torch-dist-bench`), check intra/inter-node, NCCL settings |
 | Slow dataloading / GPU starvation | [DataLoader](https://github.com/stas00/ml-engineering/blob/master/training/performance/README.md#dataloader), local NVMe, prefetch/workers |
 | Loss spike / divergence / NaN | Logbooks, init/STD, underflow-overflow detection, tensor scans |
 | Multi-node/GPU hang or deadlock | `torch-distributed-gpu-test.py` → `py-spy` all ranks → `NCCL_DEBUG=INFO` |

@@ -323,7 +323,7 @@ Resetting `LOCAL_RANK` to `0` is required, see [Caveats](#caveats).
 
 ### How fast do the emulated GPUs talk to each other?
 
-The emulation is only useful if the collectives aren't crawling, so here is [all_reduce_bench.py](../network/benchmarks/all_reduce_bench.py) run on MIG instances of one H200, measured against the same number of whole H200s - 4 instances against 4 real GPUs, 2 instances against 2 real GPUs.
+The emulation is only useful if the collectives aren't crawling, so here is [torch-dist-bench.py](../network/benchmarks/torch-dist-bench.py) run on MIG instances of one H200, measured against the same number of whole H200s - 4 instances against 4 real GPUs, 2 instances against 2 real GPUs.
 
 The profiles used below, all on one H200 141GB:
 
@@ -399,7 +399,7 @@ export MIG_UUIDS=$(nvidia-smi -L | perl -ne 'if (/\(UUID: (GPU-[^)]+)\)/) { push
 torchrun --nproc_per_node 8 --no-python bash -c '
 export CUDA_VISIBLE_DEVICES=$(echo $MIG_UUIDS | cut -d, -f$((LOCAL_RANK+1)))
 export LOCAL_RANK=0
-exec python all_reduce_bench.py --payload_size_in_gib 2'
+exec python torch-dist-bench.py --payload_size_in_gib 2'
 ```
 
 8 ranks, 512MiB payload:
@@ -432,7 +432,7 @@ export MIG_UUIDS=$(nvidia-smi -L | perl -ne 'if (/\(UUID: (GPU-[^)]+)\)/) { push
 torchrun --nproc_per_node 8 --no-python bash -c '
 export CUDA_VISIBLE_DEVICES=$(echo $MIG_UUIDS | cut -d, -f$((LOCAL_RANK+1)))
 export LOCAL_RANK=0
-exec python all_reduce_bench.py --payload_size_in_gib 2'
+exec python torch-dist-bench.py --payload_size_in_gib 2'
 ```
 
 8 ranks, 512MiB payload:

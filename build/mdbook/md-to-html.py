@@ -18,8 +18,12 @@ mdit = (
 
 my_repo_url = "https://github.com/stas00/ml-engineering/blob/master"
 
+# what's wrapped in these is only for the github view, e.g. the cover thumbnail, as the pdf and epub have the full cover
+not_in_ebook_re = re.compile(r"<!-- not-in-ebook-start -->.*?<!-- not-in-ebook-end -->\n?", re.DOTALL)
+
 def convert_markdown_to_html(markdown_path, args):
     md_content = markdown_path.read_text()
+    md_content = not_in_ebook_re.sub("", md_content)
 
     cwd_rel_path = markdown_path.parent
 

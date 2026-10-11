@@ -29,7 +29,7 @@ Classify each hit and normalize per this table:
 | --- | --- | --- |
 | On-device memory **capacity** (VRAM, CPU RAM, SRAM, on-chip cache) | binary `KiB/MiB/GiB/TiB` | "H100 has 80GiB", "640GiB of GPU memory", "256MiB cache", "1-2TiB of CPU memory" |
 | Any quantity **computed via `2**n`** (or reported by a tool that divides by `2**n`/`1024**n`) | binary | activation memory `.../2**30`, `torch.cuda.mem_get_info`, `see_mem_usage` output, RSS `/2**20` |
-| Benchmark **payloads that are `2**x`** | binary | `all_reduce_bench.py` sizes (`32KiB..16GiB`); it appends `iB` via `fmt_bytes` |
+| Benchmark **payloads that are `2**x`** | binary | `torch-dist-bench.py` sizes (`32KiB..16GiB`); it appends `iB` via `fmt_bytes` |
 | **Bandwidth / throughput** | decimal `GB/s`, `GBps`, `Gbps`, `TBps` | NVLink/IB/EFA rates, busbw/algbw columns |
 | **Network transmission volumes / payloads matched to decimal bandwidth** | decimal `GB` | "send 320GB over the wire (`80*4`)", ZeRO/DDP "60GB of data", `all_reduce_latency_comp.py` (`/1e9`) |
 | Model memory **footprints** written as `params × bytes` with clean decimal arithmetic | decimal `GB/MB` (**leave**) | inference "`8B × 2 = 16GB`", "`2B × 18 = 36GB`", KV-cache "`/10**6 = 0.131MB`" |
@@ -42,7 +42,7 @@ Classify each hit and normalize per this table:
 - Literal CLI/API/env values: `dd bs=1G`, `mount -o size=1G`, `systemd-run -p MemoryMax=5G`, `MEMLIMIT=5GB`, `max_shard_size="2GB"`, `nccl-tests -b 32k -e 16G`, `--shm-size=1g`, `3<<10`.
 - Verbatim third-party tool output: `ls -lh` sizes (`304K`, `5.8M`), `df -h`, `ifconfig` (`138.4 GB`), `nvidia-smi`, `rocminfo` (`4KB Alloc Granule`), PyTorch OOM messages (already emit `GiB`/`MiB`).
 
-**Author's own scripts:** when a script the author maintains prints a mislabeled unit (e.g. divides by `2**30` but prints `GB`), fix the label in the script too (e.g. `see-mem-usage.py`, `torch-dist-mem-usage.py`, `all_reduce_bench.py`). After editing any `*.py`, `python3 -m py_compile` it.
+**Author's own scripts:** when a script the author maintains prints a mislabeled unit (e.g. divides by `2**30` but prints `GB`), fix the label in the script too (e.g. `see-mem-usage.py`, `torch-dist-mem-usage.py`, `torch-dist-bench.py`). After editing any `*.py`, `python3 -m py_compile` it.
 
 Quick spot-check that the `see_mem_usage` (`[0] mp:`) output has no stale `GB`:
 

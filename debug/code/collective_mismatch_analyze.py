@@ -5,7 +5,8 @@ SHOW_ALL   = False   # False: only collectives that hung; True: every collective
 NUM_FRAMES = 2       # user frames to show: the actual call site + who called it
 
 TORCH_DIR = os.path.dirname(torch.__file__)      # wherever torch actually lives
-def is_user(frame):                              # skip torch's own collective plumbing
+def is_user(frame):
+    """False for frames in torch's own collective plumbing."""
     return not frame["filename"].startswith(TORCH_DIR)
 
 d = pickle.load(open(sorted(glob.glob("/tmp/fr*"))[0], "rb"))

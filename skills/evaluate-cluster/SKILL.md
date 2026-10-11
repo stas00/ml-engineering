@@ -3,8 +3,9 @@ name: evaluate-cluster
 description: >-
   Evaluates an ML GPU cluster for a cloud trial or acceptance test: environment
   dump, isolated newest PyTorch, matmul FLOPS (MAMF/MSMF) on every GPU while the
-  others compute, intra-node all-reduce, inter-node all-reduce on every node you were given
-  (omit that section if there is only one node), fio on local disk and shared FS,
+  others compute, intra-node all-reduce bandwidth and per-call latency of every collective,
+  the same inter-node on every node you were given (omit those sections if there is only
+  one node), fio on local disk and shared FS,
   dated markdown report. Use when the user asks to evaluate a cluster, kick the
   tires on trial nodes, run cluster acceptance, or measure GPU/network/storage.
 
@@ -33,7 +34,7 @@ This file is the whole runbook. You do not need any other document from the auth
 
 Reports under `reports/` other than the one you are writing are historical. Leave them alone.
 
-Refuse to invent access, GPU counts, filesystem paths, or peer IPs. **Preflight first**: list what you have, **ask for every missing item, and wait**. Do not start DCGM, MAMF, `fio-scan`, or `all_reduce_bench.py` until the checklist is complete and — when **≥2 nodes** — inter-node reachability has passed. Eval **all nodes the user gave** (1, 2, 4, 16, …). Inter-node all-reduce uses **every** one of those nodes (`NNODES × GPUs_per_node` ranks). **One node:** do not write an Inter-node section at all (no “Skipped”). If ≥2 nodes but inter-node still cannot run after the user has answered, omit the section and put the reason in **### Gaps** — never invent busbw.
+Refuse to invent access, GPU counts, filesystem paths, or peer IPs. **Preflight first**: list what you have, **ask for every missing item, and wait**. Do not start DCGM, MAMF, `fio-scan`, or `torch-dist-bench.py` until the checklist is complete and — when **≥2 nodes** — inter-node reachability has passed. Eval **all nodes the user gave** (1, 2, 4, 16, …). Inter-node all-reduce uses **every** one of those nodes (`NNODES × GPUs_per_node` ranks). **One node:** do not write an Inter-node section at all (no “Skipped”). If ≥2 nodes but inter-node still cannot run after the user has answered, omit the section and put the reason in **### Gaps** — never invent busbw.
 
 ## Terms
 
@@ -44,7 +45,7 @@ Refuse to invent access, GPU counts, filesystem paths, or peer IPs. **Preflight 
 | **DCGM**             | NVIDIA Data Center GPU Manager. `dcgmi diag -r 2` checks GPU memory, bandwidth, PCIe — not FLOPS.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **lemon GEMM**       | A one-off inline `torch.matmul` (not a published script) on every GPU with the same large shape, to catch a dead, slow, or throttled card.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **all-reduce**       | Collective: every rank ends up with the sum of all ranks' tensors. Used to stress NVLink and the network.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **busbw / algbw**    | Printed by [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py). **busbw** = unidirectional bus bandwidth (what the fabric moves). **algbw** = algorithm bandwidth (what the caller sees). busbw is already unidirectional ([why](https://github.com/stas00/ml-engineering/blob/master/network/README.md#unidirectional-vs-bidirectional-duplex)).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **busbw / algbw**    | Printed by [`torch-dist-bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/torch-dist-bench.py). **busbw** = unidirectional bus bandwidth (what the fabric moves). **algbw** = algorithm bandwidth (what the caller sees). busbw is already unidirectional ([why](https://github.com/stas00/ml-engineering/blob/master/network/README.md#unidirectional-vs-bidirectional-duplex)).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **NVLS**             | NVLink SHARP: the NVSwitch does the all-reduce in the switch. Typical gain vs ring busbw ~30% intra-node / ~25% inter-node. Does **not** speed up all-gather or reduce-scatter. Different from InfiniBand switch SHARP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **NCCL**             | NVIDIA Collective Communications Library (the GPU collective stack torch uses).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **rdzv**             | torch.distributed **rendezvous**: a TCP store so ranks find `MASTER_ADDR:PORT` before NCCL starts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -65,7 +66,7 @@ RAW=https://raw.githubusercontent.com/stas00/ml-engineering/master
 curl -fsSL "$RAW/compute/accelerator/benchmarks/mamf-finder.py" -o mamf-finder.py
 curl -fsSL "$RAW/compute/accelerator/benchmarks/mamf-finder-all-gpus.py" -o mamf-finder-all-gpus.py
 # mamf-finder-all-gpus.py runs ./mamf-finder.py from its own directory — keep both in one directory.
-curl -fsSL "$RAW/network/benchmarks/all_reduce_bench.py" -o all_reduce_bench.py
+curl -fsSL "$RAW/network/benchmarks/torch-dist-bench.py" -o torch-dist-bench.py
 curl -fsSL "$RAW/debug/torch-distributed-gpu-test.py" -o torch-distributed-gpu-test.py
 curl -fsSL "$RAW/storage/fio-scan" -o fio-scan
 curl -fsSL "$RAW/storage/fio-json-extract.py" -o fio-json-extract.py
@@ -109,7 +110,7 @@ NCCL env is **not** a user question if you can exec: dump `env | grep -E '^NCCL_
 
 ### Inter-node reachability (now, not a benchmark)
 
-As soon as you have the hostfile/IPs, prove the nodes can see each other. **Do not** run `all_reduce_bench.py` or any GPU collective yet. This is seconds of TCP/SSH.
+As soon as you have the hostfile/IPs, prove the nodes can see each other. **Do not** run `torch-dist-bench.py` or any GPU collective yet. This is seconds of TCP/SSH.
 
 ```bash
 # 1. Launch node → every peer (BatchMode: fail fast if keys/port are wrong)
@@ -131,7 +132,7 @@ On Kubernetes, `ssh` may be `kubectl exec` per pod — still loop **every** sibl
 
 **Pass:** every hostname comes back, TCP to `MASTER_ADDR` is OPEN. **Fail:** ask the user (hostfile IPs, SSH port, keys, `pdsh` args) and wait. Do not start MAMF “in the meantime.”
 
-After the eval venv exists (loop step 2), add one more cheap check **before** GPU inter-node all-reduce: CPU-only, 1-process-per-node PyTorch `gloo` backend, `init_process_group` + `all_reduce` (see Network). Still not `all_reduce_bench.py`.
+After the eval venv exists (loop step 2), add one more cheap check **before** GPU inter-node all-reduce: CPU-only, 1-process-per-node PyTorch `gloo` backend, `init_process_group` + `all_reduce` (see Network). Still not `torch-dist-bench.py`.
 
 ## Loop
 
@@ -141,9 +142,9 @@ After the eval venv exists (loop step 2), add one more cheap check **before** GP
 3. If ≥2 nodes: CPU gloo 1-process-per-node across the hostfile (connectivity + rdzv). Fix `is_host` / `local_addr` here if needed. **Skip this step on 1 node.**
 4. Connectivity: `torch-distributed-gpu-test.py` — one process per GPU; ranks must see each other and complete a collective. **The scope is whatever you launch it on**: across all nodes it is an inter-node check, on a single node it is only intra-node. With **≥2 nodes, run it across all of them** — a 1-node run does not test the fabric and must never be labelled inter-node.
 5. **Compute:** `dcgmi diag -r 2` (hardware health), then `mamf-finder-all-gpus.py` (one GPU at a time while every other GPU runs a continuous matmul). Lemon GEMM on **every GPU of every given node**.
-6. **Network:** intra-node `all_reduce_bench.py`. Then, if **≥2 nodes**, GPU all-reduce on **all** of them (not a fixed 4). If **1 node**, stop after intra-node — no Inter-node heading.
+6. **Network:** intra-node `torch-dist-bench.py --collectives all --separate-tables` — all-reduce bandwidth plus the per-call latency of every collective, in one run. Then, if **≥2 nodes**, the same on **all** of them (not a fixed 4). If **1 node**, stop after intra-node — no Inter-node heading.
 7. **Storage:** `fio-scan` on local disk and on shared FS. Concurrent write poke uses every given node when ≥2; skip that poke on 1 node.
-8. Write `reports/<cluster>-<YYYY-MM-DD-HHMMZ>.md` next to this skill (or in the working directory), with `reports/raw-<name>/` beside it and **plots inlined**. Write it for a reader who knows nothing you learned on the node: every tool and term gets defined where it is first used. End with **## Findings**, split into **### Healthy subsystems**, **### Underperforming subsystems**, and **### Needs operator input** — the last for subsystems measured cleanly but with no known target to judge them against; keep only the headings that have bullets. Compute may use % of official TFLOPS. Intra-node all-reduce may use % of NVLink spec (note NVLS). Storage: measured vs vendor advertised. **Never** flag multi-node all-reduce as “X% of NIC / rail spec.” Do not repeat the tables.
+8. Write `reports/<cluster>-<YYYY-MM-DD-HHMMZ>.md` next to this skill (or in the working directory), with `reports/raw-<name>/` beside it and **plots inlined**. Write it for a reader who knows nothing you learned on the node: every tool and term gets defined where it is first used. End with **## Findings**, split into **### Healthy subsystems**, **### Underperforming subsystems**, and **### Needs operator input** — the last for subsystems measured cleanly but with no known target to judge them against; keep only the headings that have bullets. Compute may use % of official TFLOPS. Intra-node all-reduce may use % of NVLink spec (note NVLS). Latency has no vendor target, so it goes under **Needs operator input** (see **Latency**). Storage: measured vs vendor advertised. **Never** flag multi-node all-reduce as “X% of NIC / rail spec.” Do not repeat the tables.
 9. **Clear the scratch you created** (see **Leave the filesystems as you found them**) — before the summary, not after the user notices.
 10. **Close-out:** **ask the user** to address each one, including every **Needs operator input** bullet — those are open questions addressed to them, and the eval stays unfinished until they supply the figures or say to drop it. For every gap: quote it, then give a **proposed plan of action** (commands, launcher, package, node count, or “accept and leave as-is”). Do not treat the eval as finished until they pick a plan, you execute it, or they explicitly accept the gap. If there are no Gaps sections, say the eval is complete.
 
@@ -189,7 +190,7 @@ Pick the `cuNNN` index matching the driver (`nvidia-smi`); try the highest one t
 
 **Verify each phase actually ran on it.** Every bench prints its stack (`- software: torch=…, nccl=…`); MAMF logs it too. A launcher can silently substitute its own interpreter — `deepspeed`/`srun` run whatever `python3` is on the remote PATH, so a run can come back on the node’s old torch even with the venv sourced. Grep the log before you copy a number into the report.
 
-**`nvidia-ml-py` is required** (`import pynvml`) — `mamf-finder.py` refuses to start without it, because it needs the SM clock to confirm MAMF was a boost burst and the power draw to drop MSMF shapes that never reached the power limit (the script labels those SUSPECT). Do not pass `--telemetry off` to get around it; install the package. The pip name is `nvidia-ml-py`; the import is `pynvml`.
+**`nvidia-ml-py` is required** (`import pynvml`) — `mamf-finder.py` refuses to start without it, because it needs the SM clock to confirm MAMF was a boost burst and the power draw to rank the scouted shapes. Do not pass `--telemetry off` to get around it; install the package. The pip name is `nvidia-ml-py`; the import is `pynvml`.
 
 Host packages — install before the env dump, on **every** node you will measure. Prefix with `sudo` if the eval user is not root. Empty `ibstat` on EFA is OK; still install `infiniband-diags` and confirm fabric with `rdma link` / `/sys/class/infiniband`.
 
@@ -241,7 +242,7 @@ rdma link
 ls /sys/class/infiniband
 cat /sys/class/infiniband/*/ports/1/rate
 nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv
-sha256sum mamf-finder.py mamf-finder-all-gpus.py all_reduce_bench.py
+sha256sum mamf-finder.py mamf-finder-all-gpus.py torch-dist-bench.py
 ```
 
 Classify intra-node (NVLink vs PCIe from `topo`) and inter-node (InfiniBand / RoCE / EFA / Ethernet). HBM = `memory.total` reported in **GiB** (not MiB). SM clocks in the Environment GPU table: **boost** = `clocks.max.sm` (spec / short burst); **saturated** = SM clock at ~TDP under a dense GEMM (a range is fine; not a single nvidia-smi field); **parked idle** = `clocks.sm` when no compute. Do not label boost as “loaded” — a power-saturated GEMM sits well below boost. Do **not** name MAMF/MSMF in Environment — those terms start in Compute. Write the dump as **five tables** in the report: Host / GPU / Fabric / Filesystems / Software. Never one mega-table. **Software:** OS is **not** here — it is Host row 1. Python version + torch/NCCL. **Never** the eval venv path (temporal artifact). Tool versions (`mamf-finder`, …) belong under Compute.
@@ -254,7 +255,7 @@ Open Compute with the **GPUs that are here** (name, count per node, SM count, HB
 
 ### Hardware health
 
-Hardware health, not a FLOPS number. `-r 1` is seconds of software/deployment only — skip it as a named step. **`-r 2`** is the light hardware suite (GPU memory, memory bandwidth, PCIe/NVLink; NVIDIA: ≲10.5 min on 8 GPUs). `-r 3` is a longer soak, optional.
+Hardware health, not a FLOPS number. `-r 1` is seconds of software/deployment only — skip it as a named step. **`-r 2`** is the light hardware suite (GPU memory, memory bandwidth, PCIe/NVLink; NVIDIA: ≲10.5 min on 8 GPUs). `-r 3` is a longer stress test, optional.
 
 Needs `nv-hostengine` and usually `CAP_SYS_ADMIN` (these trial pods are typically root with it). If install or diag fails, **Gaps** and continue with MAMF — do not skip the lemon pass.
 
@@ -278,11 +279,11 @@ On 8 H200s it took about 4.5 minutes.
 
 1. GPU0 runs the full `--search auto`: MAMF, MSMF and the MSMF shape (`mamf/gpu0.txt`).
 2. Each other GPU in turn measures GPU0's MSMF shape only (`mamf/gpu<N>.txt`); that is much shorter than a search. Their logs also print a MAMF line, which is a burst on that one shape, not a search result — ignore it.
-3. `mamf/summary.txt` lists each GPU's MSMF with shape, W and MHz, then the node MSMF (the slowest GPU, since synchronous work runs at its pace), the median and spread across GPUs, and GPU0's MAMF.
+3. `mamf/summary.txt` lists each GPU's MAMF and MSMF with shapes, W and MHz, then for each headline the node figure (the median GPU), the slowest GPU, which synchronous work runs at, and the spread across GPUs.
 
 Every GPU's MSMF is the same shape at full-node power, so the numbers compare directly. MAMF exists for GPU0 only; never present it as a per-GPU number. Compare MAMF and MSMF to official BF16 TFLOPS.
 
-**One pass cannot call a GPU slow.** On 8 healthy H200s each GPU's MSMF moved by up to 5% between passes (one went 727, 763, 745 TFLOPS), so half the passes had some GPU 2–3% below the node median. If any GPU lands >2% below the node median MSMF, rerun the pass twice with the shape pinned — `--m M --n N --k K` from the summary's MSMF shape, `OUT_DIR=mamf-rep2` and `mamf-rep3`, about 2 minutes each on 8 H200s. A GPU is under-performing only if it is >2% below its node median in **all three** passes; report it in **Findings** as described there. If the dip did not repeat, say so in one sentence with the three numbers, so the reader does not wonder about the first table.
+**One pass cannot call a GPU slow, and a few percent is not slow.** Healthy GPUs differ from chip to chip: on healthy 8x H200 and 8x B200 nodes the slowest GPU's MSMF sat 0.9–1.7% below its node median, and a single GPU's MSMF moves by up to 2.2% between passes on top of that, so a healthy GPU can read about 4% below the median in one pass. A GPU is a candidate only if it is more than 5% below the node median MSMF, well beyond that spread. Then rerun the pass twice with the shape pinned — `--m M --n N --k K` from the summary's MSMF shape, `OUT_DIR=mamf-rep2` and `mamf-rep3`, about 3.5 minutes each on 8 H200s. A GPU is under-performing only if it is more than 5% below its node median in **all three** passes; report it in **Findings** as described there. If the dip did not repeat, say so in one sentence with the three numbers, so the reader does not wonder about the first table.
 
 - A non-zero exit means a GPU's run failed: read `mamf/gpu<N>.err`, rerun or put it in **Gaps**.
 - A `saw idle siblings` warning in `summary.txt` means a sibling's matmul stopped during that GPU's measurement, so its MSMF reads high. Rerun; if it repeats, put it in **Gaps**.
@@ -294,7 +295,7 @@ Cheap check for a slow, throttled, or dead card — **not** MAMF. Open with **TL
 
 Fixed **16384³ bf16**. Compute SM coverage from **this** GPU’s SM count (`torch.cuda.get_device_properties(0).multi_processor_count`) — never reuse an SM count from another GPU family. At 128×256 output tiles that is **8192** CTAs (`16384/128 × 16384/256`; a CTA is one CUDA thread block). Full waves = `8192 // SMs`, tail = `8192 % SMs`, wave efficiency = `1 - tail/8192`. Example only: 132 SMs → 62 waves + 8 CTA tail (**99.9%**).
 
-Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (the GPU performance pass uses >2%); the min of a tight pack is noise.
+Show **every GPU’s TFLOPS**, not only min/max. **min** is the slowest score; **worst GPU** is which index hit that min (same number). **max** is the fastest sibling — the spread, not a substitute for the other scores. A card is under-performing when it lands well below its node median (the GPU performance pass uses >5%); the min of a tight pack is noise.
 
 ## Network
 
@@ -307,14 +308,16 @@ Connectivity first (`torch-distributed-gpu-test.py` — ranks must init NCCL and
   torch-distributed-gpu-test.py
 ```
 
-Intra-node (header of [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py)):
+Intra-node (header of [`torch-dist-bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/torch-dist-bench.py)):
 
 ```bash
 "$PY" -u -m torch.distributed.run --nproc_per_node="$NGPU" --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
-  all_reduce_bench.py
+  torch-dist-bench.py --collectives all --separate-tables
 ```
 
-Inter-node (**≥2 nodes**, **all** of them). Let `NNODES` = hostfile length, `NGPU` = GPUs per node, ranks = `NNODES * NGPU`. **1 node: omit this whole subsection** — no heading, no “Skipped: 1 node”. **Do not discover a missing hostfile here** — that was the preflight gate. Use whatever launcher this cluster already has (`deepspeed -H <hostfile>`, `pdsh`, `srun`, or a site SSH wrapper). Reachability (SSH/TCP) already passed; this section is the GPU `all_reduce_bench.py` sweep only. Heading: `### Inter-node all-reduce benchmark` (ranks go in the TOC annotation, not the heading).
+`--collectives all` times all nine collectives (`all_reduce` first), each from 8 B to 16 GiB; on one 8x B200 node they take under 2 minutes. The `all_reduce` table is the all-reduce benchmark below; the per-call latency of all nine is the latency benchmark (see **Latency**).
+
+Inter-node (**≥2 nodes**, **all** of them). Let `NNODES` = hostfile length, `NGPU` = GPUs per node, ranks = `NNODES * NGPU`. **1 node: omit this whole subsection** — no heading, no “Skipped: 1 node”. **Do not discover a missing hostfile here** — that was the preflight gate. Use whatever launcher this cluster already has (`deepspeed -H <hostfile>`, `pdsh`, `srun`, or a site SSH wrapper). Reachability (SSH/TCP) already passed; this section is the GPU `torch-dist-bench.py --collectives all --separate-tables` sweep only. Headings: `### Inter-node all-reduce benchmark` and `### Inter-node latency benchmark` (ranks go in the TOC annotation, not the heading).
 
 Hostfile: skip `#` comments. `MASTER_ADDR` = first **data** line, not a comment. If the platform already ships a hostfile, **read it, never edit it**.
 
@@ -322,8 +325,8 @@ Hostfile: skip `#` comments. `MASTER_ADDR` = first **data** line, not a comment.
 
 ```bash
 # run-env.sh: source the eval venv; re-export the NCCL values you dumped (do not invent 2 if the platform set 1)
-time deepspeed -H "$HOSTFILE" --venv_script run-env.sh all_reduce_bench.py \
-  |& tee all_reduce_bench-deepspeed.log
+time deepspeed -H "$HOSTFILE" --venv_script run-env.sh torch-dist-bench.py --collectives all --separate-tables \
+  |& tee torch-dist-bench-deepspeed.log
 ```
 
 Requires passwordless SSH from the launch node to every hostfile IP. Port is cluster-specific (a wrapper on PATH may already add `-p`). If `ssh` hits the **machine** sshd (not the container), start `sshd` in the container on an unused port, put the launch key in each container `authorized_keys`, and set `PDSH_SSH_ARGS_APPEND="-p <port> -o StrictHostKeyChecking=accept-new"`. Ubuntu `pdsh` (used by DeepSpeed) may refuse to load modules when `/usr/lib` is not root-owned on overlay — `sudo chown root:root /usr/lib` on the launch node if you are not root.
@@ -353,10 +356,10 @@ python -u -m torch.distributed.run \
     --max_restarts 0 \
     --role \$(hostname -s): \
     --tee 3 \
-    $cwd/all_reduce_bench.py"
+    $cwd/torch-dist-bench.py --collectives all --separate-tables"
 
 PDSH_RCMD_TYPE=ssh PDSH_SSH_ARGS_APPEND="-o StrictHostKeyChecking=accept-new -o BatchMode=yes" \
-  pdsh -w $HOSTS $cmd |& tee all_reduce_bench-torchrun.log
+  pdsh -w $HOSTS $cmd |& tee torch-dist-bench-torchrun.log
 ```
 
 `--role \$(hostname -s)` must expand **on the remote**, not on the launch node. `MASTER_ADDR` must be an IP other nodes can **TCP** to (rdzv).
@@ -412,7 +415,7 @@ Identify adapter (AWS EFA + `fi_info -p efa`, NVIDIA ConnectX-7 NDR, ConnectX-8 
 
 **Do not score multi-node all-reduce against the NIC spec — not in the Network section, not in Findings.**
 
-`NNODES ≥ 2` `all_reduce_bench.py` `busbw` is **always** mixed: intra-node NVLink + inter-node NIC + (usually) NVLS/SHARP. Advertised per-GPU IB/RoCE/EFA GBps is **inventory**. It cannot be measured in isolation with this collective, NVLS on or off. NVLS is in-network all-reduce on the NVSwitch (~30% intra / ~25% inter vs ring `busbw`) and does **not** help other collectives.
+`NNODES ≥ 2` `torch-dist-bench.py` `busbw` is **always** mixed: intra-node NVLink + inter-node NIC + (usually) NVLS/SHARP. Advertised per-GPU IB/RoCE/EFA GBps is **inventory**. It cannot be measured in isolation with this collective, NVLS on or off. NVLS is in-network all-reduce on the NVSwitch (~30% intra / ~25% inter vs ring `busbw`) and does **not** help other collectives.
 
 Forbidden (do not score multi-node all-reduce as a fraction of NIC rate — that mixed NVLink+NIC+NVLS number is not “% of rail”):
 
@@ -422,6 +425,23 @@ Forbidden (do not score multi-node all-reduce as a fraction of NIC rate — that
 Quote instead: peak **busbw**, NCCL path (IB vs Socket; NVLS yes/no), NIC inventory on the Environment / transport line, and optionally multi-node busbw vs **1-node** all-reduce at the **same payload** (scale-out tax). Record `NCCL_NVLS_ENABLE` and other NCCL env.
 
 Report template must include: transport + version, NIC inventory GBps, measured peak busbw, NCCL path — **not** “% of NIC spec.”
+
+### Latency
+
+The same `--collectives all --separate-tables` run gives the per-call latency of every collective: one table per collective with the latency median, p99 (99th percentile) and mean per payload, each call's time being the slowest rank's; then a summary table and `latency-collectives-<host>-<ranks>.png`, which plots all nine. Copy that plot off with the others.
+
+**Do not let all-reduce stand for latency.** Its small-payload latency is the best of all collectives: NCCL gives only all-reduce its tree algorithm, whose latency grows with the log of the node count while the rings of the other collectives grow linearly, and with NVLS or InfiniBand SHARP a small all-reduce is reduced inside the switch. So report all nine, and say in the report what the main ones show — [which collective to measure latency with](https://github.com/stas00/ml-engineering/blob/master/network/README.md#which-collective-to-measure-latency-with):
+
+- `batch_isend_irecv` — point-to-point, how much latency the NIC and switches add without a collective algorithm in the way (pipeline parallelism, KV-cache transfer).
+- `all_to_all` — every GPU sends to every other at once, which exposes oversubscription and incast (MoE expert-parallel dispatch and combine).
+- `all_reduce` — the best case (tensor-parallel inference within a node, where it really is the workload).
+- `all_gather` / `reduce_scatter` — ring latency, growing linearly with the rank count (FSDP/ZeRO training at scale).
+
+PyTorch runs `batch_isend_irecv` through its point-to-point path and `scatter` as separate NCCL sends, while `nccl-tests` makes one NCCL call for each, so these two can read higher than `nccl-tests` would on the same cluster. Say so next to their numbers.
+
+Per scope, one table: `| collective | 8 B<br>median<br>(µs) | 8 B<br>p99<br>(µs) | 64 KiB<br>median<br>(µs) | 64 KiB<br>p99<br>(µs) |` — `<br>` inside the single header row keeps it narrow enough for PDF, which can't scroll sideways. At both payloads a call's time is nearly all latency: on 8x H200 every all-reduce up to 512 KiB took 15–23 µs. The inter-node table appends **`inter/intra ×`** per payload: the inter-node median ÷ the intra-node median of the same collective at the same payload — how many times longer a call takes once it leaves the node. Inline the `latency-collectives-…` plot of each scope.
+
+**Latency has no target.** No vendor publishes collective latency figures, so never write "% of spec" and never call latency healthy or underperforming. It goes under **Findings → Needs operator input**: the 8 B medians of all nine collectives on one line per scope, with the `inter/intra ×` when ≥2 nodes, and what to obtain — the provider's expected latency for this fabric at this node count, or a reference run of the same fabric. On 1 node there is no ratio; report the intra-node figures alone.
 
 ## Storage
 
@@ -495,7 +515,7 @@ Compute TOC links are **purpose**, tools after the dash. Do **not** use DCGM / M
 
 The connectivity test has no section of its own — its result is item 1 of the Network `### Introduction`, so that TOC line links to `#introduction-1` (the second `### Introduction` in the document). Label it by the ranks it actually ran on: **Inter-node connectivity** only if it spanned every node, otherwise **Intra-node connectivity** with the rank count.
 
-Network TOC: **Intra-node all-reduce benchmark** and **Inter-node all-reduce benchmark** — `all_reduce_bench.py`, then the rank count. Do not drop the word **benchmark**. Omit the inter-node line if 1 node.
+Network TOC: **Intra-node all-reduce benchmark**, **Inter-node all-reduce benchmark**, **Intra-node latency benchmark** and **Inter-node latency benchmark** — `torch-dist-bench.py`, then the rank count (and "every collective" for the latency ones). Do not drop the word **benchmark**. Omit the inter-node lines if 1 node.
 
 Storage TOC: **Existing Partitions** — mount inventory. Then **Local disk IO benchmark** — `fio-scan` on `<local path>` and **Shared <product> IO benchmark** — `fio-scan` on `<shared path>` (same shape; path after `on`, never inside the link). Concurrent poke when ≥2 nodes: **Concurrent write shared fs benchmark** — `<N>-node 1 GiB O_DIRECT dd`.
 
@@ -511,8 +531,10 @@ Example:
    3. [Find underperforming GPUs](#find-underperforming-gpus) — fixed 16384³ `matmul` on every GPU
 3. [Network](#network)
    1. [Inter-node connectivity](#…) — `torch-distributed-gpu-test.py`, R ranks (label it **Intra-node connectivity** if it only ran on one node)
-   2. [Intra-node all-reduce benchmark](#intra-node-all-reduce-benchmark) — `all_reduce_bench.py`, 8 ranks
-   3. [Inter-node all-reduce benchmark](#inter-node-all-reduce-benchmark) — `all_reduce_bench.py`, 32 ranks (omit this TOC line and the section if 1 node)
+   2. [Intra-node all-reduce benchmark](#intra-node-all-reduce-benchmark) — `torch-dist-bench.py`, 8 ranks
+   3. [Inter-node all-reduce benchmark](#inter-node-all-reduce-benchmark) — `torch-dist-bench.py`, 32 ranks (omit this TOC line and the section if 1 node)
+   4. [Intra-node latency benchmark](#intra-node-latency-benchmark) — `torch-dist-bench.py`, 8 ranks, every collective
+   5. [Inter-node latency benchmark](#inter-node-latency-benchmark) — `torch-dist-bench.py`, 32 ranks, every collective (omit this TOC line and the section if 1 node)
 4. [Storage](#storage)
    1. [Existing Partitions](#existing-partitions) — mount inventory
    2. [Local disk IO benchmark](#local-disk-io-benchmark) — `fio-scan` on `/tmp`
@@ -558,14 +580,14 @@ Name × count, SM count, HBM GiB, TDP, official BF16 TFLOPS. Not a benchmark dum
 **Pass** (or **Fail** on named plugins/GPUs; or Gaps: no hostengine / unprivileged). Never **Pass** and **No Fail** together.
 
 ### GPU performance benchmarks
-Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches. State how many matmul shapes GPU0's search timed (the `Tried N shapes` line in `mamf/gpu0.txt`), and that every other GPU then measured the sustainable winner while all the rest of the node ran a continuous matmul. Then `Two numbers vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
+Official TFLOPS source = [TFLOPS comparison table](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/README.md#tflops-comparison-table), not a relative path. Open that section by explaining the measurement before any number: compute is measured by timing matrix multiplication; how fast a `matmul` runs depends on its **matmul shape** (the M×N×K dimensions), so the tool searches. State how many matmul shapes GPU0's search timed (the `Tried N shapes` line in `mamf/gpu0.txt`), and that every other GPU then measured GPU0's two winning shapes while all the rest of the node ran a continuous matmul. Then `Two numbers vs official BF16 <N> TFLOPS on <GPU>:` (name the GPU; do not leave the spec floating), then two bullets, each with the measured W/MHz the script printed:
 
-- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS reached by any matmul shape on GPU0 (short burst at boost, board far under its power limit). A ceiling, not a rate any sustained workload holds. One number, with its shape and % spec.
-- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles, measured on every GPU while all the others compute. The node figure is the slowest GPU, since synchronous work runs at its pace. Compare a sustained workload to this number.
+- **MAMF** (Maximum Achievable Matmul FLOPS) — highest TFLOPS a short burst at boost reaches, with the board far under its power limit, measured on every GPU at GPU0's MAMF shape; the node figure is the median GPU. A ceiling, not a rate any sustained workload holds. One number, with its shape and % spec.
+- **MSMF** (Maximum Sustainable Matmul FLOPS) — best that survives once the matmul shape is large enough to pin the board at the power limit and the clock settles, measured on every GPU while all the others compute. The node figure is the median GPU, so one weak or strong chip doesn't set it; synchronous work runs at the slowest GPU, which the summary also gives. Compare a sustained workload to the median, and a synchronous job's ceiling to the slowest.
 
-Then the per-GPU table from `mamf/summary.txt`, and below it the node MSMF (slowest GPU), median and spread:
+Then the per-GPU table from `mamf/summary.txt`, and below it the node MAMF and MSMF (median GPU), the slowest GPU and the spread:
 
-| GPU | MSMF | MSMF shape | W / MHz | MSMF % spec |
+| GPU | MAMF | MSMF | MSMF shape | W / MHz | MSMF % spec |
 
 TFLOPS are integers, as the script prints them; compute % spec from the integer. On a 1-GPU box there is no "while the others compute" and no median or spread; say it is the only GPU.
 
@@ -581,14 +603,20 @@ After the bullets, say what the table's shape and `W/MHz` columns are: the M×N�
 ## Network
 
 ### Introduction
-Open with a **numbered list of tools** (same shape as Compute and Storage), each explained before any number: GitHub-link [`torch-distributed-gpu-test.py`](https://github.com/stas00/ml-engineering/blob/master/debug/torch-distributed-gpu-test.py) (connectivity — one process per GPU; ranks see each other and complete a collective; say how many ranks and over how many nodes it ran, and do not call a 1-node run inter-node) and [`all_reduce_bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/all_reduce_bench.py) — say what it sweeps (payloads from 32 KiB to 16 GiB) and define `busbw` (bus bandwidth, what the fabric moves) and `algbw` (algorithm bandwidth, what the caller sees) **there**, plus which rank counts it ran at. Do not write “the book” or “MLE”. Then NVLS (see Terms): in-network **all-reduce** on the NVSwitch (~30% intra / ~25% inter vs ring `busbw`); does **not** help other collectives. InfiniBand switch SHARP is a different feature. Record `NCCL_NVLS_ENABLE`: **2** = auto — the eval default if unset; **0** = force off; **1** = require NVLS (can abort if unavailable). State whether NVLS was available for intra and for inter (`NCCL_DEBUG` when you have it). Name who set the env (container image / cluster), not that you “kept” it.
+Open with a **numbered list of tools** (same shape as Compute and Storage), each explained before any number: GitHub-link [`torch-distributed-gpu-test.py`](https://github.com/stas00/ml-engineering/blob/master/debug/torch-distributed-gpu-test.py) (connectivity — one process per GPU; ranks see each other and complete a collective; say how many ranks and over how many nodes it ran, and do not call a 1-node run inter-node) and [`torch-dist-bench.py`](https://github.com/stas00/ml-engineering/blob/master/network/benchmarks/torch-dist-bench.py) — say what it sweeps (all nine collectives, payloads from 8 B to 16 GiB) and define `busbw` (bus bandwidth, what the fabric moves), `algbw` (algorithm bandwidth, what the caller sees) and the latency median and p99 (the time of one call, the slowest rank's, over up to 1000 calls) **there**, plus which rank counts it ran at. Do not write “the book” or “MLE”. Then NVLS (see Terms): in-network **all-reduce** on the NVSwitch (~30% intra / ~25% inter vs ring `busbw`); does **not** help other collectives. InfiniBand switch SHARP is a different feature. Record `NCCL_NVLS_ENABLE`: **2** = auto — the eval default if unset; **0** = force off; **1** = require NVLS (can abort if unavailable). State whether NVLS was available for intra and for inter (`NCCL_DEBUG` when you have it). Name who set the env (container image / cluster), not that you “kept” it.
 
 ### Intra-node all-reduce benchmark
 Intra-node: transport (e.g. NVLink 5, NV18), spec uni GBps, busbw table, peak % spec (note NVLS if on).
-**Inline** `![Intra-node all-reduce](raw/<cluster>/busbw-mean-…-8.png)` next to that section.
+**Inline** `![Intra-node all-reduce](raw/<cluster>/busbw-mean-all_reduce-…-8.png)` next to that section.
 ### Inter-node all-reduce benchmark
 Inter-node **only if ≥2 nodes**: transport, NIC inventory GBps, table, peak busbw vs 1-node at the same payload, NCCL path (not % of NIC spec). Do not name the launcher. Rank/node counts go in the TOC annotation. **1 node: delete this subsection and its TOC entry.**
-**Inline** `![Inter-node all-reduce](raw/<cluster>/busbw-mean-…-R.png)` when the plot exists.
+**Inline** `![Inter-node all-reduce](raw/<cluster>/busbw-mean-all_reduce-…-R.png)` when the plot exists.
+### Intra-node latency benchmark
+Why all-reduce alone would flatter, and what `batch_isend_irecv`, `all_to_all`, `all_reduce` and `all_gather`/`reduce_scatter` each show (see **Latency**), then the latency table of all nine collectives at 8 B and 64 KiB, median and p99, with the PyTorch caveat next to `batch_isend_irecv` and `scatter`.
+**Inline** `![Intra-node latency](raw/<cluster>/latency-collectives-…-8.png)`.
+### Inter-node latency benchmark
+**Only if ≥2 nodes**: the same table with the `inter/intra ×` columns. No verdict here or in Findings beyond **Needs operator input**. **1 node: delete this subsection and its TOC entry.**
+**Inline** `![Inter-node latency](raw/<cluster>/latency-collectives-…-R.png)` when the plot exists.
 ### Gaps
 (only if needed, e.g. rdzv failed on ≥2 nodes — not “only 1 node”)
 
@@ -671,6 +699,7 @@ Prose rules get skipped. **Run this list against the finished report, line by li
 | Nothing inanimate given feelings                                                                               | not "small files will feel that" — name the operation and its measured rate                                                                          |
 | Targets in the plural                                                                                          | "the figures they are supposed to hit", never "the figure"                                                                                           |
 | Missing vendor figures: target-unknown admission + why none are published + the ask, no search narrative       | keep "provisioned throughput is unknown, so there is no target to compare against"; drop "the mounts show only the server address and size"          |
+| Latency reported for every collective, never as % of spec or a verdict                                         | all nine at 8 B and 64 KiB; `inter/intra ×` when ≥2 nodes; Findings → **Needs operator input** only                                                  |
 | No bullet judged without a target                                                                              | no known figure to hit → **### Needs operator input**, not Underperforming                                                                           |
 | Shared-FS figures scoped to the mount they came from, with its size                                            | one mount's table is never "the shared FS"; differently-sized siblings each need their own scan                                                      |
 | Distinct shared mounts grouped only by the 5% rule                                                             | one table only if every corresponding bandwidth and IOPS cell is within 5%; otherwise separate tables                                                |
@@ -698,7 +727,7 @@ These are **examples of past jobs**, not defaults and not required knowledge. Di
 
 Lessons:
 
-- `pip install matplotlib` in the eval venv on **shared FS** so **every** node can plot. `all_reduce_bench.py` writes the PNG in the **process cwd** (often `$HOME` under torchrun), not the eval directory — copy it immediately. If a launcher still uses a different interpreter without matplotlib, regenerate the PNG from the printed table on the laptop.
+- `pip install matplotlib` in the eval venv on **shared FS** so **every** node can plot. `torch-dist-bench.py` writes the PNG in the **process cwd** (often `$HOME` under torchrun), not the eval directory — copy it immediately. If a launcher still uses a different interpreter without matplotlib, regenerate the PNG from the printed table on the laptop.
 - Environment is for a reader who has not seen MAMF yet: no MAMF/MSMF, no eval venv path, HBM in GiB, PCIe on Host, OS first Host row, Python on Software, Local cell must not repeat “local”/“ceiling”, md devices as `md127 RAID`.
 - Network opens with **### Introduction** (NVLS + who set `NCCL_NVLS_ENABLE`), not a bare env-var line.
 - Find underperforming GPUs: TLDR first (**no under-performing or dead GPUs**); all GPU scores; 16384³ SM coverage **from this SM count**.
