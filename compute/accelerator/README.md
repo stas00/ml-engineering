@@ -361,16 +361,16 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | NVIDIA A100 PCIe |  285 |  258 |    312 |     91.3% |     82.7% | no           | 18432x1536x30720      | 2.14.1+cu130        |     2 |
 | NVIDIA H200 NVL  |  761 |  665 |    835 |     91.1% |     79.6% | yes          | 2816x1536x30720       | 2.14.1+cu132        |       |
 | NVIDIA A100 SXM  |  271 |    — |    312 |     86.9% |         — | no           | 1024x10240x5120       | 2.6.0+cu126         |       |
+| NVIDIA H100 SXM  |  858 |  787 |    989 |     86.8% |     79.6% | no           | 2816x1536x40960       | 2.12.0a0 (NGC 26.04) |    17 |
 | NVIDIA H200 SXM  |  850 |  755 |    989 |     85.9% |     76.3% | yes          | 1536x2816x40960       | 2.14.0+cu130        |     3 |
 | NVIDIA B300 SXM  | 1892 | 1519 |   2250 |     84.1% |     67.5% | no           | 10752x14336x3072      | 2.14.0+cu130        |     4 |
 | NVIDIA GH200 SXM |  829 |    — |    989 |     83.8% |         — | no           | 1024x15360x4096       | 2.6.0+cu126         |     5 |
-| NVIDIA H100 SXM  |  795 |    — |    989 |     80.4% |         — | no           | 2048x2048x13312       | 2.7.0+cu126         |       |
 | NVIDIA B200 SXM  | 1737 | 1439 |   2250 |     77.2% |     64.0% | yes          | 4096x8192x3072        | 2.14.0+cu130        |     6 |
 | Intel Gaudi 3    | 1243 |    — |   1677 |     74.1% |         — | no           | 16384x4096x768        | 2.6.0+hpu_1.21.4-3  |     1 |
 | NVIDIA GB200 SXM | 1822 |    — |   2500 |     72.9% |         — | no           | 4096x9728x2048        | 2.10.0+cu130        |       |
 | AMD MI355X       | 1565 |    — |   2500 |     62.6% |         — | no           | 12288x8192x8192       | 2.8.0+rocm7.0.2     |     7 |
 | AMD MI350X       | 1411 | 1195 |   2300 |     61.3% |     52.0% | yes          | 4608x4096x7168        | 2.13.0+rocm10.0.0   |     8 |
-| AMD MI325X       |  785 |    — |   1300 |     60.4% |         — | no           | 13312x10240x8192      | 2.6.0+6.2.4         |     9 |
+| AMD MI325X       |  785 |  787 |   1300 |     60.4% |     60.5% | no           | 9216x9728x8192        | 2.9.1+rocm7.2.1     |     9 |
 | AMD MI300X       |  634 |  616 |   1300 |     48.8% |     47.4% | yes          | 6144x4864x8192        | 2.13.0+rocm10.0.0   |    10 |
 
 
@@ -381,12 +381,13 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | Intel Gaudi 2    |  827 |    — |    865 |     95.6% |         — | no           | 6144x11264x5120       | 2.6.0+hpu_1.21.2-76 |     1 |
 | NVIDIA H200 NVL  | 1366 | 1160 |   1670 |     81.8% |     69.5% | yes          | 1536x2816x40960       | 2.14.1+cu132        |       |
 | NVIDIA B300 SXM  | 3608 | 2969 |   4500 |     80.2% |     66.0% | no           | 6144x18432x3072       | 2.14.0+cu130        |    11 |
+| NVIDIA H100 SXM  | 1550 | 1358 |   1979 |     78.3% |     68.6% | no           | 1280x16896x16384      | 2.12.0a0 (NGC 26.04) |    17 |
 | NVIDIA GH200 SXM | 1535 |    — |   1979 |     77.6% |         — | no           | 1024x14336x14336      | 2.6.0+cu126         |     5 |
 | NVIDIA H200 SXM  | 1525 | 1354 |   1979 |     77.1% |     68.4% | yes          | 1280x16896x16384      | 2.14.0+cu130        |    12 |
 | Intel Gaudi 3    | 1290 |    — |   1677 |     76.9% |         — | no           | 16640x1536x3072       | 2.6.0+hpu_1.21.4-3  |     1 |
 | NVIDIA B200 SXM  | 3350 | 2788 |   4500 |     74.4% |     62.0% | yes          | 6912x19968x1024       | 2.14.0+cu130        |    13 |
 | NVIDIA GB200 SXM | 3616 |    — |   5000 |     72.3% |         — | no           | 19456x5120x1536       | 2.10.0+cu130        |       |
-| NVIDIA H100 SXM  | 1403 |    — |   1979 |     70.9% |         — | no           | 1024x9216x14336       | 2.7.0+cu126         |       |
+| AMD MI325X       | 1464 | 1431 |   2600 |     56.3% |     55.0% | no           | 9216x4864x8192        | 2.9.1+rocm7.2.1     |    18 |
 | AMD MI300X       | 1230 | 1182 |   2600 |     47.3% |     45.5% | yes          | 6144x4864x12288       | 2.13.0+rocm10.0.0   |    14 |
 
 
@@ -412,7 +413,7 @@ Notes — the `Notes` column of all three tables points here:
 6. NVIDIA B200 SXM, BF16: MAMF ~274–300 W @ 1965 MHz; MSMF 1439 @ 3072x18944x4608, ~978–987 W @ 1399–1443 MHz, 61–74°C
 7. AMD MI355X, BF16: `PYTORCH_TUNABLEOP_ENABLED=0`
 8. AMD MI350X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000 W; the `amdsmi` sample of ~340 W @ 2181 MHz lags the MAMF burst, as on MI300X (note 10); MSMF 1195 @ 4096x4096x8192, 1000 W, 74–100°C. This node's cooling limited its MSMF: the 4 GPUs at 74–77°C held 1212–1274 at the 1000 W cap, the 4 at 95–100°C 898–1177, one of them throttling below the cap at 100°C, so a well-cooled node may read higher. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
-9. AMD MI325X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 1000W
+9. AMD MI325X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, `numa_balancing=0`, 1000 W. MSMF 787 @ 9216x9728x8192, 1000 W @ 1577 MHz, 73°C.
 10. AMD MI300X, BF16: `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst - the card reaches its 750 W cap within the first ~4 ms kernel, and the `amdsmi` sample of ~198 W @ 2088 MHz lags it and reads close to idle (~180 W @ 2095 MHz); MSMF 616 @ 9216x9728x8192, 750 W @ 1203–1261 MHz, 77–89°C. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
 11. NVIDIA B300 SXM, FP8: MAMF ~262 W @ 2032 MHz; MSMF 2969 @ 6144x18432x3072, ~1057 W @ 1425 MHz
 12. NVIDIA H200 SXM, FP8: MAMF ~154–163 W @ 1980 MHz; MSMF 1354 @ 1536x2816x10240, ~683–689 W @ 1767–1848 MHz, 63–72°C
@@ -420,6 +421,9 @@ Notes — the `Notes` column of all three tables points here:
 14. AMD MI300X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, 750 W; MAMF is not a boost burst, as in note 10; MSMF 1182 @ 8192x4864x4096, 750 W @ 1322–1378 MHz, 73–86°C. Measured by [Amy Sartran](https://github.com/stas00/ml-engineering/pull/143#issuecomment-6049652037).
 15. NVIDIA B200 SXM, nvfp4: one `float8_e4m3fn` scale per 16 elements; MAMF ~281–323 W @ 1965 MHz; MSMF 5627 @ 18944x3328x12288, ~983–991 W @ 1489–1521 MHz, 60–73°C. Theory is NVIDIA's single dense FP4 figure, see the B200 note under the [TFLOPS comparison table](#tflops-comparison-table). At 75.0% / 62.5% of it, nvfp4 tracks this GPU's FP8 row (74.4% / 62.0%), i.e. it delivers the full 2x over FP8 that the spec promises.
 16. NVIDIA B200 SXM, mxfp4: one `float8_e8m0fnu` scale per 32 elements; MAMF ~279–320 W @ 1965 MHz; MSMF 5222 @ 2048x18944x20480, ~975–988 W @ 1452–1505 MHz, 60–73°C. It trails nvfp4 by 7–8% on both MAMF and MSMF although NVIDIA quotes one FP4 rate for both and mxfp4 carries half as many scales, which points at the software path rather than the hardware: torch 2.14's `_scaled_mm` doesn't accept mxfp4, so `mamf-finder.py` runs it through `torch._scaled_mm_v2`, the op behind `torch.nn.functional.scaled_mm`.
+
+17. NVIDIA H100 SXM (both tables): 80 GB, 700 W, NGC 26.04, CUDA 13.2. BF16 MSMF 787 @ 2816x1536x9216, 672 W @ 1966 MHz, 61°C. FP8 MSMF 1358 @ 1536x2816x16384, 674 W @ 1824 MHz, 59°C.
+18. AMD MI325X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, `numa_balancing=0`, 1000 W. MSMF 1431 @ 9216x4864x8192, 1000 W @ 1528 MHz, 74°C.
 
 General notes:
 
@@ -433,6 +437,7 @@ General notes:
 - Then there are various system optimizations - e.g. in the case of MI300X disabling numa_balancing in the kernel settings is a must.
 - Rows are not always exactly comparable with each other. Each is the best shape found for *that* accelerator, and often on a different `torch`/CUDA or ROCm version, so any gap between two rows mixes hardware, shape and software. But it's a good enough of indication to compare with the theoretical spec. As software evolves remeasuring is needed and likely to give better results, but yours truly doesn't have access to all the gpus, especially the older ones, thus contributions are very welcome. See [How to report MAMF/MSMF entries](benchmarks/README.md#how-to-report-mamfmsmf-entries) for how to measure and submit a row.
 - Of the rows with an MSMF, H200, B200 and A100 PCIe were measured with benchmark version 4 of `mamf-finder.py` (the report header prints it), and B300 and MI300X with an earlier version that defined both headlines differently, so compare those two with the rest only roughly.
+- H100 and MI325X were measured on 2026-10-05 with the unchanged version 4 finder at [`30ddd970`](https://github.com/stas00/ml-engineering/commit/30ddd97054eb01035c0a5079a58f011df603b525), with siblings idle. These are best-MAMF single-run pairs, not repeat medians or full-node results. FP8 input and output use the listed vendor format. See the [measurement details](https://github.com/stas00/ml-engineering/pull/140) for repeat ranges and higher MSMF results from separate runs.
 - AMD MI250X has 2 GCDs - so the theoretical TFLOPS needs to be halved, as a single matmul uses only 1 of them and 383TFLOPS is reported for 2 GCDs.
 
 **Why MSMF is well below Theory (and why that is not a broken GPU):** the advertised peak assumes the chip's *boost* clock (e.g. B200 ~1965 MHz → 2250 bf16 TFLOPS). A dense matmul that actually fills the SMs draws the full TDP (B200 1000 W / B300 1100 W / H200 700 W — those are the *spec* limits, not a sub-spec "cap"), so the SM clock settles well below boost. Rough ceiling: `Theory × sustained_clk / boost_clk` ≈ `2250 × 1410/1965 ≈ 1615` on B200 — in the ballpark of the measured 1439 MSMF (the rest is real-kernel overhead). A sparse layout can hold a *higher* saturated clock while still pinned at TDP (H200 MSMF at ~1900 MHz, B300 MSMF at 1455 MHz); that number is still sustainable.
