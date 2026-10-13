@@ -354,6 +354,7 @@ Cross-chapter:
 14. After every table edit, shrink each source column to the minimum width required by its longest header or body cell, while preserving vertical pipe alignment.
 15. Keep rendered tables compact to minimize line wrapping on narrow media. Compact disproportionately wide headers with `<br>` within the single header row, use concise labels, and move nonessential detail below the table without sacrificing clarity.
 16. After editing a table, run `make fix-tables`. It joins multi-line headers into one row, inserts a missing blank line before a table, and re-pads misaligned pipes, then cross-checks the source table count against what `pandoc` renders. It reports `file:line` for everything it fixed, and flags what it cannot fix - such as ragged cell counts, where there is no way to know which cell is missing.
+17. `make check-style` also runs `build/check-table-width.py`. Cells wrap at spaces, so a column is as wide as its longest unbreakable word plus the cell padding. `<br>` is a break, the same as a space: `word<br>word` is `word word`, and a header uses it so the column is not as wide as the whole header. A word with no break that is wider than the room left for its column runs off the US Letter page.
 
 ## Glossary sections
 

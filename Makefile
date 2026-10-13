@@ -56,8 +56,9 @@ check-links-all: html ## check all links including external ones
 check-programs: ## check the book's main programs still start up and print --help (doesn't run them)
 	@build/check-programs
 
-check-style: ## report hard-wrapped prose paragraphs (the book is one line per paragraph)
+check-style: ## report hard-wrapped prose, and tables wider than the PDF page
 	@python build/check-style.py
+	@python build/check-table-width.py
 
 check-links-local-fast: ## scan local links+anchors without building html (no markdown_it needed)
 	@python build/check-links.py
