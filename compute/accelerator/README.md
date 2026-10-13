@@ -397,6 +397,8 @@ The following measurements are for `matmul` with BF16, FP8 and FP4 inputs (no sp
 | :-------------- | :----- | ---: | ---: | -----: | --------: | --------: | :----------- | :-------------------- | :--------------- | ----: |
 | NVIDIA B200 SXM | nvfp4  | 6746 | 5627 |   9000 |     75.0% |     62.5% | yes          | 2816x18944x14336      | 2.14.0+cu130     |    15 |
 | NVIDIA B200 SXM | mxfp4  | 6183 | 5222 |   9000 |     68.7% |     58.0% | yes          | 2048x18944x16384      | 2.14.0+cu130     |    16 |
+| NVIDIA B300 SXM | nvfp4  | 8909 | 7434 |  13500 |     66.0% |     55.1% | yes          | 18944x4096x12288      | 2.14.1+cu132     |    19 |
+| NVIDIA B300 SXM | mxfp4  | 6607 | 5847 |  13500 |     48.9% |     43.3% | yes          | 2048x18944x19456      | 2.14.0+cu130     |    20 |
 
 
 Caveat emptor: these numbers come from `mamf-finder.py --search auto` (or a grid confirm of the same or equivalent shapes), using the software stack available at measurement time. The rows with `Siblings` = `yes` were measured with [`mamf-finder-all-gpus.py`](benchmarks/mamf-finder-all-gpus.py), which runs `mamf-finder.py` on each GPU of the node in turn while all the others run a continuous matmul, the way they all compute at once in training, and reports the median GPU. The rows with `Siblings` = `no` are one GPU measured alone with its siblings idle; on a board whose GPUs share power and cooling that can read higher than the same GPU sustains in a busy node. Re-run on your setup for numbers that are true to your box — they are a rough estimate, not absolute. As software improves they climb toward the theoretical spec, so ideally re-measure every 6 months or so.
@@ -424,6 +426,8 @@ Notes — the `Notes` column of all three tables points here:
 
 17. NVIDIA H100 SXM (both tables): median across eight 80 GB GPUs with sibling load, 700 W per GPU, NGC 26.04, CUDA 13.2. BF16 MSMF 786 @ 2816x1536x8192, 650-685 W @ 1958-1980 MHz, 53-65°C. FP8 MSMF 1364 @ 1536x2816x12288, 667-681 W @ 1902-1974 MHz, 52-63°C.
 18. AMD MI325X, FP8: `float8_e4m3fnuz`, `PYTORCH_TUNABLEOP_ENABLED=1`, `numa_balancing=0`, 1000 W. MSMF 1431 @ 9216x4864x8192, 1000 W @ 1528 MHz, 74°C.
+19. NVIDIA B300 SXM, nvfp4: one `float8_e4m3fn` scale per 16 elements; B300 SXM6 AC 1100 W; MAMF ~271–300 W @ 2032 MHz; MSMF 7434 @ 18944x4096x12288, ~1063–1075 W @ 1402–1435 MHz, 64–69°C. torch 2.14.1+cu132 ships cuBLAS 13.4, which runs it on an `sm103` kernel using B300's faster `sm_103a` FP4 path; the cuBLAS 13.1 in torch 2.14.0+cu130 picks an `sm100` one and reaches only 7526 / 6410.
+20. NVIDIA B300 SXM, mxfp4: one `float8_e8m0fnu` scale per 32 elements; MAMF ~267–307 W @ 2032 MHz; MSMF 5847 @ 2048x18944x19456, ~1065–1076 W @ 1534–1621 MHz, 64–74°C. It runs on torch's own `sm100` kernel rather than cuBLAS's, so B300's faster `sm_103a` FP4 path isn't used with either torch 2.14.0+cu130 or 2.14.1+cu132.
 
 General notes:
 
