@@ -191,6 +191,20 @@ def table_rule(widths, aligns=None):
              for width, align in zip(widths, aligns)]
     return "| " + " | ".join(cells) + " |"
 
+# Column headers for the combined tables, top line first. Written out: broad/cast and
+# batch/_isend/_irecv are not breaks in the spelling.
+NARROW_HEADER = {
+    "all_reduce": ("all_", "reduce"),
+    "all_gather": ("all_", "gather"),
+    "reduce_scatter": ("reduce_", "scatter"),
+    "all_to_all": ("all_to", "_all"),
+    "broadcast": ("broad", "cast"),
+    "reduce": ("reduce",),
+    "gather": ("gather",),
+    "scatter": ("scatter",),
+    "batch_isend_irecv": ("batch", "_isend", "_irecv"),
+}
+
 # payload, busbw, algbw, then the three latency columns, then calls
 RESULTS_LABELS = ["payload", "busbw", "algbw", "median", "p99", "mean", "calls"]
 
@@ -211,6 +225,27 @@ def format_results_table(rows):
              table_line(["", "", "", *labels[3:6], ""], widths, center),
              table_rule(widths)]
     lines += [table_line(row, widths) for row in rows]
+    return lines
+
+# "payload" is wider than the short size labels, so the combined tables split it
+PAYLOAD_HEADER = ("pay", "load")
+
+def format_comparison_table(title, names, payload_labels, columns):
+    """Payloads down the rows, one column per collective. `columns[i]` is that collective's cells."""
+    headers = [NARROW_HEADER.get(name, (name,)) for name in names]
+    n_lines = max([len(PAYLOAD_HEADER)] + [len(header) for header in headers])
+    header_rows = [[header[line] if line < len(header) else "" for header in headers] for line in range(n_lines)]
+    payload_header = [PAYLOAD_HEADER[line] if line < len(PAYLOAD_HEADER) else "" for line in range(n_lines)]
+    widths = [max(len(piece) for piece in [row[i] for row in header_rows] + columns[i]) for i in range(len(names))]
+    payload_w = max(len(label) for label in [*payload_labels, *PAYLOAD_HEADER])
+    all_w = [payload_w, *widths]
+    head_align = "^" * len(all_w)
+    data_align = ">" * len(all_w)
+    lines = [title]
+    lines += [table_line([payload_header[i]] + row, all_w, head_align) for i, row in enumerate(header_rows)]
+    lines.append(table_rule(all_w, data_align))
+    for label, cells in zip(payload_labels, zip(*columns)):
+        lines.append(table_line([label, *cells], all_w, data_align))
     return lines
 
 
@@ -509,11 +544,13 @@ def sym_mem_buffers(numel, count, local_rank):
     and registered as NCCL symmetric memory windows on the default process group's communicator.
     """
     from packaging import version
-    # .release so that 2.9 pre-release/nightly builds pass too
-    if version.parse(torch.__version__).release < (2, 9):
-        sys.exit(f"--sym-mem needs torch>=2.9, this is torch=={torch.__version__}")
-    if torch.cuda.nccl.version() < (2, 27):
-        sys.exit(f"--sym-mem needs NCCL>=2.27, this torch uses nccl={torch.cuda.nccl.version()}")
+    # using .release so that a pre-release/nightly of an accepted version passes too. register_mem_pool(..., symm=True)
+    # arrived in torch 2.9, but on an 8x B200 the cu130 --sym-mem path hangs in broadcast (every rank stuck in
+    # cuda.synchronize) on all versions until torch 2.12.0/NCCL 2.29.7
+    if version.parse(torch.__version__).release < (2, 12):
+        sys.exit(f"--sym-mem needs torch>=2.12, this is torch=={torch.__version__}")
+    if torch.cuda.nccl.version() < (2, 29):
+        sys.exit(f"--sym-mem needs NCCL>=2.29, this torch uses nccl={torch.cuda.nccl.version()}")
 
     device = torch.device("cuda", local_rank)
     backend = dist.group.WORLD._get_backend(device)
@@ -558,6 +595,7 @@ def run(local_rank):
     signal.signal(signal.SIGINT, sigkill_handler)
 
     def finish():
+        end_progress()
         torch.cuda.synchronize()
         if sym_mem_pool is not None:
             sym_mem_backend.deregister_mem_pool(sym_mem_pool)
@@ -655,23 +693,21 @@ def run(local_rank):
         if not sizes:
             print(f"!!! No payload was measured !!!\n")
             return
-        header = ["payload"] + [f"{name} {column}" for name in results for column in ("busbw", "median")]
-        rows = []
-        for size in sizes:
-            row = [fmt_bytes(size)]
-            for res in results.values():
-                row.append(f"{conv_to_GBps(res['busbw'][size]):.2f}" if size in res["busbw"] else "")
-                row.append(f"{res['latency'][size]['median'] * 10**6:.1f}" if size in res["latency"] else "")
-            rows.append(row)
-        widths = table_widths(header, rows)
-        print(table_line(header, widths, "^" * len(widths)))
-        print(table_rule(widths))
-        for row in rows:
-            print(table_line(row, widths))
-        print(f"\nbusbw: in GBps")
-        print(f"median: the latency median of one call, in microseconds, each call's time being the slowest rank's")
+        names = list(results)
+        bus_sizes = sorted({size for res in results.values() for size in res["busbw"]})
+        if bus_sizes:
+            columns = [[f"{conv_to_GBps(results[name]['busbw'][size]):.2f}" if size in results[name]["busbw"] else ""
+                        for size in bus_sizes] for name in names]
+            for line in format_comparison_table("busbw, GBps", names, [fmt_bytes(size) for size in bus_sizes], columns):
+                print(line)
+            print()
+        columns = [[f"{results[name]['latency'][size]['median'] * 10**6:.1f}" if size in results[name]["latency"] else ""
+                    for size in sizes] for name in names]
+        for line in format_comparison_table("latency median, us", names, [fmt_bytes(size) for size in sizes], columns):
+            print(line)
+        print(f"\nlatency median: of one call, in microseconds, each call's time being the slowest rank's")
         print(f"a blank cell: a payload that collective didn't measure")
-        print(f"--separate-tables gives each collective its own table, with algbw and the latency's p99 and mean")
+        print(f"Rerun with --separate-tables for each collective's own table: latency median, p99, and mean, plus algbw")
         print_busbw_start(results)
         print_notes(results)
         print()
@@ -731,27 +767,41 @@ def run(local_rank):
                       f"reported anyway - their numbers include the host's time !!!")
 
     def print_summary(measured, plot_suffix):
-        print(f"Summary of {len(measured)} collectives over {ranks} ranks:\n")
-        labels = ["collective", "smallest payload", "latency median", "peak busbw", "at payload",
-                  "half-peak payload"]
-        aligns = "<>>>>>"
-        rows = []
+        print(f"\nSummary of {len(measured)} collectives over {ranks} ranks:\n")
+
+        def show(title, heads, rows, aligns):
+            widths = [max(len(head[0]), len(head[1]), *(len(row[i]) for row in rows)) for i, head in enumerate(heads)]
+            print(title)
+            print(table_line([head[0] for head in heads], widths, "^" * len(heads)))
+            if any(head[1] for head in heads):
+                print(table_line([head[1] for head in heads], widths, "^" * len(heads)))
+            print(table_rule(widths, aligns))
+            for row in rows:
+                print(table_line(row, widths, aligns))
+
+        latency_rows = []
         for name, res in measured.items():
-            busbw, latency = res["busbw"], res["latency"]
-            size0 = min(latency.keys())
-            if busbw:
-                peak_size = max(busbw.keys(), key=lambda size: busbw[size])
-                peak, at, half = (f"{conv_to_GBps(busbw[peak_size]):.2f}GBps", fmt_bytes(peak_size),
-                                  fmt_bytes(half_peak_size(busbw)))
-            else:
-                peak = at = half = ""
-            rows.append([name, fmt_bytes(size0), fmt_us(latency[size0]["median"]), peak, at, half])
-        widths = table_widths(labels, rows)
-        print(table_line(labels, widths, "^" * len(widths)))
-        print(table_rule(widths, aligns))
-        for row in rows:
-            print(table_line(row, widths, aligns))
-        print(f"\nhalf-peak payload: the smallest payload reaching half the collective's peak busbw")
+            latency = res["latency"]
+            size = min(latency, key=lambda s: (latency[s]["median"], s))
+            latency_rows.append((latency[size]["median"], [name, fmt_bytes(size), fmt_us(latency[size]["median"])]))
+        latency_rows.sort()
+        show("fastest median latency", [("collective", ""), ("payload", ""), ("fastest", "")],
+             [row for _, row in latency_rows], "<>>")
+
+        bus_rows = []
+        for name, res in measured.items():
+            busbw = res["busbw"]
+            if not busbw:
+                continue
+            peak_size = max(busbw, key=lambda s: busbw[s])
+            bus_rows.append((busbw[peak_size], [name, fmt_bytes(peak_size), f"{conv_to_GBps(busbw[peak_size]):.2f}GBps",
+                                                fmt_bytes(half_peak_size(busbw))]))
+        if bus_rows:
+            bus_rows.sort(reverse=True)
+            print()
+            show("busbw", [("collective", ""), ("payload", ""), ("peak", ""), ("half-peak", "payload")],
+                 [row for _, row in bus_rows], "<>>>")
+            print(f"\nhalf-peak payload: the smallest payload reaching half the collective's peak busbw")
 
         plot_averages(f"busbw-mean-collectives-{hostname}-{ranks}{plot_suffix}.png", measured, ranks)
         plot_latency(f"latency-collectives-{hostname}-{ranks}{plot_suffix}.png", measured, ranks)
@@ -787,10 +837,42 @@ def run(local_rank):
                 continue
             measure(name, res, call, inputs, size)
             call = inputs = benchmark = None
+        end_progress()
         if is_global_rank_0 and res["out_of_memory"]:
             print(f"{name} ran out of memory at {fmt_bytes(res['out_of_memory'])}, skipping the larger payloads")
 
     finish()
+
+_progress = ""
+
+def show_progress(text):
+    r"""One status line per collective, rewritten with \r.
+
+    On a terminal, \r returns to column 0 of that line. torchrun tails the log with readline, which
+    holds everything until \n, so a bare \r never shows until the collective ends and only the last
+    trial appears. Each update is therefore its own line: the host prefix torchrun adds is cleared, and
+    \r rewrites the collective's line rather than starting another."""
+    global _progress
+    if dist.get_rank() != 0:
+        return
+    if sys.stdout.isatty():
+        sys.stdout.write(f"\r\033[K{text}")
+    elif _progress:
+        sys.stdout.write(f"\r\033[K\033[1A\r\033[K{text}\n")
+    else:
+        sys.stdout.write(f"\r\033[K{text}\n")
+    sys.stdout.flush()
+    _progress = text
+
+def end_progress():
+    """Leave that line in place. The next collective starts on the following line."""
+    global _progress
+    if dist.get_rank() != 0 or not _progress:
+        return
+    if sys.stdout.isatty():
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    _progress = ""
 
 def half_peak_size(busbw):
     """The smallest payload reaching half the peak busbw"""
@@ -820,15 +902,12 @@ def measure(name, res, call, inputs, size):
     latency_gather = []
     fell_behind_gather = []
     for i in range(bandwidth_trials + trials):
-        if is_global_rank_0:
-            print(f"{name} {fmt_bytes(size):>6}: {i+1}", end="\r")
+        show_progress(f"{name} {fmt_bytes(size):>6}: {i+1}")
         events = bandwidth_events if i < bandwidth_trials else latency_events
         trial_algbw, trial_latencies, trial_fell_behind = timed_calls(call, inputs, size, calls, events)
         algbw_gather += trial_algbw
         latency_gather += trial_latencies
         fell_behind_gather.append(float(trial_fell_behind))
-    if is_global_rank_0:
-        print()
 
     # all ranks time the same calls in the same order, and a call is done when the slowest rank is done with it.
     # A trial in which any rank's host fell behind is left out on all of them
@@ -917,7 +996,7 @@ def parse_args():
                              f"`all` for all of them: {', '.join(COLLECTIVES)}")
     parser.add_argument("--separate-tables", action="store_true",
                         help="give each collective its own table, with algbw and the latency's p99 and mean, instead "
-                             "of one table of all the collectives' busbw and latency median")
+                             "of a busbw table and a latency-median table of all the collectives")
     parser.add_argument("--num_iterations", type=int, default=20, help='The number of bandwidth trials per payload, and the minimal number of latency trials - small payloads get more of those, to sample the latency of up to 1000 calls')
     parser.add_argument("--num_warmup_iterations", type=int, default=5, help='The minimal number of warmup trials per payload - payloads with many trials warm up for a fifth of them')
     parser.add_argument("--min-payload", type=payload_size, default="8", help='the smallest payload in bytes, a power of 2, K/M/G suffixes allowed, e.g. 32K')
@@ -926,7 +1005,7 @@ def parse_args():
     parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If specified, only this payload is benchmarked instead of the --min-payload .. --max-payload range')
     parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
     parser.add_argument("--with-host-overhead", action="store_true", help="time 1 call per trial on an idle device, which adds PyTorch's per-call host overhead to every call - what a collective that the program waits on (a sync point) costs")
-    parser.add_argument("--sym-mem", action="store_true", help="use buffers registered as an NCCL symmetric memory window (torch>=2.9, NCCL>=2.27), the equivalent of nccl-tests' -R 2. Use only if the target workload uses symmetric memory buffers too")
+    parser.add_argument("--sym-mem", action="store_true", help="use buffers registered as an NCCL symmetric memory window (torch>=2.12, NCCL>=2.29), the equivalent of nccl-tests' -R 2. Use only if the target workload uses symmetric memory buffers too")
 
     args = parser.parse_args()
     args.collectives = collective_names(args.collectives)

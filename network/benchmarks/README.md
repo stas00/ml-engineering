@@ -151,7 +151,7 @@ python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py --coll
 python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py --collectives all
 ```
 
-Each collective gets the same timing and plots as `all_reduce`, saved as `busbw-mean-<collective>-<host>-<ranks>.png` and `latency-<collective>-<host>-<ranks>.png`. When more than one is benchmarked, they share one table with each collective's `busbw` and latency median per payload - add `--separate-tables` for a table each with `algbw` and the latency's p99 and mean as well - and a summary table and two plots comparing them follow, saved as `busbw-mean-collectives-<host>-<ranks>.png` and `latency-collectives-<host>-<ranks>.png`. All nine from 8B to 16GiB take under 2 minutes on one 8x B200 node.
+Each collective gets the same timing and plots as `all_reduce`, saved as `busbw-mean-<collective>-<host>-<ranks>.png` and `latency-<collective>-<host>-<ranks>.png`. When more than one is benchmarked, a `busbw` table and a latency-median table follow, payloads down the rows and collectives across - add `--separate-tables` for a table each with `algbw` and the latency's p99 and mean as well - and a summary table and two plots comparing them follow, saved as `busbw-mean-collectives-<host>-<ranks>.png` and `latency-collectives-<host>-<ranks>.png`. All nine from 8B to 16GiB take under 2 minutes on one 8x B200 node.
 
 The payload, `algbw` and `busbw` follow `nccl-tests`, whose [PERFORMANCE.md](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md) explains them. The payload is the larger of a rank's input and output buffers, and `busbw` is `algbw` multiplied by a factor that makes it comparable across collectives and numbers of ranks `n`:
 
@@ -171,31 +171,47 @@ The root is rank 0, and `batch_isend_irecv` has each rank send to the next rank 
 
 As in `nccl-tests`, the 1/n pieces are rounded down to a multiple of 16 bytes, so payloads with less than 16 bytes per rank are skipped - those below 128B on 8 ranks - and with a number of ranks that isn't a power of 2, `all_gather`, `gather`, `reduce_scatter`, `scatter` and `all_to_all` move a little less than the payload, and the table reports what they did move.
 
-Here are all nine on an 8x B200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), with and without `--sym-mem`:
+Here are all nine on an 8x B200 node (`torch=2.14.1+cu130`, `nccl=2.30.7`):
 
-| collective          | 1KiB<br>median | 1KiB<br>p99 | sym-mem<br>1KiB<br>median | busbw<br>at 16GiB | sym-mem<br>busbw<br>at 16GiB | half-peak<br>payload |
-| :------------------ | -------------: | ----------: | ------------------------: | ----------------: | ---------------------------: | -------------------: |
-| `all_reduce`        |         29.7µs |      31.7µs |                    12.3µs |        839.63GBps |                   819.63GBps |                64MiB |
-| `all_gather`        |         20.5µs |      22.6µs |                    12.1µs |        668.28GBps |                   748.32GBps |                64MiB |
-| `reduce_scatter`    |         20.5µs |      22.5µs |                    12.3µs |        692.63GBps |                   488.22GBps |                64MiB |
-| `all_to_all`        |         15.6µs |      17.5µs |                    15.6µs |        659.71GBps |                   690.73GBps |                32MiB |
-| `broadcast`         |         12.3µs |      14.4µs |                    11.7µs |        672.71GBps |                   693.71GBps |                32MiB |
-| `reduce`            |         12.3µs |      14.4µs |                    12.3µs |        692.63GBps |                   693.79GBps |                32MiB |
-| `gather`            |         12.3µs |      13.3µs |                    12.3µs |        718.33GBps |                   718.30GBps |                16MiB |
-| `scatter`           |         16.4µs |      18.4µs |                    15.4µs |        717.11GBps |                   723.19GBps |                16MiB |
-| `batch_isend_irecv` |         18.4µs |      22.5µs |                    18.3µs |        658.84GBps |                   691.51GBps |               256MiB |
+fastest median latency
 
-sym-mem: run with `--sym-mem`. The half-peak payload is the smallest one reaching half the collective's peak `busbw`, as in [Latency](#latency).
+| collective          | payload | fastest |
+| :------------------ | ------: | ------: |
+| `broadcast`         |      8B |  12.3µs |
+| `reduce`            |      8B |  12.3µs |
+| `gather`            |    128B |  14.3µs |
+| `all_to_all`        |    256B |  17.4µs |
+| `scatter`           |    128B |  17.4µs |
+| `batch_isend_irecv` |     64B |  18.4µs |
+| `reduce_scatter`    |    128B |  20.5µs |
+| `all_gather`        |    128B |  21.0µs |
+| `all_reduce`        |     16B |  24.5µs |
+
+busbw
+
+| collective          | payload |       peak | half-peak<br>payload |
+| :------------------ | ------: | ---------: | -------------------: |
+| `all_reduce`        |   16GiB | 839.56GBps |                64MiB |
+| `gather`            |    1GiB | 754.54GBps |                16MiB |
+| `scatter`           |   16GiB | 729.23GBps |                16MiB |
+| `reduce`            |   16GiB | 702.39GBps |                32MiB |
+| `reduce_scatter`    |   16GiB | 686.51GBps |                64MiB |
+| `broadcast`         |   16GiB | 686.30GBps |                32MiB |
+| `all_gather`        |   16GiB | 659.90GBps |                64MiB |
+| `batch_isend_irecv` |   16GiB | 657.38GBps |               256MiB |
+| `all_to_all`        |   16GiB | 639.74GBps |                32MiB |
+
+The fastest median is the smallest latency median across the measured payloads. The half-peak payload is the smallest payload reaching half the collective's peak `busbw`, as in [Latency](#latency).
 
 ![torch-dist-bench bus bandwidth 8x B200](images/torch-dist-bench-busbw-8xb200.png)
 
 ![torch-dist-bench latency 8x B200](images/torch-dist-bench-latency-8xb200.png)
 
-At small payloads `all_to_all`, which MoE dispatch and combine use, takes 15.6µs - about half of an `all_reduce` - and `broadcast`, `reduce` and `gather` take 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to the same 12µs and leaves the others' small payloads about where they were. At larger payloads it helps some collectives and hurts others: `all_gather` gets 748GBps at 16GiB instead of 668GBps and `batch_isend_irecv` up to twice the `busbw` from 4MiB to 128MiB, while `broadcast` loses up to half its `busbw` from 4MiB to 128MiB, and `reduce_scatter` tops out at 488GBps instead of 693GBps.
+The fastest `all_to_all`, which MoE dispatch and combine use, is 17.4µs, against 24.5µs for `all_reduce`, and the fastest `broadcast` and `reduce` are both 12.3µs, with `gather` at 14.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 12.3µs and leaves the others' fastest payloads about where they were. At the peak, `all_gather` reaches 748.77GBps instead of 659.90GBps, while `reduce_scatter` tops out at 489.61GBps at 8GiB instead of 686.51GBps at 16GiB.
 
-`gather` reads 764GBps at 1GiB, more than at 16GiB - read its peak off the larger payloads.
+`gather` peaks at 754.54GBps at 1GiB, above its 718.30GBps at 16GiB.
 
-Against `nccl-tests` built with the same NCCL on the same node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:
+Against `nccl-tests` built with NCCL 2.30.7 on an 8x B200 node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:
 
 - `scatter` takes 3-4µs more up to 128KiB and 6-7µs more from 256KiB to 1MiB, and gets 7-24% less `busbw` from 8KiB to 256MiB. `torch.distributed.scatter` sends each rank its piece with separate NCCL sends, while `nccl-tests` calls NCCL's own `ncclScatter`, added in NCCL 2.28. For `gather` the benchmark calls `torch.distributed.gather_single`, which uses `ncclGather` when PyTorch was built with NCCL>=2.28.3, and agrees with `nccl-tests`. The older `torch.distributed.gather`, which takes a list of output tensors and uses separate sends and receives, took 3.7µs longer at 1KiB.
 - `batch_isend_irecv` takes 2-4µs more up to 128KiB. Its send to the next rank and receive from the previous one go through PyTorch's point-to-point path rather than a single collective call. Its `busbw` agrees within 9% from 8KiB up, and within 1% from 32MiB up.
@@ -219,7 +235,7 @@ Other benchmarks that measure the latency of collectives, with the payload range
 
 Symmetric memory can speed up NCCL comms significantly at lower payloads. See [Symmetric memory](../README.md#symmetric-memory) for details.
 
-To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. It needs torch>=2.9, the first release whose `ProcessGroupNCCL.register_mem_pool()` takes `symm`. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Other collectives](#other-collectives) shows which collectives it speeds up on a B200 node, and which it slows down.
+To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. `register_mem_pool(..., symm=True)` arrived in torch 2.9. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, so the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Other collectives](#other-collectives) shows which collectives it speeds up on a B200 node, and which it slows down.
 
 
 ### all_gather_object vs all_reduce

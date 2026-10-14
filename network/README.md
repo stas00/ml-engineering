@@ -1247,33 +1247,48 @@ This benchmark run an `all_reduce` collective for various payload sizes from 32K
 
 As you can see for payloads smaller than 8MiB the throughput is very low - and it starts saturating around payload size of 512MiB. It's mostly because of latency. Reducing a single 4GB payload is much faster than 1000x 4MB payloads.
 
-Here is the same sweep on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), using this repo's [torch-dist-bench.py](benchmarks/torch-dist-bench.py), which reports the same two columns:
+Here is the same sweep on an 8x H200 node (`torch=2.14.1+cu130`, `nccl=2.30.7`), using this repo's [torch-dist-bench.py](benchmarks/torch-dist-bench.py). `busbw` and `algbw` are the same two columns as above, and the table also reports the per-call latency:
 
 ```bash
 $ python -u -m torch.distributed.run --nproc_per_node=8 torch-dist-bench.py
 
-| payload |    busbw   |    algbw   |
-| ------: | ---------: | ---------: |
-|   32KiB |   3.24GBps |   1.85GBps |
-|   64KiB |   6.33GBps |   3.62GBps |
-|  128KiB |  12.65GBps |   7.23GBps |
-|  256KiB |  24.99GBps |  14.28GBps |
-|  512KiB |  48.95GBps |  27.97GBps |
-|    1MiB |  74.04GBps |  42.31GBps |
-|    2MiB |  96.80GBps |  55.31GBps |
-|    4MiB | 146.14GBps |  83.51GBps |
-|    8MiB | 198.08GBps | 113.19GBps |
-|   16MiB | 257.54GBps | 147.16GBps |
-|   32MiB | 301.69GBps | 172.39GBps |
-|   64MiB | 369.42GBps | 211.10GBps |
-|  128MiB | 414.64GBps | 236.94GBps |
-|  256MiB | 441.93GBps | 252.53GBps |
-|  512MiB | 456.93GBps | 261.10GBps |
-|    1GiB | 466.53GBps | 266.59GBps |
-|    2GiB | 471.19GBps | 269.25GBps |
-|    4GiB | 474.19GBps | 270.96GBps |
-|    8GiB | 478.21GBps | 273.26GBps |
-|   16GiB | 482.35GBps | 275.63GBps |
+The average bandwidth and the per-call latency of all_reduce over 8 ranks (at least 5 warmups / 20 trials, up to 10 queued calls per trial):
+
+| payload |   busbw    |   algbw    |              latency              | calls |
+|         |            |            |   median  |    p99    |    mean   |       |
+| ------: | ---------: | ---------: | --------: | --------: | --------: | ----: |
+|      8B |            |            |    15.3us |    15.8us |    15.3us |   927 |
+|     16B |            |            |    15.3us |    15.8us |    15.3us |   981 |
+|     32B |            |            |    15.8us |    16.5us |    15.8us |   972 |
+|     64B |            |            |    17.4us |    18.4us |    17.4us |   963 |
+|    128B |            |            |    17.8us |    18.4us |    17.8us |   972 |
+|    256B |            |            |    17.9us |    18.5us |    17.9us |   963 |
+|    512B |            |            |    18.0us |    18.7us |    18.1us |   972 |
+|    1KiB |            |            |    18.3us |    19.2us |    18.3us |   981 |
+|    2KiB |            |            |    18.6us |    19.4us |    18.6us |   954 |
+|    4KiB |            |            |    18.8us |    19.5us |    18.8us |   972 |
+|    8KiB |            |            |    19.0us |    19.8us |    19.0us |   963 |
+|   16KiB |            |            |    19.4us |    20.1us |    19.4us |   990 |
+|   32KiB |   3.22GBps |   1.84GBps |    20.7us |    21.4us |    20.7us |   981 |
+|   64KiB |   6.35GBps |   3.63GBps |    20.9us |    21.5us |    20.9us |   612 |
+|  128KiB |  12.60GBps |   7.20GBps |    21.0us |    21.4us |    21.0us |   324 |
+|  256KiB |  24.71GBps |  14.12GBps |    21.4us |    21.8us |    21.4us |   180 |
+|  512KiB |  48.63GBps |  27.79GBps |    22.8us |    24.1us |    22.7us |   171 |
+|    1MiB |  76.78GBps |  43.88GBps |    27.7us |    28.5us |    27.6us |   180 |
+|    2MiB |  97.64GBps |  55.80GBps |    41.8us |    42.8us |    41.6us |   180 |
+|    4MiB | 145.65GBps |  83.23GBps |    54.6us |    55.7us |    54.4us |   171 |
+|    8MiB | 198.06GBps | 113.18GBps |    78.4us |    80.0us |    78.3us |   180 |
+|   16MiB | 256.83GBps | 146.76GBps |   119.3us |   123.4us |   119.1us |   180 |
+|   32MiB | 302.04GBps | 172.60GBps |   200.3us |   205.7us |   200.5us |   180 |
+|   64MiB | 369.60GBps | 211.20GBps |   323.7us |   330.7us |   323.9us |   180 |
+|  128MiB | 415.67GBps | 237.53GBps |   576.1us |   586.5us |   575.7us |   140 |
+|  256MiB | 442.53GBps | 252.88GBps |  1075.5us |  1091.5us |  1076.7us |    60 |
+|  512MiB | 457.46GBps | 261.41GBps |  2078.8us |  2098.3us |  2079.0us |    20 |
+|    1GiB | 467.17GBps | 266.95GBps |  4040.6us |  4055.3us |  4041.2us |    20 |
+|    2GiB | 471.88GBps | 269.65GBps |  8000.6us |  8046.7us |  8006.1us |    20 |
+|    4GiB | 474.03GBps | 270.88GBps | 15904.3us | 15980.2us | 15905.9us |    20 |
+|    8GiB | 478.22GBps | 273.27GBps | 31654.0us | 31716.5us | 31639.4us |    20 |
+|   16GiB | 482.19GBps | 275.54GBps | 62526.9us | 62614.5us | 62533.6us |    20 |
 ```
 
 The curve has the same shape - low until a few MiB, most of the way there by 512MiB - but the saturated end is instructive. Comparing the 16GiB rows against each node's unidirectional spec:
@@ -1282,7 +1297,7 @@ The curve has the same shape - low until a few MiB, most of the way there by 512
 | :------------------------------- | -----------: | ------------: | --------: |
 | A100, [NVLink 3](#nvlink)        |   234.89GBps |           300 |       78% |
 | H200, [NVLink 4](#nvlink), ring  |   367.61GBps |           450 |       82% |
-| H200, [NVLink 4](#nvlink), SHARP |   482.35GBps |           450 |      107% |
+| H200, [NVLink 4](#nvlink), SHARP |   482.19GBps |           450 |      107% |
 
 The ~80% rule of thumb from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex) is alive and well - the H200 node lands on 82% when NCCL rings, which is what the middle row measures with `NCCL_NVLS_ENABLE=0`. What takes the top row past the wire spec is [SHARP](#sharp): at large payloads NCCL reduces inside the NVSwitch, so fewer bytes cross the links than a ring would need and `busbw`'s ring-based formula stops describing the wire. The A100 node has no such path, which is why its number obeys the rule without any flag.
 
@@ -1393,7 +1408,7 @@ Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](h
 
 #### Symmetric memory
 
-Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer.
+Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, and the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29.
 
 To measure it, add `--sym-mem` to [torch-dist-bench.py](benchmarks/torch-dist-bench.py), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
 
@@ -1631,7 +1646,7 @@ When to use which library:
 
 **Large collectives, fabric congested.** A large collective is limited by the path once the payload fills the wire. NCCL's transport uses one or a few routes and lets the NIC recover a lost packet. UCCL-collective is the swap when that path is what leaves bandwidth unused: many equal routes, or a NIC whose own congestion control is weak. On p5, p5en and p6, UCCL's README says the stock [aws-ofi-nccl](#proprietary-network-hardware-and-nccl) plugin already performs well, and UCCL's own EFA path only covers `p4d.24xlarge`, so those instances keep aws-ofi-nccl. Upstream reports up to 2.5x on all-reduce across six HGX H100 nodes with 8x400Gbps RoCE, and up to 3.7x on two AWS `g4dn.8xlarge`. Those figures are the project's, not measured here.
 
-**Small all-to-all.** MoE dispatch sends each token's hidden state to a few experts, in many small writes that have to overlap the expert compute. NCCL's all-to-all moves an equal slab from every rank, and the CPU starts each call. DeepEP is the library for those writes when they cross nodes. On one node, time the all-to-all first with the [collectives benchmark](benchmarks/README.md#other-collectives): at small payloads it takes 15.6µs on an 8x B200, about half of an all-reduce.
+**Small all-to-all.** MoE dispatch sends each token's hidden state to a few experts, in many small writes that have to overlap the expert compute. NCCL's all-to-all moves an equal slab from every rank, and the CPU starts each call. DeepEP is the library for those writes when they cross nodes. On one node, time the all-to-all first with the [collectives benchmark](benchmarks/README.md#other-collectives): at small payloads it takes 17.4µs on an 8x B200, against 24.5µs for an all-reduce.
 
 ### Node Proximity
 
