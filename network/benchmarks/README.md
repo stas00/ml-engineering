@@ -211,8 +211,8 @@ Other benchmarks that measure the latency of collectives, with the payload range
 - [Intel MPI Benchmarks](https://github.com/intel/mpi-benchmarks) - `IMB-MPI1 Allreduce` and the other collectives report `t_min`, `t_max` and `t_avg` per call, 0B to 4MiB by default.
 - [PARAM](https://github.com/facebookresearch/param) - Meta's benchmarks, whose `train/comms/pt/comms.py` times collectives through `torch.distributed` like this benchmark does and reports p50, p75 and p95 latency, 8B to 64B by default.
 - [UCC perftest](https://github.com/openucx/ucc) - `ucc_perftest` times collectives through UCC, which can run over NCCL, and reports the average, min and max latency; one 128-element payload by default.
-- [MSCCL++](https://github.com/microsoft/mscclpp) - its `python/mscclpp_benchmark/allreduce_bench.py` times MSCCL++'s all-reduce kernels against NCCL's from 4KiB to 1GiB.
-- [DeepEP](https://github.com/deepseek-ai/DeepEP) - DeepSeek's MoE expert-parallel all-to-all library, whose tests time its dispatch and combine kernels at realistic token counts rather than sweeping payload sizes.
+- [MSCCL++](https://github.com/microsoft/mscclpp) - its `python/mscclpp_benchmark/allreduce_bench.py` times MSCCL++'s all-reduce kernels against NCCL's from 4KiB to 1GiB. See [Other collective libraries](../README.md#other-collective-libraries).
+- [DeepEP](https://github.com/deepseek-ai/DeepEP) - DeepSeek's MoE expert-parallel all-to-all library, whose tests time its dispatch and combine kernels at realistic token counts rather than sweeping payload sizes. See [Other collective libraries](../README.md#other-collective-libraries).
 
 
 #### Symmetric memory

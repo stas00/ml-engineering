@@ -1604,7 +1604,34 @@ Originally proprietary hardware vendors used the trick of telling the users to u
 
 Now, when NCCL is initialized, it will look for a `libnccl-net.so` library and dynamically load it, then look for symbols inside the library. That's where proprietary hardware vendors should now put their custom APIs. This library, of course, should still be either in `LD_LIBRARY_PATH` or the `/etc/ld.so.conf` config.
 
+On EFA that plugin is [aws-ofi-nccl](https://github.com/aws/aws-ofi-nccl). NCCL has no transport for that NIC, so it cannot run over EFA without the plugin.
+
 For more information about dynamic library loading see [this section](https://github.com/stas00/the-art-of-debugging/tree/master/compiled-programs#shared-libraries-ldsoconf-nm-unresolved-symbols-ldd-ld_library_path-ld_preload).
+
+### Other collective libraries
+
+The collectives measured in this chapter go through NCCL. Three libraries replace a part of that path.
+
+[MSCCL++](https://github.com/microsoft/mscclpp) implements the NCCL collective API in `libmscclpp_nccl.so`, which takes the place of `libnccl.so`. The application keeps its NCCL calls, and the collective runs an MSCCL++ schedule on the GPU. On AMD the same library takes the place of `librccl.so`, AMD's collective library RCCL.
+
+[UCCL-collective](https://github.com/uccl-project/uccl), also called UCCL-Tran, is a [NCCL Net Plugin](#proprietary-network-hardware-and-nccl). NCCL still chooses the algorithm. The plugin replaces the transport: it sprays packets over many paths, runs congestion control itself, and retransmits the lost packets. Point `NCCL_NET_PLUGIN` at the path the package prints:
+
+```bash
+NCCL_NET_PLUGIN=$(python -c "import uccl; print(uccl.nccl_plugin_path())")
+```
+
+On AMD, `uccl.rccl_plugin_path()` prints the path of the RCCL build of the same plugin.
+
+[DeepEP](https://github.com/deepseek-ai/DeepEP) is DeepSeek's library for [expert-parallel](../training/model-parallelism/README.md#expert-parallelism) dispatch and combine. A call moves the hidden states of the tokens a rank holds, and only toward the experts those tokens were routed to. The API is DeepEP's, separate from NCCL's all-to-all.
+
+
+When to use which library:
+
+**Short collectives, link idle.** On an 8x H200 node an 8B all-reduce takes 15µs, and every payload through 512KiB stays in that 15-23µs band, so a faster NIC changes nothing ([Latency](benchmarks/README.md#latency)). NCCL serves that size with its ring, forwarding around the ranks. For a short all-reduce MSCCL++ uses an all-pairs schedule, sending to every other rank directly, which NCCL does not offer. The swap is for a step that issues many of those short collectives: that same measurement prices an 80-layer decode at 2.4ms per token of all-reduces. Once the payload fills the wire, the schedule stops mattering.
+
+**Large collectives, fabric congested.** A large collective is limited by the path once the payload fills the wire. NCCL's transport uses one or a few routes and lets the NIC recover a lost packet. UCCL-collective is the swap when that path is what leaves bandwidth unused: many equal routes, or a NIC whose own congestion control is weak. On p5, p5en and p6, UCCL's README says the stock [aws-ofi-nccl](#proprietary-network-hardware-and-nccl) plugin already performs well, and UCCL's own EFA path only covers `p4d.24xlarge`, so those instances keep aws-ofi-nccl. Upstream reports up to 2.5x on all-reduce across six HGX H100 nodes with 8x400Gbps RoCE, and up to 3.7x on two AWS `g4dn.8xlarge`. Those figures are the project's, not measured here.
+
+**Small all-to-all.** MoE dispatch sends each token's hidden state to a few experts, in many small writes that have to overlap the expert compute. NCCL's all-to-all moves an equal slab from every rank, and the CPU starts each call. DeepEP is the library for those writes when they cross nodes. On one node, time the all-to-all first with the [collectives benchmark](benchmarks/README.md#other-collectives): at small payloads it takes 15.6µs on an 8x B200, about half of an all-reduce.
 
 ### Node Proximity
 
