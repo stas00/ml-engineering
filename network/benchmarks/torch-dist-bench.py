@@ -171,6 +171,48 @@ fmt_us = lambda v : f"{v * 10**6:.1f}us"
 # following the common networking hw spec convention which uses base 10, instead of 2 for bps/Bps (it makes speed look bigger than it is)
 conv_to_GBps = lambda v : v/10**9
 
+def table_widths(labels, rows):
+    """Each column is as wide as its longest label or cell, so the bars line up for any numbers"""
+    return [max(len(labels[i]), *(len(row[i]) for row in rows)) for i in range(len(labels))]
+
+def table_line(cells, widths, aligns=None):
+    aligns = aligns or ">" * len(widths)
+    def pad(cell, width, align):
+        if align == "<":
+            return cell.ljust(width)
+        if align == "^":
+            return cell.center(width)
+        return cell.rjust(width)
+    return "| " + " | ".join(pad(cell, width, align) for cell, width, align in zip(cells, widths, aligns)) + " |"
+
+def table_rule(widths, aligns=None):
+    aligns = aligns or ">" * len(widths)
+    cells = [":" + "-" * (width - 1) if align == "<" else "-" * (width - 1) + ":"
+             for width, align in zip(widths, aligns)]
+    return "| " + " | ".join(cells) + " |"
+
+# payload, busbw, algbw, then the three latency columns, then calls
+RESULTS_LABELS = ["payload", "busbw", "algbw", "median", "p99", "mean", "calls"]
+
+def format_results_table(rows):
+    """Two header lines: latency spans median, p99 and mean. calls is its own column"""
+    labels = RESULTS_LABELS
+    widths = table_widths(labels, rows)
+    # the span covers the three latency cells, the " | " between them, and the space inside each outer bar
+    span = sum(widths[3:6]) + len(" | ") * 2 + 2
+    short = len("latency") - span
+    if short > 0:
+        for i in range(short):
+            widths[3 + i % 3] += 1
+        span = sum(widths[3:6]) + len(" | ") * 2 + 2
+    center = "^" * len(widths)
+    left = " | ".join(label.center(width) for label, width in zip(labels[:3], widths[:3]))
+    lines = [f"| {left} |{'latency'.center(span)}| {labels[6].center(widths[6])} |",
+             table_line(["", "", "", *labels[3:6], ""], widths, center),
+             table_rule(widths)]
+    lines += [table_line(row, widths) for row in rows]
+    return lines
+
 
 ### Architecture specific helper classes ###
 
@@ -240,12 +282,16 @@ def new_plot(path):
     try:
         import matplotlib.pyplot as plt
     except:
-        print("!!! Can't generate plot. Please run `pip install matplotlib` to enable plotting. !!!\n")
+        if not new_plot.warned:
+            print("!!! Can't generate plots. Please run `pip install matplotlib` to enable plotting. !!!")
+            new_plot.warned = True
         return None
 
     print(f"\n*** Plotting results into {path}\n")
     plt.figure(dpi=500)
     return plt
+
+new_plot.warned = False
 
 def save_plot(plt, path):
     """Writes the device info under the plot and saves it"""
@@ -555,10 +601,14 @@ def run(local_rank):
 
     def print_profile(name, res, trials, plot_suffix):
         print(f"The {args.payload_size_in_gib}GiB payload bandwidth of {name} over {ranks} ranks ({trials}):\n")
-        print(f"|    busbw   |    algbw   |")
-        print(f"| ---------: | ---------: |")
-        for busbw, algbw in zip(res["busbw_points"], res["algbw_points"]):
-            print(f"| {conv_to_GBps(busbw):6.2f}GBps | {conv_to_GBps(algbw):6.2f}GBps |")
+        labels = ["busbw", "algbw"]
+        rows = [[f"{conv_to_GBps(busbw):.2f}GBps", f"{conv_to_GBps(algbw):.2f}GBps"]
+                for busbw, algbw in zip(res["busbw_points"], res["algbw_points"])]
+        widths = table_widths(labels, rows)
+        print(table_line(labels, widths, "^" * len(widths)))
+        print(table_rule(widths))
+        for row in rows:
+            print(table_line(row, widths))
         print()
         plot_path = f"busbw-profile-{name}-{hostname}-{ranks}{plot_suffix}.png"
         plot_profile(plot_path, name, [conv_to_GBps(x) for x in res["busbw_points"]], ranks)
@@ -569,15 +619,17 @@ def run(local_rank):
         if not latency:
             print(f"!!! No payload was measured !!!\n")
             return
-        print(f"| payload |    busbw   |    algbw   | latency median |    p99    |    mean   | calls |")
-        print(f"| ------: | ---------: | ---------: | -------------: | --------: | --------: | ----: |")
+        rows = []
         for size in latency.keys():
             lat = latency[size]
-            bandwidth = f"{'':10} | {'':10}"
             if size in busbw:
-                bandwidth = f"{conv_to_GBps(busbw[size]):6.2f}GBps | {conv_to_GBps(algbw[size]):6.2f}GBps"
-            print(f"| {fmt_bytes(size):>7} | {bandwidth} | {fmt_us(lat['median']):>14} "
-                  f"| {fmt_us(lat['p99']):>9} | {fmt_us(lat['mean']):>9} | {lat['calls']:5} |")
+                bus, alg = f"{conv_to_GBps(busbw[size]):.2f}GBps", f"{conv_to_GBps(algbw[size]):.2f}GBps"
+            else:
+                bus = alg = ""
+            rows.append([fmt_bytes(size), bus, alg, fmt_us(lat["median"]), fmt_us(lat["p99"]),
+                         fmt_us(lat["mean"]), str(lat["calls"])])
+        for line in format_results_table(rows):
+            print(line)
         print(f"\nlatency: of one call, in microseconds, each call's time being the slowest rank's")
         print_busbw_start({name: res})
         print_notes({name: res})
@@ -611,11 +663,11 @@ def run(local_rank):
                 row.append(f"{conv_to_GBps(res['busbw'][size]):.2f}" if size in res["busbw"] else "")
                 row.append(f"{res['latency'][size]['median'] * 10**6:.1f}" if size in res["latency"] else "")
             rows.append(row)
-        widths = [len(column) for column in header]
-        print("| " + " | ".join(header) + " |")
-        print("| " + " | ".join("-" * (width - 1) + ":" for width in widths) + " |")
+        widths = table_widths(header, rows)
+        print(table_line(header, widths, "^" * len(widths)))
+        print(table_rule(widths))
         for row in rows:
-            print("| " + " | ".join(cell.rjust(width) for cell, width in zip(row, widths)) + " |")
+            print(table_line(row, widths))
         print(f"\nbusbw: in GBps")
         print(f"median: the latency median of one call, in microseconds, each call's time being the slowest rank's")
         print(f"a blank cell: a payload that collective didn't measure")
@@ -680,18 +732,25 @@ def run(local_rank):
 
     def print_summary(measured, plot_suffix):
         print(f"Summary of {len(measured)} collectives over {ranks} ranks:\n")
-        print(f"| collective     | smallest payload | latency median | peak busbw | at payload | half-peak payload |")
-        print(f"| :------------- | ---------------: | -------------: | ---------: | ---------: | ----------------: |")
+        labels = ["collective", "smallest payload", "latency median", "peak busbw", "at payload",
+                  "half-peak payload"]
+        aligns = "<>>>>>"
+        rows = []
         for name, res in measured.items():
             busbw, latency = res["busbw"], res["latency"]
             size0 = min(latency.keys())
             if busbw:
                 peak_size = max(busbw.keys(), key=lambda size: busbw[size])
-                bandwidth = (f"{conv_to_GBps(busbw[peak_size]):6.2f}GBps | {fmt_bytes(peak_size):>10} "
-                             f"| {fmt_bytes(half_peak_size(busbw)):>17}")
+                peak, at, half = (f"{conv_to_GBps(busbw[peak_size]):.2f}GBps", fmt_bytes(peak_size),
+                                  fmt_bytes(half_peak_size(busbw)))
             else:
-                bandwidth = f"{'':10} | {'':10} | {'':17}"
-            print(f"| {name:<14} | {fmt_bytes(size0):>16} | {fmt_us(latency[size0]['median']):>14} | {bandwidth} |")
+                peak = at = half = ""
+            rows.append([name, fmt_bytes(size0), fmt_us(latency[size0]["median"]), peak, at, half])
+        widths = table_widths(labels, rows)
+        print(table_line(labels, widths, "^" * len(widths)))
+        print(table_rule(widths, aligns))
+        for row in rows:
+            print(table_line(row, widths, aligns))
         print(f"\nhalf-peak payload: the smallest payload reaching half the collective's peak busbw")
 
         plot_averages(f"busbw-mean-collectives-{hostname}-{ranks}{plot_suffix}.png", measured, ranks)
