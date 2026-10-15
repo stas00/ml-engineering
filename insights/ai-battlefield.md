@@ -280,7 +280,7 @@ Not yet available:
   * NVIDIA Rubin - specs published but still marked preliminary
   * AMD MI455X - Helios volume deployments expected 2H-2026
   * SambaNova SN50 - shipping "in the second half of 2026"; SN40L is the current part
-  * Intel Crescent Island - inference GPU, customer sampling announced for H2-2026; no published TFLOPS
+  * Intel GPU D-series / D270 (Crescent Island) - inference GPU, launched OCP 2026, customer sampling H2-2026; 160GB LPDDR5X (ODM up to 480GB) @ 1.5TBps, FP8 1.3 PFLOPS (only published compute figure)
 
 Regional:
 
