@@ -556,6 +556,27 @@ For example, in HF Transformers models you do `model.gradient_checkpointing_enab
 
 Also  check out this the paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) which describes a way to avoid most activation recomputations and thus save both memory and compute.
 
+#### Offloading the activation checkpoints to CPU memory
+
+Gradient checkpointing still keeps one tensor per checkpointed layer on the accelerator - the layer's input, from which its `forward` is recomputed. That is `layers x sequence x hidden` elements, which at long sequence lengths becomes the largest part of the activation memory: Qwen3-8B (36 layers, hidden size 4096) at 128K tokens in bf16 keeps `36 x 131072 x 4096 x 2` bytes = 36GiB of them.
+
+Since `transformers==5.17` these tensors can be moved to pinned CPU memory during `forward` and brought back for `backward`:
+
+```python
+args = TrainingArguments(
+    gradient_checkpointing=True,
+    gradient_checkpointing_kwargs={"offload": True},
+)
+```
+
+It wraps the model's checkpoint function in PyTorch's [`save_on_cpu(pin_memory=True)`](https://docs.pytorch.org/docs/stable/autograd.html#torch.autograd.graph.save_on_cpu), so any model that supports gradient checkpointing supports it. The memory profile in [PyTorch memory profiler](../../debug/pytorch.md#pytorch-memory-profiler) shows what it does: with the activation checkpoints offloaded, accelerator memory stays flat through `forward` instead of climbing with each layer, so adding layers no longer adds to it.
+
+Offloading lowers the peak memory usage only if the activation checkpoints are among the tensors held at that peak. If the peak occurs in `backward`, where gradients dominate, the peak barely moves: Qwen3-1.7B at 32K tokens frees 3.5GiB after `forward`, yet its peak drops only from 11.13GB to 10.16GB.
+
+There are two costs. The offloaded tensors now sit in CPU memory, which adds up over a node: Llama-70B at a 3M-token sequence split over 32 accelerators with [Arctic Long Sequence Training](../model-parallelism/README.md#arctic-long-sequence-training) needs 915GiB of CPU memory per node for the offloaded activation checkpoints alone. And the copies run on the same CUDA stream as the compute, with no prefetch ahead of `backward`, so each step gets slower.
+
+footnote: as of 2026-10 this is an inefficient implementation: both copies run on the compute stream, and nothing is prefetched ahead of `backward`. The [`ActivationOffloadManager`](https://github.com/Snowflake-AI-Research/Arctic-Platform/blob/4f50c5bbea3f1ba102daba675bd480796c6dfea5/arctic_platform/model/implementations/gpu/activation_offload.py#L175) of [Arctic Platform](https://github.com/Snowflake-AI-Research/Arctic-Platform) has close to 0 overhead, because it copies on CUDA streams separate from the compute stream, so the copies overlap with compute, and it prefetches each layer's activation checkpoint ahead of its `backward`.
+
 ### Memory-efficient optimizers
 
 The most common optimizer is Adam. It and its derivatives all use 8 bytes per param (2x fp32 tensors - one for each momentum), which account for almost half the memory allocation for the model, optimizer and gradients. So at times using other optimizers may save the day, if they successfully train that is. Not all optimizers are suitable for all training tasks.
