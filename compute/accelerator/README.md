@@ -564,7 +564,7 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 | :-------------------- | -------------: | :------ | --------------------------: |
 | Intel GPU D270        |            480 | LPDDR5X |                        1.50 |
 | AMD MI455X            |            432 | HBM4    |                       23.30 |
-| NVIDIA Rubin SXM      |            288 | HBM4    |                       22.00 |
+| NVIDIA Rubin SXM      |            288 | HBM4    |                       19.20 |
 | Huawei Ascend 950DT   |             96 | ?       |                        4.00 |
 
 
@@ -573,6 +573,8 @@ Notes:
 * Intel GPU D270 (Crescent Island) is the memory-capacity outlier here: it uses LPDDR5X rather than HBM, trading bandwidth for capacity and cost. The `480` is the maximum ODM configuration; Intel's own reference PCIe card ships with `160GB`. The `1.5TBps` comes from a 1280-bit bus running LPDDR5X at 9.6Gbps - high for LPDDR, but well below the HBM parts above. See [note 30 in the TFLOPS table](#tflops-comparison-table) for sources.
 
 * The listed sizes preserve vendor-published `GB` labels. As of 2026-07-29, NVIDIA's [HGX AI Factory components](https://docs.nvidia.com/enterprise-reference-architectures/hgx-ai-factory/latest/components.html) page lists B200 at 180GB, and its [MIG table](https://www.nvidia.com/en-gb/technologies/multi-instance-gpu/) lists B200 at 180GB and GB200 at 186GB. NVIDIA's [OpenFold2 support matrix](https://docs.nvidia.com/nim/bionemo/openfold2/2.0.0/support-matrix.html) instead lists B200 at 192GB without explaining whether the discrepancy reflects physical, usable, reserved, or differently reported capacity. This table follows the hardware and platform values; the possible physical-capacity/ECC explanation above is an arithmetic derivation, not a documented NVIDIA specification.
+
+* The `NVIDIA Rubin SXM` row is the standard Rubin GPU (the `288`GB HBM4 part, sometimes called `R200`). `19.20 TBps` is NVIDIA's current per-GPU figure on the [Vera Rubin NVL72](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/) spec page - `288 GB HBM4 | 19.2 TB/s` in the single-GPU column - cut from an earlier `22` target. Rubin CPX (a separate monolithic prefill GPU; NVIDIA officially lists only `128GB GDDR7` and `30` PFLOPS NVFP4, no per-GPU bandwidth) and the later Rubin Ultra (HBM4e) are distinct parts with their own memory, not covered by this row.
 
 * I didn't include `NVIDIA H100 dual NVL` as it's 2x H100 GPUs with 14GiB memory extra per chip and slightly faster memory (3.9TBps vs 3.35TBps) - but it would have an unfair advantage in the above table as everything else is per-chip. (I guess AMD250 is also 2 GCDs, but they aren't very competitive anyway and will soon be displaced from this table by newer offerings)
 

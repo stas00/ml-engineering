@@ -10,32 +10,45 @@
 
 footnote: Its previous incarnation was known as `all_reduce_bench.py` as it measured just the all-reduce collective.
 
-On 4 8x-B200 nodes it give us:
+On 4 8x B200 nodes (`torch=2.14.1+cu130`, `cuda=13.0`, `nccl=2.30.7`, 30 seconds for the whole sweep) it gives us:
 ```
-The average bandwidth of all_reduce over 32 ranks (5 warmups / 20 trials, up to 10 queued calls per trial):
+The average bandwidth and the per-call latency of all_reduce over 32 ranks (at least 5 warmups / 20 trials, up to 10 queued calls per trial):
 
-| payload |    busbw   |    algbw   |
-| ------: | ---------: | ---------: |
-|   32KiB |   0.65GBps |   0.33GBps |
-|   64KiB |   1.27GBps |   0.66GBps |
-|  128KiB |   2.35GBps |   1.21GBps |
-|  256KiB |   4.06GBps |   2.10GBps |
-|  512KiB |   6.99GBps |   3.61GBps |
-|    1MiB |  12.47GBps |   6.44GBps |
-|    2MiB |  20.79GBps |  10.73GBps |
-|    4MiB |  31.63GBps |  16.33GBps |
-|    8MiB |  50.61GBps |  26.12GBps |
-|   16MiB |  71.80GBps |  37.06GBps |
-|   32MiB | 142.90GBps |  73.76GBps |
-|   64MiB | 197.77GBps | 102.07GBps |
-|  128MiB | 260.50GBps | 134.45GBps |
-|  256MiB | 283.23GBps | 146.18GBps |
-|  512MiB | 309.91GBps | 159.95GBps |
-|    1GiB | 365.99GBps | 188.90GBps |
-|    2GiB | 371.26GBps | 191.62GBps |
-|    4GiB | 374.66GBps | 193.37GBps |
-|    8GiB | 376.14GBps | 194.14GBps |
-|   16GiB | 376.71GBps | 194.43GBps |
+| payload |   busbw    |   algbw    |              latency              | calls |
+|         |            |            |   median  |    p99    |    mean   |       |
+| ------: | ---------: | ---------: | --------: | --------: | --------: | ----: |
+|      8B |            |            |    81.9us |    88.0us |    81.9us |   810 |
+|     16B |            |            |    81.6us |    89.4us |    81.7us |   828 |
+|     32B |            |            |    82.0us |    91.8us |    82.2us |   783 |
+|     64B |            |            |    82.5us |    92.7us |    82.8us |   783 |
+|    128B |            |            |    83.0us |    89.8us |    83.3us |   792 |
+|    256B |            |            |    83.9us |    94.5us |    83.9us |   774 |
+|    512B |            |            |    84.1us |    98.5us |    84.8us |   783 |
+|    1KiB |            |            |    85.4us |    90.1us |    85.6us |   810 |
+|    2KiB |            |            |    89.5us |    95.3us |    89.7us |   738 |
+|    4KiB |            |            |    99.3us |   105.1us |    99.3us |   666 |
+|    8KiB |            |            |   102.3us |   114.8us |   102.4us |   765 |
+|   16KiB |            |            |   102.4us |   118.8us |   103.9us |   711 |
+|   32KiB |   0.64GBps |   0.33GBps |   104.5us |   119.7us |   105.4us |   738 |
+|   64KiB |   1.27GBps |   0.65GBps |   106.5us |   123.8us |   107.2us |   504 |
+|  128KiB |   2.35GBps |   1.21GBps |   114.6us |   130.6us |   115.1us |   252 |
+|  256KiB |   4.20GBps |   2.17GBps |   128.1us |   138.3us |   128.4us |   126 |
+|  512KiB |   6.99GBps |   3.61GBps |   151.7us |   168.2us |   153.2us |   126 |
+|    1MiB |  12.78GBps |   6.60GBps |   165.9us |   187.0us |   167.0us |   153 |
+|    2MiB |  21.84GBps |  11.27GBps |   193.1us |   205.1us |   193.8us |   162 |
+|    4MiB |  31.49GBps |  16.25GBps |   261.3us |   281.2us |   262.9us |   171 |
+|    8MiB |  50.40GBps |  26.01GBps |   331.8us |   344.1us |   332.7us |   144 |
+|   16MiB |  73.17GBps |  37.77GBps |   452.7us |   469.2us |   454.2us |   180 |
+|   32MiB | 142.79GBps |  73.70GBps |   473.2us |   498.5us |   474.8us |   162 |
+|   64MiB | 198.44GBps | 102.42GBps |   686.2us |   709.2us |   688.0us |   180 |
+|  128MiB | 258.60GBps | 133.47GBps |  1027.2us |  1068.6us |  1029.2us |   140 |
+|  256MiB | 279.38GBps | 144.20GBps |  1961.0us |  2112.0us |  1960.1us |    60 |
+|  512MiB | 310.01GBps | 160.00GBps |  3428.2us |  3822.2us |  3452.6us |    20 |
+|    1GiB | 365.47GBps | 188.63GBps |  5801.0us |  5926.7us |  5806.3us |    20 |
+|    2GiB | 371.07GBps | 191.52GBps | 11307.0us | 11423.6us | 11319.9us |    20 |
+|    4GiB | 374.44GBps | 193.26GBps | 22362.0us | 22451.0us | 22376.0us |    20 |
+|    8GiB | 375.75GBps | 193.93GBps | 44532.8us | 44775.3us | 44549.5us |    20 |
+|   16GiB | 376.17GBps | 194.15GBps | 88813.6us | 89220.5us | 88832.0us |    20 |
 ```
 
 Read the normalized `busbw` column rather than `algbw` - [PERFORMANCE.md](https://github.com/NVIDIA/nccl-tests/blob/master/doc/PERFORMANCE.md#bandwidth) explains why. Like `nccl-tests`, the benchmark measures a unidirectional bandwidth, so compare it against the advertised unidirectional peak throughput, not the bidirectional (duplex) one.
@@ -51,7 +64,7 @@ Here is the same benchmark on a single 8x H200 node (`torch=2.14.0+cu130`, `cuda
 
 Note the linear y-axis compresses everything below ~100GBps into the bottom of the plot, so the small-payload end - the part that matters for gradient bucketing - is easier to read off the `default` column of the table in [How the bandwidth is measured](#how-the-bandwidth-is-measured), measured on the same node, than off the curve. That sweep tops out at 482.35GBps, which is *above* the 450GBps unidirectional [NVLink 4](../README.md#nvlink) spec rather than below it; see [SHARP](../README.md#sharp) for why, and for what the same node measures with it disabled.
 
-[Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed) explains why a 4 node-benchmark (32 ranks) tops out at 376.71GBps when a single node (8 ranks) of the same B200s reaches 838.97GBps, and what the number means for each NIC.
+[Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed) explains why a 4 node-benchmark (32 ranks) tops out at 376.17GBps when a single node (8 ranks) of the same B200s reaches 839.00GBps, and what the number means for each NIC.
 
 For launching examples please see the top of [torch-dist-bench.py](torch-dist-bench.py). You can interrupt the benchmark with Ctrl-C, and it'll still report the results it measured up to that point.
 
@@ -115,6 +128,21 @@ And all-reduce is the best case: NCCL gives only all-reduce its tree algorithm, 
 
 ![all-reduce-bench latency 8x H200](images/all-reduce-bench-latency-8xh200.png)
 
+On B200s the latency also shows what it costs to leave the node. Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the table at the top:
+
+| payload | 8 ranks<br>median | 8 ranks<br>p99 | 32 ranks<br>median | 32 ranks<br>p99 | 32 / 8<br>median |
+| ------: | ----------------: | -------------: | -----------------: | --------------: | ---------------: |
+|      8B |            23.0µs |         25.1µs |             81.9µs |          88.0µs |             3.6x |
+|    1KiB |            29.5µs |         31.8µs |             85.4µs |          90.1µs |             2.9x |
+|   16KiB |            30.7µs |         32.8µs |            102.4µs |         118.8µs |             3.3x |
+|  128KiB |            32.8µs |         34.8µs |            114.6µs |         130.6µs |             3.5x |
+|  512KiB |            35.8µs |         38.0µs |            151.7µs |         168.2µs |             4.2x |
+|    1MiB |            35.9µs |         39.8µs |            165.9µs |         187.0µs |             4.6x |
+|    4MiB |            60.4µs |         62.6µs |            261.3µs |         281.2µs |             4.3x |
+|   16MiB |           104.4µs |        107.2µs |            452.7µs |         469.2µs |             4.3x |
+
+Up to 16MiB a call takes 2.9-4.6 times as long once it crosses the network, and even an 8B all-reduce takes 82µs instead of 23µs.
+
 #### How the latency is measured
 
 - Each call's time is the time from the end of the previous queued call to its own end, as in `nccl-tests`' per-iteration timing (`-I 1`), which it reports in its `i_*` columns, and as the median in its `-J` JSON output. The first call of a trial is left out, and a 1-element all-reduce after the busy wait lines the ranks up on the GPU before it: otherwise a rank whose busy wait ends first spends the difference waiting in its first calls - in one call for most collectives, but in up to ranks-1 calls for `batch_isend_irecv`, whose ring passes the wait on one rank per call.
@@ -171,35 +199,106 @@ The root is rank 0, and `batch_isend_irecv` has each rank send to the next rank 
 
 As in `nccl-tests`, the 1/n pieces are rounded down to a multiple of 16 bytes, so payloads with less than 16 bytes per rank are skipped - those below 128B on 8 ranks - and with a number of ranks that isn't a power of 2, `all_gather`, `gather`, `reduce_scatter`, `scatter` and `all_to_all` move a little less than the payload, and the table reports what they did move.
 
-Here are all nine on an 8x B200 node (`torch=2.14.1+cu130`, `nccl=2.30.7`):
+Here are all nine on an 8x B200 node (`torch=2.14.1+cu130`, `nccl=2.30.7`, 2 minutes for the whole sweep), as the benchmark prints them - the `busbw` and the latency median of each collective at every payload, then the summary:
+
+```
+The average bandwidth and the per-call latency of 9 collectives over 8 ranks (at least 5 warmups / 20 trials, up to 10 queued calls per trial):
+
+busbw, GBps
+|  pay   |  all_  |  all_  | reduce_ | all_to | broad  | reduce | gather | scatter | batch  |
+|  load  | reduce | gather | scatter |  _all  |  cast  |        |        |         | _isend |
+|        |        |        |         |        |        |        |        |         | _irecv |
+| -----: | -----: | -----: | ------: | -----: | -----: | -----: | -----: | ------: | -----: |
+|  32KiB |   2.17 |   1.64 |    1.70 |   2.45 |   2.78 |   2.97 |   3.68 |    2.67 |   2.34 |
+|  64KiB |   4.18 |   3.12 |    3.22 |   4.59 |   5.28 |   5.24 |   6.84 |    4.97 |   4.22 |
+| 128KiB |   8.13 |   6.12 |    6.29 |   8.33 |  10.40 |  10.40 |  13.04 |    9.92 |   7.69 |
+| 256KiB |  15.91 |  11.90 |   12.31 |  13.11 |  19.00 |  20.45 |  20.78 |   14.58 |  15.11 |
+| 512KiB |  29.50 |  21.65 |   22.25 |  23.85 |  36.08 |  36.36 |  37.16 |   27.18 |  25.00 |
+|   1MiB |  58.93 |  43.53 |   44.73 |  42.67 |  71.98 |  72.89 |  65.03 |   48.68 |  38.80 |
+|   2MiB | 106.27 |  76.21 |   80.68 |  82.44 | 108.21 | 112.18 | 129.13 |   92.42 |  54.07 |
+|   4MiB | 131.71 | 116.90 |  126.13 | 137.51 | 143.11 | 151.16 | 232.74 |  164.62 |  69.05 |
+|   8MiB | 201.12 | 156.61 |  169.33 | 209.13 | 225.24 | 237.76 | 354.29 |  259.37 |  77.06 |
+|  16MiB | 296.16 | 294.05 |  285.91 | 284.06 | 315.35 | 329.76 | 469.87 |  372.69 |  81.14 |
+|  32MiB | 364.90 | 252.67 |  264.12 | 360.63 | 385.89 | 402.28 | 556.43 |  494.93 |  83.57 |
+|  64MiB | 421.74 | 418.71 |  419.83 | 434.48 | 474.91 | 486.08 | 630.14 |  572.21 |  84.83 |
+| 128MiB | 591.12 | 556.63 |  560.30 | 491.21 | 537.97 | 550.18 | 668.70 |  595.42 | 167.76 |
+| 256MiB | 659.60 | 582.00 |  591.78 | 531.85 | 557.36 | 570.34 | 692.03 |  632.65 | 332.74 |
+| 512MiB | 703.05 | 597.64 |  612.24 | 555.99 | 561.76 | 582.73 | 702.41 |  667.78 | 624.07 |
+|   1GiB | 726.53 | 609.48 |  624.93 | 606.00 | 560.04 | 589.18 | 763.36 |  706.41 | 640.10 |
+|   2GiB | 741.30 | 629.10 |  656.15 | 608.20 | 602.80 | 638.31 | 711.24 |  700.79 | 649.89 |
+|   4GiB | 749.77 | 644.07 |  676.61 | 645.36 | 637.73 | 667.94 | 713.73 |  712.37 | 654.43 |
+|   8GiB | 833.39 | 655.67 |  685.19 | 654.13 | 664.05 | 686.42 | 716.57 |  715.36 | 657.03 |
+|  16GiB | 840.18 | 661.74 |  689.72 | 658.62 | 674.19 | 688.60 | 718.37 |  717.23 | 658.47 |
+
+latency median, us
+|  pay   |   all_  |   all_  | reduce_ |  all_to |  broad  |  reduce |  gather | scatter |  batch  |
+|  load  |  reduce |  gather | scatter |   _all  |   cast  |         |         |         |  _isend |
+|        |         |         |         |         |         |         |         |         |  _irecv |
+| -----: | ------: | ------: | ------: | ------: | ------: | ------: | ------: | ------: | ------: |
+|     8B |    23.6 |         |         |         |    12.3 |    11.6 |         |         |    16.4 |
+|    16B |    23.5 |         |         |         |    12.3 |    11.6 |         |         |    16.4 |
+|    32B |    23.6 |         |         |         |    12.3 |    11.6 |         |         |    16.4 |
+|    64B |    27.6 |         |         |         |    12.3 |    11.6 |         |         |    16.5 |
+|   128B |    28.7 |    19.8 |    19.7 |    16.4 |    12.3 |    11.6 |    12.3 |    15.4 |    16.4 |
+|   256B |    28.7 |    20.4 |    19.8 |    16.4 |    12.3 |    11.6 |    12.2 |    15.4 |    16.4 |
+|   512B |    28.7 |    20.5 |    20.4 |    16.4 |    12.3 |    11.6 |    12.3 |    15.4 |    16.4 |
+|   1KiB |    29.7 |    20.5 |    20.5 |    16.4 |    12.3 |    12.3 |    12.3 |    15.4 |    16.5 |
+|   2KiB |    29.9 |    20.5 |    20.5 |    16.4 |    12.4 |    12.3 |    12.3 |    15.4 |    17.5 |
+|   4KiB |    30.0 |    20.5 |    20.5 |    16.4 |    14.3 |    14.3 |    12.3 |    15.4 |    18.4 |
+|   8KiB |    30.7 |    20.6 |    20.5 |    16.4 |    14.4 |    15.4 |    12.3 |    15.4 |    19.5 |
+|  16KiB |    30.7 |    21.5 |    20.6 |    16.4 |    14.4 |    15.4 |    12.3 |    15.4 |    20.5 |
+|  32KiB |    30.8 |    21.8 |    21.5 |    17.4 |    16.4 |    15.5 |    12.3 |    15.4 |    23.6 |
+|  64KiB |    31.8 |    22.6 |    22.5 |    17.5 |    16.5 |    16.5 |    12.3 |    16.4 |    24.7 |
+| 128KiB |    32.8 |    23.6 |    22.6 |    19.4 |    17.4 |    16.5 |    13.5 |    16.4 |    26.6 |
+| 256KiB |    34.0 |    24.6 |    23.8 |    22.7 |    19.4 |    18.4 |    15.5 |    20.7 |    28.7 |
+| 512KiB |    36.4 |    26.6 |    25.6 |    24.6 |    19.5 |    18.6 |    16.4 |    21.5 |    31.7 |
+|   1MiB |    36.8 |    26.6 |    25.7 |    26.7 |    19.6 |    19.3 |    18.4 |    24.5 |    38.9 |
+|   2MiB |    38.9 |    28.7 |    27.6 |    27.9 |    24.7 |    23.7 |    18.4 |    24.7 |    51.2 |
+|   4MiB |    60.4 |    36.8 |    33.9 |    32.8 |    32.8 |    30.9 |    20.5 |    27.7 |    71.7 |
+|   8MiB |    77.8 |    51.3 |    48.2 |    41.0 |    38.1 |    36.8 |    24.7 |    33.9 |   122.8 |
+|  16MiB |   103.8 |    55.3 |    56.3 |    57.3 |    51.1 |    49.0 |    35.6 |    44.0 |   229.4 |
+|  32MiB |   166.0 |   122.9 |   118.1 |    88.1 |    78.8 |    75.9 |    57.3 |    64.5 |   438.4 |
+|  64MiB |   284.7 |   145.4 |   144.4 |   142.4 |   131.1 |   133.1 |    98.3 |   109.6 |   833.8 |
+| 128MiB |   402.8 |   216.1 |   215.1 |   248.9 |   233.5 |   235.6 |   179.3 |   204.8 |   838.9 |
+| 256MiB |   718.9 |   408.6 |   404.5 |   451.6 |   441.4 |   446.3 |   341.6 |   390.1 |   839.4 |
+| 512MiB |  1345.5 |   795.5 |   775.2 |   859.1 |   860.9 |   845.6 |   671.1 |   754.7 |   880.6 |
+|   1GiB |  2595.8 |  1549.3 |  1518.6 |  1555.9 |  2128.8 |  2016.3 |  1415.2 |  1353.7 |  1694.2 |
+|   2GiB |  5081.1 |  2999.3 |  2879.5 |  3098.6 |  3775.5 |  3555.3 |  2725.9 |  2750.5 |  3325.9 |
+|   4GiB | 10052.6 |  5853.7 |  5572.6 |  5836.8 |  6942.7 |  6619.1 |  5432.3 |  5336.1 |  6597.6 |
+|   8GiB | 18091.5 | 11482.1 | 11005.9 | 11518.0 | 13140.5 | 12708.4 | 10652.7 | 10623.0 | 13150.2 |
+|  16GiB | 35853.3 | 22769.6 | 21846.0 | 22860.8 | 25700.9 | 25147.9 | 21085.1 | 21192.7 | 26211.3 |
+```
+
+```
+Summary of 9 collectives over 8 ranks:
 
 fastest median latency
-
-| collective          | payload | fastest |
-| :------------------ | ------: | ------: |
-| `broadcast`         |      8B |  12.3µs |
-| `reduce`            |      8B |  12.3µs |
-| `gather`            |    128B |  14.3µs |
-| `all_to_all`        |    256B |  17.4µs |
-| `scatter`           |    128B |  17.4µs |
-| `batch_isend_irecv` |     64B |  18.4µs |
-| `reduce_scatter`    |    128B |  20.5µs |
-| `all_gather`        |    128B |  21.0µs |
-| `all_reduce`        |     16B |  24.5µs |
+|     collective    | payload | fastest |
+| :---------------- | ------: | ------: |
+| reduce            |      8B |  11.6us |
+| gather            |    256B |  12.2us |
+| broadcast         |      8B |  12.3us |
+| scatter           |    128B |  15.4us |
+| all_to_all        |    128B |  16.4us |
+| batch_isend_irecv |      8B |  16.4us |
+| reduce_scatter    |    128B |  19.7us |
+| all_gather        |    128B |  19.8us |
+| all_reduce        |     16B |  23.5us |
 
 busbw
-
-| collective          | payload |       peak | half-peak<br>payload |
-| :------------------ | ------: | ---------: | -------------------: |
-| `all_reduce`        |   16GiB | 839.56GBps |                64MiB |
-| `gather`            |    1GiB | 754.54GBps |                16MiB |
-| `scatter`           |   16GiB | 729.23GBps |                16MiB |
-| `reduce`            |   16GiB | 702.39GBps |                32MiB |
-| `reduce_scatter`    |   16GiB | 686.51GBps |                64MiB |
-| `broadcast`         |   16GiB | 686.30GBps |                32MiB |
-| `all_gather`        |   16GiB | 659.90GBps |                64MiB |
-| `batch_isend_irecv` |   16GiB | 657.38GBps |               256MiB |
-| `all_to_all`        |   16GiB | 639.74GBps |                32MiB |
+|     collective    | payload |    peak    | half-peak |
+|                   |         |            |  payload  |
+| :---------------- | ------: | ---------: | --------: |
+| all_reduce        |   16GiB | 840.18GBps |     64MiB |
+| gather            |    1GiB | 763.36GBps |     16MiB |
+| scatter           |   16GiB | 717.23GBps |     16MiB |
+| reduce_scatter    |   16GiB | 689.72GBps |     64MiB |
+| reduce            |   16GiB | 688.60GBps |     32MiB |
+| broadcast         |   16GiB | 674.19GBps |     32MiB |
+| all_gather        |   16GiB | 661.74GBps |     64MiB |
+| all_to_all        |   16GiB | 658.62GBps |     32MiB |
+| batch_isend_irecv |   16GiB | 658.47GBps |    256MiB |
+```
 
 The fastest median is the smallest latency median across the measured payloads. The half-peak payload is the smallest payload reaching half the collective's peak `busbw`, as in [Latency](#latency).
 
@@ -207,9 +306,9 @@ The fastest median is the smallest latency median across the measured payloads. 
 
 ![torch-dist-bench latency 8x B200](images/torch-dist-bench-latency-8xb200.png)
 
-The fastest `all_to_all`, which MoE dispatch and combine use, is 17.4µs, against 24.5µs for `all_reduce`, and the fastest `broadcast` and `reduce` are both 12.3µs, with `gather` at 14.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 12.3µs and leaves the others' fastest payloads about where they were. At the peak, `all_gather` reaches 748.77GBps instead of 659.90GBps, while `reduce_scatter` tops out at 489.61GBps at 8GiB instead of 686.51GBps at 16GiB.
+The fastest `all_to_all`, which MoE dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, moves the others' fastest payloads by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower. At the peak, `all_gather` reaches 749.03GBps instead of 661.74GBps, while `reduce_scatter` tops out at 489.13GBps at 8GiB instead of 689.72GBps at 16GiB.
 
-`gather` peaks at 754.54GBps at 1GiB, above its 718.30GBps at 16GiB.
+`gather` peaks at 763.36GBps at 1GiB, above its 718.37GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
 
 Against `nccl-tests` built with NCCL 2.30.7 on an 8x B200 node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:
 

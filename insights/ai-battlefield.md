@@ -277,7 +277,7 @@ Available, but locks you in:
 
 Not yet available:
 
-  * NVIDIA Rubin - specs published but still marked preliminary
+  * NVIDIA Rubin - in full production and shipping to select enterprise customers (CoreWeave limited availability, Cognition running production workloads); no self-serve cloud rental or public pricing yet as of 2026-10, first hyperscaler GA (Google Cloud A5X) expected 2026-11
   * AMD MI455X - Helios volume deployments expected 2H-2026
   * SambaNova SN50 - shipping "in the second half of 2026"; SN40L is the current part
   * Intel GPU D-series / D270 (Crescent Island) - inference GPU, launched OCP 2026, customer sampling H2-2026; 160GB LPDDR5X (ODM up to 480GB) @ 1.5TBps, FP8 1.3 PFLOPS (only published compute figure)
@@ -322,7 +322,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 | A100  |                       312 |                2.5 |                300 |                     2 |
 | H100  |                       989 |                  8 |                450 |                     3 |
 | B200  |                      2250 |                 18 |                900 |                     6 |
-| Rubin |                      4000 |                 32 |               1800 |                    12 |
+| Rubin |                      4000 |                 32 |               1500 |                    10 |
 
 - You can see that A100 was 2.5 faster than V100, and H100 is ~3x faster than A100. But the intra-node speed of NVLink has only increased by 150GBps each generation. NVLink 5.0 doubled the speed over NVLink 4.0 so it catches up a little bit with the compute speed ups. But the speed up is still insufficient.
 
@@ -343,7 +343,7 @@ Also in general most ML code could be compiled into cross-platform formats like 
 
 NVIDIA:
 
-- Some have a lot of NVLinks, others less, but typically plenty with 1800GBps (14.4Tbps) unidirectional bandwidth for Rubin,
+- Some have a lot of NVLinks, others less, but typically plenty with 1500GBps (12Tbps) unidirectional bandwidth for Rubin,
 900GBps (7.2Tbps) for B200/B300,
 450GBps (3.6Tbps) for H100/H200, 300GBps for A100 nodes.
 

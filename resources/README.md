@@ -20,9 +20,9 @@
 
 ## Publicly available training LLM/VLM logbooks
 
-Logbooks and chronicles of training LLM/VLM are one of the best sources to learn from about dealing with training instabilities and choosing good hyper parameters.
+Logbooks, chronicles, and technical reports of training LLMs/VLMs are among the best sources to learn from about dealing with training instabilities, infrastructure and scaling challenges, and choosing good hyper parameters. The earlier entries here are logbooks/chronicles kept during a training run; increasingly the same hard-won lessons appear as dedicated sections of technical reports - typically titled something like *Infrastructure, Scaling, and Efficiency* or *Engineering Challenges and Solutions*, and often covering reliability and operational challenges that rarely make it into a model card.
 
-If you know of a public LLM/VLM training logbook that is not on this list please kindly let me know or add it via a PR. Thank you!
+If you know of a public LLM/VLM training logbook, or a technical report with such a section, that is not on this list please kindly let me know via [an Issue](https://github.com/stas00/ml-engineering/issues) or add it via a PR. Thank you!
 
 The listing is in no particular order other than being grouped by the year.
 
@@ -66,11 +66,19 @@ The listing is in no particular order other than being grouped by the year.
 
 - Imbue's [From bare metal to a 70B model: infrastructure set-up and scripts](https://imbue.com/blog/70b-infrastructure) very detailed technical post covers many training-related issues that they had to overcome while training a proprietary 70B-param model.
 
+- Meta's [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783) devotes [§3.3 Infrastructure, Scaling, and Efficiency](https://arxiv.org/pdf/2407.21783#page=12) to the training stack, including §3.3.4 Reliability and Operational Challenges - notably how environmental factors (diurnal temperature swings, and the effect of tens of thousands of GPUs' fluctuating power draw on the datacenter grid) perturbed training throughput, a dimension I haven't seen documented in other reports.
+
+
+### 2025
+
+- Project Apertus (ETH Zürich, EPFL, CSCS) - [Apertus v1 Technical Report: Democratizing Open and Compliant LLMs for Global Language Environments](https://arxiv.org/abs/2509.14233) - a fully open 8B/70B suite trained on 15T tokens across 1800+ languages using up to 4096 GPUs on CSCS's Alps. Its *Infrastructure, Scaling, and Efficiency* and *Engineering Challenges and Solutions* sections (~5 pages) read like a logbook of the run.
+
 
 ### 2026
 
 - [Supercharging Olmo-core for Efficient and Scalable MoE Training](https://allenai.org/papers/olmocore3) - practical recommendations for training large scale MoE models in 2026!
 - [Marin 535B-A23B MoE live](https://mtracker.oa.dev/hero-run-535b) - each short entry goes to a details GitHub Issue where you can read the details. Finished trainings retrospectives: [8B](https://marin.readthedocs.io/en/latest/reports/marin-8b-retro/), [32B](https://marin.readthedocs.io/en/latest/reports/marin-32b-retro/)
+- Project Apertus - [Apertus v1.5 Technical Report: From Open Text Models to Open Multimodal Reasoners](https://arxiv.org/abs/2610.15542) - continued multimodal pretraining of the Apertus 8B/70B models; like v1 it includes *Infrastructure, Scaling, and Efficiency* and *Engineering Challenges and Solutions* sections (~5 pages).
 
 ## Hardware setup logbooks
 
