@@ -174,7 +174,7 @@ Here is intra-node unidirectional theoretical all-to-all peak bandwidth cross-co
 | Interconnect     | Accelerator  | GBps   | Notes |
 | :--------------- | :----------- | -----: | :---- |
 | Huawei UB Link   | Ascend 950DT |  840.0 | 5     |
-| NVIDIA NVLink 6  | Rubin        | 1800.0 | 1     |
+| NVIDIA NVLink 6  | Rubin        | 1500.0 | 1     |
 | PCIe 6           |              |  121.0 | 3     |
 
 Notes:
@@ -218,7 +218,7 @@ Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cr
 
 | Interconnect    | Accelerator | GBps   |
 | :-------------- | :---------- | -----: |
-| NVIDIA NVLink 6 | Rubin       | 1800.0 |
+| NVIDIA NVLink 6 | Rubin       | 1500.0 |
 | PCIe 6          |             |  121.0 |
 
 note: PCIe carries the same number in both tables, but for the opposite reason to NVLink. NVLink matches because NVSwitch lets a single pair light up every link - you get the whole fabric either way. PCIe matches because an accelerator has just one x16 host link, so that link is the ceiling whether it talks to one peer or to seven. And unlike NVLink or Infinity Fabric, where every pair has the same fabric path, the PCIe number depends on where the two devices sit - under the same switch, across the root complex, or across CPU sockets are all different paths (`nvidia-smi topo -m` tells you which). So treat the PCIe rows as a best case for a well-placed pair, not as a figure that holds for any two devices in the node.
@@ -305,7 +305,9 @@ Effective payload rate of intra-node GPU-to-GPU communication hardware:
 
 | Interconnect | Lane/<br>Direction<br>(GBps) | Lanes | Links | Uni-dir.<br>(GBps) | Duplex<br>(GBps) | GPU               |
 | :----------- | ---------------------------: | ----: | ----: | -----------------: | ---------------: | :---------------- |
-| NVLink 6     |                        25.00 |     2 |    36 |               1800 |             3600 | Rubin             |
+| NVLink 6     |                            ? |     2 |    36 |               1500 |             3000 | Rubin             |
+
+note: NVLink 6's per-lane rate is `?` because NVIDIA publishes only the per-GPU aggregate (`3 TB/s` duplex, `1500` GBps unidirectional). Figures are for the standard Rubin GPU; Rubin CPX and Rubin Ultra are separate parts with their own NVLink.
 
 There is a good overview of evolution of NVLink (1 to 4) [here](https://www.naddod.com/blog/unveiling-the-evolution-of-nvlink).
 
