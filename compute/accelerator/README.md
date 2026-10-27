@@ -29,7 +29,7 @@ While this might be changing in the future, unlike the consumer GPU market, as o
 GPUs:
 - As of today, ML clouds/HPCs already have B200s/B300s, and GB200/GB300 NVL72 racks are shipping. Rubin is expected to emerge in H2-2026.
 - AMD's MI325X is now widely available on Tier 2 cloud providers. MI355X is starting to emerge. MI455X hopefully in 2026. New: large CSPs started to offer AMD GPUs
-- Intel's Crescent Island is an inference-oriented Xe3P data-center GPU, with customer sampling in H2-2026. Intel has not published TFLOPS. See [Intel Crescent Island](#intel-crescent-island)
+- Intel's GPU D-series (D270, code-named Crescent Island) is an inference-oriented Xe3P data-center GPU, launched at OCP 2026 with customer sampling in H2-2026. Intel has published only its FP8 peak (1.3 PFLOPS). See [Intel GPU D-series](#intel-gpu-d-series-crescent-island)
 
 HPU:
 - Intel's Gaudi2 and Gaudi3 are available at Intel's cloud.
@@ -289,6 +289,7 @@ Let's look at the supported [dtypes](../../training/dtype.md) and the correspond
 | AMD MI455X           | 315.0 |      ? | 5000 | 5000 | 10000 | 5000 | 10000 | 20000 |     X |    27 |
 | NVIDIA Rubin SXM     | 130.0 | 2000.0 | 4000 | 4000 | 17500 | 2500 | 17500 | 35000 | 35000 |    26 |
 | Huawei Ascend 950DT  |     X |      X |  486 |  486 |   919 |    X |     X |  1783 |     X |    28 |
+| Intel GPU D270       |  20.5 |      ? |    ? |    ? |  1300 |    ? |     X |  2622 |     X |    30 |
 
 Notes and sources - the `Notes` column of both tables points here. Numbers run from the oldest hardware upward, so anything new gets the next number and lands at the end of this list:
 
@@ -321,6 +322,7 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 27. AMD's MI455X figures come from its [product page](https://www.amd.com/en/products/accelerators/instinct/mi400/mi455x.html), read on 2026-08-06. `fp32` 315, `fp16` 5000, `bf16` 5000 and `int8` 5000 are AMD's own dense numbers. `fp8`, `fp6` and `fp4` are halved from the 20100, 20100 and 40300 that AMD publishes, because those three are almost certainly with-sparsity figures that AMD did not declare as such: it labels the sparsity variants of FP16, BF16 and INT8 explicitly on the same page, all at 10100, and taking the three unlabelled numbers at face value would make fp8 4x bf16 where every other accelerator here is 2x - MI355X runs 2500, 5000, 10100. Halving restores that doubling exactly. AMD publishes no TF32 figure for this part, hence `?`. All of it remains AMD Performance Labs projections carrying "Results subject to change when products are released in market".
 28. Ascend 950DT figures are from the Atlas 950 SuperPoD product-spec table on [Ascend Community](https://www.hiascend.com/en/hardware/cluster?tag=950) (read 2026-08-10): `114.1 / 58.8 / 31.1` PFLOPS @ `mxFP4` / `mxFP8/HiF8` / `FP16/BF16` for **64×** Ascend 950DT, divided by 64 → **1783 / 919 / 486**. Do not mix with the 1024-card SuperPoD totals on the Chinese page (those give ~1953 / 977 mxFP4/mxFP8 and no bf16). The `fp8` column is Huawei's single published `mxFP8/HiF8` rate; [HiF8](https://arxiv.org/abs/2409.16626) is tapered-precision, not OCP E4M3/E5M2, so the chapter's `e`/`m` dtype decoder does not apply to it. Unpublished columns are `X`.
 29. H200 NVL is the PCIe card version of the H200: the same chip and the same 141GB of HBM3e at 4.8TBps as the H200 SXM, but with a 600W power limit instead of 700W, and NVIDIA rates its compute about 16% lower. The `tf32`, `fp16`, `bf16`, `fp8` and `int8` columns are half of the 835 / 1671 / 1671 / 3341 / 3341 that NVIDIA publishes with sparsity, rounded down like the H200 SXM row. Its NVLink connects only 2 or 4 cards through a bridge, at 900GBps per GPU, and GPUs in different bridge groups talk over PCIe Gen5 at 128GBps - unlike the H200 SXM, where NVSwitch connects all 8 GPUs of the node. See [NVIDIA H200 specifications](https://www.nvidia.com/en-us/data-center/h200/).
+30. Intel GPU D270 (code-named Crescent Island) is the first product in Intel's Xe3P-based GPU D-series - an inference-only data-center accelerator (32 Xe3P cores, 256 XMX matrix engines, 32MB L2), announced at OCP 2026 (2026-10-12) with customer sampling in H2-2026. The Xe3P XMX natively supports the full precision ladder - FP64, FP32, TF32, FP16, BF16, dual-format FP8 (E4M3/E5M2), FP4, the OCP MX formats (MXFP4/MXFP8) and int8/int4 - so the `?` cells here mean "supported, rate unpublished", not "unsupported". Intel's publicly published compute figure is `1.3 PFLOPS` of **dense** FP8 (no structured sparsity), hence `fp8` 1300. Intel's product spec also gives **dense** `mxfp4` = 2622 TFLOPS (2x FP8) and vector `fp32` = 20.5 TFLOPS (vector FP64 is 10.2, which has no column here); these two are official Intel figures but are not yet on any public page, so they carry no source link - they are vendor specs, not estimates. Every other supported format (`tf32`, `fp16`, `bf16`, `int8`) stays `?` until Intel publishes official rates (no estimates are carried in the table). `fp6` is `X` (absent from Intel's format list) and `nvfp4` is `X` because the part implements the OCP microscaling fp4 (`mxfp4`), not NVIDIA's nvfp4. See [Intel GPU D-series](#intel-gpu-d-series-crescent-island), [Intel newsroom](https://www.intel.com/content/www/us/en/newsroom/news/artificial-intelligence/intel-accelerates-open-infrastructure-agentic-ai-era.html), [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/intels-crescent-island-ai-accelerator-officially-powers-new-gpu-d-series-products-chip-delivers-1-3-peak-pflops-of-fp8-compute-and-1-5-tb-s-of-memory-bandwidth) (all read 2026-10-15).
 General notes:
 
 * int8 is measured in TeraOperations as it's not a floating operation.
@@ -558,14 +560,17 @@ Here are the memory specs for the recent high end accelerators (some aren't GA y
 
 **Announced, availability not confirmed:**
 
-| Accelerator           | Memory<br>(GB) | Type  | Peak<br>Bandwidth<br>(TBps) |
-| :-------------------- | -------------: | :---- | --------------------------: |
-| AMD MI455X            |            432 | HBM4  |                       23.30 |
-| NVIDIA Rubin SXM      |            288 | HBM4  |                       19.20 |
-| Huawei Ascend 950DT   |             96 | ?     |                        4.00 |
+| Accelerator           | Memory<br>(GB) | Type    | Peak<br>Bandwidth<br>(TBps) |
+| :-------------------- | -------------: | :------ | --------------------------: |
+| Intel GPU D270        |            480 | LPDDR5X |                        1.50 |
+| AMD MI455X            |            432 | HBM4    |                       23.30 |
+| NVIDIA Rubin SXM      |            288 | HBM4    |                       19.20 |
+| Huawei Ascend 950DT   |             96 | ?       |                        4.00 |
 
 
 Notes:
+
+* Intel GPU D270 (Crescent Island) is the memory-capacity outlier here: it uses LPDDR5X rather than HBM, trading bandwidth for capacity and cost. The `480` is the maximum ODM configuration; Intel's own reference PCIe card ships with `160GB`. The `1.5TBps` comes from a 1280-bit bus running LPDDR5X at 9.6Gbps - high for LPDDR, but well below the HBM parts above. See [note 30 in the TFLOPS table](#tflops-comparison-table) for sources.
 
 * The listed sizes preserve vendor-published `GB` labels. As of 2026-07-29, NVIDIA's [HGX AI Factory components](https://docs.nvidia.com/enterprise-reference-architectures/hgx-ai-factory/latest/components.html) page lists B200 at 180GB, and its [MIG table](https://www.nvidia.com/en-gb/technologies/multi-instance-gpu/) lists B200 at 180GB and GB200 at 186GB. NVIDIA's [OpenFold2 support matrix](https://docs.nvidia.com/nim/bionemo/openfold2/2.0.0/support-matrix.html) instead lists B200 at 192GB without explaining whether the discrepancy reflects physical, usable, reserved, or differently reported capacity. This table follows the hardware and platform values; the possible physical-capacity/ECC explanation above is an arithmetic derivation, not a documented NVIDIA specification.
 
@@ -828,6 +833,7 @@ The table is sorted by **Power spec (W)**, highest first, followed by `N/A` entr
 
 | Accelerator           | Power<br>spec (W) | Vendor term                 | Notes                    |
 | :-------------------- | ----------------: | :-------------------------- | :----------------------- |
+| Intel GPU D270        |               350 | power envelope              | 21                       |
 | AMD MI455X            |               N/A |                             | 17                       |
 | NVIDIA Rubin GPU      |               N/A |                             | 19                       |
 
@@ -853,6 +859,7 @@ Notes:
 18. [AWS Trainium2 architecture documentation](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/trainium2.html)
 19. [NVIDIA Vera Rubin NVL72 specifications](https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/)
 20. Google doesn't publish power consumption specs for recent TPUs, the older ones can be found [here](https://en.wikipedia.org/wiki/Tensor_Processing_Unit#Products)
+21. Intel GPU D270 (Crescent Island) - Intel specifies a 350W air-cooled PCIe 5.0 x16 design. See [note 30 in the TFLOPS table](#tflops-comparison-table) for sources.
 
 
 #### Supplying power to your own cards
@@ -914,7 +921,7 @@ AMD:
 Intel:
 - Falcon Shores - canceled
 - [Gaudi3](https://habana.ai/products/gaudi3/), somewhat below B200 theoretical TFLOPS-wise - already available on Intel cloud - [spec](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
-- Crescent Island - inference GPU, sampling H2-2026; 160GB LPDDR5X / 350W, no published TFLOPS - [Intel Crescent Island](#intel-crescent-island)
+- GPU D-series / D270 (Crescent Island) - inference GPU, launched OCP 2026, sampling H2-2026; 160GB LPDDR5X (ODM up to 480GB) @ 1.5TBps / 350W, FP8 1.3 PFLOPS (only published compute figure) - [Intel GPU D-series](#intel-gpu-d-series-crescent-island)
 - [Gaudi2](https://habana.ai/products/gaudi2/) somewhere between A100 and H100 theoretical TFLOPS-wise [spec](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html) - available on Intel cloud. AWS has the older Gaudi1 via [DL1 instances](https://aws.amazon.com/ec2/instance-types/dl1/). It's also available on-premises implementations via Supermicro and WiWynn.
 
 Amazon:
@@ -1029,11 +1036,15 @@ There are no official TFLOPS information published (and from talking to an Intel
 
 Comparison: supposedly Gaudi2 competes with NVIDIA H100
 
-On what comes after Gaudi: Falcon Shores was to replace it and was canceled. Gaudi3 remains Intel's current training-class accelerator. The announced next data-center GPU is [Crescent Island](#intel-crescent-island).
+On what comes after Gaudi: Falcon Shores was to replace it and was canceled. Gaudi3 remains Intel's current training-class accelerator. The announced next data-center GPU is the [Intel GPU D-series (Crescent Island)](#intel-gpu-d-series-crescent-island).
 
-### Intel Crescent Island
+### Intel GPU D-series (Crescent Island)
 
-Crescent Island is an inference-oriented Xe3P GPU with customer sampling in H2-2026. Intel's card is 160GB LPDDR5X (ODMs up to 480GB), 350W air-cooled PCIe; Intel has not published TFLOPS. [OCP announcement](https://newsroom.intel.com/artificial-intelligence/intel-to-expand-ai-accelerator-portfolio-with-new-gpu), [Hot Chips 2026](https://newsroom.intel.com/client-computing/intel-outlines-architectures-for-agentic-ai-at-hot-chips-2026)
+The Intel GPU D-series, code-named Crescent Island, is Intel's inference-oriented Xe3P data-center accelerator; the first product is the **Intel GPU D270**, launched at OCP 2026 (2026-10-12) with customer sampling in H2-2026. It is an inference-only part - Intel removed the 3D-graphics and ray-tracing hardware - built from 32 Xe3P cores, 256 XMX matrix engines and 32MB of unified L2.
+
+Its defining choice is LPDDR5X instead of HBM: Intel's own PCIe card ships with 160GB, and ODM partners can build cards up to 480GB, at 1.5TBps of bandwidth (a 1280-bit bus running LPDDR5X at 9.6Gbps) - trading HBM-class bandwidth for large capacity and lower cost, aimed at memory-bound inference (Intel cites up to ~300B params on one card and >1T params across an 8-GPU server). It is a 350W air-cooled PCIe 5.0 x16 card.
+
+The Xe3P XMX engines natively support the full precision ladder - FP64, FP32, TF32, FP16, BF16, dual-format FP8, FP4, the OCP MX formats (MXFP4/MXFP8) and int8/int4 - but as of launch the only compute figure Intel has published is **1.3 PFLOPS of dense FP8**; it has given no official rates for the other formats, which stay unquantified in the tables (see note 30 in the [TFLOPS table](#tflops-comparison-table)). [Intel newsroom](https://www.intel.com/content/www/us/en/newsroom/news/artificial-intelligence/intel-accelerates-open-infrastructure-agentic-ai-era.html), [Intel GPU D270 product page](https://www.intel.com/content/www/us/en/products/details/discrete-gpus/data-center-gpu/d-series.html), [OCP announcement](https://newsroom.intel.com/artificial-intelligence/intel-to-expand-ai-accelerator-portfolio-with-new-gpu), [Hot Chips 2026](https://newsroom.intel.com/client-computing/intel-outlines-architectures-for-agentic-ai-at-hot-chips-2026)
 
 
 
