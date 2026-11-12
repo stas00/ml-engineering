@@ -78,6 +78,7 @@ The listing is in no particular order other than being grouped by the year.
 
 - [Supercharging Olmo-core for Efficient and Scalable MoE Training](https://allenai.org/papers/olmocore3) - practical recommendations for training large scale MoE models in 2026!
 - [Marin 535B-A23B MoE live](https://mtracker.oa.dev/hero-run-535b) - each short entry goes to a details GitHub Issue where you can read the details. Finished trainings retrospectives: [8B](https://marin.readthedocs.io/en/latest/reports/marin-8b-retro/), [32B](https://marin.readthedocs.io/en/latest/reports/marin-32b-retro/)
+- Open Athena's [Architecture Decisions for Marin 535B-A23B](https://openathena.ai/blog/marin-535b-architecture/) - the reasoning and derisking experiments behind each component of the 535B-A23B MoE, which finished pretraining on 18T tokens. It covers expert-parallel token dropping during the 4k to 65k context extension, embedding gradient spikes under the Hyperball optimizer, and why a fixed QK-norm multiplier and a shallow 48-layer model were chosen for stability, with links to the GitHub Issues of the experiments.
 - Project Apertus - [Apertus v1.5 Technical Report: From Open Text Models to Open Multimodal Reasoners](https://arxiv.org/abs/2610.15542) - continued multimodal pretraining of the Apertus 8B/70B models; like v1 it includes *Infrastructure, Scaling, and Efficiency* and *Engineering Challenges and Solutions* sections (~5 pages).
 
 ## Hardware setup logbooks
