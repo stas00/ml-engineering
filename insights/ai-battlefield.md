@@ -295,7 +295,7 @@ In general most (all?) accelerators are supported by major frameworks like PyTor
 
 For example, if your PyTorch application calls `torch.mm` - it should work everywhere, but if it includes custom CUDA kernels it'll only work on NVIDIA GPUs and may be on the recent AMD MI-series.
 
-- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda/toolkit), which most training frameworks support. You can easily moved between different NVIDIA GPUs and most things would work the same.
+- NVIDIA GPUs: all based on [CUDA](https://developer.nvidia.com/cuda/toolkit), which most training frameworks support. You can easily move between different NVIDIA GPUs and most things would work the same.
 
 - AMD MI250/MI3xx: with PyTorch using [ROCm](https://pytorch.org/blog/pytorch-for-amd-rocm-platform-now-available-as-python-package/) you can run most CUDA-based software as is. This is really the only inter-operable accelerator with the NVIDIA stack.
 
