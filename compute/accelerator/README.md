@@ -486,6 +486,8 @@ wait
 
 Now here what you want is the slowest performance as when used in an ensemble that slowest accelerator (straggler) will set the speed for all other accelerators.
 
+A straggler doesn't have to fail any test to slow the whole job down - [How to find a straggler GPU](nvidia/debug.md#how-to-find-a-straggler-gpu) walks through finding one on 4 8x B200 nodes, which a matmul benchmark and DCGM both passed.
+
 If you do multi-node training then, of course, you'd want to measure them all.
 
 So if you decide to calculate your achievable [MFU](../../training/performance/README.md#mfu-vs-hfu) (rather than theoretical one) you'd want to measure the achievable FLOPS across all participating accelerators and pick the value of the slowest accelerator. (If it really is an outlier you might want to consider replacing it as well).

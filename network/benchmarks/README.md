@@ -68,12 +68,7 @@ Note the linear y-axis compresses everything below ~100GBps into the bottom of t
 
 For launching examples please see the top of [torch-dist-bench.py](torch-dist-bench.py). You can interrupt the benchmark with Ctrl-C, and it'll still report the results it measured up to that point.
 
-This table should give a good sense for what scores you should expect for all-reduce collective on a well-tuned network (left is intra-node and right is inter-node):
-
-![all-reduce multi node bandwidth](images/all-reduce-multi-node-bandwidth.png)
-[source](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/)
-
-If you're benchmarking a different collective the expected bandwidth can be very different from the above all-reduce results. [This presentation](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/) also gives point-to-point communication bandwidth expectations.
+For the all-reduce `busbw` to expect on a well-tuned network, see [Real network throughput](../README.md#real-network-throughput).
 
 To check the stability of all-reduce over time, rather than averaging the results, you can profile a single payload size with these 2 flags `--profile_stability --payload_size_in_gib 0.5` (change the last value to the desired payload size in GiB). Beware that a typical ML workload doesn't call all-reduce back to back non-stop so this approach puts the network through a stress test, which is a somewhat non-typical workload. But it can still show if the network has issues with sustained load. Here is an example of a plot generated on a 8x B200 with a payload of 2GiB:
 
@@ -118,30 +113,15 @@ If your workload captures its all-reduce calls in a CUDA graph through PyTorch, 
 
 Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else. Its latency then also includes the ranks reaching the call at different times, as the latency of OSU's `osu_allreduce` does.
 
-Neither mode times a collective that runs concurrently with compute kernels, as it does in a training loop that overlaps them. The kernels compete for the SMs and the memory bandwidth, so an overlapped collective can take longer than reported here if it can't access immediately all the SMs it needs; `nccl-tests` doesn't time that either.
+Neither mode times a collective that runs concurrently with compute kernels, as it does in a training loop that overlaps them. The kernels compete for the SMs and the memory bandwidth, so an overlapped collective can take longer than reported here if it can't access immediately all the SMs it needs; `nccl-tests` doesn't time that either. [comm-compute-overlap-bench](#comm-compute-overlap-bench) measures the collectives of a training step running next to its compute.
 
 #### Latency
 
-Next to the bandwidth, the benchmark reports how long a single call takes - the median, the 99th percentile (p99) and the mean - and plots the median and the p99 against the payload size. For small payloads this is the number that matters, as they move next to nothing: on an 8x H200 node an 8B all-reduce still takes 15µs, and every payload up to 512KiB takes 15-23µs, so a faster link wouldn't help them - fewer calls or cheaper ones would. This adds up fast in inference: a model served with tensor parallelism over 8 accelerators does 2 all-reduces per layer for every generated token, and with a hidden size of 8192 in bf16 a batch of up to 32 tokens makes each a 16-512KiB all-reduce, right in that flat range - so an 80-layer model waits 160 x 15µs = 2.4ms per token on all-reduces alone, however fast its links. Training has small all-reduces too, to sync flags, scalars or loss values across ranks, and MoE pays the same toll on the [all-to-all](#other-collectives) of its token routing.
+Next to the bandwidth, the benchmark reports how long a single call takes - the median, the 99th percentile (p99) and the mean - and plots the median and the p99 against the payload size. [Latency](../README.md#latency) explains why for small payloads this is the number that matters, and what it adds up to in inference and training.
 
-And all-reduce is the best case: NCCL gives only all-reduce its tree algorithm, and NVLS can reduce it inside the switch, so other collectives can take longer at the same payload - see [which collective to measure latency with](../README.md#which-collective-to-measure-latency-with), and time them with `--collectives`.
+Other collectives can take longer than all-reduce at the same payload - see [which collective to measure latency with](../README.md#which-collective-to-measure-latency-with) - so time the ones your workload uses with `--collectives`.
 
 ![all-reduce-bench latency 8x H200](images/all-reduce-bench-latency-8xh200.png)
-
-On B200s the latency also shows what it costs to leave the node. Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the table at the top:
-
-| payload | 8 ranks<br>median | 8 ranks<br>p99 | 32 ranks<br>median | 32 ranks<br>p99 | 32 / 8<br>median |
-| ------: | ----------------: | -------------: | -----------------: | --------------: | ---------------: |
-|      8B |            23.0µs |         25.1µs |             81.9µs |          88.0µs |             3.6x |
-|    1KiB |            29.5µs |         31.8µs |             85.4µs |          90.1µs |             2.9x |
-|   16KiB |            30.7µs |         32.8µs |            102.4µs |         118.8µs |             3.3x |
-|  128KiB |            32.8µs |         34.8µs |            114.6µs |         130.6µs |             3.5x |
-|  512KiB |            35.8µs |         38.0µs |            151.7µs |         168.2µs |             4.2x |
-|    1MiB |            35.9µs |         39.8µs |            165.9µs |         187.0µs |             4.6x |
-|    4MiB |            60.4µs |         62.6µs |            261.3µs |         281.2µs |             4.3x |
-|   16MiB |           104.4µs |        107.2µs |            452.7µs |         469.2µs |             4.3x |
-
-Up to 16MiB a call takes 2.9-4.6 times as long once it crosses the network, and even an 8B all-reduce takes 82µs instead of 23µs.
 
 #### How the latency is measured
 
@@ -164,7 +144,7 @@ On the same 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), compared with `n
 
 sym-mem: run with `--sym-mem`; host overhead: run with `--with-host-overhead`.
 
-The default timing agrees with `nccl-tests` within 1µs at the p99, and [symmetric memory](#symmetric-memory) roughly halves the latency up to 16KiB. On an 8x B200 node with the same software the two agreed within 1µs as well - an 8B all-reduce took 23.5µs at the median and 24.7µs at the p99, and 11.6µs and 12.5µs with `--sym-mem` - so a small all-reduce costs more there than on the H200 node. `--with-host-overhead` keeps the trials in which a host paused, as that's what a program that waits on each all-reduce gets: its median adds the ~20µs of PyTorch's per-call overhead, and its p99 up to 256KiB is 3.6-5.2ms, because more than 1 call in 100 waited for some rank's paused host.
+The default timing agrees with `nccl-tests` within 1µs at the p99, and on an 8x B200 node with the same software the two agreed within 1µs as well - [Symmetric memory](../README.md#symmetric-memory) discusses the `--sym-mem` columns. `--with-host-overhead` keeps the trials in which a host paused, as that's what a program that waits on each all-reduce gets: its median adds the ~20µs of PyTorch's per-call overhead, and its p99 up to 256KiB is 3.6-5.2ms, because more than 1 call in 100 waited for some rank's paused host.
 
 The report also names the smallest payload that reaches half the peak `busbw` - 16MiB or 32MiB on the 8x H200 node above, as 16MiB sits right at the half. Payloads below it get less than half the bandwidth the setup can give, and are better judged by their latency.
 
@@ -300,15 +280,13 @@ busbw
 | batch_isend_irecv |   16GiB | 658.47GBps |    256MiB |
 ```
 
-The fastest median is the smallest latency median across the measured payloads. The half-peak payload is the smallest payload reaching half the collective's peak `busbw`, as in [Latency](#latency).
+The fastest median is the smallest latency median across the measured payloads. The half-peak payload is the smallest payload reaching half the collective's peak `busbw`, as in [How the latency is measured](#how-the-latency-is-measured).
 
 ![torch-dist-bench bus bandwidth 8x B200](images/torch-dist-bench-busbw-8xb200.png)
 
 ![torch-dist-bench latency 8x B200](images/torch-dist-bench-latency-8xb200.png)
 
-The fastest `all_to_all`, which MoE dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, moves the others' fastest payloads by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower. At the peak, `all_gather` reaches 749.03GBps instead of 661.74GBps, while `reduce_scatter` tops out at 489.13GBps at 8GiB instead of 689.72GBps at 16GiB.
-
-`gather` peaks at 763.36GBps at 1GiB, above its 718.37GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
+[Collectives other than all-reduce](../README.md#collectives-other-than-all-reduce) discusses what these numbers show.
 
 Against `nccl-tests` built with NCCL 2.30.7 on an 8x B200 node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:
 
@@ -334,7 +312,192 @@ Other benchmarks that measure the latency of collectives, with the payload range
 
 Symmetric memory can speed up NCCL comms significantly at lower payloads. See [Symmetric memory](../README.md#symmetric-memory) for details.
 
-To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. `register_mem_pool(..., symm=True)` arrived in torch 2.9. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, so the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Other collectives](#other-collectives) shows which collectives it speeds up on a B200 node, and which it slows down.
+To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. `register_mem_pool(..., symm=True)` arrived in torch 2.9. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, so the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Collectives other than all-reduce](../README.md#collectives-other-than-all-reduce) shows which collectives it speeds up on a B200 node, and which it slows down.
+
+#### CTA policy
+
+NCCL>=2.28 can change how many Cooperative Thread Arrays (CTAs), blocks of threads that each run on one Streaming Multiprocessor (SM), NCCL picks for each collective, with a communicator's CTA policy: `default`, `efficiency` or `zero` - see [CTA policy](../README.md#cta-policy) for what each one does, and [Trading collective speed for compute](../exposed-communication.md#trading-collective-speed-for-compute-cta-policy) for what it cost the collectives and the compute running alongside them on an 8x B200 node. This benchmark sets the policy of its process group with `--cta-policy`, and exits if the torch or the NCCL it runs with doesn't have it. `zero` runs `all_gather` and `all_to_all` on the copy engines only on symmetric memory, so add `--sym-mem` with it.
+
+Add `--cta-policy efficiency` or `--cta-policy zero` to see what the policy costs the collectives themselves:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    torch-dist-bench.py --collectives all_gather,all_to_all --sym-mem --cta-policy zero
+```
+
+
+### comm-compute-overlap-bench
+
+[comm-compute-overlap-bench.py](comm-compute-overlap-bench.py) - a tool to measure how much of a training step's communication overlaps with its compute, and, through the forward phase of its tensor, sequence, context and expert parallelism patterns, how much of an inference prefill's communication does. Decode, the phase after the prefill that generates one token of each sequence at a time, communicates too, e.g. tensor parallelism all-reduces each layer's output for every token it generates, but the patterns don't model it: their attention covers only the step's own tokens, while each decode step's attention also reads the [KV cache](../../inference/README.md#kv-caching) of all the earlier tokens of each sequence. With as few `--tokens` as a decode step's batch, the forward phase has a decode step's matmul shapes and collective payloads, but not its attention. It runs the collectives of a data-parallel framework or of tensor, sequence, context, expert or pipeline parallelism on their own CUDA streams next to the compute of a stack of transformer layers, in the order and with the stream dependencies that framework or scheme uses, and times the step 3 ways: the compute alone, the communication alone, and both together. How much longer the step takes with both than with the compute alone is the exposed communication: the communication that didn't overlap with the compute, plus how much the two slowed each other down. Use it to see how much a framework's settings, e.g. its bucket sizes, change the exposed communication on your hardware, without setting up the framework and a model.
+
+[Exposed Communication by Parallelism Pattern](../exposed-communication.md) describes the patterns, and which framework's code each one copies. Each has settings that `--list-patterns` lists and `--set` changes.
+
+#### Running it
+
+`--set` changes a pattern's settings. Where a setting matches one of the framework's arguments or config keys it has the same name, so that DeepSpeed's are given in elements and DDP's in MiB. The degrees of the tensor, sequence, context and expert parallelism patterns, e.g. `--set tp=4`, split the GPUs into groups of that many consecutive ranks, and default to the GPUs of a node. The compute is a stack of transformer layers, each with the q, k, v, o, gate, up and down projections and causal attention in bf16, a weightless RMSNorm before attention and before the MLP, and with `ep` an MoE layer's experts in place of gate, up and down. The layers' shape comes from `--model`, as a preset, a local `config.json` or a Hugging Face Hub model name. For example, for 32 layers of Llama-3.1-8B with DeepSpeed ZeRO-2 and its `overlap_comm` turned on:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern ds-zero2 --model llama-3.1-8b --layers 32 --tokens 8192 \
+    --set overlap_comm=1
+```
+
+`--list-patterns` runs without a distributed launcher:
+
+```
+python comm-compute-overlap-bench.py --list-patterns
+```
+
+#### Single-node examples
+
+More single-node examples, each on 8 GPUs. FSDP2 with Llama-3.1-8B's layers and 8192 tokens per rank:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern fsdp --model llama-3.1-8b --tokens 8192
+```
+
+DeepSpeed ZeRO-2 with your own model's layers at 2 token counts, which `--tokens` takes comma-separated, with `overlap_comm` on and the gradients reduced in fp32:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern ds-zero2 --model path/to/config.json --tokens 4096,16384 \
+    --set overlap_comm=1,communication_data_type=fp32
+```
+
+Megatron-LM tensor parallelism with sequence parallelism over 8 GPUs, with 16384 tokens per tensor-parallel group:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern sp-megatron --set tp=8 --tokens 16384
+```
+
+Expert parallelism with 32 layers of Qwen3-30B-A3B in 2 micro-batches, with [DeepEP](https://github.com/deepseek-ai/DeepEP)'s dispatch and combine in place of the all-to-alls, which needs DeepEP installed, and PyTorch to load the NCCL library that DeepEP was built with:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern ep --model qwen3-30b-a3b --layers 32 --tokens 8192 \
+    --seqlen 4096 --set dispatcher=deepep,micro_batches=2
+```
+
+Megatron-LM's interleaved pipeline schedule over 8 GPUs, with 2 chunks of layers on each and 16 micro-batches of 4096 tokens:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern pp --model llama-3.1-8b --layers 32 --tokens 4096 \
+    --set virtual_stages=2,micro_batches=16
+```
+
+`all_gather` alone and queued before a bf16 8192x8192x8192 matmul, over payloads from 1MiB to 1GiB:
+
+```
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern contention \
+    --set collective=all_gather,kernel=matmul:8192x8192x8192,min_payload=1M,max_payload=1G
+```
+
+#### Multi-node with SLURM
+
+The FSDP2 example on 4 nodes of 8 GPUs with SLURM. Get an allocation with `salloc`, as in the first line, or put the `srun` line in an `sbatch` script - `srun` starts the launcher on each node, and the rendezvous endpoint is the allocation's first node:
+
+```
+salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
+
+srun --gres=gpu:8 --nodes=4 --tasks-per-node=1 \
+    python -u -m torch.distributed.run --nproc_per_node 8 --nnodes 4 \
+    --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d \
+    comm-compute-overlap-bench.py --pattern fsdp --model llama-3.1-8b --tokens 8192
+```
+
+#### Multi-node with pdsh
+
+The FSDP2 example on 4 nodes of 8 GPUs with `pdsh`, which needs passwordless ssh between the nodes. Either hardcode the IPs or hostnames:
+
+```
+MASTER_HOST=10.0.0.10
+HOSTS=10.0.0.10,10.0.0.11,10.0.0.12,10.0.0.13
+NNODES=4
+```
+
+or, if you already have a DeepSpeed-style hostfile, with a `hostname slots=x` entry per line, or an MPI-style one, with a `hostname` per line, take them from it:
+
+```
+MASTER_HOST=$(cat ~/hostfile | cut -d " " -f1 | head -1)
+HOSTS=$(cat ~/hostfile | cut -d " " -f1 | tr '\n' ',' | sed 's/,*$//g')
+NNODES=4
+```
+
+You can first check that your `pdsh` setup works with this quick command, which prints the hostname of each participating node:
+
+```
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS hostname
+```
+
+Then run the benchmark, after setting `DIR` to the directory that holds the script - `pdsh` doesn't run the command in your current working directory, so the script has to be given by its full path:
+
+```
+DIR=/change/the/path/benchmarks
+PDSH_RCMD_TYPE=ssh pdsh -w $HOSTS \
+    python -u -m torch.distributed.run --nproc_per_node 8 --nnodes $NNODES \
+    --rdzv_endpoint $MASTER_HOST:6000 --rdzv_backend c10d \
+    $DIR/comm-compute-overlap-bench.py --pattern fsdp --model llama-3.1-8b --tokens 8192
+```
+
+#### Multi-node by hand
+
+You can also launch the same command on all participating nodes manually. The `c10d` rendezvous assigns the node ranks, so the command is the same on each node, as long as `MASTER_HOST` is the first node on all of them, taken from a hostfile present on every node or set by hand:
+
+```
+MASTER_HOST=$(cat ~/hostfile | cut -d " " -f1 | head -1)
+NNODES=4
+python -u -m torch.distributed.run --nproc_per_node 8 --nnodes $NNODES --rdzv_endpoint $MASTER_HOST:6000 \
+    --rdzv_backend c10d comm-compute-overlap-bench.py --pattern fsdp --model llama-3.1-8b --tokens 8192
+```
+
+footnote: To measure the collectives alone, without the compute, use [torch-dist-bench](#torch-dist-bench).
+
+#### Reading the results
+
+The FSDP2 example with `--layers 32`, on an 8x B200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), gives:
+
+8192 tokens per rank, in sequences of 8192 - forward: 32 all_gather calls of 416MiB, 13GiB in all; backward: 32 all_gather calls of 416MiB, 13GiB in all; backward: 32 reduce_scatter calls of 416MiB, 13GiB in all:
+
+| phase    | compute<br>alone | comm<br>alone | overlapped | exposed<br>comm | compute<br>slowdown |
+| :------- | ---------------: | ------------: | ---------: | --------------: | ------------------: |
+| forward  |         116.51ms |       22.37ms |   128.30ms |   11.80ms (53%) |               10.1% |
+| backward |         274.24ms |       44.61ms |   297.43ms |   23.19ms (52%) |                8.5% |
+| step     |         390.15ms |       66.92ms |   424.31ms |   34.17ms (51%) |                8.8% |
+
+The overlapped column is the step with both the compute and the communication. The exposed comm is how much longer the step takes with both than with the compute alone: the time the communication added to it, which up to all of the communication's time is the communication that didn't overlap with the compute, together with how much the two slowed each other down. It's given in ms and, in parentheses, as a percentage of the communication alone, the comm cost: 0% when all of the communication overlapped with the compute, 100% when all of it was exposed and the step took as long as its compute and its communication one after the other, and above 100% when the step took longer still, as when the ranks waited at each collective for the slowest one. The compute slowdown is the same time as a percentage of the compute alone.
+
+#### How the step is measured
+
+Before each trial the GPUs idle for 100ms. bf16 matmuls run a B200 at its power limit, and how fast they run there depends on what the GPU ran in the previous tens of ms: on an 8x B200 node, 20ms of 8192x8192x8192 matmuls took up to 17.5% longer right after other matmuls than after 100ms of idling, after which they took as long whatever had run before. Without the idle gap each trial starts from whatever the trial before it left behind: the `contention` pattern's matmuls alone, whose trials follow those of the collective alone, then took up to 6.6% longer at one payload than at another of the same run, with 20ms trials at both, against 0.1-0.2% with the gap. The training-step patterns changed little: with 32 layers of Llama-3.1-8B and 8192 tokens per rank, the gap changed the compute alone of `ddp`, `fsdp`, `ds-zero3` and `tp` by at most 0.78ms per step, and their exposed communication by at most 1.72ms, less than repeated runs of the same pattern differ by.
+
+The benchmark exits if a trial computes inf or NaN on any rank, in the step's output, its input gradient or a weight gradient: a matmul of inf and NaN draws less power than one of finite values, and so runs faster at the power cap, which makes the times invalid. The norms before attention and before the MLP keep the values finite, which without them grow with each layer until bf16 overflows.
+
+In the compute alone of the tensor, sequence, context and expert parallelism patterns, `comm-compute-overlap-bench.py` replaces the output of each collective call with a stand-in: the output that the same call produced in a step with the collectives, so that the compute alone and the overlapped step compute on identical matrices.
+
+With `cp-rsa` and 2048 tokens per GPU on an 8x B200 node, the host took longer to queue each ring step's attention kernels than the GPU took to run them. In an nsys trace of the compute alone without the graphs, the compute stream ran kernels for 132.73-135.53ms of trials that took 173.36-249.02ms, over the 8 GPUs and 2 trials, and every kernel that followed an idle gap started within 4µs of the end of the call that launched it. The tracing itself adds host time to each launch: untraced, the compute alone took 203.81ms. In the same job, queuing each ring step's attention as a CUDA graph brought the compute alone down to 143.54ms, and its trace had the compute stream busy for 134.26-137.65ms of 141.25-145.25ms. At 4096 tokens the graphs changed the compute alone by 0.2%, 330.20ms against 330.83ms. When the GPU runs a step faster than the host can queue it, the compute alone measures the host: without the graphs, `cp-rsa` exposed 83% of its communication at 2048 tokens, against 40% with them in that job.
+
+nsys traces of the other patterns of [Other parallelism patterns](../exposed-communication.md#other-parallelism-patterns), each at its smallest token count, had the compute stream idle for 1.3-6.4% of the compute alone, except `ep` with Qwen3-30B-A3B and 2 microbatches at 4096 tokens, at 11.9-22.7%. That wait came from the tracing: untraced, its compute alone took 94.47ms, against 88.79-89.53ms of kernels in the trace, about as far above its kernels as the other patterns' compute alone.
+
+#### Sources and further reading
+
+The patterns follow DeepSpeed's, PyTorch's, Megatron-LM's and Transformer Engine's code as of 2026-10, which in places differs from the papers below, e.g. FSDP2 shards each parameter on its own, rather than the flat buffer of a layer's parameters that the FSDP paper describes.
+
+For what the patterns measured on one and on 4 8x B200 nodes, and the `contention` pattern under each CTA policy, see [Exposed Communication by Parallelism Pattern](../exposed-communication.md).
+
+Further reading:
+
+- [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054) - the paper behind DeepSpeed's ZeRO stages.
+- [PyTorch Distributed: Experiences on Accelerating Data Parallel Training](https://arxiv.org/abs/2006.15704) - DDP's gradient buckets and how they overlap with backward.
+- [PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel](https://arxiv.org/abs/2304.11277) - FSDP's prefetching and its rate limiter.
+- [T3: Transparent Tracking & Triggering for Fine-grained Overlap of Compute & Collectives](https://arxiv.org/abs/2401.16677) - overlapping the communication of tensor parallelism, which has to wait for the compute that produces it.
+- [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) - Megatron-LM's sequence parallelism, which turns tensor parallelism's all-reduces into all-gathers and reduce-scatters.
+- [DeepSpeed Ulysses: System Optimizations for Enabling Training of Extreme Long Sequence Transformer Models](https://arxiv.org/abs/2309.14509) - the all-to-alls between splitting the sequence and splitting the attention heads.
+- [Sequence Parallelism: Long Sequence Training from System Perspective](https://arxiv.org/abs/2105.13120) - ring self-attention, which passes the keys and values around a ring of GPUs.
+- [Ring Attention with Blockwise Transformers for Near-Infinite Context](https://arxiv.org/abs/2310.01889) - the blockwise ring attention that overlaps sending the keys and values with the attention compute.
 
 
 ### all_gather_object vs all_reduce
@@ -406,10 +569,6 @@ For example, you need to find a way to prevent the network usage from fluctuatio
 
 ## Network throughput
 
-It's critical to understand your particular model size and framework requirements with regard to network bandwidth, throughput and latency. If you underpay for network you will end up having idle gpus and thus you wasted money and time. If you overpay for very fast network, but your gpus are slow, then again you wasted money and time.
-
-If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
-
 Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [communication benchmarks](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/communication) for each collective that you can use to quickly measure the throughput of your internode or intranode network.
 
 Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
@@ -422,6 +581,8 @@ sbatch -n <num_of_nodes> ./torch-dist-bench-pyxis.sbatch
 ```
 
 Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
+
+For how far a 4-node result carries over to many more nodes, see [Extrapolating benchmark results from several nodes to many](../README.md#extrapolating-benchmark-results-from-several-nodes-to-many).
 
 
 If you do not have access to a pyxis SLURM environment, to run it on 4 nodes:
@@ -455,141 +616,4 @@ Notes:
 - You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
 - You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
 
-You may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](../README.md#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 838.97GBps and four nodes 376.60GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
-
-Frameworks that shard weights and optim stages like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
-
-Of course, an efficient framework will overlap communications and compute, so that while one stage is fetching data, the other stage in parallel runs computations. So as long as the communication overhead is smaller than compute the network requirements are satisfied and don't have to be super fantastic.
-
-To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed ZeRO Stage 3 with V100s
-
-1. 100Gbps is not enough
-2. 200-400Gbps is ok
-3. 800-1000Gbps is ideal
-
-[full details](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491)
-
-Of course, the requirements are higher for A100 gpu nodes and even higher for H100s (but no such benchmark information has been shared yet).
-
-
-### Extrapolating benchmark results from several nodes to many
-
-As it's often not easy to benchmark hundreds of nodes, often we try to benchmark interconnect performance using, say, 4 nodes. I wasn't sure whether this would give the correct indication for when 40 or 400 nodes will be used so I asked about it [here](https://github.com/NVIDIA/nccl/issues/790) and the answer was:
-
-> Extrapolating at scale is not that hard for ring and tree (we have a function in `tuning.cc` predicting it, based on the ring linear latency and the tree log latency with reduced BW). Now as you scale, there are many factors which may cause your real performance to be very far off the prediction, like routing. Also note on an IB network you'll be able to use SHARP; that way your latency stays mostly constant as you scale, your bandwidth doesn't degrade much either, and you're always better than both ring and tree.
-
-
-## Disable Access Control Services
-
-PCI Access Control Services (ACS) used for IO virtualization (also known as VT-d or IOMMU) force P2P PCIe transactions to go up through the PCIe Root Complex, which does not enable GDS to bypass the CPU on paths between a network adapter or NVMe and the GPU in systems that include a PCIe switch.
-
-For the optimal GDS performance, disable ACS by following these instructions [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#pci-access-control-services-acs). Here are some [additional notes](https://docs.nvidia.com/gpudirect-storage/best-practices-guide/index.html)
-
-Please note that if you're using Virtual machines you can't disable ACS as it's a required feature. To run with maximum performance inside virtual machines, Address Translation Service (ATS) needs to be enabled in network adapters.
-
-
-## Performance-Oriented NCCL Environment Variables
-
-While NCCL is excellent at automatically figuring out the best performance for any given network, sometimes it needs some help, in which case the following NCCL env vars are used to tune up performance. Let's look at a few common ones you might want to be aware of, and the full list of those can be found [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html).
-
-Note that some `NCCL_IB_*` env vars apply to RoCEv2 networks as well.
-
-### `NCCL_ALGO`
-
-This one defines which algorithms NCCL will use. Typically it's one of:
-
-1. Tree
-2. Ring
-3. CollnetDirect and CollnetChain (IB SHARP)
-4. NVLS (NVLink SHARP)
-
-I was asking questions about how a user can do the optimization and was told at [this NCCL Issue](https://github.com/NVIDIA/nccl/issues/790) that basically the user shouldn't try to optimize anything as NCCL has a ton of smart algorithms inside that will try to automatically switch from one algorithm to another depending on a concrete situation.
-
-Sylvain Jeaugey shared:
-
-> There used to be a static threshold, but it's been replaced by a more complex tuning system. The new system builds a model of the latency and bandwidth of each algorithm/protocol combination (that's many, many combinations) and decides which one should perform best depending on the size. So there is no longer an env var and a static value, which is good because the performance of each algorithm depends on the number of nodes and number of GPUs per node and therefore we need to navigate a 2D space of algo/protocols which isn't easy. You can always force one algorithm with `NCCL_ALGO=TREE` and `NCCL_ALGO=RING` and see what performance you get and whether NCCL switches at the right point. I know it's hard to understand, but it's also the best solution we found to have the best performance across all platforms and users without users having to manually tune the switch points. Downside is, if you want to manually tune things, you can't.
-
-If you use `NCCL_ALGO` you need to list the algorithms to consider, but otherwise you have no control over it. So, really, this is only useful if you want to make sure that one of the algorithms isn't used.
-
-When asking about which algorithm is better, I received:
-
-> Roughly speaking, ring is superior in terms of peak bandwidth (except on 2 nodes), tree is superior in terms of base latency (especially as we scale). `Bandwidth = Size / Time`, so whether you look at the time or the bandwidth for a given size, it will be a combination of both the peak bandwidth and the base latency. For a fixed size, as you scale, the base latency of ring will become prevalent and tree will be better.
-
-There is also an algo named `NVLS`, which uses NVLink SHARP to do the reduction inside the switch and can therefore report more than the wire spec - with NVLink 4.0 (450GBps) an `all-reduce` benchmark clocks 480GBps. `NVLSTree` (NCCL 2.18+) is the inter-node counterpart and [requires IB or RoCE](https://github.com/NVIDIA/nccl/issues/1031#issuecomment-1773965518). See [SHARP](../README.md#sharp) for when it engages, what it is worth, and why `busbw` stops describing the wire once it does.
-
-And if you would like to know which algo is being used, `NCCL_DEBUG=INFO` combined with `NCCL_DEBUG_SUBSYS=INIT,TUNING` reports the selection per payload size:
-
-```bash
-NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log \
-./build/all_reduce_perf -b 32k -e 16G -f 2 -g 8
-grep -ihoE "AllReduce: [0-9]+ Bytes -> Algo [A-Z]+ proto [A-Z0-9]+" /tmp/nccl.*.log | sort -u
-```
-
-On an 8x H200 node that prints lines like `AllReduce: 2097152 Bytes -> Algo NVLS proto SIMPLE`, and reveals where NCCL switches over - `RING` with the `LL` protocol for payloads up to 1MiB, then `NVLS` with `SIMPLE` from 2MiB up. `NCCL_DEBUG_FILE` keeps all of this out of the benchmark's own output, which otherwise gets buried.
-
-Setting `NCCL_ALGO` explicitly is still worth doing, but for a different purpose - measuring what each algorithm delivers on your hardware, rather than discovering which one NCCL chose.
-
-
-
-### `NCCL_CROSS_NIC`
-
-The `NCCL_CROSS_NIC` variable controls whether NCCL should allow rings/trees to use different NICs, causing inter-node communication to use different NICs on different nodes.
-
-To maximize inter-node communication performance when using multiple NICs, NCCL tries to communicate between same NICs between nodes, to allow for network design where each NIC from each node connects to a different network switch (network rail), and avoid any risk of traffic flow interference. The NCCL_CROSS_NIC setting is therefore dependent on the network topology, and in particular depending on whether the network fabric is rail-optimized or not.
-
-This has no effect on systems with only one NIC.
-
-Values accepted:
-
-- 0: Always use the same NIC for the same ring/tree, to avoid crossing network rails. Suited for networks with per NIC switches (rails), with a slow inter-rail connection. Note there are corner cases for which NCCL may still cause cross-rail communication, so rails still need to be connected at the top.
-- 1: Do not attempt to use the same NIC for the same ring/tree. This is suited for networks where all NICs from a node are connected to the same switch, hence trying to communicate across the same NICs does not help avoiding flow collisions.
-- 2: (Default) Try to use the same NIC for the same ring/tree, but still allow for it if it would result in better performance.
-
-
-
-
-### `NCCL_IB_QPS_PER_CONNECTION`
-
-This is relevant if you're on a multi-layer InfiniBand or RoCEv2 network.
-
-`NCCL_IB_QPS_PER_CONNECTION` defines the number of IB queue pairs to use for each connection between two ranks. This can be useful on multi-level fabrics which need multiple queue pairs to have good routing entropy. In other words, when your jobs are crossing spine or super-spine switches.
-
-By default it is set to `1`, but having a higher number might benefit throughput.
-
-Depends on the size of the network. you could start with something like 4 for any cluster over 64 GPUs (i.e. any cluster that’s bigger than the radix (number of ports) of its IB switch (e.g. the IB NDR switch radix is 64.)
-
-Ideally you'd ask your cloud provider if they have already researched the best value, but if they didn't you can do it yourself, albeit it might be use-case specific.
-
-The other gotcha is that when the value is higher than `1` an additional GPU memory will be consumed.
-
-
-### `NCCL_MIN_CTAS` and `NCCL_MAX_CTAS`
-
-Cooperative Thread Array (CTA) implements CUDA thread blocks - You can read about it [here](https://docs.nvidia.com/cuda/parallel-thread-execution/#thread-hierarchy).
-
-In the past these 2 env vars were called `NCCL_MIN_NCHANNELS` and `NCCL_MAX_NCHANNELS`.
-
-Because in the CUDA world compute and communication operations share the same limited number of SMs per GPU, if too many SMs are used for compute, the comms will be blocked and vice versa. Since ideally compute and comms should overlap and not block each other finding the right balance is important.
-
-The CTA value is derived algorithmically by NCCL, but the default behavior can be overridden by setting the lower and upper limits via the env vars: [`NCCL_MIN_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-min-ctas) and [`NCCL_MAX_CTAS`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html?highlight=nccl_max_ctas#nccl-max-ctas). And then NCCL's tuner will be limited to choose the best value in the user-imposed range. The same can be accomplished from the program using `pg_options` in [`torch.distributed.init_process_group`](https://docs.pytorch.org/docs/stable/distributed.html#torch.distributed.init_process_group) via [`ncclConfig_t`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/api/types.html#ncclconfig-t)'s `minCTAs` and `maxCTAs` (other process group creation functions have `pg_options` as well). The latter approach allows you to set different CTA settings to different process groups, whereas the env vars will apply globally to all process groups.
-
-Here is an example that directly sets both values to `32` per process group:
-
-```python
-import torch
-nccl_options = torch.distributed.ProcessGroupNCCL.Options()
-nccl_options.config.min_ctas = 32
-nccl_options.config.max_ctas = 32
-torch.distributed.init_process_group(..., pg_options=nccl_options)
-```
-
-In order to find the best performance to experiment with different values against a specific benchmark of choice, that emulates the intended workload, you could set both config options to the same value and then bisect on a range of 1 to 64 or similar.
-
-
-## InfiniBand
-
-### InfiniBand adaptive routing
-
-Make sure your cloud provider enables IB adaptive routing which could greatly improve the performance.
-
-For nuances see this paper: [Adaptive Routing in InfiniBand Hardware](https://web-backend.simula.no/sites/default/files/publications/files/adaptive_routing_in_infiniband_hardware.pdf).
+For what the numbers mean, and how much bandwidth training needs, see [Real network throughput](../README.md#real-network-throughput) and [How much inter-node bandwidth training needs](../README.md#how-much-inter-node-bandwidth-training-needs).

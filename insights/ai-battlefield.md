@@ -249,7 +249,7 @@ Why can't the advertised TFLOPS be achieved? It's because it takes time to move 
 
 - Intra-node Network - is very fast, but difficult to take advantage of for large models - [Tensor parallelism](../training/model-parallelism/README.md#tensor-parallelism) and [sequence parallelism](../training/model-parallelism/README.md#sequence-parallelism) address part of this problem. ([more](../network/README.md#intra-node-networking)).
 
-- Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network).
+- Inter-node Network - typically is too slow on most server setups - thus this is the key component to research! Efficient frameworks succeed to partially hide the comms overhead by overlapping compute and comms. But if comms take longer than compute, the comms are still the bottleneck. [more](#inter-node-network), and [how much of it frameworks expose in practice](../network/exposed-communication.md).
 
 - Storage IO is important primarily for feeding the DataLoader workers and saving the checkpoints. [more](#storage).
 

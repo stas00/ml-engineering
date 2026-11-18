@@ -9,6 +9,9 @@ Stas Bekman - Machine Learning Engineering.epub
 
 trash
 
+network/benchmarks/results-symcheck
+network/benchmarks/results
+
 .codex-run-state
 
 # Byte-compiled / optimized / DLL files

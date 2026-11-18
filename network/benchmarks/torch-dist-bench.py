@@ -41,6 +41,15 @@ python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:
 python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
     torch-dist-bench.py --collectives all
 
+*** To see what running all_gather and all_to_all on the copy engines, which leaves all the SMs to the compute, costs
+them (NCCL>=2.28), run with and without --cta-policy zero:
+
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    torch-dist-bench.py --collectives all_gather,all_to_all --sym-mem
+
+python -u -m torch.distributed.run --nproc_per_node 8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d \
+    torch-dist-bench.py --collectives all_gather,all_to_all --sym-mem --cta-policy zero
+
 *** To run on 4 nodes on SLURM:
 
 GPUS_PER_NODE=8
@@ -144,6 +153,10 @@ LATENCY_MAX_VOLUME = 40 * 2**20
 # the payload's 1/ranks pieces are rounded down to this, as nccl-tests does
 CHUNK_ALIGN_BYTES = 16
 
+# torch 2.13 renamed all_gather_into_tensor and reduce_scatter_tensor, deprecating the old names
+all_gather_single = getattr(dist, "all_gather_single", dist.all_gather_into_tensor)
+reduce_scatter_single = getattr(dist, "reduce_scatter_single", dist.reduce_scatter_tensor)
+
 # all_reduce first - it's the default
 COLLECTIVES = ["all_reduce", "all_gather", "reduce_scatter", "all_to_all", "broadcast", "reduce", "gather", "scatter",
                "batch_isend_irecv"]
@@ -190,6 +203,18 @@ def table_rule(widths, aligns=None):
     cells = [":" + "-" * (width - 1) if align == "<" else "-" * (width - 1) + ":"
              for width, align in zip(widths, aligns)]
     return "| " + " | ".join(cells) + " |"
+
+def format_table(title, heads, rows, aligns):
+    """`heads` are (top, bottom) label pairs - the bottom line is printed only if a bottom label is set. A title of
+    None prints none"""
+    widths = [max(len(head[0]), len(head[1]), *(len(row[i]) for row in rows)) for i, head in enumerate(heads)]
+    lines = [] if title is None else [title]
+    lines.append(table_line([head[0] for head in heads], widths, "^" * len(heads)))
+    if any(head[1] for head in heads):
+        lines.append(table_line([head[1] for head in heads], widths, "^" * len(heads)))
+    lines.append(table_rule(widths, aligns))
+    lines += [table_line(row, widths, aligns) for row in rows]
+    return lines
 
 # Column headers for the combined tables, top line first. Written out: broad/cast and
 # batch/_isend/_irecv are not breaks in the spelling.
@@ -468,10 +493,10 @@ def collective_call(name, size, buffer):
     whole = chunk * ranks
     if name == "all_gather":
         input, output = buffer(0, chunk), buffer(1, whole)
-        call = lambda: dist.all_gather_into_tensor(output, input)
+        call = lambda: all_gather_single(output, input)
     elif name == "reduce_scatter":
         input, output = buffer(0, whole), buffer(1, chunk)
-        call = lambda: dist.reduce_scatter_tensor(output, input)
+        call = lambda: reduce_scatter_single(output, input)
     elif name == "all_to_all":
         input, output = buffer(0, whole), buffer(1, whole)
         call = lambda: dist.all_to_all_single(output, input)
@@ -618,6 +643,9 @@ def run(local_rank):
         if args.sym_mem:
             trials += ", symmetric memory"
             plot_suffix += "-sym-mem"
+        if args.cta_policy != "default":
+            trials += f", NCCL CTA policy {args.cta_policy}"
+            plot_suffix += f"-cta-{args.cta_policy}"
 
         if args.profile_stability:
             for name, res in results.items():
@@ -770,14 +798,7 @@ def run(local_rank):
         print(f"\nSummary of {len(measured)} collectives over {ranks} ranks:\n")
 
         def show(title, heads, rows, aligns):
-            widths = [max(len(head[0]), len(head[1]), *(len(row[i]) for row in rows)) for i, head in enumerate(heads)]
-            print(title)
-            print(table_line([head[0] for head in heads], widths, "^" * len(heads)))
-            if any(head[1] for head in heads):
-                print(table_line([head[1] for head in heads], widths, "^" * len(heads)))
-            print(table_rule(widths, aligns))
-            for row in rows:
-                print(table_line(row, widths, aligns))
+            print("\n".join(format_table(title, heads, rows, aligns)))
 
         latency_rows = []
         for name, res in measured.items():
@@ -985,6 +1006,20 @@ def collective_names(value):
                              f"pick from: all, {', '.join(COLLECTIVES)}")
     return list(dict.fromkeys(names))
 
+def nccl_pg_options():
+    """init_process_group kwargs for --cta-policy"""
+    if args.cta_policy == "default":
+        return {}
+    pg = dist.ProcessGroupNCCL
+    policy = f"NCCL_CTA_POLICY_{args.cta_policy.upper()}"
+    if not hasattr(pg, policy):
+        sys.exit(f"--cta-policy needs a torch with ProcessGroupNCCL.{policy}, this is torch=={torch.__version__}")
+    if torch.cuda.nccl.version() < (2, 28):
+        sys.exit(f"--cta-policy needs NCCL>=2.28, this torch uses nccl={torch.cuda.nccl.version()}")
+    options = pg.Options()
+    options.config.cta_policy = getattr(pg, policy)
+    return dict(pg_options=options)
+
 def parse_args():
     global args
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -1006,6 +1041,7 @@ def parse_args():
     parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
     parser.add_argument("--with-host-overhead", action="store_true", help="time 1 call per trial on an idle device, which adds PyTorch's per-call host overhead to every call - what a collective that the program waits on (a sync point) costs")
     parser.add_argument("--sym-mem", action="store_true", help="use buffers registered as an NCCL symmetric memory window (torch>=2.12, NCCL>=2.29), the equivalent of nccl-tests' -R 2. Use only if the target workload uses symmetric memory buffers too")
+    parser.add_argument("--cta-policy", choices=["default", "efficiency", "zero"], default="default", help="the NCCL CTA policy of the process group (NCCL>=2.28), which sets how many SMs NCCL gives each collective, up to the limit that the NCCL_MAX_CTAS env var can lower: `default` the ones that give it its best speed, `efficiency` the fewest that still give it a decent one, `zero` none whenever it can, which with --sym-mem runs all_gather and all_to_all on the copy engines within a node. The SMs a collective doesn't take are left to the compute kernels running alongside it")
 
     args = parser.parse_args()
     args.collectives = collective_names(args.collectives)
@@ -1021,5 +1057,5 @@ if __name__ == "__main__":
     parse_args()
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
-    dist.init_process_group("nccl", **device_id_kwargs(local_rank))
+    dist.init_process_group("nccl", **device_id_kwargs(local_rank), **nccl_pg_options())
     run(local_rank)

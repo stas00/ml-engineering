@@ -313,6 +313,8 @@ The number to report is **`busbw`** (unidirectional). Intra-node: compare to adv
 
 A second *concurrent* all-8 run is a different question (shared power/cooling pulls the saturated clock down). Useful, but it is not the headline for "are these GPUs healthy."
 
+**Straggler finder, all GPUs at once.** [`gpu-straggler-finder.py`](../compute/accelerator/benchmarks/gpu-straggler-finder.py) on every GPU of every node at the same time. It finds a GPU that passes DCGM and the MAMF pass but runs a training step slower than its peers, which slows any job that runs its GPUs in lockstep down to its pace. The run takes about 3 minutes; if it flags a GPU, run it 3 more times with `--repeat 3`, and report a GPU flagged in all 4 runs by the UUID and serial it prints. Details: [Straggler finder](../compute/accelerator/benchmarks/README.md#straggler-finder).
+
 ### C. Storage
 
 [`fio-scan`](../storage/fio-scan) on the **local NVMe** path *and* the **shared filesystem** path, as documented under [fio](../storage/README.md#fio). You need both: NVMe is the ceiling; shared FS is what dataloaders and checkpoints actually hit. Default is 6 benches × 3 minutes per mount (~18 min each). Tiny-file (16 KiB) latency is the developer-experience proxy; 1 GiB sequential is the checkpoint proxy.

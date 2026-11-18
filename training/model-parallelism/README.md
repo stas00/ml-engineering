@@ -39,6 +39,8 @@ Most users with just 2 GPUs already enjoy the increased training speed up thanks
 
 For details see [DistributedDataParallel](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
 
+See [Data-parallel patterns](../../network/exposed-communication.md#data-parallel-patterns) for how much of DDP's gradient all-reduce overlaps with backward, and how much it slows a training step down.
+
 ### ZeRO Data Parallelism
 
 ZeRO-powered data parallelism (ZeRO-DP) is described on the following diagram from this [blog post](https://www.microsoft.com/en-us/research/blog/zero-deepspeed-new-system-optimizations-enable-training-models-with-over-100-billion-parameters/)
@@ -113,6 +115,8 @@ Compare this strategy to the simple one where each person has to carry their own
 While reading the literature on this topic you may encounter the following synonyms: Sharded, Partitioned.
 
 If you pay close attention the way ZeRO partitions the model's weights - it looks very similar to tensor parallelism which will be discussed later. This is because it partitions/shards each layer's weights, unlike vertical model parallelism which is discussed next.
+
+See [Data-parallel patterns](../../network/exposed-communication.md#data-parallel-patterns) for how DeepSpeed ZeRO-1, ZeRO-2 and ZeRO-3 and PyTorch FSDP2 compare: how much of their communication overlaps with the compute, how much they slow a training step down, and what DeepSpeed's `overlap_comm` and `reduce_bucket_size` change.
 
 Implementations of ZeRO-DP stages 1+2+3:
 - [DeepSpeed](https://www.deepspeed.ai/tutorials/zero/)
@@ -262,6 +266,8 @@ It's used by DeepSpeed and SageMaker to name a few.
 ![dualpipe](images/parallelism-pp-dualpipe.png)
 ([source](https://arxiv.org/abs/2412.19437))
 
+See [Pipeline parallelism's exposed communication](../../network/exposed-communication.md#pipeline-parallelisms-exposed-communication) for how much of the sends and receives between the pipeline stages overlaps with the compute within a node and across 2 nodes, and how much more time the bubble costs.
+
 ### PP practical caveats
 
 Regardless of which PP stack you use, several constraints keep showing up:
@@ -315,6 +321,8 @@ Parallelizing the multi-headed attention layers is even simpler, since they are 
 ![parallel self-attention](images/parallelism-tp-parallel_self_attention.png)
 
 Important: TP requires very fast network, and therefore since typically intra-node networks are much faster than inter-node networks it's not advisable to do TP across nodes. Practically, if a node has 4 GPUs, the highest TP degree is therefore 4. If you need a TP degree of 8, you need to use nodes that have at least 8 GPUs.
+
+See [Other parallelism patterns](../../network/exposed-communication.md#other-parallelism-patterns) for how much of TP's communication overlaps with the compute, which none of its forward all-reduces can, and how much it slows a training step down.
 
 TP can be combined with other parallelization methods.
 
@@ -388,12 +396,26 @@ You can read the specifics of the very efficient comms [here](https://github.com
 
 DeepSpeed-Ulysses keeps communication volume consistent by increasing GPUs proportional to message size or sequence length.
 
+See [Other parallelism patterns](../../network/exposed-communication.md#other-parallelism-patterns) for how much DeepSpeed-Ulysses's all-to-alls slow a training step down, and why none of them can overlap with the compute.
+
 ### Arctic Long Sequence Training
 
 Arctic Long Sequence Training ports [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) to HuggingFace Transformers, while updating it to work with modern attention head mechanisms and extends it further to enable a much longer sequence length support (or batch size) by tiling compute and offloading the activation checkpoints. The integration guide is [here](https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/).
 
 - paper: https://arxiv.org/abs/2506.13996
 - implementation and integration: [ArcticTraining](https://github.com/snowflakedb/ArcticTraining/tree/main/projects/sequence-parallelism) and [Axolotl](https://github.com/axolotl-ai-cloud/axolotl)
+
+### DeepSpeed Ulysses-Offload (FPDT)
+
+Paper: [Training Ultra Long Context Language Model with Fully Pipelined Distributed Transformer](https://arxiv.org/abs/2408.16978)
+
+Fully Pipelined Distributed Transformer (FPDT) extends [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) by splitting each GPU's share of the sequence into chunks, computing the attention one chunk at a time with online softmax, and moving the chunks not needed yet to CPU memory, with a double buffer that overlaps the offloading and fetching with the attention compute. Its paper reports training an 8B Llama with 2M-token sequences on 4 GPUs at over 55% MFU. It ships in DeepSpeed as [Ulysses-Offload](https://www.deepspeed.ai/tutorials/ulysses-offload/). The CPU transfers cost speed, as [UPipe](#upipe-untied-ulysses)'s paper measured.
+
+### UPipe (Untied Ulysses)
+
+Paper: [Untied Ulysses: Memory-Efficient Context Parallelism via Headwise Chunking](https://arxiv.org/abs/2602.21196)
+
+DeepSpeed-Ulysses peaks in memory when each GPU holds the queries, keys and values of all its attention heads together with their all-to-all buffers. UPipe runs the attention in stages of a few heads at a time instead, so each stage needs those tensors only for its own heads, and with grouped-query attention it processes the heads out of order so that each key and value head is sent only once. Its paper reports up to 87.5% less intermediate memory in the attention of a 32B model, at the training speed of earlier context-parallel techniques, and Llama-3-8B training with 5M-token sequences on one 8x H100 node, 25% longer than the earlier best. It chunks along the heads where FPDT chunks along the sequence, so the two are complementary, and it tiles the MLP as ALST does. [code](https://github.com/ghadiaravi13/Untied-Ulysses)
 
 ### Colossal-AI's SP
 
@@ -407,6 +429,8 @@ Paper: [Reducing Activation Recomputation in Large Transformer Models](https://a
 
 Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increases linearly with message size (M) regardless of number of compute devices.
 
+See [Other parallelism patterns](../../network/exposed-communication.md#other-parallelism-patterns) for how much of the communication of Megatron-LM's TP with SP overlaps with the compute, and how much it slows a training step down, next to TP alone.
+
 ### Ring Attention with Blockwise Transformers
 
 Paper: [Ring Attention with Blockwise Transformers for Near-Infinite Context](https://arxiv.org/abs/2310.01889)
@@ -418,6 +442,8 @@ Also known as Ring Self-Attention (RSA), the name coined in the [Colossal-AI's S
 3. Simultaneously, the keys and values from other sequence chunks are communicated around.
 4. Once the keys/values from another chunk are available, each GPU continues on with their attention computation using the key/value tensors from this new segment of the sequence
 5. Continue until attention computation is complete.
+
+See [Other parallelism patterns](../../network/exposed-communication.md#other-parallelism-patterns) for how much of the ring's sending of keys and values overlaps with the attention's compute, and how that grows with the sequence length.
 
 SP Implementations:
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
@@ -432,6 +458,18 @@ PyTorch is also working on this feature and calling it Context Parallel (CP).
 [DISTFLASHATTN: Distributed Memory-efficient Attention for Long-context LLMs Training](https://arxiv.org/abs/2310.03294) is reported to be many times faster than Ring Self-Attention, because it load balances the KVQ per token computation between the workers while performing Sequence Parallelism.
 
 ![distflashattn](images/dist-flash-attn.png)
+
+### USP (Unified Sequence Parallelism)
+
+Paper: [USP: A Unified Sequence Parallelism Approach for Long Context Generative AI](https://arxiv.org/abs/2405.07719)
+
+USP combines [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) and [Ring Attention](#ring-attention-with-blockwise-transformers) in 2 dimensions: Ulysses's all-to-alls run within a node, over NVLink, and the ring runs across nodes. That also lifts Ulysses's limit of at most as many GPUs as the model has attention heads, which for Llama-3-8B, with 8 key-value heads, is 8. Its paper reports 47% MFU training Llama-3-8B with 208K-token sequences on 2 nodes of 8x A800. Its [implementation](https://github.com/feifeibear/long-context-attention) is used for training, e.g. by NVIDIA's [LongVILA](https://github.com/NVlabs/VILA/blob/main/LongVILA.md), and for inference, e.g. by [xDiT](https://github.com/xdit-project/xDiT), which runs diffusion transformers across GPUs.
+
+### LoongTrain
+
+Paper: [LoongTrain: Efficient Training of Long-Sequence LLMs with Head-Context Parallelism](https://arxiv.org/abs/2406.18485)
+
+LoongTrain's 2D-Attention likewise splits the sequence-parallel GPUs into a head-parallel dimension, which works like Ulysses, and a context-parallel dimension, which works like Ring Attention. Its Double-Ring-Attention splits the ring into inner rings so that the peer-to-peer transfers use all of the node's NICs at once. Its paper reports up to 2.88x the MFU of DeepSpeed-Ulysses and Megatron's context parallelism. It is implemented in [InternEvo](https://github.com/InternLM/InternEvo).
 
 ### Related reading
 
@@ -513,9 +551,26 @@ https://arxiv.org/abs/2201.11990)
 
 When Mixture-Of-Experts (MoE) is used (in particular during inference) one could give each expert its own accelerator (or a few if one isn't enough), which is referred to as Expert Parallelism (EP). This adds another dimension for parallelization and can significantly speed things up for large batches that are likely to hit all of the experts. Instead of communicating model weights, in EP tokens are being communicated instead. EP leads to a more efficient compute as matrix multiplication then deal with bigger inputs.
 
+See [Expert parallelism's exposed communication](../../network/exposed-communication.md#expert-parallelisms-exposed-communication) for how much EP's all-to-alls slow a training step down within a node and across nodes, and how much of them overlaps with the compute once the tokens are split into 2 micro-batches.
+
 For detailed explanations please see:
 - [DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training to Power Next-Generation AI Scale](https://arxiv.org/abs/2201.05596)
 - [Mixture of Experts Explained](https://huggingface.co/blog/moe#parallelism)
+
+### Expert-parallel communication libraries
+
+The plain way to move the tokens between the GPUs in EP is NCCL's `all_to_all`, which Megatron-LM's `alltoall` token dispatcher uses, and which every framework supports. These notable libraries are written for MoE's dispatch and combine instead, and most training and inference frameworks can use one of them in its place:
+
+- [DeepEP](https://github.com/deepseek-ai/DeepEP) - DeepSeek's library, which Megatron-Core, SGLang and vLLM can use: high-throughput kernels for training and prefill, and low-latency kernels for decoding.
+- [Hybrid-EP](https://developer.nvidia.com/blog/optimizing-communication-for-mixture-of-experts-training-with-hybrid-expert-parallel/) - NVIDIA's, a backend of Megatron-Core's flex dispatcher, for H100, B200 and multi-node NVLink racks such as GB200 NVL72.
+- [NCCL EP](https://github.com/NVIDIA/nccl/tree/master/contrib/nccl_ep) - NCCL's own experimental dispatch and combine, with a low-latency and a high-throughput mode.
+- [UCCL-EP](https://github.com/uccl-project/uccl/tree/main/ep) - DeepEP's interface on hardware DeepEP doesn't support, such as AWS EFA and Broadcom NICs and AMD GPUs.
+- TensorRT-LLM's [one-sided NVLink all-to-all](https://nvidia.github.io/TensorRT-LLM/blogs/tech_blog/blog18_Optimizing_MoE_Communication_with_One_Sided_AlltoAll_Over_NVLink.html), also in FlashInfer - for inference within one NVLink domain, up to a GB200 NVL72 rack.
+- [Mixture-of-Kittens](https://github.com/cursor/mixture-of-kittens) - Cursor's MoE training kernel for GB200 and GB300 NVL72 racks, which fuses dispatch, the experts and combine into one kernel, in BF16 or MXFP8.
+- [Tutel](https://github.com/microsoft/tutel) - Microsoft's MoE library, with a hierarchical all-to-all that exchanges within each node before across nodes.
+- [COMET](https://arxiv.org/abs/2502.19811) - ByteDance's research system that fuses the dispatch and combine into the expert compute.
+
+How each of them exposes less communication than the plain `all_to_all` is in [Optimized expert parallelism](../../network/exposed-communication.md#optimized-expert-parallelism).
 
 ## Other parallelism approaches
 
@@ -579,6 +634,8 @@ Here is the breakdown of which collectives are used for which parallelization st
   * DeepSpeed Ulysses: 2x all-to-all with volume `4*N*h/P` per transformers layer [section 3.2 in paper](https://arxiv.org/abs/2309.14509)
 
 It's possible that you will find different implementations that may use different communication patterns.
+
+How much these collectives slow a training step down depends on how much of them overlaps with the compute: [Exposed Communication by Parallelism Pattern](../../network/exposed-communication.md) measures it for DDP, ZeRO-1 to ZeRO-3, FSDP2, TP, Megatron-LM's SP, DeepSpeed-Ulysses, ring attention, EP and PP.
 
 
 ## Inter-node speed requirements to use ZeRO

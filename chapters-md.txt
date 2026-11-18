@@ -17,6 +17,7 @@ storage/README.md
 
 network/README.md
 network/comms.md
+network/exposed-communication.md
 network/debug/README.md
 network/benchmarks/README.md
 
