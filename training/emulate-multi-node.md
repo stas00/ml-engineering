@@ -399,7 +399,7 @@ export MIG_UUIDS=$(nvidia-smi -L | perl -ne 'if (/\(UUID: (GPU-[^)]+)\)/) { push
 torchrun --nproc_per_node 8 --no-python bash -c '
 export CUDA_VISIBLE_DEVICES=$(echo $MIG_UUIDS | cut -d, -f$((LOCAL_RANK+1)))
 export LOCAL_RANK=0
-exec python torch-dist-bench.py --payload_size_in_gib 2'
+exec python torch-dist-bench.py --payload-size-in-gib 2'
 ```
 
 8 ranks, 512MiB payload:
@@ -432,7 +432,7 @@ export MIG_UUIDS=$(nvidia-smi -L | perl -ne 'if (/\(UUID: (GPU-[^)]+)\)/) { push
 torchrun --nproc_per_node 8 --no-python bash -c '
 export CUDA_VISIBLE_DEVICES=$(echo $MIG_UUIDS | cut -d, -f$((LOCAL_RANK+1)))
 export LOCAL_RANK=0
-exec python torch-dist-bench.py --payload_size_in_gib 2'
+exec python torch-dist-bench.py --payload-size-in-gib 2'
 ```
 
 8 ranks, 512MiB payload:

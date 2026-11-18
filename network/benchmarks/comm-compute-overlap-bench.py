@@ -3030,7 +3030,7 @@ def print_contention(settings, load, results):
           f"rank's, at the median of the trials")
     if outside:
         print(f"!!! At {', '.join(outside)} the overlapped trial is shorter than the longer of the two alone, which "
-              f"the same work can't be - rerun with more --num_iterations !!!")
+              f"the same work can't be - rerun with more --num-iterations !!!")
     halved = [f"{fmt_bytes(size)} to {r['kernel_ms']:g}ms" for size, r in results.items()
               if r["kernel_ms"] < settings["kernel_ms"]]
     if halved:
@@ -3093,8 +3093,8 @@ def parse_args():
     parser.add_argument("--tokens", default="8192", help="tokens per rank per step - per tensor-parallel group with tp - comma separated for several, e.g. 4096,16384")
     parser.add_argument("--seqlen", type=int, default=None, help="the sequence length the tokens are split into, which sets the attention's cost (default: one sequence of all the tokens)")
     parser.add_argument("--layers", type=int, default=8, help="the layers of a step - enough for the layers in the middle to reach the steady state, in which one layer's collectives overlap with another's compute")
-    parser.add_argument("--num_iterations", type=int, default=10, help="the trials of each kind - compute alone, comm alone, and both")
-    parser.add_argument("--num_warmup_iterations", type=int, default=3, help="the warmup trials of each kind")
+    parser.add_argument("--num-iterations", type=int, default=10, help="the trials of each kind - compute alone, comm alone, and both")
+    parser.add_argument("--num-warmup-iterations", type=int, default=3, help="the warmup trials of each kind")
     parser.add_argument("--sym-mem", action="store_true", help="allocate the communication buffers as NCCL symmetric memory windows (torch>=2.12, NCCL>=2.29)")
     parser.add_argument("--cta-policy", choices=["default", "efficiency", "zero"], default="default", help="the NCCL CTA policy of the process groups (NCCL>=2.28), which sets how many SMs NCCL gives each collective, up to the limit that the NCCL_MAX_CTAS env var can lower: `default` the ones that give it its best speed, `efficiency` the fewest that still give it a decent one, `zero` none whenever it can, which with --sym-mem runs all_gather and all_to_all on the copy engines within a node. The SMs a collective doesn't take are left to the compute kernels running alongside it")
     args = parser.parse_args()

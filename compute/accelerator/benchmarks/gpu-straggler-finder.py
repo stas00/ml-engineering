@@ -22,9 +22,9 @@ workloads, which between them stand in for training and inference - a training s
      GPU was slow only some of the time - in one run 3-4% in the first 20-25s after the load started from idle and
      1% after, in others 5% throughout - so a measure of a GPU's best or typical speed can miss it, the way
      mamf-finder.py's MAMF, the median of a shape's 5 fastest runs, did
-  3. matmul: then runs one matmul shape (--matmul_shape) back to back for --other_duration (30s), with no idle -
+  3. matmul: then runs one matmul shape (--matmul-shape) back to back for --other-duration (30s), with no idle -
      the steady load at the power cap of mamf-finder.py's MSMF, but timed throughout rather than in its best window
-  4. copy and stream: then measures the HBM bandwidth 2 ways, for --other_duration each, on --copy_mib (1024MiB)
+  4. copy and stream: then measures the HBM bandwidth 2 ways, for --other-duration each, on --copy-mib (1024MiB)
      buffers: copy is a device-to-device cudaMemcpy, which the driver may run on a copy engine, and stream adds 2
      buffers into a third with a kernel on the SMs. Both are limited by the HBM bandwidth, so a GPU slow in both has
      slow memory, while one slow in stream alone, as the straggler was in its memory-bound kernels, has slow SMs
@@ -39,9 +39,9 @@ workloads, which between them stand in for training and inference - a training s
      percentile window - how slow it was in its worst stretches - rather than by its median: the straggler's was
      4.0% slow in a run in which its median was 1.4%, while no healthy GPU's went above 1.9% in 5 runs
   7. prints a line per GPU sorted from the slowest step, with each workload's median and 90th percentile window -
-     once that would leave out at least 10 GPUs, only every flagged one, the --unflagged_rows (5) slowest unflagged
+     once that would leave out at least 10 GPUs, only every flagged one, the --unflagged-rows (5) slowest unflagged
      ones in the step, and each workload's slowest and least steady unflagged one, then the range of the rest;
-     --unflagged_rows -1 prints every GPU - and flags as a straggler every GPU that in any of the 4 workloads is:
+     --unflagged-rows -1 prints every GPU - and flags as a straggler every GPU that in any of the 4 workloads is:
        - slow: its 90th percentile window is an outlier - a modified z-score above --outlier (3.5), its distance
          from the median in units of the median absolute deviation, which a straggler can't inflate as it would a
          standard deviation - among all the GPUs of all the nodes, and the baseline's with --baseline, and more
@@ -57,18 +57,24 @@ workloads, which between them stand in for training and inference - a training s
          slow down by 1-4%, depending on how fast it was to begin with, to be flagged, while a healthy GPU repeats
          its median time within 0.2%
      and flags as slow every node whose median GPU in any of the 4 workloads is:
-       - slower than the other nodes': its 90th percentile window is more than --slow_node (3%) slower than
+       - slower than the other nodes': its 90th percentile window is more than --slow-node (3%) slower than
          the median node's in the same windows, or the faster node's if there are only 2. Of 2 nodes whose matmul
          differed by 1.6-1.9% at the median, the slower one's 90th percentile window reached 2.5% in 8 runs
-       - below baseline: its median time is more than --slow_node slower than the baseline's median node's
+       - below baseline: its median time is more than --slow-node slower than the baseline's median node's
      Comparing a node's GPUs with each other can't catch a node whose GPUs are all equally slow, e.g. at a lower
      power limit or in a hot rack, which slows a job as much as a single slow GPU - only other nodes, measured with
      it or in the baseline, can. A flagged GPU is listed with what it was flagged for, and with the UUID, serial and
      PCI bus id to report it by, and a flagged node with its GPUs' serials
-  8. with --repeat N runs it all N times, --repeat_idle (120s) apart so that each run starts from idle, reports each
+  8. with --repeat N runs it all N times, --repeat-idle (120s) apart so that each run starts from idle, reports each
      run as it ends, and then lists every GPU flagged in any run, and every GPU more than --threshold slower in a
      run than in its own fastest one: a straggler that is slow some of the time may be slow for minutes or hours
      and then not, so a single 3-minute run can miss it
+  9. on 2 or more nodes it lists the nodes fastest first, by their pace in a job that runs the GPUs in lockstep:
+     the slowest GPU's step in each --window, at the 90th percentile window, in the slowest of the --repeat runs.
+     A node with a flagged GPU, or flagged itself, goes after the others. With --hostfile-to-sort it writes that
+     hostfile's lines in the same order to the same path with -fast-to-slow appended, so that its first N lines are
+     the N fastest nodes. A line is matched to a node by its first word, without any user@, which can be the
+     node's hostname or one of its IP addresses
 
 It shows what it's running as it goes - a progress bar per workload, tqdm's if it's installed - and ends with the
 runtime of each stage.
@@ -81,7 +87,7 @@ them is normal.
 The defaults are tight: they flag a GPU that slows a synchronous job by 1-2%, or a node by 3%, which across a job of
 thousands of GPUs costs more than replacing the node. Fleet tools use looser ones to decide what to replace -
 SuperBench's example rules flag a 5% regression vs a baseline, and Guard keeps a node under 10% slow in the job
-and replaces it right away at 20%. Raise --threshold, --unsteady and --slow_node to match your replacement
+and replaces it right away at 20%. Raise --threshold, --unsteady and --slow-node to match your replacement
 policy, or if the defaults flag healthy GPUs on your hardware.
 
 The timings run on any accelerator that torch.accelerator supports. The telemetry needs a vendor backend, and only
@@ -121,6 +127,10 @@ Examples:
   python gpu-straggler-finder.py --baseline good-*.json --repeat 10
       Record a baseline on each of a few nodes known to be good, then check another node against them and against
       itself, 10 times over about 50 minutes.
+
+  torchrun --nnodes 5 ... gpu-straggler-finder.py --hostfile-to-sort hostfile
+  head -4 hostfile-fast-to-slow > hostfile-fast
+      Sort the hostfile of 5 nodes fastest first, then keep the 4 fastest to run a job on.
 """
 
 import argparse
@@ -233,34 +243,38 @@ def get_args():
     p.add_argument("--hidden", type=int, default=4096, help="hidden size (default: 4096)")
     p.add_argument("--ffn", type=int, default=14336, help="MLP intermediate size (default: 14336)")
     p.add_argument("--heads", type=int, default=32, help="attention heads (default: 32)")
-    p.add_argument("--kv_heads", type=int, default=8, help="key/value heads (default: 8)")
+    p.add_argument("--kv-heads", type=int, default=8, help="key/value heads (default: 8)")
     p.add_argument("--seqlen", type=int, default=8192, help="sequence length (default: 8192)")
     p.add_argument("--batch", type=int, default=1, help="sequences per step (default: 1)")
-    p.add_argument("--idle_ms", type=float, default=100, help="idle time after each step, like a wait for communication or data (default: 100)")
-    p.add_argument("--warmup_steps", type=int, default=3, help="untimed steps, for the first calls' setup (default: 3)")
+    p.add_argument("--idle-ms", type=float, default=100, help="idle time after each step, like a wait for communication or data (default: 100)")
+    p.add_argument("--warmup-steps", type=int, default=3, help="untimed steps, for the first calls' setup (default: 3)")
     p.add_argument("--duration", type=float, default=60, help="seconds of timed steps (default: 60)")
     p.add_argument("--window", type=float, default=2, help="seconds of each window the GPUs are compared in (default: 2)")
-    p.add_argument("--matmul_shape", default="8192x8192x8192", help="MxNxK of the sustained matmul (default: 8192x8192x8192)")
-    p.add_argument("--copy_mib", type=int, default=1024, help="MiB of each buffer of the copy and the stream (default: 1024)")
-    p.add_argument("--other_duration", type=float, default=30, help="seconds of the timed matmul, copy and stream, each (default: 30)")
+    p.add_argument("--matmul-shape", default="8192x8192x8192", help="MxNxK of the sustained matmul (default: 8192x8192x8192)")
+    p.add_argument("--copy-mib", type=int, default=1024, help="MiB of each buffer of the copy and the stream (default: 1024)")
+    p.add_argument("--other-duration", type=float, default=30, help="seconds of the timed matmul, copy and stream, each (default: 30)")
     p.add_argument("--outlier", type=float, default=3.5, help="flag GPUs above this modified z-score of a workload's 90th percentile window (default: 3.5)")
     p.add_argument("--threshold", type=float, default=1, help="...and only if they are more than this many %% above the median (default: 1)")
     p.add_argument("--unsteady", type=float, default=1.25, help="also flag GPUs whose 90th percentile window is more than this many %% slower than their own median window, if an outlier by --outlier (default: 1.25)")
     p.add_argument("--stall", type=float, default=5, help="leave out of a node's comparisons, and report as a stall, every window in which its median GPU is more than this many %% slower than in its median window (default: 5)")
-    p.add_argument("--slow_node", type=float, default=3, help="flag nodes whose median GPU is more than this many %% slower than the median node's, or the faster node's of 2, or than the baseline's median node's (default: 3)")
-    p.add_argument("--baseline", nargs="+", default=None, help="the --json files of runs on known-good nodes: also flag GPUs whose median time in a workload is more than --threshold slower than their own in them, and nodes whose median GPU's is more than --slow_node slower than their median node's")
-    p.add_argument("--repeat", type=int, default=1, help="run all the workloads this many times, with --repeat_idle between, report each run, and flag GPUs more than --threshold slower in a run than in their fastest (default: 1)")
-    p.add_argument("--repeat_idle", type=float, default=120, help="seconds idle between the repeats, so that each starts from idle (default: 120)")
-    p.add_argument("--sample_interval", type=float, default=0.01, help="telemetry sampling period in seconds (default: 0.01)")
+    p.add_argument("--slow-node", type=float, default=3, help="flag nodes whose median GPU is more than this many %% slower than the median node's, or the faster node's of 2, or than the baseline's median node's (default: 3)")
+    p.add_argument("--baseline", nargs="+", default=None, help="the --json files of runs on known-good nodes: also flag GPUs whose median time in a workload is more than --threshold slower than their own in them, and nodes whose median GPU's is more than --slow-node slower than their median node's")
+    p.add_argument("--repeat", type=int, default=1, help="run all the workloads this many times, with --repeat-idle between, report each run, and flag GPUs more than --threshold slower in a run than in their fastest (default: 1)")
+    p.add_argument("--repeat-idle", type=float, default=120, help="seconds idle between the repeats, so that each starts from idle (default: 120)")
+    p.add_argument("--sample-interval", type=float, default=0.01, help="telemetry sampling period in seconds (default: 0.01)")
     p.add_argument("--json", default=None, help="also write every GPU's results, with each step's time, to this file")
-    p.add_argument("--unflagged_rows", type=int, default=5, help="how many unflagged GPUs and nodes to print, the slowest in the step's 90th percentile window, besides every flagged one and each workload's slowest and least steady unflagged one - once that leaves out at least 10 rows; -1 prints every row (default: 5)")
+    p.add_argument("--hostfile-to-sort", default=None, help="a hostfile listing the nodes measured, one per line, e.g. `10.0.0.1 slots=8`: write its lines, the fastest node first, to the same path with -fast-to-slow appended, so that e.g. `head -4` of it picks the 4 fastest nodes")
+    p.add_argument("--unflagged-rows", type=int, default=5, help="how many unflagged GPUs and nodes to print, the slowest in the step's 90th percentile window, besides every flagged one and each workload's slowest and least steady unflagged one - once that leaves out at least 10 rows; -1 prints every row (default: 5)")
     args = p.parse_args()
     args.matmul_shape = [int(d) for d in args.matmul_shape.lower().split("x")]
     if len(args.matmul_shape) != 3:
-        p.error("--matmul_shape takes MxNxK, e.g. 8192x8192x8192")
+        p.error("--matmul-shape takes MxNxK, e.g. 8192x8192x8192")
     if args.repeat < 1:
         p.error("--repeat must be at least 1")
     args.baseline_medians = load_baseline(args, p) if args.baseline else None
+    # read and written by rank 0 alone, so it only has to be on rank 0's node
+    if args.hostfile_to_sort and os.environ.get("RANK", "0") == "0" and not os.path.isfile(args.hostfile_to_sort):
+        p.error(f"--hostfile-to-sort {args.hostfile_to_sort}: no such file")
     return args
 
 
@@ -610,6 +624,7 @@ def setup(local_rank, args, progress):
         buffer = args.copy_mib * 2**20
         return dict(
             host=socket.gethostname(),
+            addrs=node_addrs(),
             rank=dist.get_rank(),
             local_rank=local_rank,
             name=props.name,
@@ -639,6 +654,22 @@ def setup(local_rank, args, progress):
         )
 
     return all_workloads
+
+
+def node_addrs():
+    """The names and addresses a hostfile may list this node by: its hostname and fully qualified name, the addresses
+    they resolve to, and the address it reaches rank 0's node from"""
+    names = {socket.gethostname(), socket.getfqdn()}
+    addrs = set(names)
+    for name in names:
+        with contextlib.suppress(OSError):
+            addrs.update(a[4][0] for a in socket.getaddrinfo(name, None))
+    if "MASTER_ADDR" in os.environ:
+        # a UDP connect sends nothing, it only picks the interface that routes there
+        with contextlib.suppress(OSError), socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect((os.environ["MASTER_ADDR"], 9))
+            addrs.add(s.getsockname()[0])
+    return sorted(addrs)
 
 
 def percentile(xs, q):
@@ -808,7 +839,7 @@ def report(results, args):
         return [f"{w} slow" for w in n["slow_in"]] + [f"{w} below baseline" for w in n["below_baseline"]]
 
     def rows(items, flagged_items):
-        """The rows to print, slowest step first - every flagged one, the --unflagged_rows slowest unflagged ones in
+        """The rows to print, slowest step first - every flagged one, the --unflagged-rows slowest unflagged ones in
         the step, and each workload's slowest and least steady unflagged one - and the rest: on a thousand GPUs every
         row would bury the few that matter. The unflagged rows are the spread a flagged one is told apart from"""
         ordered = sorted(items, key=lambda x: -x["windows"]["step"]["p90"])
@@ -828,7 +859,7 @@ def report(results, args):
         if hidden:
             p90 = [x["windows"]["step"]["p90"] for x in hidden]
             print(f"... and {len(hidden)} more {what}, step {min(p90):+.1f} to {max(p90):+.1f}% in their 90th percentile "
-                  f"windows (--unflagged_rows -1 prints them)")
+                  f"windows (--unflagged-rows -1 prints them)")
 
     if base:
         note = "" if base["name"] == results[0]["name"] else f", measured on {base['name']}"
@@ -897,10 +928,10 @@ def report(results, args):
                      f"baseline (--threshold)")
     if len(nodes) > 1:
         rules.append(f"slow node: its median GPU's 90th percentile window more than {args.slow_node:g}% slower "
-                     f"than {node_ref_name} (--slow_node)")
+                     f"than {node_ref_name} (--slow-node)")
     if base:
         rules.append(f"node below baseline: its median GPU's median time more than {args.slow_node:g}% slower "
-                     f"than the baseline's median node's (--slow_node)")
+                     f"than the baseline's median node's (--slow-node)")
     caveat = ("\nwith one node and no --baseline a node whose GPUs are all equally slow passes - run on several nodes "
               "at once, or pass --baseline" if len(nodes) == 1 and not base else "")
     if not flagged and not flagged_nodes:
@@ -956,6 +987,72 @@ def report(results, args):
               f"uuid {r['uuid']}, serial {r['serial']}, pci {r['pci_bus_id']}")
     print("a straggler is any of\n  " + "\n  ".join(rules) + caveat)
     return 3
+
+
+def node_paces(results, window):
+    """Each node's pace in a job that runs its GPUs in lockstep, in which every GPU waits for the slowest one: its
+    slowest GPU's mean step time in each window, at the 90th percentile window, as the GPUs themselves are judged"""
+    series, _ = window_means(results, "step_ms", "step_starts", window)
+    by_host = {}
+    for r, s in zip(results, series):
+        by_host.setdefault(r["host"], []).append(s)
+    return {host: percentile([max(column) for column in zip(*gpus)], 0.9) for host, gpus in by_host.items()}
+
+
+def sort_nodes(repeats, flagged, args):
+    """Print the nodes fastest first, and with --hostfile-to-sort write that hostfile's lines in the same order. A
+    node with a flagged GPU, or flagged itself, goes after all the others, so that the first lines are a subset of
+    nodes the finder passed"""
+    paces = {}
+    for results in repeats:
+        for host, pace in node_paces(results, args.window).items():
+            paces[host] = max(pace, paces.get(host, 0))
+    order = sorted(paces, key=lambda h: (h in flagged, paces[h]))
+    fastest = paces[order[0]]
+    runs = f", in the slowest of its {len(repeats)} runs" if len(repeats) > 1 else ""
+    width = max(len(h) for h in order)
+    print(f"\nnodes fastest first, by their pace in a job that runs the GPUs in lockstep: the slowest GPU's step in each "
+          f"{args.window:g}s window, at the 90th percentile window{runs} - a node with a flagged GPU, or flagged "
+          f"itself, after the others:")
+    for h in order:
+        print(f"  {h:<{width}}  {paces[h]:8.2f}ms  {100 * (paces[h] / fastest - 1):+5.1f}%"
+              + ("  flagged" if h in flagged else ""))
+    if not args.hostfile_to_sort:
+        return [dict(host=h, pace_ms=paces[h], flagged=h in flagged) for h in order]
+
+    addrs = {}
+    for r in repeats[0]:
+        addrs.setdefault(r["host"], set()).update(r.get("addrs", [r["host"]]))
+    with open(args.hostfile_to_sort) as f:
+        lines = [line.rstrip("\n") for line in f]
+    matched, unknown = {}, []
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name = line.split()[0].rsplit("@", 1)[-1]
+        names = {name}
+        with contextlib.suppress(OSError):
+            names.update(a[4][0] for a in socket.getaddrinfo(name, None))
+        hosts = [h for h in order if names & addrs[h] or name.split(".")[0] == h.split(".")[0]]
+        if hosts and hosts[0] not in matched:
+            matched[hosts[0]] = line
+        else:
+            unknown.append(line)
+    out = args.hostfile_to_sort + "-fast-to-slow"
+    sorted_lines = [matched[h] for h in order if h in matched]
+    try:
+        with open(out, "w") as f:
+            f.write("".join(f"{line}\n" for line in sorted_lines))
+        print(f"wrote {len(sorted_lines)} of the lines of {args.hostfile_to_sort} in that order to {out}")
+    except OSError as e:
+        print(f"couldn't write {out} ({e}) - its lines would be:\n" + "\n".join(sorted_lines))
+    if unknown:
+        print(f"left out {len(unknown)} line(s) of {args.hostfile_to_sort} that name no node measured, or one "
+              f"already listed: " + "; ".join(unknown))
+    missing = [h for h in order if h not in matched]
+    if missing:
+        print(f"no line of {args.hostfile_to_sort} names {', '.join(missing)}, measured but left out of {out}")
+    return [dict(host=h, pace_ms=paces[h], flagged=h in flagged, line=matched.get(h)) for h in order]
 
 
 def worker(local_rank, args, world_size, init_method):
@@ -1057,11 +1154,19 @@ def worker(local_rank, args, world_size, init_method):
             for host, runs in stalled_nodes.items():
                 print(f"  {host}: stalled in {len(runs)} of {args.repeat} runs (run {', '.join(map(str, runs))}) - "
                       f"a node that stalls in most runs holds a synchronous job up as a straggler does")
+        fast_to_slow = None
+        # an inf/NaN invalidates the times the nodes are sorted by
+        if len({r["host"] for r in repeats[0]}) > 1 and rc != 2:
+            fast_to_slow = sort_nodes(repeats, {s["host"] for s in stragglers.values()} | set(slow_nodes), args)
+        elif args.hostfile_to_sort:
+            print(f"\nnot sorting {args.hostfile_to_sort}: " + ("a GPU returned inf/NaN, which invalidates its times"
+                                                                if rc == 2 else "only one node was measured"))
         if args.json:
             with open(args.json, "w") as f:
                 out = dict(args=vars(args), exit_code=rc, stragglers=list(stragglers.values()),
                            slow_nodes=list(slow_nodes.values()),
-                           stalled_nodes=[dict(host=h, runs=runs) for h, runs in stalled_nodes.items()])
+                           stalled_nodes=[dict(host=h, runs=runs) for h, runs in stalled_nodes.items()],
+                           fast_to_slow=fast_to_slow)
                 if args.repeat == 1:
                     out["gpus"] = repeats[0]
                 else:

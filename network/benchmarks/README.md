@@ -70,7 +70,7 @@ For launching examples please see the top of [torch-dist-bench.py](torch-dist-be
 
 For the all-reduce `busbw` to expect on a well-tuned network, and how much bandwidth training needs, see [Real network throughput](../README.md#real-network-throughput) and [How much inter-node bandwidth training needs](../README.md#how-much-inter-node-bandwidth-training-needs).
 
-To check the stability of all-reduce over time, rather than averaging the results, you can profile a single payload size with these 2 flags `--profile_stability --payload_size_in_gib 0.5` (change the last value to the desired payload size in GiB). Beware that a typical ML workload doesn't call all-reduce back to back non-stop so this approach puts the network through a stress test, which is a somewhat non-typical workload. But it can still show if the network has issues with sustained load. Here is an example of a plot generated on a 8x B200 with a payload of 2GiB:
+To check the stability of all-reduce over time, rather than averaging the results, you can profile a single payload size with these 2 flags `--profile-stability --payload-size-in-gib 0.5` (change the last value to the desired payload size in GiB). Beware that a typical ML workload doesn't call all-reduce back to back non-stop so this approach puts the network through a stress test, which is a somewhat non-typical workload. But it can still show if the network has issues with sustained load. Here is an example of a plot generated on a 8x B200 with a payload of 2GiB:
 
 ![all-reduce-bench 2GiB profile](images/all-reduce-bench-profile-2gib.png)
 

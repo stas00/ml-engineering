@@ -89,7 +89,7 @@ export PYTORCH_TUNABLEOP_ENABLED=1
 ```
 This will make the first iteration very slow, while it's searching for the best GEMM algorithm in the BLAS libraries for each `matmul` shape it encounters, but subsequent operations are likely to be significantly faster than the baseline. See [Accelerating models on ROCm using PyTorch TunableOp](https://rocm.blogs.amd.com/artificial-intelligence/pytorch-tunableop/README.html) [doc](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md). On ROCm 10, tuning a new shape takes ~2 minutes, which would turn a ~2,000-shape search into days, so `mamf-finder.py` pauses tuning while it searches (the default kernel is within ~1–2% on good shapes, close enough to rank them) and tunes only the shapes it confirms, before timing them. `--tune tunableop_confirm_max=N` (default 8) caps how many shapes that is; a BF16 `--search auto` run on MI300X then needs about 5 minutes of search plus ~16 minutes of tuning.
 
-On ROCm, `--search auto` prints a note that it was checked against an exhaustive grid only on one MI300X in BF16, where it came within 0.1% of a 16,000-shape grid. A newer stack can move the winning shape rather than the peak: `10240x15360x8192` dropped from 663.6 (ROCm 6.3, torch 2.5.1) to 625.5 (ROCm 10, torch 2.12) while `12288x9728x8192` held ~660 on both, so re-search after a stack upgrade instead of re-timing the old winner. Pick the GPU with `--cuda_device N`, not `HIP_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES`: on some virtualized MI300X hosts, hiding GPU0 left torch with no usable device.
+On ROCm, `--search auto` prints a note that it was checked against an exhaustive grid only on one MI300X in BF16, where it came within 0.1% of a 16,000-shape grid. A newer stack can move the winning shape rather than the peak: `10240x15360x8192` dropped from 663.6 (ROCm 6.3, torch 2.5.1) to 625.5 (ROCm 10, torch 2.12) while `12288x9728x8192` held ~660 on both, so re-search after a stack upgrade instead of re-timing the old winner. Pick the GPU with `--cuda-device N`, not `HIP_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES`: on some virtualized MI300X hosts, hiding GPU0 left torch with no usable device.
 
 **Intel dGPUs (A770, A750, B580, etc.)**
 - Follow Intel Extension for PyTorch [installation steps](https://pytorch-extension.intel.com/installation?platform=gpu)
@@ -103,8 +103,8 @@ On ROCm, `--search auto` prints a note that it was checked against an exhaustive
 #### 1. Auto search (default) — best the GPU can do anywhere
 
 ```bash
-./mamf-finder.py --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
-# equivalent: ./mamf-finder.py --search auto --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+./mamf-finder.py --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+# equivalent: ./mamf-finder.py --search auto --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 Finds near-peak shapes via hardware heuristics and reports **two** headlines. Great for a spec-sheet number; not tied to any particular model. This is what produced the [MAMF & MSMF table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table). On H200 and B200, in BF16 and FP8, every `--search auto` run came within 0.6% of a 128,000-shape exhaustive scout followed by the same confirm, and most runs beat it, by up to 3.6%. A run took about 4 minutes on one H200 or B200, against 17–29 minutes on 8 GPUs for the scout.
@@ -164,7 +164,7 @@ Lesson: on these two nodes, the other GPUs computing at the same time barely mov
 
 #### Reading the output
 
-The console shows each phase as a title, a column header and one row that is updated in place as shapes are measured; when the phase ends, its winning row stays on screen. On an H200, `mamf-finder.py --dtype bfloat16 --m_range 1024 4097 1024 --n 1536 2816 --k 4096 8192 20480` prints:
+The console shows each phase as a title, a column header and one row that is updated in place as shapes are measured; when the phase ends, its winning row stays on screen. On an H200, `mamf-finder.py --dtype bfloat16 --m-range 1024 4097 1024 --n 1536 2816 --k 4096 8192 20480` prints:
 
 ```
 Grid search: sweeping 24 shapes (scout 20 iters / 8 warmup), then confirm ...
@@ -197,7 +197,7 @@ note: 7 same-board sibling GPU(s) sat idle during the MSMF measurement, so MSMF 
 
 The MSMF row is the 4s lock-in window, which is what the headline uses: `drop` is how much slower its second half ran than its first, and `spread` how far its 8 sub-windows differ. The MAMF row's `top peaks` are the shape's 5 fastest boost iterations, whose median is the headline. The two headlines landed on different K here: K=20480 bursts fastest, while K=8192 holds a higher clock at the power cap. `--search auto` on the same GPU found MSMF 745 at `1536x2816x6144`, a K this grid doesn't include.
 
-`W`, `MHz` and, in the MSMF rows, `C` (the GPU temperature) are live NVML (or amdsmi/hlml) samples taken while the shape ran. On a short MAMF burst NVML's power sample can lag the kernel: on A100 PCIe a ~80 ms burst after an idle reads near-idle watts, so that `W` is not the burst's draw. The MAMF and MSMF headlines are integer TFLOPS; a half rounds up. Every row, plus the details behind each decision (the MSMF ranking, K walk and lock-in rows, the boost reference, the same-shape cross-check), is written to the `--output_file` log (see [MAMF & MSMF](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) for how the two numbers are used).
+`W`, `MHz` and, in the MSMF rows, `C` (the GPU temperature) are live NVML (or amdsmi/hlml) samples taken while the shape ran. On a short MAMF burst NVML's power sample can lag the kernel: on A100 PCIe a ~80 ms burst after an idle reads near-idle watts, so that `W` is not the burst's draw. The MAMF and MSMF headlines are integer TFLOPS; a half rounds up. Every row, plus the details behind each decision (the MSMF ranking, K walk and lock-in rows, the boost reference, the same-shape cross-check), is written to the `--output-file` log (see [MAMF & MSMF](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) for how the two numbers are used).
 
 #### What makes a fast shape
 
@@ -218,14 +218,14 @@ Grid reports the **same MAMF + MSMF headlines** as auto. The only difference is 
 
 ```bash
 # shapes your model will use (example: M in 2k..8k, N=K=4096)
-./mamf-finder.py --m_range 2048 8193 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+./mamf-finder.py --m-range 2048 8193 256 --n 4096 --k 4096 --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 # one exact shape (reproduce a published headline)
-./mamf-finder.py --m 1024 --n 1024 --k 1024 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+./mamf-finder.py --m 1024 --n 1024 --k 1024 --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 # fp8 sweep over a coarse lattice
-./mamf-finder.py --m_range 0 20480 1024 --n_range 0 20480 1024 --k_range 0 20480 1024 \
-    --dtype float8_e4m3fn --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+./mamf-finder.py --m-range 0 20480 1024 --n-range 0 20480 1024 --k-range 0 20480 1024 \
+    --dtype float8_e4m3fn --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 ```
 
 **Give the range enough room to saturate.** MSMF needs at least one shape that holds a steady rate over its window. A narrow/small grid can leave every candidate unsteady; `mamf-finder.py` then warns and publishes the fastest unsteady one. Widen M/N/K (especially `min(M,N,K)`) so a shape that reaches the power cap is in the set. Grid doesn't run the K walk, so the best sustainable K is found only if your K range includes it.
@@ -250,7 +250,7 @@ python mamf-finder-all-gpus.py --dtype float8_e4m3fn  # fp8
 
 On 8 H200s or 8 B200s the default bf16 run takes about 9 minutes.
 
-If you get a better MAMF or MSMF than the [table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) shows, e.g. with a more recent `torch`, CUDA or ROCm, BLAS library or driver, or you measured an accelerator or a dtype the table doesn't have yet, please contribute it via a [PR](https://github.com/stas00/ml-engineering/pulls) that updates the table or an [Issue](https://github.com/stas00/ml-engineering/issues). Share the full log files of the run: the wrapper's output directory (`results/all-gpus-<timestamp>/` next to the script, or `OUT_DIR`) with `summary.txt` and every GPU's `gpu<N>.txt`, or the `--output_file` log of a single-GPU run. The logs record the software stack, the shapes, the power and the clocks, which is what makes the entry checkable and reproducible. Also mention any system settings the logs don't show, such as a disabled `numa_balancing`. A re-run of the same GPU can move its numbers by up to 2.2%, so a gain smaller than that is noise rather than an improvement.
+If you get a better MAMF or MSMF than the [table](../README.md#maximum-achievable-and-sustainable-matmul-flops-comparison-table) shows, e.g. with a more recent `torch`, CUDA or ROCm, BLAS library or driver, or you measured an accelerator or a dtype the table doesn't have yet, please contribute it via a [PR](https://github.com/stas00/ml-engineering/pulls) that updates the table or an [Issue](https://github.com/stas00/ml-engineering/issues). Share the full log files of the run: the wrapper's output directory (`results/all-gpus-<timestamp>/` next to the script, or `OUT_DIR`) with `summary.txt` and every GPU's `gpu<N>.txt`, or the `--output-file` log of a single-GPU run. The logs record the software stack, the shapes, the power and the clocks, which is what makes the entry checkable and reproducible. Also mention any system settings the logs don't show, such as a disabled `numa_balancing`. A re-run of the same GPU can move its numbers by up to 2.2%, so a gain smaller than that is noise rather than an improvement.
 
 ## Straggler finder
 
@@ -263,3 +263,24 @@ torchrun --nnodes 4 --nproc_per_node 8 --rdzv_backend c10d \
 ```
 
 Run it on GPUs that have been idle for a minute or two: it times the step for 60 seconds from its 4th step, since the straggler it was tuned on was slow only some of the time - in one run mostly in the first 20-25 seconds after the load started. The whole run takes about 3 minutes. `--repeat 3` runs it 3 more times, 2 minutes idle apart, for a GPU that is slow only some of the time, and `--baseline` with the `--json` files of runs on known-good nodes checks a single node, or 2, which comparing them with each other can't tell apart. On a GPU with less memory than a B200 lower `--layers` or `--seqlen`, and `--help` lists the other settings. The timings work on any accelerator that `torch.accelerator` supports. The clock, power and temperature columns need a vendor telemetry backend, and only NVIDIA's (`pip install nvidia-ml-py`) is implemented so far.
+
+On 2 or more nodes it also sorts the nodes by their slowest GPU, the fastest node first. `--hostfile-to-sort` takes a hostfile - the file that a launcher such as `deepspeed` or `mpirun` reads the job's nodes from, one per line - and writes its lines in that order to the same path with `-fast-to-slow` appended. Its first lines are then the fastest nodes, so that a job that needs fewer nodes than were allocated can run on those - here 2 of 4:
+
+```bash
+torchrun --nnodes 4 --nproc_per_node 8 --rdzv_backend c10d \
+    --rdzv_endpoint $MASTER_ADDR:29500 gpu-straggler-finder.py --hostfile-to-sort hostfile
+head -2 hostfile-fast-to-slow > hostfile-fast
+deepspeed --hostfile hostfile-fast train.py
+```
+
+A hostfile line is matched to a node by its first word, the node's hostname or one of its IP addresses, as in `10.0.0.1 slots=8`. Here is the list for the 4 nodes of the report in [How to find a straggler GPU](../nvidia/debug.md#how-to-find-a-straggler-gpu):
+
+```
+nodes fastest first, by their pace in a job that runs the GPUs in lockstep: the slowest GPU's step in each 2s window, at the 90th percentile window - a node with a flagged GPU, or flagged itself, after the others:
+  cluster-a-2    408.92ms   +0.0%
+  cluster-a-1    409.60ms   +0.2%
+  cluster-a-0    409.71ms   +0.2%
+  cluster-a-3    420.06ms   +2.7%  flagged
+```
+
+A job on all 4 nodes would run at `cluster-a-3`'s pace, 2.5% slower than a job on the other 3.

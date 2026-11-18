@@ -458,7 +458,7 @@ def latency_samples_per_trial(calls):
     return calls - 1 if calls > 1 else 1
 
 def num_trials(size, calls):
-    """--num_iterations trials, or more at small payloads, enough for up to LATENCY_MAX_SAMPLES latency samples"""
+    """--num-iterations trials, or more at small payloads, enough for up to LATENCY_MAX_SAMPLES latency samples"""
     samples = min(LATENCY_MAX_SAMPLES, LATENCY_MAX_VOLUME // size)
     return max(args.num_iterations, math.ceil(samples / latency_samples_per_trial(calls)))
 
@@ -1020,37 +1020,47 @@ def nccl_pg_options():
     options.config.cta_policy = getattr(pg, policy)
     return dict(pg_options=options)
 
+def old_spellings(argv, old):
+    """argv with each of the old flags, alone or as --flag=value, spelled with dashes"""
+    def fix(a):
+        flag, eq, value = a.partition("=")
+        return flag.replace("_", "-") + eq + value if flag in old else a
+    return [fix(a) for a in argv]
+
+
 def parse_args():
     global args
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # this arg is not used directly, but a launcher may pass it
-    parser.add_argument("--local_rank", type=int, default=0, help='local rank')
+    parser.add_argument("--local-rank", "--local_rank", type=int, default=0, help='local rank')
     parser.add_argument("--collectives", default="all_reduce",
                         help=f"the collectives to benchmark, comma separated, e.g. all_gather,reduce_scatter, or "
                              f"`all` for all of them: {', '.join(COLLECTIVES)}")
     parser.add_argument("--separate-tables", action="store_true",
                         help="give each collective its own table, with algbw and the latency's p99 and mean, instead "
                              "of a busbw table and a latency-median table of all the collectives")
-    parser.add_argument("--num_iterations", type=int, default=20, help='The number of bandwidth trials per payload, and the minimal number of latency trials - small payloads get more of those, to sample the latency of up to 1000 calls')
-    parser.add_argument("--num_warmup_iterations", type=int, default=5, help='The minimal number of warmup trials per payload - payloads with many trials warm up for a fifth of them')
+    parser.add_argument("--num-iterations", type=int, default=20, help='The number of bandwidth trials per payload, and the minimal number of latency trials - small payloads get more of those, to sample the latency of up to 1000 calls')
+    parser.add_argument("--num-warmup-iterations", type=int, default=5, help='The minimal number of warmup trials per payload - payloads with many trials warm up for a fifth of them')
     parser.add_argument("--min-payload", type=payload_size, default="8", help='the smallest payload in bytes, a power of 2, K/M/G suffixes allowed, e.g. 32K')
     parser.add_argument("--max-payload", type=payload_size, default="16G", help='the largest payload in bytes, a power of 2, K/M/G suffixes allowed, e.g. 16K for a quick latency-only run')
     parser.add_argument("--min-busbw-payload", type=payload_size, default="32K", help="the smallest payload whose bandwidth is measured - the smaller ones get only their latency measured, as a call's time is nearly all latency there")
-    parser.add_argument("--payload_size_in_gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If specified, only this payload is benchmarked instead of the --min-payload .. --max-payload range')
-    parser.add_argument("--profile_stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload_size_in_gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
+    parser.add_argument("--payload-size-in-gib", type=float, default=None, help='payload size in GiBs, e.g. 4 (4GiB). If specified, only this payload is benchmarked instead of the --min-payload .. --max-payload range')
+    parser.add_argument("--profile-stability", action="store_true", help="Reports individual results for each non-warmup iteration. Requires --payload-size-in-gib. This is used to test the stability of performance, rather than reporting an averaged outcome.")
     parser.add_argument("--with-host-overhead", action="store_true", help="time 1 call per trial on an idle device, which adds PyTorch's per-call host overhead to every call - what a collective that the program waits on (a sync point) costs")
     parser.add_argument("--sym-mem", action="store_true", help="use buffers registered as an NCCL symmetric memory window (torch>=2.12, NCCL>=2.29), the equivalent of nccl-tests' -R 2. Use only if the target workload uses symmetric memory buffers too")
     parser.add_argument("--cta-policy", choices=["default", "efficiency", "zero"], default="default", help="the NCCL CTA policy of the process group (NCCL>=2.28), which sets how many SMs NCCL gives each collective, up to the limit that the NCCL_MAX_CTAS env var can lower: `default` the ones that give it its best speed, `efficiency` the fewest that still give it a decent one, `zero` none whenever it can, which with --sym-mem runs all_gather and all_to_all on the copy engines within a node. The SMs a collective doesn't take are left to the compute kernels running alongside it")
 
-    args = parser.parse_args()
+    # the underscore spellings these flags had before, so that existing commands keep working
+    args = parser.parse_args(old_spellings(sys.argv[1:], ("--num_iterations", "--num_warmup_iterations",
+                                                          "--payload_size_in_gib", "--profile_stability")))
     args.collectives = collective_names(args.collectives)
 
     if args.min_payload > args.max_payload:
         raise ValueError(f"--min-payload {fmt_bytes(args.min_payload)} is larger than --max-payload {fmt_bytes(args.max_payload)}")
 
     if args.profile_stability and args.payload_size_in_gib is None:
-        raise ValueError("--profile_stability requires --payload_size_in_gib to profile one specific payload, e.g. to profile a 0.5GiB payload use: --profile_stability --payload_size_in_gib 0.5")
+        raise ValueError("--profile-stability requires --payload-size-in-gib to profile one specific payload, e.g. to profile a 0.5GiB payload use: --profile-stability --payload-size-in-gib 0.5")
 
 
 if __name__ == "__main__":

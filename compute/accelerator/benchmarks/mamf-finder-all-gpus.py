@@ -7,7 +7,7 @@ budget; measured with idle siblings it gets headroom a full node never has. So t
 while every GPU not being measured runs a continuous bf16 matmul that keeps it at its power limit:
 
   1. GPU0: the full mamf-finder.py search (console shown) -> MAMF, MSMF and their shapes
-  2. every other GPU in turn: those 1-2 shapes pinned (--shapes_file), while the others, GPU0 included, run the matmul
+  2. every other GPU in turn: those 1-2 shapes pinned (--shapes-file), while the others, GPU0 included, run the matmul
   3. summary: per-GPU MAMF and MSMF; node MAMF and MSMF = the median across GPUs, so one weak or strong chip doesn't
      set the node's figure; the slowest GPU, which synchronous training runs at, and the spread; warnings for GPUs
      whose MSMF window wasn't steady, ran much hotter than the coolest GPU's, or drew well under the highest power
@@ -26,11 +26,11 @@ Run it with the python whose torch you want measured: mamf-finder.py and the mat
 Your arguments go to the mamf-finder.py runs:
 
   step 1, GPU0:          mamf-finder.py with all your arguments, i.e. the full search you asked for.
-  step 2, GPU1, GPU2...: one at a time, mamf-finder.py on GPU0's MAMF and MSMF shapes only (--shapes_file), with your
+  step 2, GPU1, GPU2...: one at a time, mamf-finder.py on GPU0's MAMF and MSMF shapes only (--shapes-file), with your
                          remaining arguments (--dtype etc.). Your shape selection (--m/--n/--k, --*_range,
-                         --shapes_file, --search) is dropped there, since the shapes are already chosen.
+                         --shapes-file, --search) is dropped there, since the shapes are already chosen.
 
-The script sets --cuda_device, --output_file and --verbose/--no-verbose per run itself, so passing any of them is an
+The script sets --cuda-device, --output-file and --verbose/--no-verbose per run itself, so passing any of them is an
 error.
 
 Examples:
@@ -41,7 +41,7 @@ Examples:
   python mamf-finder-all-gpus.py --dtype float8_e4m3fn
       The same for fp8.
 
-  python mamf-finder-all-gpus.py --m_range 2048 8193 256 --n 4096 --k 4096
+  python mamf-finder-all-gpus.py --m-range 2048 8193 256 --n 4096 --k 4096
       GPU0 searches only your model's shape range; then each other GPU in turn measures the shapes GPU0 found.
 
   CUDA_VISIBLE_DEVICES=0,1,2,3 python mamf-finder-all-gpus.py
@@ -79,8 +79,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 FINDER = HERE / "mamf-finder.py"
-SET_PER_RUN = ("--output_file", "--cuda_device", "--verbose", "--no-verbose")
-SHAPE_SELECTION = ("--m", "--n", "--k", "--m_range", "--n_range", "--k_range", "--shapes_file", "--search")
+# with the underscore spellings these flags had before, which mamf-finder.py still takes
+SET_PER_RUN = ("--output-file", "--cuda-device", "--verbose", "--no-verbose", "--output_file", "--cuda_device")
+SHAPE_SELECTION = ("--m", "--n", "--k", "--m-range", "--n-range", "--k-range", "--shapes-file", "--search",
+                   "--m_range", "--n_range", "--k_range", "--shapes_file")
 HEADLINE = re.compile(r"^(MAMF|MSMF) \(max [^)]*\):\s+([\d.]+) TFLOPS @ (\d+x\d+x\d+) \(MxNxK\)"
                       r"(?:\s+(\d+)W)?(?:\s+(\d+)MHz)?(?:\s+(\d+)C)?")
 IDLE_SHARE = re.compile(r"Share of the time each was idle: (.*)")
@@ -190,7 +192,7 @@ def run_finder(gpu, args, out_dir):
     log = out_dir / f"gpu{gpu}.txt"
     # the child gets this interpreter's flags, e.g. -I, or it may import other packages than this process does
     cmd = [sys.executable, *subprocess._args_from_interpreter_flags(), str(FINDER), *args,
-           "--cuda_device", str(gpu), "--output_file", str(log)]
+           "--cuda-device", str(gpu), "--output-file", str(log)]
     if gpu == 0:
         finder = subprocess.Popen(cmd)
     else:
@@ -336,7 +338,7 @@ def main():
     shapes = list(dict.fromkeys(gpu0[key]["shape"] for key in ("MAMF", "MSMF") if key in gpu0))
     shapes_file = out_dir / "shapes.txt"
     shapes_file.write_text("".join(f"{s}\n" for s in shapes))
-    pinned = [*without_shape_selection(args), "--shapes_file", str(shapes_file)]
+    pinned = [*without_shape_selection(args), "--shapes-file", str(shapes_file)]
 
     failed = []
     if num_gpus > 1 and not interrupted:

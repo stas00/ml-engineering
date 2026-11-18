@@ -21,7 +21,7 @@ differ only in HOW the candidate shapes are chosen:
   within it. This is the practical case — find the best (and most sustainable)
   shape for a model you're actually running:
 
-python mamf-finder.py --m_range 0 20480 256 --n 4096 --k 4096 --output_file=$(date +'%Y-%m-%d-%H:%M:%S').txt
+python mamf-finder.py --m-range 0 20480 256 --n 4096 --k 4096 --output-file=$(date +'%Y-%m-%d-%H:%M:%S').txt
 
 For the auto search, discussion, and important nuances see:
 https://github.com/stas00/ml-engineering/tree/master/compute/accelerator/benchmarks#maximum-achievable-and-sustainable-matmul-flops-finder
@@ -159,7 +159,7 @@ class Arch:
             f"{method}(); implement it, or set telemetry_backend=None to opt out.")
 
     def telemetry_init(self, index):
-        """Acquire and return an opaque per-device handle. `index` is --cuda_device, for the archs that can't find the
+        """Acquire and return an opaque per-device handle. `index` is --cuda-device, for the archs that can't find the
         device torch uses by its PCI address."""
         self._telemetry_required("telemetry_init")
 
@@ -1778,7 +1778,7 @@ def search_setup(args):
             missing = [name for name, vals, rng in dims if vals is None and rng is None]
             if missing:
                 sys.exit(f"error: --search grid requires shapes for: {', '.join(missing)} (use --m/--n/--k, "
-                         "--m_range/--n_range/--k_range, or --shapes_file)")
+                         "--m-range/--n-range/--k-range, or --shapes-file)")
             shapes = list(itertools.product(*(resolve_dim(vals, rng) for _, vals, rng in dims)))
             range_info = " | ".join(f"{name}={','.join(map(str, vals)) if vals is not None else f'range{tuple(rng)}'}"
                                     for name, vals, rng in dims)
@@ -1795,7 +1795,7 @@ def search_setup(args):
     if arch.gemm_tile_hint is None or not arch.compute_unit_count():
         sys.exit(f"error: --search auto derives its shapes from the GPU's compute-unit layout, which mamf-finder.py "
                  f"doesn't model for {arch.name!r}; search an explicit range instead with --m/--n/--k (or "
-                 "--m_range/--n_range/--k_range) or --shapes_file")
+                 "--m-range/--n-range/--k-range) or --shapes-file")
     if not arch.geometry_validated and arch.geometry_checked:
         print(f"note: --search auto was checked against an exhaustive grid only on {arch.geometry_checked}; on "
               "other GPUs and dtypes compare it with a small --search grid before trusting the shapes it picks")
@@ -1931,6 +1931,17 @@ class _HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
         return "\n\n".join(super(_HelpFormatter, self)._fill_text(p, width, indent) for p in text.split("\n\n"))
 
 
+OLD_SPELLINGS = ("--m_range", "--n_range", "--k_range", "--shapes_file", "--cuda_device", "--output_file")
+
+
+def old_spellings(argv, old):
+    """argv with each of the old flags, alone or as --flag=value, spelled with dashes"""
+    def fix(a):
+        flag, eq, value = a.partition("=")
+        return flag.replace("_", "-") + eq + value if flag in old else a
+    return [fix(a) for a in argv]
+
+
 def parse_args():
     """Return the parsed args; the search/confirm knobs are in `args.tune` (see Tuning)."""
     parser = argparse.ArgumentParser(
@@ -1952,14 +1963,14 @@ def parse_args():
     for dim, desc in (("m", "first dimension"), ("n", "last dimension"), ("k", "shared (reduction) dimension")):
         g = what.add_mutually_exclusive_group()
         g.add_argument(f"--{dim}", nargs="+", type=int, help=f"grid: the GEMM's {desc}, one or more values")
-        g.add_argument(f"--{dim}_range", nargs="+", type=int, metavar="N",
+        g.add_argument(f"--{dim}-range", nargs="+", type=int, metavar="N",
                        help=f"grid: the GEMM's {desc} as START STOP [STEP]")
-    what.add_argument("--shapes_file", type=str,
+    what.add_argument("--shapes-file", type=str,
                       help="grid: exact M,N,K shapes, one per line (MxNxK, commas or spaces), instead of the "
                            "product of --m/--n/--k")
 
     run = parser.add_argument_group("how to run")
-    run.add_argument("--cuda_device", type=int, default=0, help="index of the device to measure")
+    run.add_argument("--cuda-device", type=int, default=0, help="index of the device to measure")
     run.add_argument("--telemetry", choices=["on", "off"], default="on",
                      help="sample power and SM clock to validate both headlines; off runs without validation")
     run.add_argument("--tune", action="append", default=[], metavar="NAME=VALUE",
@@ -1967,12 +1978,13 @@ def parse_args():
                           "Tuning class of this script")
 
     out = parser.add_argument_group("output")
-    out.add_argument("--output_file", type=str, default=f"{file_dir}/results/mm.out", help="log file")
+    out.add_argument("--output-file", type=str, default=f"{file_dir}/results/mm.out", help="log file")
     out.add_argument("--notes", type=str, default="", help="text to add to the log's header")
     out.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction,
                      help="also print the log to the console")
 
-    args = parser.parse_args()
+    # the underscore spellings these flags had before, so that existing commands keep working
+    args = parser.parse_args(old_spellings(sys.argv[1:], OLD_SPELLINGS))
     try:
         args.tune = Tuning.from_overrides(args.tune)
     except ValueError as e:

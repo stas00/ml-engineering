@@ -479,14 +479,14 @@ cluster-a-0      1    404.06   -0.2/ +0.1%   +3.1/ +3.2%   -0.5/ -0.5%   -0.5/ -
 cluster-a-0      4    404.02   -0.2/ -0.0%   -0.8/ -0.3%   +0.1/ +0.3%   +0.0/ +0.0%      1597        1185      895     67          100%
 cluster-a-2      5    400.18   -0.8/ -0.2%   -0.4/ -0.1%   -0.4/ -0.4%   -0.4/ -0.4%      1597        1140      888     61          100%
 cluster-a-0      5    399.34   -1.3/ -1.0%   -1.1/ -0.4%   -0.9/ -0.8%   -0.5/ -0.5%      1620        1177      890     58          100%
-... and 20 more GPUs, step -0.7 to +1.0% in their 90th percentile windows (--unflagged_rows -1 prints them)
+... and 20 more GPUs, step -0.7 to +1.0% in their 90th percentile windows (--unflagged-rows -1 prints them)
 
 1 straggler(s) - report them by UUID and serial, which don't change with the node name or the GPU's index:
   cluster-a-3 GPU 3: unsteady in step: its 90th percentile window 2.3% slower than its median one (z 17.6) - uuid GPU-00000000-1111-2222-3333-444444444444, serial 1650000000001, pci 00000000:63:00.0
 a straggler is any of
   slow: a 90th percentile window above a modified z-score of 3.5 among the GPUs measured, and more than 1% slower than its node's median GPU (--outlier, --threshold)
   unsteady: a 90th percentile window more than 1.25% slower than its own median window, above a modified z-score of 3.5 among the GPUs measured (--unsteady)
-  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow_node)
+  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow-node)
 
 runtimes:
   setup: allocating and filling the buffers     12.8s
@@ -512,7 +512,7 @@ no straggler - per workload, the slowest 90th percentile window, and the largest
 a straggler is any of
   slow: a 90th percentile window above a modified z-score of 3.5 among the GPUs measured, and more than 1% slower than its node's median GPU (--outlier, --threshold)
   unsteady: a 90th percentile window more than 1.25% slower than its own median window, above a modified z-score of 3.5 among the GPUs measured (--unsteady)
-  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow_node)
+  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow-node)
 ```
 
 The slowest matmul is again that of `cluster-a-0` GPU 1, 3.4% slower than its node's median GPU, at a modified z-score of 3.2, under the 3.5 that would flag it.
@@ -543,7 +543,7 @@ Here is how the straggler in the report above was found on a 4 8x B200 node job,
      CUDA_VISIBLE_DEVICES=$g torchrun --nproc_per_node=1 \
        --rdzv_backend c10d --rdzv_endpoint localhost:$((9500+g)) \
        comm-compute-overlap-bench.py --pattern ddp --layers 32 \
-       --tokens 8192 --num_iterations 20 \
+       --tokens 8192 --num-iterations 20 \
        >> console-$(hostname)-gpu$g.txt 2>&1 &
    done
    wait
@@ -570,7 +570,7 @@ clocks_event_reasons.sw_thermal_slowdown \
   --format=csv -lms 200 >> smi-$(hostname).csv &
 ```
 
-GPU 3 was slow again - 404.78ms against 383.65-389.92ms. Under the load all 8 GPUs were held back by their 1000 W power cap (`sw_power_cap` was active in 58-72% of the samples on each of them), and none of them throttled for temperature - GPU 3 peaked at 52°C, in the middle of its siblings' 50-59°C. But at the same power GPU 3 ran its SM clock at a median of 1462 MHz, against 1537-1574 MHz on the other 7 - 5% lower, while the memory clock was the same 3996 MHz on all 8. In the finder's run above, which samples the clock every 10ms, GPU 3 ran the step at 1560 MHz against its 7 siblings' 1575-1605 MHz, and the matmul at 1065 MHz, the lowest of the 32 GPUs, while its copy and stream, bound by the HBM bandwidth, ran at its siblings' speed - its report with `--unflagged_rows -1` lists every GPU's clock. None of its functions fail, which is why no diagnostic flags it - but in a synchronous job it slows every other GPU down to its pace.
+GPU 3 was slow again - 404.78ms against 383.65-389.92ms. Under the load all 8 GPUs were held back by their 1000 W power cap (`sw_power_cap` was active in 58-72% of the samples on each of them), and none of them throttled for temperature - GPU 3 peaked at 52°C, in the middle of its siblings' 50-59°C. But at the same power GPU 3 ran its SM clock at a median of 1462 MHz, against 1537-1574 MHz on the other 7 - 5% lower, while the memory clock was the same 3996 MHz on all 8. In the finder's run above, which samples the clock every 10ms, GPU 3 ran the step at 1560 MHz against its 7 siblings' 1575-1605 MHz, and the matmul at 1065 MHz, the lowest of the 32 GPUs, while its copy and stream, bound by the HBM bandwidth, ran at its siblings' speed - its report with `--unflagged-rows -1` lists every GPU's clock. None of its functions fail, which is why no diagnostic flags it - but in a synchronous job it slows every other GPU down to its pace.
 
 It was also slow only some of the time. With the same 32-layer step followed by 100ms of idle each time, started on GPUs that had been idle for 2 minutes, GPU 3 was 3-4% slower than its 7 siblings for the first 20-25 seconds and about 1% slower for the rest of the minute, while in the traces and the clock log it stayed about 5% slower throughout. A check that reports a GPU's best or typical speed can miss it - mamf-finder's MAMF is the median of a shape's 5 fastest runs - so time a prolonged run and judge each GPU by its worst stretches.
 

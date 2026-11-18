@@ -324,17 +324,17 @@ Passing the gate doesn't clear a GPU: on 4 nodes of 8× B200 the GPU the finder 
 `gpu-straggler-finder.py` runs 4 workloads on every GPU of every node at once, with no communication between the GPUs while it times them: a Llama-3.1-8B training step (its 32 decoder layers on one 8192-token sequence, forward and backward, each step followed by a 100 ms idle) for 60 s, then for 30 s each a back-to-back matmul (8192³ bf16), a device-to-device `cudaMemcpy` and a kernel adding 2 HBM buffers into a third. It cuts each workload into 2 s windows and divides every GPU's time by its node's median GPU's in the same window, and compares each node's median GPU with the median node's. `pip install nvidia-ml-py` in the eval venv first, for its clock, power and temperature columns; without it only the timings are reported.
 
 ```bash
-# 1 node; --unflagged_rows -1 keeps every GPU's row in the console, the raw record the report links to
-"$PY" gpu-straggler-finder.py --unflagged_rows -1 --json straggler.json > straggler.console 2>&1
+# 1 node; --unflagged-rows -1 keeps every GPU's row in the console, the raw record the report links to
+"$PY" gpu-straggler-finder.py --unflagged-rows -1 --json straggler.json > straggler.console 2>&1
 # ≥2 nodes: the same command on every node at once, under torchrun; it gathers the results on rank 0 over gloo
 pdsh -w "$HOSTS" "cd $EVAL && GLOO_SOCKET_IFNAME=<iface> $PY -m torch.distributed.run --nnodes $NNODES \
   --nproc_per_node $G --rdzv_backend c10d --rdzv_endpoint $MASTER_ADDR:$PORT gpu-straggler-finder.py \
-  --unflagged_rows -1 --json $EVAL/straggler.json" > straggler.console 2>&1
+  --unflagged-rows -1 --json $EVAL/straggler.json" > straggler.console 2>&1
 ```
 
 One run took 3 min 10 s on 4 nodes of 8× B200. Under torchrun its exit code is always 0; the verdict is in the report it prints: `no straggler`, or `N straggler(s)` followed by one line per flagged GPU or node, with what it was flagged for, its numbers, and its UUID, serial and PCI bus id. A GPU is flagged when its 90th percentile window in a workload is above a modified z-score of 3.5 among all the GPUs and more than 1% slower than its node's median GPU, (**slow**), or when its 90th percentile window is more than 1.25% slower than its own median window, also above a modified z-score of 3.5 (**unsteady**: slow only some of the time); a node when its median GPU is more than 3% slower than the median node's.
 
-**One run cannot call a GPU under-performing either.** If the first run flags anything, run it again with `--repeat 3 --repeat_idle 120`, 12 minutes on 4 nodes of 8× B200. A GPU or node is under-performing only if it was flagged in **all 4** runs, in the same workload; report it in **Findings** as described there. One flagged in some of the runs goes in this section only, in one sentence with the runs it was flagged in and its numbers in each. On 4 nodes of 8× B200 a GPU 3.3% slow in the matmul alone, at the lowest matmul clock of the 32 under the power cap and normal in the step, was flagged in 2 runs of 4.
+**One run cannot call a GPU under-performing either.** If the first run flags anything, run it again with `--repeat 3 --repeat-idle 120`, 12 minutes on 4 nodes of 8× B200. A GPU or node is under-performing only if it was flagged in **all 4** runs, in the same workload; report it in **Findings** as described there. One flagged in some of the runs goes in this section only, in one sentence with the runs it was flagged in and its numbers in each. On 4 nodes of 8× B200 a GPU 3.3% slow in the matmul alone, at the lowest matmul clock of the 32 under the power cap and normal in the step, was flagged in 2 runs of 4.
 
 - A run that stops early or prints `inf or NaN` is a dead or broken card: name it from the console and put it under **Underperforming subsystems**.
 - `stall` lines name windows in which all of a node's GPUs slowed at once, which the comparisons leave out; report them per node, as they slow a job too, but they are not a GPU's fault.
