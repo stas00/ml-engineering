@@ -125,7 +125,7 @@ By default each trial keeps the GPU busy for ~2ms, queues up to 10 back-to-back 
 
 These bandwidth trials record a CUDA event only before the first call and after the last. The [latency](#latency) is measured by separate trials with an event after every call, because an event recorded between two queued calls slows them down: on an 8x B200 node a 1MiB all-reduce takes 35µs with one and 30µs without, and `nccl-tests` shows the same difference between its `-I 1` and its default timing. Timing the bandwidth with the per-call events would cost an all-reduce 9-13% of its bandwidth from 8KiB to 2MiB there, and the [other collectives](#other-collectives) up to 35%.
 
-Here are the measurements on the same 8x H200 node as the plot above, next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - it is what code calling NCCL API directly:
+Here are the measurements on the same 8x H200 node as the plot in [torch-dist-bench](#torch-dist-bench), next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - which is what code calling the NCCL API directly gets:
 
 | payload | default    | nccl-tests | difference |
 | ------: | ---------: | ---------: | ---------: |
