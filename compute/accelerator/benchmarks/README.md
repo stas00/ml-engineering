@@ -89,7 +89,7 @@ export PYTORCH_TUNABLEOP_ENABLED=1
 ```
 This will make the first iteration very slow, while it's searching for the best GEMM algorithm in the BLAS libraries for each `matmul` shape it encounters, but subsequent operations are likely to be significantly faster than the baseline. See [Accelerating models on ROCm using PyTorch TunableOp](https://rocm.blogs.amd.com/artificial-intelligence/pytorch-tunableop/README.html) [doc](https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md). On ROCm 10, tuning a new shape takes ~2 minutes, which would turn a ~2,000-shape search into days, so `mamf-finder.py` pauses tuning while it searches (the default kernel is within ~1–2% on good shapes, close enough to rank them) and tunes only the shapes it confirms, before timing them. `--tune tunableop_confirm_max=N` (default 8) caps how many shapes that is; a BF16 `--search auto` run on MI300X then needs about 5 minutes of search plus ~16 minutes of tuning.
 
-On ROCm, `--search auto` prints a note that it was checked against an exhaustive grid only on one MI300X in BF16, where it came within 0.1% of a 16,000-shape grid. A newer stack can move the winning shape rather than the peak: `10240x15360x8192` dropped from 663.6 (ROCm 6.3, torch 2.5.1) to 625.5 (ROCm 10, torch 2.12) while `12288x9728x8192` held ~660 on both, so re-search after a stack upgrade instead of re-timing the old winner. Pick the GPU with `--cuda-device N`, not `HIP_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES`: on some virtualized MI300X hosts, hiding GPU0 left torch with no usable device.
+On ROCm, `--search auto` prints a note that it was checked against an exhaustive grid only on one MI300X in BF16, where it came within 0.1% of a 16,000-shape grid. A newer stack can move the winning shape rather than the peak: `10240x15360x8192` dropped from ~664 (ROCm 6.3, torch 2.5.1) to ~626 (ROCm 10, torch 2.12) while `12288x9728x8192` held ~660 on both, so re-search after a stack upgrade instead of re-timing the old winner. Pick the GPU with `--cuda-device N`, not `HIP_VISIBLE_DEVICES` / `ROCR_VISIBLE_DEVICES`: on some virtualized MI300X hosts, hiding GPU0 left torch with no usable device.
 
 **Intel dGPUs (A770, A750, B580, etc.)**
 - Follow Intel Extension for PyTorch [installation steps](https://pytorch-extension.intel.com/installation?platform=gpu)
@@ -254,7 +254,9 @@ If you get a better MAMF or MSMF than the [table](../README.md#maximum-achievabl
 
 ## Straggler finder
 
-[gpu-straggler-finder.py](gpu-straggler-finder.py) finds straggler GPUs: GPUs that pass every diagnostic but run slower than their peers, which slows any job that runs its GPUs in lockstep, training or parallel inference, down to their pace. It runs the same training step, by default a Llama-3.1-8B one - its 32 decoder layers, forward and backward, on one 8192-token sequence - on every GPU at once, with no communication between them, then a matmul and two memory-bandwidth workloads, compares each GPU with its node's median GPU and each node with the median node in the same 2-second windows, and flags every GPU that is slower than its peers, or than itself the rest of the time, in its slowest stretches of any of them, with the UUID, serial and PCI bus id to report it by. [How to find a straggler GPU](../nvidia/debug.md#how-to-find-a-straggler-gpu) walks through the case it was written for, a B200 GPU that neither `mamf-finder.py` nor DCGM flagged, and shows the script's report on 4 nodes, that GPU's among them. It is one of the compute passes of [How to evaluate the cluster](../../../insights/how-to-choose-cloud-provider.md#how-to-evaluate-the-cluster), which runs it on every GPU of every node of a trial allocation.
+A straggler is a GPU that works correctly but slower than its peers. It throws no Xid errors, its health counters read clean, and nothing crashes, yet in any job that runs its GPUs in lockstep - training, or inference with tensor, expert or pipeline parallelism - every GPU waits for the slowest one at each collective, so the whole job runs at the slow GPU's pace.
+
+[gpu-straggler-finder.py](gpu-straggler-finder.py) finds them in one run. It runs the same training step, by default a Llama-3.1-8B one - its 32 decoder layers, forward and backward, on one 8192-token sequence - on every GPU at once, with no communication between them, then a matmul and two memory-bandwidth workloads, compares each GPU with its node's median GPU and each node with the median node in the same 2-second windows, and flags every GPU that is slower than its peers, or than itself the rest of the time, in its slowest stretches of any of them, with the UUID, serial and PCI bus id to report it by. [How one straggler was found](#how-one-straggler-was-found) walks through the case it was written for: a B200 GPU that neither `mamf-finder.py` nor DCGM flagged, yet it made the compute part of every step of a 32-GPU job 3-4% slower. It is one of the compute passes of [How to evaluate the cluster](../../../insights/how-to-choose-cloud-provider.md#how-to-evaluate-the-cluster), which runs it on every GPU of every node of a trial allocation.
 
 ```bash
 python gpu-straggler-finder.py  # all the GPUs of one node
@@ -262,7 +264,87 @@ torchrun --nnodes 4 --nproc_per_node 8 --rdzv_backend c10d \
     --rdzv_endpoint $MASTER_ADDR:29500 gpu-straggler-finder.py
 ```
 
-Run it on GPUs that have been idle for a minute or two: it times the step for 60 seconds from its 4th step, since the straggler it was tuned on was slow only some of the time - in one run mostly in the first 20-25 seconds after the load started. The whole run takes about 3 minutes. `--repeat 3` runs it 3 more times, 2 minutes idle apart, for a GPU that is slow only some of the time, and `--baseline` with the `--json` files of runs on known-good nodes checks a single node, or 2, which comparing them with each other can't tell apart. On a GPU with less memory than a B200 lower `--layers` or `--seqlen`, and `--help` lists the other settings. The timings work on any accelerator that `torch.accelerator` supports. The clock, power and temperature columns need a vendor telemetry backend, and only NVIDIA's (`pip install nvidia-ml-py`) is implemented so far.
+Each GPU is judged by its 90th percentile window, the one only a tenth of its windows are slower than. A GPU is flagged as slow when that window in any workload is an outlier among all the GPUs - a [modified z-score](https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm) above 3.5 - and more than 1% slower than its node's median GPU, and as unsteady when that window is more than 1.25% slower than its own median window and an outlier too. A node is flagged as slow when its median GPU's 90th percentile window is more than 3% slower than the median node's.
+
+Run it on GPUs that have been idle for a minute or two: it times the step for 60 seconds from its 4th step, since a straggler can be slow only some of the time - the one in [How one straggler was found](#how-one-straggler-was-found) mostly in the first 20-25 seconds after the load started. The whole run takes about 3 minutes. A GPU that is slow only some of the time can pass a single run, so if the first run flags anything, run it 3 more times with `--repeat 3`, 2 minutes idle apart, which took 12 minutes on 4 nodes, and take a GPU flagged in all 4 runs to be a straggler. On 1 or 2 nodes there are too few nodes to tell which one is slow, so give `--baseline` the `--json` files of earlier runs on known-good nodes to compare them with. On a GPU with less memory than a B200 lower `--layers` or `--seqlen`, and `--help` lists the other settings.
+
+The finder is currently NVIDIA-only, but it can easily be extended to other vendors. Only its telemetry is vendor-specific: the timings use `torch.accelerator`, while the clock, power and temperature columns and the UUID and serial come from NVIDIA's NVML library (`pip install nvidia-ml-py`). Supporting another vendor, e.g. AMD through its `amdsmi` library, takes one subclass of the script's `Telemetry` class, as `NVIDIATelemetry` is for NVML. Without telemetry the script reports only the timings, which is all that is needed to find a straggler, but it hasn't been run on another vendor's accelerators yet.
+
+Here is its report on 4 nodes of 8x B200, one of them the node of the straggler in [How one straggler was found](#how-one-straggler-was-found), on GPUs that had been idle for a minute:
+
+```
+measuring 32 GPUs at once: the training step for 60s, then a matmul, a memory copy and a memory stream for 30s each - about 2m50s in all
+
+setup: allocating and filling the buffers ...
+setup: allocating and filling the buffers: done in 12.8s
+gathering the results ...
+gathering the results: done in 0.4s
+
+32 GPUs (NVIDIA B200), 4 node(s)
+step: 32x decoder layer h=4096 ffn=14336 heads=32/8, 1x8192 tokens, bf16, forward+backward, 100ms idle after each step - median 404.85ms, fastest 399.34ms, slowest 411.96ms, spread 3.2%, median absolute deviation 2.22ms
+matmul: 8192x8192x8192 bf16 back to back for 30s - median 1315 TFLOPS, slowest 1264, fastest 1343, spread 6.2%
+copy: a 1024MiB cudaMemcpy within each GPU's memory for 30s - median 6444 GB/s read+written, slowest 6398, fastest 6494, spread 1.5%
+stream: c = a + b on 1024MiB buffers, on the SMs, for 30s - median 6966 GB/s read+written, slowest 6920, fastest 7006, spread 1.2%
+each node's median GPU vs the median node's in the same 2s window, + is slower: the median window / the 90th percentile window
+
+node                   step        matmul          copy        stream
+cluster-a-3     +0.6/ +0.9%   +1.3/ +1.4%   +0.2/ +0.2%   +0.2/ +0.2%
+cluster-a-0     +0.1/ +0.2%   +0.2/ +0.3%   -0.1/ -0.1%   +0.0/ +0.0%
+cluster-a-1     -0.2/ -0.1%   -0.8/ -0.6%   +0.1/ +0.1%   -0.0/ +0.0%
+cluster-a-2     -0.3/ -0.1%   -0.2/ -0.1%   -0.1/ -0.1%   -0.1/ -0.1%
+
+each workload in 2s windows, each GPU's time vs its node's median GPU's in the same window, + is slower: the median window / the 90th percentile window
+
+node           GPU   step ms          step        matmul          copy        stream  step MHz  matmul MHz  power W  max C  power-capped  other limits
+cluster-a-3      3    411.96   +1.0/ +3.4%   +3.2/ +3.4%   -0.3/ -0.3%   -0.1/ -0.1%      1560        1065      889     61          100%    <-- straggler: step unsteady
+cluster-a-1      4    407.85   +1.1/ +1.4%   +2.2/ +2.7%   +0.5/ +0.6%   +0.5/ +0.5%      1567        1102      894     66          100%
+cluster-a-2      2    406.95   +0.9/ +1.3%   +0.3/ +0.8%   +0.6/ +0.6%   +0.5/ +0.5%      1582        1192      894     69          100%
+cluster-a-2      6    405.86   +0.7/ +1.1%   +0.3/ +0.5%   +0.6/ +0.6%   +0.5/ +0.5%      1582        1170      895     71          100%
+cluster-a-0      3    407.33   +0.6/ +1.1%   +1.0/ +1.3%   -0.1/ -0.1%   -0.0/ -0.0%      1575        1140      890     60          100%
+cluster-a-2      0    405.97   +0.7/ +1.1%   -0.3/ -0.1%   +0.6/ +0.6%   +0.5/ +0.5%      1590        1162      892     70          100%
+cluster-a-1      6    406.56   +0.6/ +1.0%   +0.9/ +1.2%   +0.6/ +0.6%   +0.6/ +0.7%      1590        1185      896     69          100%
+cluster-a-0      0    406.52   +0.4/ +0.9%   +0.7/ +0.9%   +0.7/ +0.7%   +0.6/ +0.6%      1590        1102      895     71          100%
+cluster-a-0      1    404.06   -0.2/ +0.1%   +3.1/ +3.2%   -0.5/ -0.5%   -0.5/ -0.5%      1612        1080      885     60          100%
+cluster-a-0      4    404.02   -0.2/ -0.0%   -0.8/ -0.3%   +0.1/ +0.3%   +0.0/ +0.0%      1597        1185      895     67          100%
+cluster-a-2      5    400.18   -0.8/ -0.2%   -0.4/ -0.1%   -0.4/ -0.4%   -0.4/ -0.4%      1597        1140      888     61          100%
+cluster-a-0      5    399.34   -1.3/ -1.0%   -1.1/ -0.4%   -0.9/ -0.8%   -0.5/ -0.5%      1620        1177      890     58          100%
+... and 20 more GPUs, step -0.7 to +1.0% in their 90th percentile windows (--unflagged-rows -1 prints them)
+
+1 straggler(s) - report them by UUID and serial, which don't change with the node name or the GPU's index:
+  cluster-a-3 GPU 3: unsteady in step: its 90th percentile window 2.3% slower than its median one (z 17.6) - uuid GPU-00000000-1111-2222-3333-444444444444, serial 1650000000001, pci 00000000:63:00.0
+a straggler is any of
+  slow: a 90th percentile window above a modified z-score of 3.5 among the GPUs measured, and more than 1% slower than its node's median GPU (--outlier, --threshold)
+  unsteady: a 90th percentile window more than 1.25% slower than its own median window, above a modified z-score of 3.5 among the GPUs measured (--unsteady)
+  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow-node)
+
+runtimes:
+  setup: allocating and filling the buffers     12.8s
+  step                                          1m27s
+  matmul                                        30.3s
+  copy                                          30.0s
+  stream                                        30.0s
+  gathering the results                          0.4s
+  report                                         0.3s
+  total                                         3m13s
+```
+
+GPU 3 of `cluster-a-3` is flagged as unsteady: its step's 90th percentile window was 3.4% slower than its node's median GPU, while its median window was 1.0% slower, and no other GPU's 90th percentile step window was more than 1.4% slower. Its matmul ran 3.2-3.4% slower too, but so did that of `cluster-a-0` GPU 1, 3.1-3.2%, whose step ran at full speed, so the matmul alone couldn't tell the straggler from a healthy GPU.
+
+On 4 healthy nodes, `cluster-a-0` to `cluster-a-2` with `cluster-a-4` in place of `cluster-a-3`, its report ends instead with:
+
+```
+no straggler - per workload, the slowest 90th percentile window, and the largest gap between a GPU's 90th percentile and median windows:
+  step: slowest cluster-a-4 GPU 7 +1.9% (z 2.1), least steady cluster-a-0 GPU 5 +0.5% (z 1.5), slowest node cluster-a-0 +0.7%
+  matmul: slowest cluster-a-0 GPU 1 +3.4% (z 3.2), least steady cluster-a-4 GPU 3 +0.7% (z 2.4), slowest node cluster-a-0 +0.9%
+  copy: slowest cluster-a-0 GPU 0 +0.8% (z 1.7), least steady cluster-a-0 GPU 5 +0.2% (z 9.6), slowest node cluster-a-1 +0.3%
+  stream: slowest cluster-a-1 GPU 6 +0.7% (z 1.4), least steady cluster-a-4 GPU 2 +0.0% (z 4.8), slowest node cluster-a-1 +0.1%
+a straggler is any of
+  slow: a 90th percentile window above a modified z-score of 3.5 among the GPUs measured, and more than 1% slower than its node's median GPU (--outlier, --threshold)
+  unsteady: a 90th percentile window more than 1.25% slower than its own median window, above a modified z-score of 3.5 among the GPUs measured (--unsteady)
+  slow node: its median GPU's 90th percentile window more than 3% slower than the median node's (--slow-node)
+```
+
+[How to find a straggler GPU](../nvidia/debug.md#how-to-find-a-straggler-gpu) shows how to record a flagged NVIDIA GPU and report it to the provider.
 
 On 2 or more nodes it also sorts the nodes by their slowest GPU, the fastest node first. `--hostfile-to-sort` takes a hostfile - the file that a launcher such as `deepspeed` or `mpirun` reads the job's nodes from, one per line - and writes its lines in that order to the same path with `-fast-to-slow` appended. Its first lines are then the fastest nodes, so that a job that needs fewer nodes than were allocated can run on those - here 2 of 4:
 
@@ -273,7 +355,7 @@ head -2 hostfile-fast-to-slow > hostfile-fast
 deepspeed --hostfile hostfile-fast train.py
 ```
 
-A hostfile line is matched to a node by its first word, the node's hostname or one of its IP addresses, as in `10.0.0.1 slots=8`. Here is the list for the 4 nodes of the report in [How to find a straggler GPU](../nvidia/debug.md#how-to-find-a-straggler-gpu):
+A hostfile line is matched to a node by its first word, the node's hostname or one of its IP addresses, as in `10.0.0.1 slots=8`. Here is the list for the 4 nodes of the report above:
 
 ```
 nodes fastest first, by their pace in a job that runs the GPUs in lockstep: the slowest GPU's step in each 2s window, at the 90th percentile window - a node with a flagged GPU, or flagged itself, after the others:
@@ -284,3 +366,49 @@ nodes fastest first, by their pace in a job that runs the GPUs in lockstep: the 
 ```
 
 A job on all 4 nodes would run at `cluster-a-3`'s pace, 2.5% slower than a job on the other 3.
+
+### How one straggler was found
+
+Here is how the straggler in the report above was found on a 4 8x B200 node job, while re-measuring [comm-compute-overlap-bench.py](../../../network/benchmarks/comm-compute-overlap-bench.py). The symptom was that the compute part of every step came out 12-18ms (3-4%) above what the same benchmark had measured on a different 4-node allocation two days earlier - e.g. the `ddp` step at 8192 tokens took ~404ms against ~391ms.
+
+1. Rule out the network. The same benchmark also times the communication alone, and that matched the earlier allocation within 0.5% (~141ms on both). So the network wasn't slower - the GPUs were.
+
+2. Run the same workload on each node alone, all the nodes at once. 3 nodes took ~388-389ms and one took ~404ms, which is the slowdown of the 4-node job - so a single node was setting the pace for all 4.
+
+3. Run the same workload on each GPU alone, all the GPUs at once - 8 separate 1-GPU processes per node, on all the nodes, each with its own rendezvous port:
+
+   ```bash
+   for g in 0 1 2 3 4 5 6 7; do
+     CUDA_VISIBLE_DEVICES=$g torchrun --nproc_per_node=1 \
+       --rdzv_backend c10d --rdzv_endpoint localhost:$((9500+g)) \
+       comm-compute-overlap-bench.py --pattern ddp --layers 32 \
+       --tokens 8192 --num-iterations 20 \
+       >> console-$(hostname)-gpu$g.txt 2>&1 &
+   done
+   wait
+   ```
+
+   The 31 healthy GPUs took ~379-390ms (median ~385ms) and GPU 3 of the slow node took ~404ms - 5.1% above the median and 3.6% above the next slowest GPU. That gap is larger than the whole 2.9% spread of the other 31.
+
+4. Confirm it in a profiler trace of the multi-GPU job. In the [Nsight Systems](https://developer.nvidia.com/nsight-systems) (`nsys`) trace of the slow node, GPU 3 ran the very same kernels longer than the node's other 7 GPUs: the matmuls by 3.5-9%, flash attention by 4.2%, the reductions by 4.7% and the copies by 3.1%. The slowdown is spread over compute-bound and memory-bound kernels alike, which points at the GPU rather than at any one kernel, while its device-to-device memcpys, limited by the HBM bandwidth, ran within 2% of the other GPUs' - so the SMs were slow, not the memory.
+
+Running everything at once matters for two reasons. The GPUs share the node's power, cooling and PCIe switches, and a GPU that is fast when it runs alone can be slow when its neighbors are busy - which is how it is used in training. And measuring 32 GPUs one after another takes 32 times longer while the conditions drift between the runs.
+
+Use a workload that looks like your training step rather than a single matmul. [mamf-finder](#maximum-achievable-and-sustainable-matmul-flops-finder) ran on all 32 GPUs at once on this allocation, and it did rank GPU 3 the slowest of its node, at 1702 TFLOPS against the node's median of 1730 - but GPU 0 and GPU 4 of the same node reached 1703 and 1704 TFLOPS and ran the training step at full speed (~389ms each), and so did a GPU on another node that also reached 1702 TFLOPS (~387ms). GPU 3's maximum sustainable matmul FLOPS (MSMF) of 1419 TFLOPS wasn't even its node's lowest, GPU 0's 1417 was. A 3.5% spread in maximum achievable matmul FLOPS (MAMF) across 8 GPUs is normal (see [Silicon lottery](../README.md#silicon-lottery)), so by the matmul numbers alone GPU 3 looked like any other GPU at the low end of it. Under the sustained matmul it held 1417 MHz at 977 W, in the middle of its siblings' 1400-1452 MHz - its slowdown, described below, showed up only under the mix of a training step: matmuls of different shapes, attention, reductions and copies.
+
+The usual health checks didn't flag it either: PCIe ran at Gen5 x16, the power limit was 1000 W, there were no ECC errors or remapped rows, and no GPU reported a thermal or hardware slowdown. Nor did [DCGM](../nvidia/debug.md#running-diagnostics): `dcgmi diag -r 3` passed every one of its tests on all 8 GPUs of the slow node, GPU 3 included, which took 45 minutes. DCGM checks that each GPU works and clears a minimum, and a GPU that is 5% slower than its siblings still clears it.
+
+What showed the cause was logging the clocks every 200ms while the 8 runs of step 3 were repeated on the slow node:
+
+```bash
+nvidia-smi --query-gpu=timestamp,index,utilization.gpu,clocks.sm,\
+clocks.mem,power.draw,power.draw.instant,temperature.gpu,\
+clocks_event_reasons.active,clocks_event_reasons.sw_power_cap,\
+clocks_event_reasons.hw_slowdown,\
+clocks_event_reasons.sw_thermal_slowdown \
+  --format=csv -lms 200 >> smi-$(hostname).csv &
+```
+
+GPU 3 was slow again - ~405ms against ~384-390ms. Under the load all 8 GPUs were held back by their 1000 W power cap (`sw_power_cap` was active in 58-72% of the samples on each of them), and none of them throttled for temperature - GPU 3 peaked at 52°C, in the middle of its siblings' 50-59°C. But at the same power GPU 3 ran its SM clock at a median of 1462 MHz, against 1537-1574 MHz on the other 7 - 5% lower, while the memory clock was the same 3996 MHz on all 8. In the finder's run above, which samples the clock every 10ms, GPU 3 ran the step at 1560 MHz against its 7 siblings' 1575-1605 MHz, and the matmul at 1065 MHz, the lowest of the 32 GPUs, while its copy and stream, bound by the HBM bandwidth, ran at its siblings' speed - its report with `--unflagged-rows -1` lists every GPU's clock. None of its functions fail, which is why no diagnostic flags it - but in a synchronous job it slows every other GPU down to its pace.
+
+It was also slow only some of the time. With the same 32-layer step followed by 100ms of idle each time, started on GPUs that had been idle for 2 minutes, GPU 3 was 3-4% slower than its 7 siblings for the first 20-25 seconds and about 1% slower for the rest of the minute, while in the traces and the clock log it stayed about 5% slower throughout. A check that reports a GPU's best or typical speed can miss it - mamf-finder's MAMF is the median of a shape's 5 fastest runs - so time a prolonged run and judge each GPU by its worst stretches.

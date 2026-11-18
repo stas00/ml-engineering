@@ -50,7 +50,7 @@ Two things make it costlier than it looks:
 
 Give the sandboxes their own cores, disjoint from the ones the training process and its `DataLoader` workers run on. A child process inherits its parent's allowed cores, so this has to be set on the sandbox itself, with [`os.sched_setaffinity`](../../training/performance/README.md#ossched_setaffinity) or the container runtime's cpuset. The same section shows how the trainer side of that split is done. Cap the concurrency of the expensive phases like dependency installs and test runs, and put a timeout on everything - a generated infinite loop will otherwise hold a core until something kills it. At scale this is what pushes sandboxes onto dedicated CPU nodes.
 
-footnote: A [Nebius agentic-RL writeup](https://nebius.com/blog/posts/in-agentic-rl-faster-tokens-are-not-enough) (2026-09) measured this on a Terminal-Bench workload, GLM-5.2 on 32 B300s. With the number of in-flight trajectories held at 1,024, assigning the sandboxes deterministic non-overlapping CPU sets cut batch-collection time from 332.1s to 303.0s, with no change to the model or the GPU configuration.
+footnote: A [Nebius agentic-RL writeup](https://nebius.com/blog/posts/in-agentic-rl-faster-tokens-are-not-enough) (2026-09) measured this on a Terminal-Bench workload, GLM-5.2 on 32 B300s. With the number of in-flight trajectories held at 1,024, assigning the sandboxes deterministic non-overlapping CPU sets cut batch-collection time from ~332s to ~303s, with no change to the model or the GPU configuration.
 
 
 

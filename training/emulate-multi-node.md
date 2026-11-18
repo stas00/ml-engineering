@@ -263,7 +263,7 @@ The NCCL docs say `NCCL_MULTI_RANK_GPU_ENABLE` isn't required, since each MIG in
 
 `NCCL_NVLS_ENABLE=0` is a guard rather than a requirement. NCCL's default already leaves NVLink SHARP off in this situation, so if nothing in your environment sets that variable you can leave it alone. But many cluster images and pod specs export `NCCL_NVLS_ENABLE=1`, and when NVLink SHARP is explicitly demanded NCCL refuses to start with `NCCL_NVLS_ENABLE has been set to "1" and communicator has multiple ranks using the same NVML device`. Setting it to 0 costs nothing and makes the recipe work regardless of what the environment already exported. You can also set `NCCL_NVLS_ENABLE=2` which will automatically use NVLS when possible.
 
-The docs also tell you to set `NCCL_MNNVL_ENABLE=0`. On a node with no NVLink fabric that flag changes nothing - the same benchmark returned 142.28, 142.42 and 142.23 GBps with it unset, set to `0` and set to `1` - so it only matters on fabric-attached systems like GB200 NVL72.
+The docs also tell you to set `NCCL_MNNVL_ENABLE=0`. On a node with no NVLink fabric that flag changes nothing - the same benchmark returned ~142GBps with it unset, set to `0` and set to `1` - so it only matters on fabric-attached systems like GB200 NVL72.
 
 
 ### Carving up a GPU
@@ -451,7 +451,7 @@ exec python torch-dist-bench.py --payload-size-in-gib 2'
 
 The whole GPU rescues nothing: 24 hops ran `via P2P/CUMEM` inside the partitioned GPU and 6 `via SHM/direct` to the whole one, and the ring again runs at the speed of the host-memory hops. The useful corollary is that the second device's own bandwidth doesn't matter - a whole H200 in the eighth slot gave 28.5GBps, no better than the 26.8GBps of the run where that eighth rank was a MIG instance on a second partitioned H200. So if the goal is only to get past the 7-instances-per-GPU ceiling, the second device can be any GPU CUDA will talk to, and it needs no MIG support of its own since it joins whole - one H200 plus one modest GPU is an 8-rank world.
 
-The practical rule: keep an emulated multi-GPU job inside a single physical GPU. Crossing to a second GPU costs a factor of 10 against 4 instances on one GPU (26.8 against 273.8GBps at 512MiB), and leaves you at 5% of what 8 real GPUs do. Though if you're working with a tiny model and payload it probably doesn't matter much for dev purposes.
+The practical rule: keep an emulated multi-GPU job inside a single physical GPU. Crossing to a second GPU costs a factor of 10 against 4 instances on one GPU (26.8 against ~274GBps at 512MiB), and leaves you at 5% of what 8 real GPUs do. Though if you're working with a tiny model and payload it probably doesn't matter much for dev purposes.
 
 Do keep in mind that this emulates the *topology* of a multi-GPU job and not its performance - each rank also gets only a fraction of the SMs and a fraction of the memory, so it's a development and testing tool, not a way to measure throughput.
 

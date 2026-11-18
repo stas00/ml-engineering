@@ -151,7 +151,7 @@ You can take it as a self-guided course, or teach it to others yourself!
 
 - 4.1. **Spec sheets provide unachievable numbers - always benchmark matmul on your own hardware.**
   - Theoretical peak TFLOPS assume perfectly-shaped matrices, no memory movement overhead, and boost clocks that hold indefinitely - none of which happens in real training.
-  - **Example:** an NVIDIA B200 SXM may only reach ~1745.0TFLOPS (BF16) out of a 2250TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
+  - **Example:** an NVIDIA B200 SXM may only reach ~1745TFLOPS (BF16) out of a 2250TFLOPS theoretical spec (~77.6% efficiency), and this number itself depends on the software stack version and exact matrix shapes.
   - This is why "Maximum Achievable Matmul FLOPS" (MAMF) exists as a metric distinct from the theoretical spec: it's obtained by brute-force searching matmul shapes on your actual hardware/software with `mamf-finder.py`, giving you the realistic ceiling to optimize against.
   - Once your measured training TFLOPS get close to your own MAMF number (not the theoretical peak), it's time to stop optimizing and start training.
 

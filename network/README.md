@@ -82,7 +82,7 @@ If you measure the bandwidth on your setup and it's about 40% of the advertised 
 
 case study: for a while I couldn't understand why when I run the nccl-tests all_reduce benchmark on an A100 node with advertised 600GBps intra-node speed I was getting only 235GBps (40%) until Horace He kindly pointed out that I should be looking at unidirectional speed which is 300GBps, and then I get 80% of the theoretical spec which checks out.
 
-That ~80% expectation holds on newer hardware too. On a node of 8x H200 (NVLink 4, NVSwitch-connected) a pairwise copy measures 396.40GBps unidirectional against the 450GBps spec, or 88%, and 783.73GBps duplex against 900GBps, or 87% - so on this fabric running both directions at once costs almost nothing, measured with [nvbandwidth](benchmarks/README.md#nvbandwidth):
+That ~80% expectation holds on newer hardware too. On a node of 8x H200 (NVLink 4, NVSwitch-connected) a pairwise copy measures ~396GBps unidirectional against the 450GBps spec, or 88%, and ~784GBps duplex against 900GBps, or 87% - so on this fabric running both directions at once costs almost nothing, measured with [nvbandwidth](benchmarks/README.md#nvbandwidth):
 
 ```bash
 ./nvbandwidth -i 10 -t device_to_device_memcpy_write_ce                # 396.40 GB/s per pair
@@ -193,7 +193,7 @@ General notes:
 
 ### Peer-to-peer bandwidth
 
-Some vendors have their all-to-all and peer-to-peer (GPU-to-GPU) bandwidth the same, while others don't. For example, AMD MI300X/MI325X are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`. Likewise MI350X/MI355X are 76.5GBps peer-to-peer and 535.5GBps all-to-all, since `76.5*7=535.5`.
+Some vendors have their all-to-all and peer-to-peer (GPU-to-GPU) bandwidth the same, while others don't. For example, AMD MI300X/MI325X are 64GBps GPU-to-GPU (peer-to-peer), but 448GBps in total on a board of 8 accelerators, since `64*7=448`. Likewise MI350X/MI355X are 76.5GBps peer-to-peer and ~536GBps all-to-all, since `76.5*7=535.5`.
 
 Here is the intra-node unidirectional theoretical peer-to-peer peak bandwidth cross-comparison for current solutions sorted by bandwidth:
 
@@ -231,7 +231,7 @@ When peer-to-peer bandwidth is much lower than all-to-all it means that if you d
 To validate this the [torch-dist-bench.py](benchmarks/torch-dist-bench.py) was run on a 8x GPU AMD MI300X node with a 4GiB payload and the `busbw` measurements were:
 
 - 2 GPUs:  47.671GBps
-- 8 GPUs:  312.912GBps
+- 8 GPUs:  ~313GBps
 
 i.e. 2 GPUs performed 6.5x slower than 8.
 
@@ -284,7 +284,7 @@ footnote: a released specification is not shipping silicon. As of 2026-07-30 [PC
 
 ### NVLink
 
-footnote: `nvidia-smi nvlink -s` reports the raw per-link signalling rate, and summing it overshoots the advertised aggregate. A B200 lists 18 links at 53.125GBps = 956.25GBps against the advertised 900GBps, and an H100 lists 18 at 26.5625GBps = 478.125GBps against 450GBps. Both land at a ratio of 0.9412, which is the encoding overhead, so multiply the sum by ~0.94 to get back to the spec figure.
+footnote: `nvidia-smi nvlink -s` reports the raw per-link signalling rate, and summing it overshoots the advertised aggregate. A B200 lists 18 links at 53.125GBps = ~956GBps against the advertised 900GBps, and an H100 lists 18 at 26.5625GBps = ~478GBps against 450GBps. Both land at a ratio of 0.9412, which is the encoding overhead, so multiply the sum by ~0.94 to get back to the spec figure.
 
 - [NVLink](https://en.wikipedia.org/wiki/NVLink) is a wire-based serial multi-lane near-range communications link developed by NVIDIA. Here is the [What Is NVLink](https://blogs.nvidia.com/blog/what-is-nvidia-nvlink/) blog post with more background on it.
 
@@ -978,7 +978,7 @@ torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d t
 NCCL_NVLS_ENABLE=0 torchrun --nproc_per_node=8 --rdzv_endpoint localhost:6000 --rdzv_backend c10d torch-dist-bench.py
 ```
 
-On 8x H200 with `nccl=2.27.7` that gives 482.26GBps against 367.61GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the slide above. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
+On 8x H200 with `nccl=2.27.7` that gives ~482GBps against ~368GBps at a 16GiB payload - a 1.31x gain, matching the 480/370 on the slide above. Add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,GRAPH,TUNING` to confirm which path was taken and to find where the switch happens: it reports `Algo RING proto LL` up to a 1MiB payload and `Algo NVLS proto SIMPLE` from 2MiB up, and `Algo RING proto SIMPLE` throughout when NVLS is disabled. `NCCL_DEBUG_FILE=/tmp/nccl.%h.%p.log` keeps that output out of the benchmark's own.
 
 The GPU count is only one of the two conditions. The other is the collective itself - `NVLS` implements `all-reduce` and nothing else. Measured on the same node at a 16GiB payload, all with 8 GPUs engaged:
 
@@ -1190,7 +1190,7 @@ Let's bring both use cases together:
 
 on this 200Gbps inter-node setup the comms are 12x slower than the same performed on an intra-node NVLink connections.
 
-footnote: this arithmetic assumes the whole payload crosses the inter-node wire at one accelerator's NIC rate, which is far more pessimistic than what a real cluster does. For example, on 4x 8x B200 nodes (`p6-b200.48xlarge`, NCCL 2.30.7, EFA) a 4GiB `all-reduce` across 32 ranks selects `Ring`, measured 2026-10-03. Forcing `NCCL_ALGO=allreduce:ring` reproduced the default to within 0.1% - 375.22 against 375.42GBps `busbw` - while `NCCL_ALGO=allreduce:nvlstree` was available but 18% slower at 308.15GBps. Yet that ring doesn't run at one NIC's rate: NCCL runs several rings at once, each leaving the node through a different accelerator's NIC, so all 8 NICs carry traffic and the reduction finishes about 4x sooner than this arithmetic predicts - see [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). The algorithm is chosen per platform and per payload size, on that cluster by AWS's `NCCL_TUNER_PLUGIN=ofi` plugin rather than NCCL's own tuner, so check yours with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`.
+footnote: this arithmetic assumes the whole payload crosses the inter-node wire at one accelerator's NIC rate, which is far more pessimistic than what a real cluster does. For example, on 4x 8x B200 nodes (`p6-b200.48xlarge`, NCCL 2.30.7, EFA) a 4GiB `all-reduce` across 32 ranks selects `Ring`, measured 2026-10-03. Forcing `NCCL_ALGO=allreduce:ring` reproduced the default to within 0.1% - ~375GBps `busbw` both - while `NCCL_ALGO=allreduce:nvlstree` was available but 18% slower at ~308GBps. Yet that ring doesn't run at one NIC's rate: NCCL runs several rings at once, each leaving the node through a different accelerator's NIC, so all 8 NICs carry traffic and the reduction finishes about 4x sooner than this arithmetic predicts - see [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). The algorithm is chosen per platform and per payload size, on that cluster by AWS's `NCCL_TUNER_PLUGIN=ofi` plugin rather than NCCL's own tuner, so check yours with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`.
 
 In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
 
@@ -1216,7 +1216,7 @@ It's critical to understand your particular model size and framework requirement
 
 If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
 
-Benchmarking `all_reduce`, e.g. with [torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 838.97GBps and four nodes 376.60GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
+Benchmarking `all_reduce`, e.g. with [torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches ~839GBps and four nodes ~377GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
 
 Frameworks that shard weights and optim stages like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
 
@@ -1518,9 +1518,9 @@ Symmetric memory also cuts the latency of small all-reduces. On an 8x H200 node 
 
 ![torch-dist-bench latency 8x B200](benchmarks/images/torch-dist-bench-latency-8xb200.png)
 
-The fastest `all_to_all`, which MoE dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, moves the others' fastest payloads by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower. At the peak, `all_gather` reaches 749.03GBps instead of 661.74GBps, while `reduce_scatter` tops out at 489.13GBps at 8GiB instead of 689.72GBps at 16GiB.
+The fastest `all_to_all`, which MoE dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, moves the others' fastest payloads by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower. At the peak, `all_gather` reaches ~749GBps instead of ~662GBps, while `reduce_scatter` tops out at ~489GBps at 8GiB instead of ~690GBps at 16GiB.
 
-`gather` peaks at 763.36GBps at 1GiB, above its 718.37GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
+`gather` peaks at ~763GBps at 1GiB, above its ~718GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
 
 ### Inter-node speed depends on intra-node speed
 
@@ -1565,7 +1565,7 @@ footnote: mind the bases when doing this yourself - the benchmark prints `1GiB =
 
 1. the naive inter-node model - the whole payload has to cross one accelerator's NIC: `P / 50GBps` = `4GiB / 50GBps` = 85.9ms. That is 3.9x more than measured, and it is the arithmetic to avoid.
 
-2. a flat ring across all `n` ranks - each link carries `2*(n-1)/n * P` = `2*(32-1)/32 * 4GiB` = 7.75GiB, and a ring laid out over `k` nodes crosses a node boundary `k` = 4 times, so each node has one boundary link's worth to push out. What that costs depends on how many NICs carry it. Over a single accelerator's NIC it would be `7.75GiB / 50GBps` = 166.4ms, 7.5x more than measured - but NCCL opens multiple channels, so different rings cross the boundary at different accelerators and the node's NICs are all in flight, exactly as in model 3 below. Over the node's `g * 50GBps` = 400GBps that is `7.75GiB / 400GBps` = 20.8ms, 94% of the 22.21ms measured.
+2. a flat ring across all `n` ranks - each link carries `2*(n-1)/n * P` = `2*(32-1)/32 * 4GiB` = 7.75GiB, and a ring laid out over `k` nodes crosses a node boundary `k` = 4 times, so each node has one boundary link's worth to push out. What that costs depends on how many NICs carry it. Over a single accelerator's NIC it would be `7.75GiB / 50GBps` = ~166ms, 7.5x more than measured - but NCCL opens multiple channels, so different rings cross the boundary at different accelerators and the node's NICs are all in flight, exactly as in model 3 below. Over the node's `g * 50GBps` = 400GBps that is `7.75GiB / 400GBps` = 20.8ms, 94% of the 22.21ms measured.
 
 3. the hierarchical model - reduce inside each node, exchange the shard between nodes, broadcast back inside. Each phase moves its own collective's correction factor times the payload that phase operates on:
 
@@ -1577,7 +1577,7 @@ footnote: mind the bases when doing this yourself - the benchmark prints `1GiB =
 
    At wire rate that shard would cross in `0.75GiB / 50GBps` = 16.1ms, against 22.21ms measured - so the exchange would effectively run at ~73% of wire rate, with NIC efficiency and any non-overlapping intra-node time both folded into that figure. The two cannot simply be additive: `16.1 + 10.03` = 26.1ms would exceed the measured time, so the intra-node phases would have to substantially overlap the exchange rather than queue behind it. So this model brackets the measurement - 16.1ms fully overlapped, 26.1ms fully serialized, with 22.21ms in between.
 
-Models 2 and 3 both fit the measurement, model 2 with the NICs at 94% of wire rate and model 3 at 73%, so the arithmetic alone does not tell you which one ran - only that the naive model 1 is badly wrong. Which of the two it is depends on the algorithm NCCL selected, and that is directly readable: `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` reports it, and forcing `NCCL_ALGO=allreduce:<algo>` and comparing against the default confirms it. On these nodes the 4GiB selection is `Ring`: forcing `NCCL_ALGO=allreduce:ring` reproduced the default within 0.1% - 375.22 against 375.42GBps - while `NCCL_ALGO=allreduce:nvlstree`, a hierarchical algorithm, ran 18% slower at 308.15GBps. So model 2 is what ran, with each NIC sustaining 94% of its line rate. The selection is made per payload, as the algorithm column of the table shows: `Tree` up to 16MiB, `Ring` at 32-64MiB, `NVLSTree` at 128-256MiB and `Ring` again from 512MiB up. On this cluster the chooser is AWS's `NCCL_TUNER_PLUGIN=ofi` rather than NCCL's own tuner, and its own log line - `base Tuner is chosen for platform: p6-b200.48xlarge` - shows it keying off the instance type. A different instance gets a different tuner table, so the only way to know what your own runs pick is to read it.
+Models 2 and 3 both fit the measurement, model 2 with the NICs at 94% of wire rate and model 3 at 73%, so the arithmetic alone does not tell you which one ran - only that the naive model 1 is badly wrong. Which of the two it is depends on the algorithm NCCL selected, and that is directly readable: `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING` reports it, and forcing `NCCL_ALGO=allreduce:<algo>` and comparing against the default confirms it. On these nodes the 4GiB selection is `Ring`: forcing `NCCL_ALGO=allreduce:ring` reproduced the default within 0.1% - ~375GBps both - while `NCCL_ALGO=allreduce:nvlstree`, a hierarchical algorithm, ran 18% slower at ~308GBps. So model 2 is what ran, with each NIC sustaining 94% of its line rate. The selection is made per payload, as the algorithm column of the table shows: `Tree` up to 16MiB, `Ring` at 32-64MiB, `NVLSTree` at 128-256MiB and `Ring` again from 512MiB up. On this cluster the chooser is AWS's `NCCL_TUNER_PLUGIN=ofi` rather than NCCL's own tuner, and its own log line - `base Tuner is chosen for platform: p6-b200.48xlarge` - shows it keying off the instance type. A different instance gets a different tuner table, so the only way to know what your own runs pick is to read it.
 
 Either way, two effects rescue the inter-node case: the node's whole NIC bandwidth is used instead of a single link's, and only a fraction of the traffic crosses the slow links at all - 1 hop in 8 for this ring, 9.7% of the bytes for the hierarchical model. That is why the naive single-NIC arithmetic is wrong by 3.9x whichever algorithm runs. It is also why a fast intra-node fabric matters even for workloads whose bottleneck you would call inter-node - degrade NVLink and the inter-node numbers degrade with it.
 
@@ -1585,7 +1585,7 @@ Two warnings come with this:
 
 - It is a large-payload effect. The `slowdown` column grows at small payloads - 3-5x below 32MiB against 2x from 1GiB up - because latency, not bandwidth, dominates there and every node hop adds some. And the absolute numbers are tiny: at 32KiB the 4 nodes move 0.64GBps, under 0.2% of what they do at 16GiB. This is the strongest possible argument for bucketing gradients into large reductions rather than reducing each tensor separately.
 
-- Do not read the 4-node `busbw` as a NIC speed. 376.60GBps at 16GiB is 7.5x what one NIC can do - undoing the correction factor gives 88.4ms for that reduction, over which the ring pushes `2*(n-1)/n * 16GiB` = 31GiB out of each node across its 8 NICs, 3.875GiB each, i.e. 47.07GBps, or 94% of each NIC's 50GBps. `busbw` is derived from the payload and the elapsed time with a per-collective correction factor, so once NCCL spreads a collective over several NICs it no longer maps onto any single link - the same caveat as in [SHARP](#sharp).
+- Do not read the 4-node `busbw` as a NIC speed. ~377GBps at 16GiB is 7.5x what one NIC can do - undoing the correction factor gives 88.4ms for that reduction, over which the ring pushes `2*(n-1)/n * 16GiB` = 31GiB out of each node across its 8 NICs, 3.875GiB each, i.e. 47.07GBps, or 94% of each NIC's 50GBps. `busbw` is derived from the payload and the elapsed time with a per-collective correction factor, so once NCCL spreads a collective over several NICs it no longer maps onto any single link - the same caveat as in [SHARP](#sharp).
 
 #### So what should you expect?
 
@@ -1628,7 +1628,7 @@ Despite the name it is not InfiniBand-only - it is written over `uverbs`, the us
 
 Fabrics with their own userspace stack rather than verbs - [Slingshot](#hpe-slingshot-interconnect), [Omni-Path](#omni-path) via OPX, [GPUDirect-TCPX](#gpudirect-tcpx) - need their own tools. The nearest equivalent there is `fi_rma_bw` from [libfabric](https://ofiwg.github.io/libfabric/)'s fabtests, an [RMA](#glossary-and-concepts) read and write bandwidth test which is the same shape of measurement as `ib_write_bw`. Note that libfabric's own documentation warns that its tests are "designed to test functionality and not performance", with the benchmarks as the stated exception, and that even those are "not guaranteed to provide the best latency or bandwidth performance numbers a given provider or system may achieve" - so treat the figure as a floor rather than the fabric's capability.
 
-footnote: RDMA-write-over-[SRD](#glossary-and-concepts) support was contributed to `perftest` by AWS ([PR 206](https://github.com/linux-rdma/perftest/pull/206)). Confirmed on a live instance on 2026-08-07: on an 8x H200 `p5en.48xlarge` node, `ib_write_bw -d rdmap110s0 -c SRD -x 0 --report_gbits -D 10` between two nodes sustained **193.72Gbps on one adapter, or 96.9% of that adapter's 200Gbps line rate**.
+footnote: RDMA-write-over-[SRD](#glossary-and-concepts) support was contributed to `perftest` by AWS ([PR 206](https://github.com/linux-rdma/perftest/pull/206)). Confirmed on a live instance on 2026-08-07: on an 8x H200 `p5en.48xlarge` node, `ib_write_bw -d rdmap110s0 -c SRD -x 0 --report_gbits -D 10` between two nodes sustained **~194Gbps on one adapter, or 96.9% of that adapter's 200Gbps line rate**.
 
 footnote: it is tempting to instead keep all the accelerators and take the intra-node fabric away with [`NCCL_P2P_DISABLE=1`](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html), but that only pushes intra-node traffic down to host memory - the documented fallback order is P2P, then SHM, then network, so `NCCL_SHM_DISABLE=1` is needed as well before NCCL puts same-node ranks on a NIC. On EFA even that isn't enough, because [the libfabric provider uses the instance's shared memory for intra-node communication](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-start.html): NCCL asks for the network and libfabric serves the transfer from host memory instead. [`FI_EFA_ENABLE_SHM_TRANSFER=0`](https://ofiwg.github.io/libfabric/main/man/fi_efa.7.html) overrides that.
 
@@ -1649,9 +1649,9 @@ Here is an old but good plot demonstrating how the latencies change with message
 
 Typically the more "hops" the message has to travel, the bigger the latency. 2 accelerators residing on the same node and connected directly to each other (e.g., NVLink) will have the least amount of latency. If their communication path traverses a PCIe switch the latency will be bigger. 2 accelerators residing on 2 different nodes sharing a single switch will have a bigger latency because there is a switch to traverse. The further they get away from each other, the more switches the message has to travel through, the bigger the latency.
 
-For small payloads the latency is the number that matters, as they move next to nothing: on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`) an 8B all-reduce still takes 15µs in [torch-dist-bench.py](benchmarks/README.md#latency), and every payload up to 512KiB takes 15-23µs, so a faster link wouldn't help them - fewer calls or cheaper ones would. This adds up fast in inference: a model served with tensor parallelism over 8 accelerators does 2 all-reduces per layer for every generated token, and with a hidden size of 8192 in bf16 a batch of up to 32 tokens makes each a 16-512KiB all-reduce, right in that flat range - so an 80-layer model waits 160 x 15µs = 2.4ms per token on all-reduces alone, however fast its links. Training has small all-reduces too, to sync flags, scalars or loss values across ranks, and MoE pays the same toll on the [all-to-all](#collectives-other-than-all-reduce) of its token routing.
+For small payloads the latency is the number that matters, as they move next to nothing: on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`) an 8B all-reduce still takes 15µs in [torch-dist-bench.py](benchmarks/README.md#latency), and every payload up to 512KiB takes 15-23µs, so a faster link wouldn't help them - fewer calls or cheaper ones would. This adds up fast in inference: a model served with tensor parallelism over 8 accelerators does 2 all-reduces per layer for every generated token, and with a hidden size of 8192 in bf16 a batch of up to 32 tokens makes each a 16-512KiB all-reduce, right in that flat range - so an 80-layer model waits at least 160 x 15µs = 2.4ms per token on all-reduces alone, however fast its links. Training has small all-reduces too, to sync flags, scalars or loss values across ranks, and MoE pays the same toll on the [all-to-all](#collectives-other-than-all-reduce) of its token routing.
 
-On B200s a small all-reduce costs more than on the H200 node above, and the latency also shows what it costs to leave the node. Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the [example output of torch-dist-bench.py](benchmarks/README.md#torch-dist-bench):
+Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the [example output of torch-dist-bench.py](benchmarks/README.md#torch-dist-bench):
 
 | payload | 8 ranks<br>median | 8 ranks<br>p99 | 32 ranks<br>median | 32 ranks<br>p99 | 32 / 8<br>median |
 | ------: | ----------------: | -------------: | -----------------: | --------------: | ---------------: |
@@ -1664,7 +1664,7 @@ On B200s a small all-reduce costs more than on the H200 node above, and the late
 |    4MiB |            60.4µs |         62.6µs |            261.3µs |         281.2µs |             4.3x |
 |   16MiB |           104.4µs |        107.2µs |            452.7µs |         469.2µs |             4.3x |
 
-Up to 16MiB a call takes 2.9-4.6 times as long once it crosses the network, and even an 8B all-reduce takes 82µs instead of 23µs.
+On one B200 node a small all-reduce costs more than on the H200 node above, and over 4 nodes (32 ranks) a call takes several times as long as on 1 node (8 ranks) at every payload up to 16MiB.
 
 #### Which collective to measure latency with
 

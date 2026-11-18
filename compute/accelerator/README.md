@@ -213,7 +213,7 @@ The H100 SXM clock above is 1830MHz, which is now NVIDIA's official figure. Earl
 | MI300X      |           2100MHz |                                      256 |         1216 |        1307 |       |
 | MI250X      |           1700MHz |                                      128 |          880 |         383 |     2 |
 
-1. AMD publishes `2.5 PFLOPS` for MI355X and `2.3 PFLOPS` for MI350X BF16 matrix, rounded to two significant digits - the formula gives 2516.6 and 2306.9.
+1. AMD publishes `2.5 PFLOPS` for MI355X and `2.3 PFLOPS` for MI350X BF16 matrix, rounded to two significant digits - the formula gives ~2517 and ~2307.
 2. AMD publishes the Matrix Core count for MI355X and MI350X (1024) and MI300X (1216), but not for MI250X, so its 880 is derived: 4 Matrix Cores per CU, times 220 CUs.
 
 Let's calculate ourselves as before:
@@ -314,7 +314,7 @@ Notes and sources - the `Notes` column of both tables points here. Numbers run f
 19. Gaudi3 as of 2026-08 is running at 1600MHz (MME) and not the planned 1750MHz, therefore its BF16 TFLOPS are 1677 and not 1835 as per whitepaper spec. Same goes for fp8 which runs at the same TFLOPS as BF16.
 20. [NVIDIA DGX B200 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b200-datasheet) - `FP4 Tensor Core: 144|72` petaFLOPS sparse|dense for 8 GPUs, so 9000 dense per GPU; the [HGX page](https://www.nvidia.com/en-us/data-center/hgx/) agrees (read 2026-10-02). NVIDIA publishes a single FP4 rate for Blackwell, which its GB200 NVL72 page labels `NVFP4`, and the tensor cores run both FP4 formats through the same `tcgen05.mma.kind::mxf4nvf4` instruction at the same rate (see the [CUTLASS Blackwell docs](https://docs.nvidia.com/cutlass/latest/media/docs/cpp/blackwell_functionality.html)), so the `mxfp4` and `nvfp4` columns of every NVIDIA Blackwell row carry the same number.
 21. [NVIDIA DGX B300 datasheet](https://resources.nvidia.com/en-us-dgx-systems/dgx-b300-datasheet) - `FP4 Tensor Core 144|108` PFLOPS sparse|dense for 8 GPUs, so 13500 dense per GPU, the "1.5x dense FP4" over B200 the datasheet advertises; the [HGX page](https://www.nvidia.com/en-us/data-center/hgx/) agrees (read 2026-10-02). The 15000 often quoted for B300 is GB300's per-GPU figure.
-22. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) - these are AMD's dense figures. AMD also publishes `with Structured Sparsity` variants at exactly 2x - 10.1PFLOPS for OCP-FP8 and 5PFLOPS for FP16 matrix - so a 10.1PFLOPS fp8 number quoted elsewhere is the sparse one, not this table's. The `fp6` and `fp4` entries carry no sparsity qualifier on AMD's page and are dense. [MI350X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350x.html) is the same silicon at 2200MHz and 1000W, with everything scaled by the clock ratio (144.2 vs 157.3 fp32): AMD publishes 2.3PFLOPS FP16 and BF16, 4.6PFLOPS OCP-FP8 and INT8, and 9.2PFLOPS MXFP6 and MXFP4, all dense, with the same 2x `with Structured Sparsity` variants.
+22. [AMD Instinct MI355X specifications](https://www.amd.com/en/products/accelerators/instinct/mi350/mi355x.html) - these are AMD's dense figures. AMD also publishes `with Structured Sparsity` variants at exactly 2x - 10.1PFLOPS for OCP-FP8 and 5PFLOPS for FP16 matrix - so a 10.1PFLOPS fp8 number quoted elsewhere is the sparse one, not this table's. The `fp6` and `fp4` entries carry no sparsity qualifier on AMD's page and are dense. [MI350X](https://www.amd.com/en/products/accelerators/instinct/mi350/mi350x.html) is the same silicon at 2200MHz and 1000W, with everything scaled by the clock ratio (~144 vs ~157 fp32): AMD publishes 2.3PFLOPS FP16 and BF16, 4.6PFLOPS OCP-FP8 and INT8, and 9.2PFLOPS MXFP6 and MXFP4, all dense, with the same 2x `with Structured Sparsity` variants.
 23. Since GB200 is 2x B200 chips the table includes TFLOPS per chip for a fair comparison - you'd 2x it for the real GB200 - it also seems to run the B200 chips a bit faster so higher specs than standalone B200. This also means that instead of your typical 8-GPU node, with GB200 you will get a 4-GPU node instead (but it'd be the equivalent of 8x B200 w/ an additional ~10% faster compute). See [NVIDIA GB200 NVL72 specifications](https://www.nvidia.com/en-us/data-center/gb200-nvl72/).
 24. GB200 NVL72 and GB300 NVL72 seem to be the same but faster fp4 and more memory for the latter. See [NVIDIA GB300 NVL72 specifications](https://www.nvidia.com/en-us/data-center/gb300-nvl72/).
 25. [Google Cloud TPU v7x documentation](https://docs.cloud.google.com/tpu/docs/tpu7x) - Google calls it "the latest TPU available on Google Cloud" and documents using it through GKE or Compute Engine, so it is treated as available like every other TPU here, all of which are rent-only and capacity-gated. Only fp16, bf16 and fp8 are published; the rest of the row is `?` because Google has not stated those numbers.
@@ -486,7 +486,7 @@ wait
 
 Now here what you want is the slowest performance as when used in an ensemble that slowest accelerator (straggler) will set the speed for all other accelerators.
 
-A straggler doesn't have to fail any test to slow the whole job down - [How to find a straggler GPU](nvidia/debug.md#how-to-find-a-straggler-gpu) walks through finding one on 4 8x B200 nodes, which a matmul benchmark and DCGM both passed.
+A straggler doesn't have to fail any test to slow the whole job down - [How one straggler was found](benchmarks/README.md#how-one-straggler-was-found) walks through finding one on 4 8x B200 nodes, which a matmul benchmark and DCGM both passed.
 
 If you do multi-node training then, of course, you'd want to measure them all.
 
@@ -1031,7 +1031,7 @@ for example, AMD MI250 has:
 
 [Architecture](https://docs.habana.ai/en/latest/Gaudi_Overview/Gaudi_Architecture.html)
 
-- 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (262.5GBps per Gaudi chip), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
+- 24x 100 Gigabit Ethernet (RoCEv2) integrated on chip - 21 of which are used for intra-node and 3 for inter-node (so `21*8=168` cards for intra-node (~263GBps per Gaudi chip), and `3*8=24` cards for inter-node (2.4Tbps between nodes)
 - 96GiB HBM2E memory on board w/2.45TBps bandwidth per chip, for a total of 768GiB per node
 
 A server/node is built from 8 Gaudi accelerators, which can then be expanded with racks of those servers.

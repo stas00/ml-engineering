@@ -35,7 +35,7 @@ Theoretical peak TFLOPS is [a ceiling nobody hits in practice](../../training/pe
 | H200 SXM    |        1453.4 |        1979 |      73.4% |
 | B200 SXM    |        3432.5 |        4500 |      76.3% |
 
-Takeaway: the *achievable* bf16 ratio (1745/794.5 = **2.20×**) tracks the theoretical 2.28× closely because efficiency is similar on both chips (80.3% vs 77.6%). In fp8 the achievable ratio is actually *higher* than theoretical (3432.5/1453.4 = **2.36×**) because B200's fp8 path is relatively more mature (76.3%) than H200's (73.4%). Either way, **2.2–2.4× is the realistic matmul-only ceiling** for this upgrade — real training throughput will land below that once attention scaling, dense-GEMM maturity, and communication overhead are factored in (the [worked example below](#worked-example-meta-llamallama-31-8b-training-step-fa3-vs-fa4) shows exactly how much below, and why).
+Takeaway: the *achievable* bf16 ratio (1745/794.5 = **2.20×**) tracks the theoretical 2.28× closely because efficiency is similar on both chips (80.3% vs 77.6%). In fp8 the achievable ratio is actually *higher* than theoretical (~3433/~1453 = **2.36×**) because B200's fp8 path is relatively more mature (76.3%) than H200's (73.4%). Either way, **2.2–2.4× is the realistic matmul-only ceiling** for this upgrade — real training throughput will land below that once attention scaling, dense-GEMM maturity, and communication overhead are factored in (the [worked example below](#worked-example-meta-llamallama-31-8b-training-step-fa3-vs-fa4) shows exactly how much below, and why).
 
 ## Decision framework, part 1 — do you need a new dtype?
 
@@ -127,7 +127,7 @@ Max on H200's ~130GiB usable budget is **256k tokens at ~125GiB**, confirmed on 
    | **cu129**             | 113.8        | –      | –      | 140.4     |
    | **cu130**             | 117.8        | 120.5  | 140.1  | **140.2** |
 
-   Full-range torch 2.10.0 → 2.13.0 on the H200 is **+19% at fixed cu130** (117.8 → 140.2TFLOPS), and almost all of that gain lands in one place — the torch 2.11.0 → 2.12.0 jump alone is **+16%** (120.5 → 140.1). CUDA, meanwhile, contributes at most ~3.5% (113.8 → 117.8 at torch 2.10.0) and essentially nothing by torch 2.13.0 (140.4 vs 140.2). So the original 2.10.0/cu129 → 2.13.0/cu130 comparison that kicked off this investigation (113.8 → 140.4, **+23.4%**) was almost entirely a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
+   Full-range torch 2.10.0 → 2.13.0 on the H200 is **+19% at fixed cu130** (~118 → ~140TFLOPS), and almost all of that gain lands in one place — the torch 2.11.0 → 2.12.0 jump alone is **+16%** (~121 → ~140). CUDA, meanwhile, contributes at most ~3.5% (~114 → ~118 at torch 2.10.0) and essentially nothing by torch 2.13.0 (~140 either way). So the original 2.10.0/cu129 → 2.13.0/cu130 comparison that kicked off this investigation (~114 → ~140, **+23.4%**) was almost entirely a **PyTorch-version artifact, not hardware, and not even CUDA**. All results in this doc use the identical stack (torch 2.13.0/cu130, deepspeed 0.19.2) on both boxes. **If you skip this check, you will systematically overstate whichever GPU happens to be benchmarked on the newer PyTorch version.**
 
 ### Is B200 worth ~2× the H200 cost?
 

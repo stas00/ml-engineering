@@ -69,7 +69,7 @@ And drawn by [comm-compute-overlap-plot.py](benchmarks/comm-compute-overlap-plot
 
 The phases of `ddp` and the ZeRO rows added up to 3.5ms to 4.0ms more than their steps, and those of the FSDP2 rows 1.3ms to 1.7ms more, as FSDP2 [keeps the ranks closer together](#fsdp2s-exposed-communication).
 
-Here are the same patterns with 16384 tokens per GPU, from the same job, sorted by compute slowdown, ascending:
+Here are the same patterns with 16384 tokens per GPU, from the same run as the table above, sorted by compute slowdown, ascending:
 
 | pattern                               | compute<br>slowdown | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | ------------------: | ------------------: | --------------------: | -----------: |
@@ -105,13 +105,13 @@ And the corresponding plot:
 
 ![comm-compute-overlap-bench data-parallel patterns with 16384 tokens per GPU](benchmarks/images/comm-compute-overlap-dp-seqlen16384-8xb200.png)
 
-With the longer compute most rows exposed less in backward than with 8192 tokens, except `ddp`, as [DDP's exposed communication](#ddps-exposed-communication) explains, and ZeRO-3 exposed more in forward, as [DeepSpeed ZeRO-3's exposed communication](#deepspeed-zero-3s-exposed-communication) explains. `fsdp`, `ddp`, `ds-zero2` with `overlap_comm=1` and `fsdp` with `separate_rs_group=1` came within 0.5 percentage points of each other, less than the 6.7ms to 8.4ms by which the phases of `ddp` and the ZeRO rows overshot their steps, so the order of those 4 rows isn't reliable.
+With the longer compute most rows exposed less in backward than with 8192 tokens, except `ddp`, as [DDP's exposed communication](#ddps-exposed-communication) explains, and ZeRO-3 exposed more in forward, as [DeepSpeed ZeRO-3's exposed communication](#deepspeed-zero-3s-exposed-communication) explains. `fsdp`, `ddp`, `ds-zero2` with `overlap_comm=1` and `fsdp` with `separate_rs_group=1` came within 0.5 percentage points of each other.
 
 ### Data-parallel patterns measured across nodes
 
 The multi-node numbers were measured on 4 8x B200 nodes, 32 GPUs, with NVLink within each node and 8 400Gbps [EFA](README.md#efa) NICs per node between them (`torch=2.14.0+cu130`, `nccl=2.30.7`). They are likely to be different with another number of nodes, another GPU or another network.
 
-Here are the data-parallel patterns over 4 nodes with 8192 tokens per GPU, sorted by compute slowdown, ascending. Their 1-node runs, from a separate job with the same software, are the 8192-token table of [Data-parallel patterns measured on a single node](#data-parallel-patterns-measured-on-a-single-node):
+Here are the data-parallel patterns over 4 nodes with 8192 tokens per GPU, sorted by compute slowdown, ascending. Their 1-node runs, from a separate run with the same software, are the 8192-token table of [Data-parallel patterns measured on a single node](#data-parallel-patterns-measured-on-a-single-node):
 
 | pattern                               | compute<br>slowdown | exposed<br>comm<br>ms | comm<br>alone |
 | :------------------------------------ | ------------------: | --------------------: | ------------: |
@@ -145,9 +145,9 @@ And the corresponding plot, with each pattern's 1-node step above its 4-node one
 
 ![comm-compute-overlap-bench data-parallel patterns over 1 and 4 nodes](benchmarks/images/comm-compute-overlap-dp-1-vs-4-nodes-8xb200.png)
 
-The compute alone took as long over 4 nodes as over 1, 389.1ms to 391.7ms in every row, so only the communication grew. It took 2.0 to 2.6 times as long alone as over 1 node, and the patterns differed in how much of the added time they exposed: the FSDP2 rows 10% to 14% of it, ZeRO-3 28%, DDP 41%, and ZeRO-2 55% with `overlap_comm=1` and 94% with `overlap_comm=0`. So `ddp`, second over 1 node, fell behind all 3 FSDP2 rows.
+The compute alone took as long over 4 nodes as over 1, ~389ms to ~392ms in every row, so only the communication grew. It took 2.0 to 2.6 times as long alone as over 1 node, and the patterns differed in how much of the added time they exposed: the FSDP2 rows 10% to 14% of it, ZeRO-3 28%, DDP 41%, and ZeRO-2 55% with `overlap_comm=1` and 94% with `overlap_comm=0`. So `ddp`, second over 1 node, fell behind all 3 FSDP2 rows.
 
-Here they are with 16384 tokens per GPU, from the same job, sorted by compute slowdown, ascending. The 1-node runs are the 16384-token table of [Data-parallel patterns measured on a single node](#data-parallel-patterns-measured-on-a-single-node):
+Here they are with 16384 tokens per GPU, from the same run as the table above, sorted by compute slowdown, ascending. The 1-node runs are the 16384-token table of [Data-parallel patterns measured on a single node](#data-parallel-patterns-measured-on-a-single-node):
 
 | pattern                               | compute<br>slowdown | exposed<br>comm<br>ms | comm<br>alone |
 | :------------------------------------ | ------------------: | --------------------: | ------------: |
@@ -181,7 +181,7 @@ And the corresponding plot, with each pattern's 1-node step above its 4-node one
 
 ![comm-compute-overlap-bench data-parallel patterns over 1 and 4 nodes with 16384 tokens per GPU](benchmarks/images/comm-compute-overlap-dp-1-vs-4-nodes-seqlen16384-8xb200.png)
 
-The compute alone took 894.3ms to 903.4ms in every row, over 1 node and over 4, and every compute slowdown was 33% to 56% of that with 8192 tokens. `ddp` fell to sixth, as it exposed 50.9ms more than over 1 node, against 5.5ms to 9.4ms more for the FSDP2 rows. As over 1 node, the phases of `ddp` and the ZeRO rows overshot their steps by more than those of the FSDP2 rows, 9.5ms to 13.2ms against 4.1ms to 4.3ms.
+The compute alone took ~894ms to ~903ms in every row, over 1 node and over 4, and every compute slowdown was 33% to 56% of that with 8192 tokens. `ddp` fell to sixth, as it exposed 50.9ms more than over 1 node, against 5.5ms to 9.4ms more for the FSDP2 rows. As over 1 node, the phases of `ddp` and the ZeRO rows overshot their steps by more than those of the FSDP2 rows, 9.5ms to 13.2ms against 4.1ms to 4.3ms.
 
 ### DDP's exposed communication
 
@@ -193,7 +193,7 @@ DDP's bucket doesn't split a gradient: it closes once it reaches `bucket_cap_mb`
 
 With 16384 tokens per GPU, over 1 node, the same all-reduces exposed more than with 8192: traces with NVIDIA's nsys profiler show them slowing each compute kernel next to them as much as with 8192 tokens, but more compute kernels ran next to them in the longer backward. The all-reduces take SMs from the compute, but limiting them to fewer CTAs didn't help: with [`NCCL_MAX_CTAS`](README.md#nccl_min_ctas-and-nccl_max_ctas) at 8 instead of the 24 that NCCL picked, their comm alone took twice as long, and in 3 runs of each the step took about 10ms longer with 8192 tokens, where they no longer fit in backward, and only 0.7ms to 2.3ms shorter with 16384.
 
-Over 4 nodes the all-reduces ran twice as long during backward as in the comm alone, so about 27 of the 160 were still running or queued when backward's compute ended, and the step waited about 30ms for them, against under 3ms over 1 node.
+Over 4 nodes the all-reduces ran twice as long during backward as in the comm alone, and about 27 of the 160 were still running or queued when backward's compute ended: the step waited about 30ms for them, against under 3ms over 1 node.
 
 ### FSDP2's exposed communication
 
@@ -376,7 +376,7 @@ Here are the `sp-ulysses` and `cp-rsa` steps for the same sequences, split into 
 
 With `cp=32` each GPU's ring has 31 steps instead of 7, so its communication alone took 7 times as long, while its compute alone took only 2.3 times as long, from running its queries against 4 times as many keys. So 60% of the communication stayed exposed, against 40% within a node. With 8192 tokens per GPU the step ran out of memory.
 
-The 4096-token row ran without the CUDA graphs, which ran out of memory. Without them the host can't queue backward's kernels as fast as the GPU runs them, so the compute alone takes longer, and the same exposed communication makes a smaller compute slowdown: with 2048 tokens per GPU it came out at 38.6% without the graphs, against 100.0% with them, for about the same exposed communication. So compare that row with the others by its exposed communication.
+The 4096-token row ran without the CUDA graphs, which ran out of memory. Without them the host can't queue backward's kernels as fast as the GPU runs them, so the compute alone takes longer, and the same exposed communication makes a smaller compute slowdown: with 2048 tokens per GPU it came out at 38.6% without the graphs, against 100% with them, for about the same exposed communication. So compare that row with the others by its exposed communication.
 
 ### Expert parallelism's exposed communication
 
@@ -474,7 +474,7 @@ The `all_to_all` steps took within 0.2% of the time of those in the `ep=8` table
 
 DeepEP's steps took 8% to 13% less time than the `all_to_all` ones, and with 1 micro-batch less than the `all_to_all` ones with 2. Most of that came from the compute alone, 12% to 14% shorter without the `all_to_all` dispatcher's copies, sorts and sums, while DeepEP's dispatch and combine alone, which do that work in their kernels, still took 8% to 9% less time than the all-to-alls.
 
-With 2 micro-batches, though, DeepEP exposed more of its communication than the all-to-alls: 28.60ms against 21.55ms at 8192 tokens, and 17.14ms against 12.42ms at 4096, so its steps gained less than its compute alone did. These runs don't show why. The SMs aren't the cause: with 16 or 64 SMs instead of 32 the 8192-token step took 194.47ms and 195.34ms, and with 16 its dispatch and combine alone took 23% longer.
+With 2 micro-batches, though, DeepEP exposed more of its communication than the all-to-alls: 28.60ms against 21.55ms at 8192 tokens, and 17.14ms against 12.42ms at 4096, so its steps gained less than its compute alone did. These runs don't show why. The SMs aren't the cause: with 16 or 64 SMs instead of 32 the 8192-token step took ~194ms and ~195ms, and with 16 its dispatch and combine alone took 23% longer.
 
 Over 1 node DeepEP's inter-node savings don't apply: across nodes it sends each token over the network once to each node of its experts, rather than once per expert, and that is where the `ep=32` all-to-alls above exposed 80% of their communication even with 2 micro-batches. That wasn't measured here.
 
@@ -518,7 +518,7 @@ The `pp` pattern lays its groups out as Megatron-LM does, whose default order of
 
 Over 1 node `pp=2` has 4 groups of 2 GPUs, the ranks of each 4 apart.
 
-Here is `pp` over 2 of the same 8x B200 nodes, with 8 400Gbps [EFA](README.md#efa) NICs per node between them (`torch=2.14.0+cu130`, `nccl=2.30.7`), and next to each `pp=2` row the same over 1 node from the same job, 32 layers of Llama-3.1-8B, sorted by `pp`, tokens and overlap. The 1-node `pp=8` rows to compare with are in the table above:
+Here is `pp` over 2 of the same 8x B200 nodes, with 8 400Gbps [EFA](README.md#efa) NICs per node between them (`torch=2.14.0+cu130`, `nccl=2.30.7`), and next to each `pp=2` row the same over 1 node, measured in the same run, 32 layers of Llama-3.1-8B, sorted by `pp`, tokens and overlap. The 1-node `pp=8` rows to compare with are in the table above:
 
 | nodes | pp   | virtual<br>stages | micro-<br>batches | tokens | overlap | bubble | compute<br>slowdown | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | ----: | ---: | ----------------: | ----------------: | -----: | ------: | -----: | ------------------: | ------------------: | --------------------: | -----------: |
@@ -536,13 +536,13 @@ Here is `pp` over 2 of the same 8x B200 nodes, with 8 400Gbps [EFA](README.md#ef
 
 The columns are those of the table above, and `pp` is the pipeline-parallel degree.
 
-With `pp=2` and the sends overlapped, the sends took 19 and 21 times as long alone across the nodes as over 1 node, 69.45ms against 3.69ms at 4096 tokens and 139.81ms against 6.75ms at 8192, and they still exposed only 4.90ms and 11.18ms, 0.3% of the compute alone at both token counts.
+With `pp=2` and the sends overlapped, the sends took 19 and 21 times as long alone across the nodes as over 1 node, 69.45ms against 3.69ms at 4096 tokens and ~140ms against 6.75ms at 8192, and they still exposed only 4.90ms and 11.18ms, 0.3% of the compute alone at both token counts.
 
 Over 1 node the `pp=2` sends were so short, 3.69ms to 10.99ms in steps of 1.5s to 3.3s, that their comm cost, up to 173%, compares a few milliseconds with a few milliseconds.
 
 Batching the sends with `overlap_p2p_comm=0` mattered more across the nodes. With `pp=2` it exposed 5 to 6 times as much as overlapping them, 30.21ms against 4.90ms at 4096 tokens and 56.55ms against 11.18ms at 8192, and made the steps 2.0% and 1.6% longer. 25.93ms of the 30.21ms were exposed in the 1F1B phase. Over 1 node, batching the `pp=2` sends exposed 4.45ms, no more than overlapping them.
 
-With `pp=8`, where 2 of each group's 8 GPUs sent to the other node, the sends took 9 and 11 times as long alone as over 1 node with them overlapped, 71.36ms against 7.57ms at 4096 tokens and 142.05ms against 12.96ms at 8192, and exposed 3 and 4 times as much: 9.73ms against 3.27ms and 25.88ms against 6.10ms, 2.6% and 3.2% of the compute alone. Each of its chunks has 2 layers, against 8 with `pp=2`, so each send has a quarter as much compute to overlap with. Batched, the `pp=8` sends exposed 22.01ms against 16.33ms over 1 node, 5.9% of the compute alone against 4.4%.
+With `pp=8`, where 2 of each group's 8 GPUs sent to the other node, the sends took 9 and 11 times as long alone as over 1 node with them overlapped, 71.36ms against 7.57ms at 4096 tokens and ~142ms against 12.96ms at 8192, and exposed 3 and 4 times as much: 9.73ms against 3.27ms and 25.88ms against 6.10ms, 2.6% and 3.2% of the compute alone. Each of its chunks has 2 layers, against 8 with `pp=2`, so each send has a quarter as much compute to overlap with. Batched, the `pp=8` sends exposed 22.01ms against 16.33ms over 1 node, 5.9% of the compute alone against 4.4%.
 
 The bubble was the same across the nodes as over 1 node: 2.6% to 3.1% with `pp=2`, against 2.3% to 3.0% over 1 node and the 3.1% that (pp - 1) / (micro_batches * virtual_stages) gives, and 18.7% to 20.0% with `pp=8`, against 18.8% to 20.1% in the table above. So crossing the nodes cost only the exposed communication.
 
