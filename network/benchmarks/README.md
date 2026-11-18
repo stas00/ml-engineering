@@ -329,6 +329,39 @@ The fastest median is the smallest latency median across the measured payloads. 
 
 ![torch-dist-bench latency 8x B200](images/torch-dist-bench-latency-8xb200.png)
 
+Here is the summary of a separate run with `--sym-mem`, on the same node with the same software:
+
+```
+Summary of 9 collectives over 8 ranks:
+
+fastest median latency
+|     collective    | payload | fastest |
+| :---------------- | ------: | ------: |
+| reduce            |      8B |  11.4us |
+| broadcast         |      8B |  11.5us |
+| all_gather        |    128B |  11.6us |
+| all_reduce        |      8B |  11.6us |
+| reduce_scatter    |    128B |  11.6us |
+| gather            |    128B |  12.0us |
+| scatter           |    4KiB |  14.5us |
+| all_to_all        |    256B |  15.8us |
+| batch_isend_irecv |    512B |  18.2us |
+
+busbw
+|     collective    | payload |    peak    | half-peak |
+|                   |         |            |  payload  |
+| :---------------- | ------: | ---------: | --------: |
+| all_reduce        |   16GiB | 821.32GBps |      8MiB |
+| gather            |    1GiB | 764.43GBps |     16MiB |
+| all_gather        |   16GiB | 749.03GBps |     16MiB |
+| scatter           |   16GiB | 723.31GBps |     16MiB |
+| broadcast         |   16GiB | 699.76GBps |    128MiB |
+| batch_isend_irecv |   16GiB | 691.05GBps |    256MiB |
+| all_to_all        |   16GiB | 690.76GBps |     32MiB |
+| reduce            |   16GiB | 689.41GBps |     32MiB |
+| reduce_scatter    |    8GiB | 489.13GBps |      8MiB |
+```
+
 [Collectives other than all-reduce](../README.md#collectives-other-than-all-reduce) discusses what these numbers show.
 
 Against `nccl-tests` built with NCCL 2.30.7 on an 8x B200 node - its per-iteration median and p99 (`-I 1`) for the latency, its default timing for the bandwidth - `all_reduce`, `all_gather`, `reduce_scatter`, `all_to_all`, `broadcast`, `reduce` and `gather` agree within about 1µs up to 1MiB and within 2% at 16GiB, and so do their p99s. Where they differ, it's because PyTorch runs the collective differently or `nccl-tests` times it differently:

@@ -1347,11 +1347,11 @@ $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.
 
 It's easy to see that it's about 3x slower in this particular case to send the same payload but in 1000 smaller chunks.
 
-footnote: this benchmark does 3 warmup iterations before timing anything, and it has to. NCCL sets up its channels and buffers on the first collective of a given size, and on NVLink 4 and higher also registers the NVLS multicast group - all of which would otherwise be charged to the `1x` measurement, since that one runs first. Without the warmup the same 4GB payload measured 561Gbps instead of 3722Gbps on this node, which is not only 6x low but large enough to reverse the comparison and make 1000 small chunks look faster than one big one.
+footnote: this benchmark does 3 warmup iterations before timing anything, and it has to. NCCL sets up its channels and buffers on the first collective of a given size, and on NVLink 4 and higher also registers the NVLS multicast group - all of which would otherwise be charged to the `1x` measurement, since that one runs first. Without the warmup the same 4GB payload measured 561Gbps instead of 3722Gbps on this node, which is not only 6.6x too low but large enough to reverse the comparison and make 1000 small chunks look faster than one big one.
 
-So when you calculate how long does it take to `all_reduce` a given payload size, you need to use the corresponding `busbw` entry (after of course you have run this benchmark on your particular hardware/environment).
+So when you calculate how long it takes to `all_reduce` a given payload size, you need to use the corresponding `busbw` entry (after of course you have run this benchmark on your particular hardware/environment).
 
-Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
+Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obviously would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
 
 Back to the A100 `nccl-tests` sweep at the top of this section: 16GiB was the largest payload it ran - a larger one crashed the benchmark - and its last few rows show that not much more can be squeezed.
 
@@ -1508,7 +1508,7 @@ The gains differ from one GPU to the next. On B200 symmetric memory is faster at
 
 These gains assume the all-reduces are queued while the GPU is busy, which is how the benchmark measures by default, and how a training loop whose host runs ahead of the GPU issues them. If instead your program waits on each all-reduce, PyTorch's 20-30µs of host overhead per call lands on top of the faster kernel and eats most of the small-payload gain: with the benchmark's `--with-host-overhead` timing, symmetric memory makes a 32KiB all-reduce 37% faster on B200 rather than 154%, and 16% faster on H200 rather than 133%.
 
-Symmetric memory also cuts the latency of small all-reduces: on an 8x H200 node with the same software it roughly halves the latency up to 16KiB, e.g. 8.1µs instead of 15.2µs at the median at 8B, and on an 8x B200 node an 8B all-reduce took 11.6µs at the median and 12.5µs at the p99 instead of 23.5µs and 24.7µs.
+Symmetric memory also cuts the latency of small all-reduces. On an 8x H200 node with the same software it cuts the median by 41-55% at every payload from 8B to 1MiB, e.g. 8.1µs instead of 15.2µs at 8B, in the table of [How the latency is measured](benchmarks/README.md#how-the-latency-is-measured). On an 8x B200 node (`torch=2.14.1+cu130`, `nccl=2.30.7`), in the nine-collective runs of [Other collectives](benchmarks/README.md#other-collectives), an 8B all-reduce took 11.6µs at the median instead of 23.6µs.
 
 #### Collectives other than all-reduce
 
