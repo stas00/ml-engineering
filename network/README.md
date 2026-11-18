@@ -1216,7 +1216,7 @@ It's critical to understand your particular model size and framework requirement
 
 If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
 
-Benchmarking `all_reduce`, e.g. with [torch-dist-bench.py](benchmarks/README.md#network-throughput), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 838.97GBps and four nodes 376.60GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
+Benchmarking `all_reduce`, e.g. with [torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches 838.97GBps and four nodes 376.60GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
 
 Frameworks that shard weights and optim stages like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
 
@@ -1333,7 +1333,7 @@ The curve has the same shape - low until a few MiB, most of the way there by 512
 
 The ~80% rule of thumb from [Unidirectional vs Bidirectional (Duplex)](#unidirectional-vs-bidirectional-duplex) is alive and well - the H200 node lands on 82% when NCCL rings, which is what the middle row measures with `NCCL_NVLS_ENABLE=0`. What takes the top row past the wire spec is [SHARP](#sharp): at large payloads NCCL reduces inside the NVSwitch, so fewer bytes cross the links than a ring would need and `busbw`'s ring-based formula stops describing the wire. The A100 node has no such path, which is why its number obeys the rule without any flag.
 
-Here is a benchmark that demonstrates that: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on an 8x H200 node:
+Here is a benchmark that demonstrates that reducing a single 4GB payload is much faster than 1000x 4MB payloads: [all_reduce_latency_comp.py](benchmarks/all_reduce_latency_comp.py). Let's run it on an 8x H200 node:
 
 ```bash
 $ python -u -m torch.distributed.run --nproc_per_node=8 all_reduce_latency_comp.py
@@ -1353,7 +1353,11 @@ So when you calculate how long does it take to `all_reduce` a given payload size
 
 Figuring out the payload can be tricky since it'd depend on the implementation of the framework. Some implementations will reduce each weight's gradient alone which obvious would lead to a very small payload and the network will be very slow. Other implementations bucket multiple gradients together before reducing those, increasing the payload and minimizing the latency impact.
 
-But let's go back to the benchmark results table. This test was done on an A100 node that runs NVLink advertised as uni-directional 300GBps so we get about 78% of the theoretical speed with 16GiB payload and more than that the benchmark crashes. It can be seen from the last few rows of the table that not much more can be squeezed.
+Back to the A100 `nccl-tests` sweep at the top of this section: 16GiB was the largest payload it ran - a larger one crashed the benchmark - and its last few rows show that not much more can be squeezed.
+
+Bottom line - in this particular setup:
+1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
+2. if the payload of each communication is smallish it could be far far lower.
 
 We can also run [p2pBandwidthLatencyTest](benchmarks/README.md#p2pbandwidthlatencytest) which performs a low-level p2p benchmark.
 
@@ -1392,11 +1396,6 @@ Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
 ```
 
 So 376GBps out of 450GBps is 83% (not very good).
-
-Bottom line - in this particular setup:
-1. if you have huge payloads you will be able to use about 80% of the advertised 300GBps
-2. if the payload of each communication is smallish it could be far far lower.
-
 
 On GB200 (NVLink 5.0) (on a single nvl4 node w/ 4 GPUs):
 ```

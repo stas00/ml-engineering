@@ -68,11 +68,54 @@ Note the linear y-axis compresses everything below ~100GBps into the bottom of t
 
 For launching examples please see the top of [torch-dist-bench.py](torch-dist-bench.py). You can interrupt the benchmark with Ctrl-C, and it'll still report the results it measured up to that point.
 
-For the all-reduce `busbw` to expect on a well-tuned network, see [Real network throughput](../README.md#real-network-throughput).
+For the all-reduce `busbw` to expect on a well-tuned network, and how much bandwidth training needs, see [Real network throughput](../README.md#real-network-throughput) and [How much inter-node bandwidth training needs](../README.md#how-much-inter-node-bandwidth-training-needs).
 
 To check the stability of all-reduce over time, rather than averaging the results, you can profile a single payload size with these 2 flags `--profile_stability --payload_size_in_gib 0.5` (change the last value to the desired payload size in GiB). Beware that a typical ML workload doesn't call all-reduce back to back non-stop so this approach puts the network through a stress test, which is a somewhat non-typical workload. But it can still show if the network has issues with sustained load. Here is an example of a plot generated on a 8x B200 with a payload of 2GiB:
 
 ![all-reduce-bench 2GiB profile](images/all-reduce-bench-profile-2gib.png)
+
+#### Running on multiple nodes
+
+On CSPs that have enabled [SLURM Pyxis Container Plugin](https://github.com/NVIDIA/pyxis), such as CoreWeave, Crusoe, AWS, Oracle, Azure, GCP, etc, `torch-dist-bench.py` can be easily ran & reproduced via the following command:
+```bash
+sbatch -n <num_of_nodes> ./torch-dist-bench-pyxis.sbatch
+```
+
+Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
+
+For how far a 4-node result carries over to many more nodes, see [Extrapolating benchmark results from several nodes to many](../README.md#extrapolating-benchmark-results-from-several-nodes-to-many).
+
+
+If you do not have access to a pyxis SLURM environment, to run it on 4 nodes:
+
+```bash
+GPUS_PER_NODE=8
+NNODES=4
+MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+MASTER_PORT=6000
+python -u -m torch.distributed.run \
+    --nproc_per_node $GPUS_PER_NODE \
+    --nnodes $NNODES \
+    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+    --rdzv_backend c10d \
+    --max_restarts 0 \
+    --role `hostname -s`: \
+    --tee 3 \
+    torch-dist-bench.py
+```
+
+Notes:
+- adapt `MASTER_ADDR` to rank 0 hostname if it's not a SLURM environment where it's derived automatically.
+
+Here is how to launch it in a SLURM env with 4 nodes:
+```bash
+salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
+srun --cpus-per-task=$SLURM_CPUS_PER_TASK --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d torch-dist-bench.py
+```
+
+Notes:
+- You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
+- You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
 
 <a id="how-the-calls-are-timed"></a>
 
@@ -306,6 +349,8 @@ Other benchmarks that measure the latency of collectives, with the payload range
 - [UCC perftest](https://github.com/openucx/ucc) - `ucc_perftest` times collectives through UCC, which can run over NCCL, and reports the average, min and max latency; one 128-element payload by default.
 - [MSCCL++](https://github.com/microsoft/mscclpp) - its `python/mscclpp_benchmark/allreduce_bench.py` times MSCCL++'s all-reduce kernels against NCCL's from 4KiB to 1GiB. See [Other collective libraries](../README.md#other-collective-libraries).
 - [DeepEP](https://github.com/deepseek-ai/DeepEP) - DeepSeek's MoE expert-parallel all-to-all library, whose tests time its dispatch and combine kernels at realistic token counts rather than sweeping payload sizes. See [Other collective libraries](../README.md#other-collective-libraries).
+
+The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [communication benchmarks](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/communication) for each collective that you can use to quickly measure the throughput of your internode or intranode network.
 
 
 #### Symmetric memory
@@ -565,55 +610,3 @@ The most important requirements for a series of successful experiments is to be 
 Therefore when you try to figure out whether some change will improve performance or make it worse, you must figure out how to keep things stable.
 
 For example, you need to find a way to prevent the network usage from fluctuations. When we were doing performance optimizations for [108B pre-BLOOM experiments](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide) it was close to impossible to perform, since we were on a shared internode network and the exact same setup would yield different throughput depending on how many other users used the network. It was not working. During BLOOM-176B we were given a dedicated SLURM partition with an isolated network where the only traffic was ours. Doing the performance optimization in such environment was just perfect.
-
-
-## Network throughput
-
-Note: The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [communication benchmarks](https://github.com/EleutherAI/cookbook/tree/main/benchmarks/communication) for each collective that you can use to quickly measure the throughput of your internode or intranode network.
-
-Here is a simple all-reduce benchmark that you can use to quickly measure the throughput of your internode network:
-
-[torch-dist-bench.py](torch-dist-bench.py)
-
-On CSPs that have enabled [SLURM Pyxis Container Plugin](https://github.com/NVIDIA/pyxis), such as CoreWeave, Crusoe, AWS, Oracle, Azure, GCP, etc, `torch-dist-bench.py` can be easily ran & reproduced via the following command:
-```bash
-sbatch -n <num_of_nodes> ./torch-dist-bench-pyxis.sbatch
-```
-
-Usually benchmarking at least 4 nodes is recommended, but, of course, if you already have access to all the nodes you will be using during the training, benchmark using all of the nodes.
-
-For how far a 4-node result carries over to many more nodes, see [Extrapolating benchmark results from several nodes to many](../README.md#extrapolating-benchmark-results-from-several-nodes-to-many).
-
-
-If you do not have access to a pyxis SLURM environment, to run it on 4 nodes:
-
-```bash
-GPUS_PER_NODE=8
-NNODES=4
-MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-MASTER_PORT=6000
-python -u -m torch.distributed.run \
-    --nproc_per_node $GPUS_PER_NODE \
-    --nnodes $NNODES \
-    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
-    --rdzv_backend c10d \
-    --max_restarts 0 \
-    --role `hostname -s`: \
-    --tee 3 \
-    torch-dist-bench.py
-```
-
-Notes:
-- adapt `MASTER_ADDR` to rank 0 hostname if it's not a SLURM environment where it's derived automatically.
-
-Here is how to launch it in a SLURM env with 4 nodes:
-```bash
-salloc --partition=mypartition --nodes=4 --ntasks-per-node=1 --cpus-per-task=48 --gres=gpu:8 --time=1:00:00 bash
-srun --cpus-per-task=$SLURM_CPUS_PER_TASK --gres=gpu:8 --nodes=4 --tasks-per-node=1 python -u -m torch.distributed.run --nproc_per_node=8 --nnodes 4 --rdzv_endpoint $(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1):6000 --rdzv_backend c10d torch-dist-bench.py
-```
-
-Notes:
-- You are likely to need to adapt `--cpus-per-task` and `--partition` arguments there.
-- You do `salloc` once and then can repeat `srun` multiple times on the same allocation.
-
-For what the numbers mean, and how much bandwidth training needs, see [Real network throughput](../README.md#real-network-throughput) and [How much inter-node bandwidth training needs](../README.md#how-much-inter-node-bandwidth-training-needs).
