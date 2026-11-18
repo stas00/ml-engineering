@@ -156,7 +156,7 @@ If your workload captures its all-reduce calls in a CUDA graph through PyTorch, 
 
 Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else. Its latency then also includes the ranks reaching the call at different times, as the latency of OSU's `osu_allreduce` does.
 
-Neither mode times a collective that runs concurrently with compute kernels, as it does in a training loop that overlaps them. The kernels compete for the SMs and the memory bandwidth, so an overlapped collective can take longer than reported here if it can't access immediately all the SMs it needs; `nccl-tests` doesn't time that either. [comm-compute-overlap-bench](#comm-compute-overlap-bench) measures the collectives of a training step running next to its compute.
+Neither mode times a collective that runs concurrently with compute kernels, as it does in a training loop that overlaps them. The kernels compete for the Streaming Multiprocessors (SMs) and the memory bandwidth, so an overlapped collective can take longer than reported here if it can't access immediately all the SMs it needs; `nccl-tests` doesn't time that either. [comm-compute-overlap-bench](#comm-compute-overlap-bench) measures the collectives of a training step running next to its compute.
 
 #### Latency
 
@@ -394,7 +394,7 @@ To run the collectives on buffers registered as an NCCL symmetric memory window,
 
 #### CTA policy
 
-NCCL>=2.28 can change how many Cooperative Thread Arrays (CTAs), blocks of threads that each run on one Streaming Multiprocessor (SM), NCCL picks for each collective, with a communicator's CTA policy: `default`, `efficiency` or `zero` - see [CTA policy](../README.md#cta-policy) for what each one does, and [Trading collective speed for compute](../exposed-communication.md#trading-collective-speed-for-compute-cta-policy) for what it cost the collectives and the compute running alongside them on an 8x B200 node. This benchmark sets the policy of its process group with `--cta-policy`, and exits if the torch or the NCCL it runs with doesn't have it. `zero` runs `all_gather` and `all_to_all` on the copy engines only on symmetric memory, so add `--sym-mem` with it.
+NCCL>=2.28 can change how many Cooperative Thread Arrays (CTAs), blocks of threads that each run on one SM, NCCL picks for each collective, with a communicator's CTA policy: `default`, `efficiency` or `zero` - see [CTA policy](../README.md#cta-policy) for what each one does, and [Trading collective speed for compute](../exposed-communication.md#trading-collective-speed-for-compute-cta-policy) for what it cost the collectives and the compute running alongside them on an 8x B200 node. This benchmark sets the policy of its process group with `--cta-policy`, and exits if the torch or the NCCL it runs with doesn't have it. `zero` runs `all_gather` and `all_to_all` on the copy engines only on symmetric memory, so add `--sym-mem` with it.
 
 Add `--cta-policy efficiency` or `--cta-policy zero` to see what the policy costs the collectives themselves:
 
