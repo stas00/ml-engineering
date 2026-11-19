@@ -152,7 +152,7 @@ Here are the measurements on the same 8x H200 node as the plot in [torch-dist-be
 
 The two agree within 2%, except from 1MiB to 16MiB, where `nccl-tests` reads 3-7% lower. Whether to measure with this benchmark or with `nccl-tests` depends on whether you are writing a PyTorch program or a NCCL kernel - see [nccl-tests](#nccl-tests).
 
-If your workload captures its all-reduce calls in a CUDA graph through PyTorch, expect lower `busbw` at small payloads than this benchmark's default timing reports. Replaying PyTorch-captured all-reduces on B200 left a gap of about 2.5µs between consecutive ones, which cost regular all-reduces up to 9% and symmetric memory ones 12-26% at 2MiB and below, where a call takes only 10-35µs.
+If your workload captures its all-reduce calls in a CUDA graph through PyTorch, expect lower `busbw` at small payloads than this benchmark's default timing reports. Replaying PyTorch-captured all-reduces on B200 left a gap of about 2.5µs between consecutive ones, which cost regular all-reduces up to 9% and [symmetric memory](#symmetric-memory) ones 12-26% at 2MiB and below, where a call takes only 10-35µs.
 
 Add `--with-host-overhead` to time one call per trial on an idle GPU instead. It charges that host overhead to every call - what an all-reduce costs when the program waits for its result before doing anything else. Its latency then also includes the ranks reaching the call at different times, as the latency of OSU's `osu_allreduce` does.
 

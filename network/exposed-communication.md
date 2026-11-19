@@ -191,7 +191,7 @@ Now let's analyze each dp pattern.
 
 DDP's bucket doesn't split a gradient: it closes once it reaches `bucket_cap_mb`, 25MiB by default, and Llama-3.1-8B's larger weights take 32MiB to 112MiB in bf16, so most weights get an all-reduce of their own: 5 per layer, 160 per step.
 
-With 16384 tokens per GPU, over 1 node, the same all-reduces exposed more than with 8192: traces with NVIDIA's nsys profiler show them slowing each compute kernel next to them as much as with 8192 tokens, but more compute kernels ran next to them in the longer backward. The all-reduces take SMs from the compute, but limiting them to fewer CTAs didn't help: with [`NCCL_MAX_CTAS`](README.md#nccl_min_ctas-and-nccl_max_ctas) at 8 instead of the 24 that NCCL picked, their comm alone took twice as long, and in 3 runs of each the step took about 10ms longer with 8192 tokens, where they no longer fit in backward, and only 0.7ms to 2.3ms shorter with 16384.
+With 16384 tokens per GPU, over 1 node, the same all-reduces exposed more than with 8192: traces with NVIDIA's [Nsight Systems](https://developer.nvidia.com/nsight-systems) (`nsys`) profiler show them slowing each compute kernel next to them as much as with 8192 tokens, but more compute kernels ran next to them in the longer backward. The all-reduces take SMs from the compute, but limiting them to fewer CTAs didn't help: with [`NCCL_MAX_CTAS`](README.md#nccl_min_ctas-and-nccl_max_ctas) at 8 instead of the 24 that NCCL picked, their comm alone took twice as long, and in 3 runs of each the step took about 10ms longer with 8192 tokens, where they no longer fit in backward, and only 0.7ms to 2.3ms shorter with 16384.
 
 Over 4 nodes the all-reduces ran twice as long during backward as in the comm alone, and about 27 of the 160 were still running or queued when backward's compute ended: the step waited about 30ms for them, against under 3ms over 1 node.
 
@@ -201,7 +201,7 @@ FSDP2 exposed the least communication over 4 nodes, and `fsdp` with `reshard_aft
 
 `reshard_after_forward=0` keeps the gathered parameters from forward to backward, 13GiB for 32 layers of Llama-3.1-8B, so backward only reduce-scatters, while the default `fsdp` all-gathers them again in backward.
 
-About 40% of what `fsdp`'s forward exposed isn't communication: FSDP2 copies each layer's gathered parameters out of the all-gather's buffer on the compute stream, 0.14ms per layer in a trace with NVIDIA's nsys profiler. The copies don't depend on the token count, so forward exposed about as much with 16384 tokens per GPU.
+About 40% of what `fsdp`'s forward exposed isn't communication: FSDP2 copies each layer's gathered parameters out of the all-gather's buffer on the compute stream, 0.14ms per layer in an `nsys` trace. The copies don't depend on the token count, so forward exposed about as much with 16384 tokens per GPU.
 
 On a shared communicator an all-gather waits for the reduce-scatter before it, as section 3.3.2 of the [PyTorch FSDP paper](https://arxiv.org/abs/2304.11277) explains, and `separate_rs_group=1` removes that wait. Over 1 node that made backward worse, as the two collectives running at once took 32 SMs each and slowed the matmuls next to them, but over 4 nodes, where the collectives take longer, it made the step faster, 44.91ms exposed against 48.36ms.
 
@@ -239,7 +239,7 @@ Only buckets far below the default cost more: 1.31e7 elements, 25MiB in bf16 lik
 
 ZeRO-3 exposed more than the default `fsdp`, 41.18ms against 34.17ms over 1 node and 66.89ms against 48.36ms over 4, with about as much communication alone, and over 1 node the difference was all in backward.
 
-In backward ZeRO-3's all-gathers share a communicator with its gradient reduce-scatters, so an all-gather that the next layer needs can wait for a reduce-scatter to finish, and the compute waits for the all-gather. FSDP2's all-gathers queue the same way, but each starts a whole layer before its compute needs it, while ZeRO-3's default `stage3_prefetch_bucket_size` of 5e7 elements is less than one of Llama-3.1-8B's largest weights, so it prefetches about one weight ahead. In traces with NVIDIA's nsys profiler over 4 nodes, about half of the time that ZeRO-3's compute waited for all-gathers went to those that had queued behind a reduce-scatter.
+In backward ZeRO-3's all-gathers share a communicator with its gradient reduce-scatters, so an all-gather that the next layer needs can wait for a reduce-scatter to finish, and the compute waits for the all-gather. FSDP2's all-gathers queue the same way, but each starts a whole layer before its compute needs it, while ZeRO-3's default `stage3_prefetch_bucket_size` of 5e7 elements is less than one of Llama-3.1-8B's largest weights, so it prefetches about one weight ahead. In `nsys` traces over 4 nodes, about half of the time that ZeRO-3's compute waited for all-gathers went to those that had queued behind a reduce-scatter.
 
 ZeRO-3's forward exposed a third more with 16384 tokens per GPU than with 8192, almost all of it as compute slowed by the all-gathers rather than waiting for them: in nsys traces over 1 node the forward's all-gathers took 27ms in the comm alone, but ran for 59ms next to the compute with 8192 tokens and 92ms with 16384, and the longer they ran next to it, the more compute they slowed.
 

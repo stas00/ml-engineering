@@ -278,6 +278,8 @@ then, with [nvbandwidth](benchmarks/README.md#nvbandwidth):
 
 caveat: `host_to_device_memcpy_ce` measures whatever the host-to-device path happens to be on that platform, so read it against the fabric the machine actually uses. On an x86 host with PCIe-attached SXM accelerators that path is PCIe, which is what the 88% above refers to. On a Grace-Blackwell system the very same testcase measures [NVLink-C2C](#nvlink-c2c) instead and reports several hundred GBps - same command, different fabric, an order of magnitude apart.
 
+On a bare-metal node with PCIe switches, check that ACS is disabled, or the traffic between the network adapters and the GPUs goes through the CPU - see [Disable Access Control Services](#disable-access-control-services).
+
 footnote: a released specification is not shipping silicon. As of 2026-07-30 [PCI-SIG](https://pcisig.com/specifications) lists `PCI Express Base Specification Revision 7.0` as released, while PCIe 8.0 exists only as a members-only draft, targeted for 2028. And even a finished spec takes years to reach products - PCIe 6.0 hardware didn't launch until August 2025, about three years after its spec was done. So read the last rows as where the standard is heading, not as what you can buy.
 
 
@@ -483,7 +485,7 @@ NVIDIA DGX A100 has 6 switches of 12 NVLinks for a total of 72.
 
 A [DGX H100 SuperPOD](https://docs.nvidia.com/dgx-superpod/reference-architecture-scalable-infrastructure-h100/latest/index.html) scalable unit contains 32 DGX H100 systems (256 GPUs), but each DGX remains its own in-node NVSwitch domain. The systems scale out over a separate Quantum-2 NDR400 InfiniBand compute fabric, so cross-node bandwidth must be described from the ConnectX-7/InfiniBand topology rather than by halving or summing the internal NVLinks. See [InfiniBand](#infiniband).
 
-Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds for `all-reduce`. NCCL versions now have `NCCL_ALGO=NVLS` which boosts the intra-node `all-reduce` bandwidth up to 30%, and inter-node `all-reduce` by about 25%.
+Additionally, NVSwitch gen3 and higher comes with [NVIDIA Scalable Hierarchical Aggregation Reduction Protocol (SHARP)](#sharp) which can boost both the intra- and inter-node speeds for `all-reduce`. NCCL versions now have [`NCCL_ALGO=NVLS`](#nccl_algo) which boosts the intra-node `all-reduce` bandwidth up to 30%, and inter-node `all-reduce` by about 25%.
 
 Recently [GB200 NVL72](https://www.nvidia.com/en-us/data-center/gb200-nvl72/) has been introduced, which uses NVSwitch to put 72 Blackwell GPUs into a single node all inter-connected at NVLink 5 900GBps unidirectional speed. So instead of having a 8-gpu node, now we have a 72-gpu node (even though physically they don't all reside on the same board).
 
@@ -1190,7 +1192,7 @@ Let's bring both use cases together:
 
 on this 200Gbps inter-node setup the comms are 12x slower than the same performed on an intra-node NVLink connections.
 
-footnote: this arithmetic assumes the whole payload crosses the inter-node wire at one accelerator's NIC rate, which is far more pessimistic than what a real cluster does. For example, on 4x 8x B200 nodes (`p6-b200.48xlarge`, NCCL 2.30.7, EFA) a 4GiB `all-reduce` across 32 ranks selects `Ring`, measured 2026-10-03. Forcing `NCCL_ALGO=allreduce:ring` reproduced the default to within 0.1% - ~375GBps `busbw` both - while `NCCL_ALGO=allreduce:nvlstree` was available but 18% slower at ~308GBps. Yet that ring doesn't run at one NIC's rate: NCCL runs several rings at once, each leaving the node through a different accelerator's NIC, so all 8 NICs carry traffic and the reduction finishes about 4x sooner than this arithmetic predicts - see [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). The algorithm is chosen per platform and per payload size, on that cluster by AWS's `NCCL_TUNER_PLUGIN=ofi` plugin rather than NCCL's own tuner, so check yours with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`.
+footnote: this arithmetic assumes the whole payload crosses the inter-node wire at one accelerator's NIC rate, which is far more pessimistic than what a real cluster does. For example, on 4x 8x B200 nodes (`p6-b200.48xlarge`, NCCL 2.30.7, EFA) a 4GiB `all-reduce` across 32 ranks selects `Ring`, measured 2026-10-03. Forcing [`NCCL_ALGO=allreduce:ring`](#nccl_algo) reproduced the default to within 0.1% - ~375GBps `busbw` both - while `NCCL_ALGO=allreduce:nvlstree` was available but 18% slower at ~308GBps. Yet that ring doesn't run at one NIC's rate: NCCL runs several rings at once, each leaving the node through a different accelerator's NIC, so all 8 NICs carry traffic and the reduction finishes about 4x sooner than this arithmetic predicts - see [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed). The algorithm is chosen per platform and per payload size, on that cluster by AWS's `NCCL_TUNER_PLUGIN=ofi` plugin rather than NCCL's own tuner, so check yours with `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=INIT,TUNING`.
 
 In this case even though we still have the much faster NVLink connection, we don't really benefit from it, since the whole ensemble communicates at the speed of the slowest link. And that slowest link is the inter-node connection.
 
@@ -1750,9 +1752,9 @@ case study: we had this issue at JeanZay HPC when we were doing preliminary expe
 
 ## Disable Access Control Services
 
-PCI Access Control Services (ACS) used for IO virtualization (also known as VT-d or IOMMU) force P2P PCIe transactions to go up through the PCIe Root Complex, which does not enable GDS to bypass the CPU on paths between a network adapter or NVMe and the GPU in systems that include a PCIe switch.
+PCI Access Control Services (ACS) used for IO virtualization (also known as VT-d or IOMMU) force P2P PCIe transactions to go up through the PCIe Root Complex, which does not enable GPUDirect RDMA and [GPUDirect Storage (GDS)](https://docs.nvidia.com/gpudirect-storage/) to bypass the CPU on paths between a network adapter or NVMe and the GPU in systems that include a PCIe switch. For NCCL this can cause a significant performance reduction or even a hang.
 
-For the optimal GDS performance, disable ACS by following these instructions [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#pci-access-control-services-acs). Here are some [additional notes](https://docs.nvidia.com/gpudirect-storage/best-practices-guide/index.html)
+For the optimal NCCL and GDS performance, disable ACS by following these instructions [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting/gpu_troubleshooting.html#pci-access-control-services-acs). Here are some [additional notes](https://docs.nvidia.com/gpudirect-storage/best-practices-guide/index.html)
 
 Please note that if you're using Virtual machines you can't disable ACS as it's a required feature. To run with maximum performance inside virtual machines, Address Translation Service (ATS) needs to be enabled in network adapters.
 
