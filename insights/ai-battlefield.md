@@ -411,6 +411,20 @@ This is probably the least worrisome component.
 
 - Most of the compute happens on GPUs
 
+### Quantum computing
+
+There is a lot of interest and investment in quantum computing, but it isn't relevant to ML training or inference yet.
+
+- Today's machines have at most a few dozen error-corrected qubits, and they have beaten classical computers only on narrow physics simulations.
+
+- A quantum processing unit (QPU) can't be used alone: it needs CPUs and GPUs to control it, to correct its errors as it runs and to run the classical parts of every program. So the future of compute is QPUs, GPUs and CPUs working together.
+
+- The first fault-tolerant machines, able to run long computations without the errors piling up, are on [IBM](https://www.ibm.com/roadmaps/quantum/)'s and [Quantinuum](https://www.quantinuum.com/company/roadmaps)'s roadmaps for 2029, and [Google](https://ec.europa.eu/info/law/better-regulation/api/download/090166e51d84b35d) expects one in 2030 or later.
+
+- ML is a poor fit even for those: an optimistic future quantum computer would still read data about 10,000 times slower than a GPU, so it suits problems with little data and a lot of compute rather than training on trillions of tokens ([Hoefler, Häner and Troyer](https://cacm.acm.org/research/disentangling-hype-from-practicality-on-realistically-achieving-quantum-advantage/)). Its first uses in ML will most likely be in modeling nature, e.g. molecules and materials in chemistry, which are quantum systems themselves, rather than in deep learning.
+
+So useful quantum computing is still 3-5 years away, and for ML probably further - worth following, but not worth planning your compute around.
+
 
 ## Impress others with your ML instant math
 
