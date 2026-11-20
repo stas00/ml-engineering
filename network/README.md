@@ -1214,17 +1214,17 @@ As I have shown in these sections it should be possible to be able to do a back-
 
 ### How much inter-node bandwidth training needs
 
-It's critical to understand your particular model size and framework requirements with regard to network bandwidth, throughput and latency. If you underpay for network you will end up having idle gpus and thus you wasted money and time. If you overpay for very fast network, but your gpus are slow, then again you wasted money and time.
+It's critical to understand your particular model size and framework requirements with regard to network bandwidth, throughput and latency. If you underpay for network you will end up having idle GPUs and thus you wasted money and time. If you overpay for very fast network, but your GPUs are slow, then again you wasted money and time.
 
-If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help with the improving performance.
+If your network is very slow, your training is likely to be network-bound and many improvements in the training setup will not help improve performance.
 
-Benchmarking `all_reduce`, e.g. with [torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches ~839GBps and four nodes ~377GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like. The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps or higher. Though we trained BLOOM on 50Gbps.
+The minimal speed to prevent being network bound will depend on your particular training framework, but typically you'd want at least 400Gbps. Though we trained BLOOM on 50Gbps.
 
-Frameworks that shard weights and optim stages like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ ZeRO Stage-3 do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones only send activations across and thus don't need as much bandwidth. But they are much more complicated to set up and run.
+Frameworks that shard weights and optimizer states like [DeepSpeed](https://github.com/deepspeedai/DeepSpeed) w/ [ZeRO Stage-3](../training/model-parallelism/README.md#zero-data-parallelism) do a lot more traffic than frameworks like [Megatron-DeepSpeed](https://github.com/bigscience-workshop/Megatron-DeepSpeed) which do tensor and pipeline parallelism in addition to data parallelism. The latter ones send mostly activations across, plus the data-parallel gradients, and thus don't need as much bandwidth. But they are much more complicated to set up and run.
 
-Of course, an efficient framework will overlap communications and compute, so that while one stage is fetching data, the other stage in parallel runs computations. So as long as the communication overhead is smaller than compute the network requirements are satisfied and don't have to be super fantastic.
+Of course, an efficient framework will [overlap communications and compute](#comms-and-compute-overlap). So as long as the communication overhead is smaller than compute the network requirements are satisfied and don't have to be super fantastic.
 
-To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed ZeRO Stage 3 with V100s
+To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed ZeRO Stage 3 with V100s:
 
 1. 100Gbps is not enough
 2. 200-400Gbps is ok
@@ -1232,7 +1232,9 @@ To get reasonable GPU throughput when training at scale (64+GPUs) with DeepSpeed
 
 [full details](https://github.com/deepspeedai/DeepSpeed/issues/2928#issuecomment-1463041491)
 
-Of course, the requirements are higher for A100 gpu nodes and even higher for H100s (but no such benchmark information has been shared yet).
+Of course, the requirements are higher for A100 GPU nodes and even higher for H100s (but no such benchmark information has been shared yet for H100s; for an A100 data point see [Inter-node speed requirements to use ZeRO](../training/model-parallelism/README.md#inter-node-speed-requirements-to-use-zero)).
+
+When you benchmark `all_reduce` to check your network against these numbers, e.g. with [torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), you may get results anywhere between 5Gbps and 6700Gbps (as of 2026-10), and the payload size matters as much as the hardware does - `busbw` climbs by orders of magnitude from a small payload to a large one on the very same setup. In the measured tables under [Inter-node speed depends on intra-node speed](#inter-node-speed-depends-on-intra-node-speed), at a 16GiB payload a single B200 node reaches ~839GBps and four nodes ~377GBps - about 6700Gbps and 3000Gbps - while at 32KiB those same runs report 2.17GBps and 0.64GBps. So always compare like payload with like.
 
 ### Exposed communication by parallelism pattern
 
@@ -1525,9 +1527,13 @@ Symmetric memory also cuts the latency of small all-reduces. On an 8x H200 node 
 
 ![torch-dist-bench latency 8x B200](benchmarks/images/torch-dist-bench-latency-8xb200.png)
 
-The fastest `all_to_all`, which MoE dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs. `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, moves the others' fastest payloads by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower. At the peak, `all_gather` reaches ~749GBps instead of ~662GBps, while `reduce_scatter` tops out at ~489GBps at 8GiB instead of ~690GBps at 16GiB.
+Without `--sym-mem`, `all_reduce` is the slowest of the nine collectives at small payloads. `--sym-mem` brings it down to the level of the fastest, but it doesn't help every collective, and at some payloads it hurts:
 
-`gather` peaks at ~763GBps at 1GiB, above its ~718GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
+- Without `--sym-mem`, the fastest `all_to_all`, which mixture-of-experts (MoE) dispatch and combine use, is 16.4µs, against 23.5µs for `all_reduce`, and the fastest `reduce`, `gather` and `broadcast` are 11.6µs, 12.2µs and 12.3µs.
+- `--sym-mem` brings `all_reduce`, `all_gather` and `reduce_scatter` down to 11.6µs, changes the other five collectives' fastest latencies by less than 1µs, and makes `batch_isend_irecv` 1.8µs slower.
+- With `--sym-mem`, `all_gather` peaks at ~749GBps instead of ~662GBps, while `reduce_scatter` tops out at ~489GBps at 8GiB instead of ~690GBps at 16GiB.
+
+Without `--sym-mem`, `gather` peaks at ~763GBps at 1GiB, above its ~718GBps at 16GiB. `batch_isend_irecv` stays at 81-85GBps from 16MiB to 64MiB, under a third of any other collective there, and its median latency is flat at 834-839µs from 64MiB to 256MiB. It catches up only from 512MiB.
 
 ### Inter-node speed depends on intra-node speed
 
@@ -1863,7 +1869,7 @@ In order to find the best performance to experiment with different values agains
 
 ### CTA policy
 
-NCCL runs each collective as a kernel of one [CTA](#nccl_min_ctas-and-nccl_max_ctas) per channel. Each CTA runs on one SM, and the compute kernels running at the same time can't use those SMs.
+NCCL runs each collective as a kernel of one [CTA](#nccl_min_ctas-and-nccl_max_ctas) per channel, which is why `NCCL_MAX_CTAS` was once named `NCCL_MAX_NCHANNELS`. Each CTA runs on one SM, and the compute kernels running at the same time can't use those SMs.
 
 NCCL picks how many CTAs each collective's kernel uses, up to a limit, which defaults to 64 since NCCL 2.25: on an 8x B200 node, `all_to_all` took 32 and the symmetric-memory `all_gather` 3. There are two ways to set that limit, and neither can raise it above its default:
 
