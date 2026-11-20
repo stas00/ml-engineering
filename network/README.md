@@ -1445,7 +1445,15 @@ If you're benchmarking a different collective the expected bandwidth can be very
 
 #### Symmetric memory
 
-Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it.
+Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window - one local memory region per rank, which the ranks register with NCCL together - each GPU knows where its peers' buffers are, so NCCL can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink.
+
+In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the NCCL backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation.
+
+These are the versions it takes:
+
+- The symmetric kernels need NCCL 2.27+.
+- The `symm` argument of `register_mem_pool` needs `torch>=2.9` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer.
+- The oldest `cu130` (CUDA 13.0) release that finishes a `broadcast` on this path is torch 2.12.0 with NCCL 2.29.7. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in that `broadcast`.
 
 To measure it, add `--sym-mem` to [torch-dist-bench.py](benchmarks/README.md#symmetric-memory), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
 
@@ -1855,7 +1863,12 @@ In order to find the best performance to experiment with different values agains
 
 ### CTA policy
 
-Each CTA runs on one SM. NCCL runs each collective as a kernel of one CTA per channel, and the compute kernels running at the same time can't use those SMs. NCCL picks how many CTAs each collective's kernel uses, up to a limit, which defaults to 64 since NCCL 2.25: on an 8x B200 node, `all_to_all` took 32 and the symmetric-memory `all_gather` 3. PyTorch runs the collectives of each process group on an NCCL communicator, and its config's `maxCTAs` field lowers that limit, as `max_ctas` in the example above. The `NCCL_MAX_CTAS` environment variable sets the limit for every communicator, and silently replaces their `maxCTAs`, even a lower one, logging it only with `NCCL_DEBUG=INFO`. Neither can raise the limit above its default.
+NCCL runs each collective as a kernel of one [CTA](#nccl_min_ctas-and-nccl_max_ctas) per channel. Each CTA runs on one SM, and the compute kernels running at the same time can't use those SMs.
+
+NCCL picks how many CTAs each collective's kernel uses, up to a limit, which defaults to 64 since NCCL 2.25: on an 8x B200 node, `all_to_all` took 32 and the symmetric-memory `all_gather` 3. There are two ways to set that limit, and neither can raise it above its default:
+
+- PyTorch runs the collectives of each process group on an NCCL communicator. Its config's `maxCTAs` field lowers that limit - `max_ctas` in the example in [`NCCL_MIN_CTAS` and `NCCL_MAX_CTAS`](#nccl_min_ctas-and-nccl_max_ctas).
+- The `NCCL_MAX_CTAS` environment variable sets the limit for every communicator, and silently replaces their `maxCTAs`, even a lower one, logging it only with `NCCL_DEBUG=INFO`.
 
 NCCL>=2.28 can also change how many CTAs NCCL picks for each collective under that limit, with the `CTAPolicy` field of a communicator's config, which PyTorch sets as `cta_policy` in the same `config` as `max_ctas`, and which [torch-dist-bench](benchmarks/README.md#cta-policy) and [comm-compute-overlap-bench](benchmarks/README.md#comm-compute-overlap-bench) set with their `--cta-policy` flag:
 

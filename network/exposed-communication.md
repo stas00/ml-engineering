@@ -1,6 +1,10 @@
 # Exposed Communication by Parallelism Pattern
 
-In this chapter we explore the impact of performing concurrent communications and computation for various parallelism patterns. [comm-compute-overlap-bench.py](benchmarks/README.md#comm-compute-overlap-bench) was used to perform the measurements. This benchmark was run for multiple data and model parallelism patterns on one and four nodes, thus exercising both intra- and inter-node use cases. It ran a training step's collectives on their own CUDA streams next to the compute of a stack of transformer layers, and timed the whole step and each of its phases - forward, backward and after the optimizer step - 3 ways:
+In this chapter we explore the impact of performing concurrent communications and computation for various parallelism patterns. [comm-compute-overlap-bench.py](benchmarks/README.md#comm-compute-overlap-bench) was used to perform the measurements. This benchmark was run for multiple data and model parallelism patterns on one and four nodes, thus exercising both intra- and inter-node use cases.
+
+All the numbers in this chapter were measured over NVLink within 1 8x B200 node, and over NVLink and [EFA](README.md#efa) across 4 of them, with 32 layers of Llama-3.1-8B and 8192 tokens per GPU, unless it says otherwise. If you need to understand your particular use case on a specific cluster you use, I highly recommend that you perform your own measurements.
+
+The benchmark ran a training step's collectives on their own CUDA streams next to the compute of a stack of transformer layers, and timed the whole step and each of its phases - forward, backward and after the optimizer step - 3 ways:
 
 - **compute alone** - the step without its collectives
 - **comm alone** - the collectives without the compute
@@ -15,8 +19,6 @@ From these it reported what the communication cost the step, in 3 metrics:
 Compute and communication slow each other down because kernels running at the same time compete for the SMs, the GPU's streaming multiprocessors, and for the memory bandwidth.
 
 The benchmark has a pattern for each parallelism it measures, which the tables below name in their pattern column. Refer to [the benchmark's documentation](benchmarks/README.md#comm-compute-overlap-bench) to learn how to run each pattern and change its settings.
-
-All the numbers in this section were measured over NVLink within 1 8x B200 node, and over NVLink and EFA across 4 of them, with 32 layers of Llama-3.1-8B and 8192 tokens per GPU, unless it says otherwise. If you need to understand your particular use case on a specific cluster you use, I highly recommend that you perform your own measurements.
 
 ## Data-parallel patterns
 
