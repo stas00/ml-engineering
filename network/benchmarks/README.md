@@ -6,7 +6,7 @@
 
 ### torch-dist-bench
 
-[torch-dist-bench.py](torch-dist-bench.py) - a tool to benchmark the real network bandwidth and latency while performing `all_reduce` and [other collectives](#other-collectives), over a range of payloads. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to `nccl-tests`, but requires just PyTorch to run. You want to use this benchmark if your application uses NCCL collectives via `torch.distributed`, and `nccl-tests` if you write CUDA NCCL kernels. This benchmark calls the collectives the way your program does: through PyTorch, which runs some of them with different NCCL calls than `nccl-tests` does, e.g. `scatter` and `batch_isend_irecv` - see [Other collectives](#other-collectives) - and with `--with-host-overhead` it also includes PyTorch's per-call host overhead of some 20-30µs, which at small payloads is about as long as the collective itself.
+[torch-dist-bench.py](torch-dist-bench.py) - a tool to benchmark the real network bandwidth and latency while performing `all_reduce` and [other collectives](#other-collectives), over a range of payloads. This is useful for finding out what one gets in reality as compared to the advertised spec. Somewhat similar to [nccl-tests](#nccl-tests), but requires just PyTorch to run. You want to use this benchmark if your application uses NCCL collectives via `torch.distributed`, and `nccl-tests` if you write CUDA NCCL kernels. This benchmark calls the collectives the way your program does: through PyTorch, which runs some of them with different NCCL calls than `nccl-tests` does, e.g. `scatter` and `batch_isend_irecv` - see [Other collectives](#other-collectives) - and with `--with-host-overhead` it also includes PyTorch's per-call host overhead of some 20-30µs, which at small payloads is about as long as the collective itself.
 
 footnote: Its previous incarnation was known as `all_reduce_bench.py` as it measured just the all-reduce collective.
 
@@ -150,7 +150,7 @@ Here are the measurements on the same 8x H200 node as the plot in [torch-dist-be
 |    8GiB | 478.24GBps | 475.16GBps |      -0.6% |
 |   16GiB | 482.25GBps | 480.70GBps |      -0.3% |
 
-The two agree within 2%, except from 1MiB to 16MiB, where `nccl-tests` reads 3-7% lower. Whether to measure with this benchmark or with `nccl-tests` depends on whether you are writing a PyTorch program or a NCCL kernel - see [nccl-tests](#nccl-tests).
+The two agree within 2%, except from 1MiB to 16MiB, where `nccl-tests` reads 3-7% lower.
 
 If your workload captures its all-reduce calls in a CUDA graph through PyTorch, expect lower `busbw` at small payloads than this benchmark's default timing reports. Replaying PyTorch-captured all-reduces on B200 left a gap of about 2.5µs between consecutive ones, which cost regular all-reduces up to 9% and [symmetric memory](#symmetric-memory) ones 12-26% at 2MiB and below, where a call takes only 10-35µs.
 
