@@ -261,7 +261,7 @@ You will find the details analysis of each technology in the following sections.
 
 If one compares the latest generations of different intra-node networking technologies (see the following sections) PCIe is usually an order of magnitude behind.
 
-The table above is spec. What a PCIe link actually delivers is a separate question, and one nobody seems to publish - so here is a measurement. On a node of 8x H200 where each accelerator has its own PCIe 5 x16 link, [nvbandwidth](#nvlink-c2c) reports 55.43GBps host-to-device and 55.06GBps device-to-host, which is 88% and 87% of the 63GBps row above. The eight links came out within 0.10GBps of each other, with `nvbandwidth` reporting a coefficient of variation of 0.00.
+The table above is spec. What a PCIe link actually delivers is a separate question, and one nobody seems to publish - so here is a measurement. On a node of 8x H200 where each accelerator has its own PCIe 5 x16 link, [nvbandwidth](benchmarks/README.md#nvbandwidth) reports 55.43GBps host-to-device and 55.06GBps device-to-host, which is 88% and 87% of the 63GBps row above. The eight links came out within 0.10GBps of each other, with `nvbandwidth` reporting a coefficient of variation of 0.00.
 
 To reproduce, first confirm the generation and width, since the 63GBps figure only applies to PCIe 5 at x16:
 
@@ -1410,7 +1410,7 @@ Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
 ```
 746GBps out of 900GBps (82.8%) - very similar to NVLink4's efficiency.
 
-note: [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth) is supposed to be a more detailed and correct benchmark to replace `p2pBandwidthLatencyTest`, but I found the latter to provide very similar results.
+note: [nvbandwidth](benchmarks/README.md#nvbandwidth) is supposed to be a more detailed and correct benchmark to replace `p2pBandwidthLatencyTest`, but I found the latter to provide very similar results.
 
 The following plot demonstrates how the actual bandwidth changes for all-reduce with the size of the message and the number of participating nodes (4 to 512 nodes):
 
@@ -1443,18 +1443,15 @@ This table should give a good sense for what scores you should expect for all-re
 
 If you're benchmarking a different collective the expected bandwidth can be very different from the above all-reduce results. [This presentation](https://www.nvidia.com/en-us/on-demand/session/gtc24-s62129/) also gives point-to-point communication bandwidth expectations.
 
-
-Another tool for bandwidth measurements on NVIDIA GPUs is [NVIDIA/nvbandwidth](https://github.com/NVIDIA/nvbandwidth).
-
 #### Symmetric memory
 
-Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, and the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29.
+Normally NCCL passes each payload through its own internal staging buffers, since it knows nothing about where the peers keep their data. If instead every rank's buffer sits at the same offset of a registered NCCL symmetric memory window, each GPU knows where its peers' buffers are, so NCCL (2.27+) can switch to its symmetric kernels: each GPU loads the data it needs straight from the other GPUs' buffers over NVLink and stores its results straight into them. This needs every rank to be reachable over direct NVLink. In PyTorch you allocate the buffers from a `torch.cuda.MemPool` created with the backend's `mem_allocator` and register the pool with `ProcessGroupNCCL.register_mem_pool(pool, symm=True)` - see [NCCL Symmetric Kernels](https://docs.pytorch.org/docs/stable/symmetric_memory.html#nccl-symmetric-kernels) in the PyTorch documentation. This needs `torch>=2.9`, the first release whose `register_mem_pool` takes `symm` - `torch==2.7` and `2.8` can register a pool too, but only as a local, non-symmetric buffer. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it.
 
-To measure it, add `--sym-mem` to [torch-dist-bench.py](benchmarks/torch-dist-bench.py), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
+To measure it, add `--sym-mem` to [torch-dist-bench.py](benchmarks/README.md#symmetric-memory), or `-R 2` to [nccl-tests](benchmarks/README.md#nccl-tests) if you call NCCL directly. Use it only if the workload you're benchmarking for all-reduces symmetric memory buffers too - registering them itself as above, or through a framework that does - otherwise that workload gets the regular bandwidth, and the symmetric memory numbers won't reflect what it actually gets.
 
 To check that the symmetric kernels are used, add `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`: each call that took one is logged as `AllReduce [Symmetric]: ... -> Kernel ...`.
 
-Here is the `all-reduce` `busbw` with and without it on an 8x B200 node and an 8x H200 node (both `torch=2.14.0+cu130`, `nccl=2.30.7`, the mean of 2 sweeps each).
+Here is the `all-reduce` `busbw` with and without it on an 8x B200 node and an 8x H200 node (both `torch=2.14.0+cu130`, `nccl=2.30.7`, the mean of 2 sweeps each), sorted by payload, ascending.
 
 **8x B200**:
 
@@ -1530,7 +1527,7 @@ The specs make inter-node networking look hopeless. On a P6-B200 node (AWS) each
 
 footnote: the spec for IB NDR400 for this type of a node is 50GBps per accelerator as well.
 
-The following table aggregates the `busbw` measurements for `all_reduce` measured with [torch-dist-bench.py](benchmarks/torch-dist-bench.py) on 1x and 4x P6-B200 nodes - 8x B200 per node, NVLink 5 inside, 8x 50GBps EFA v4 out - on `torch=2.14.0+cu130, cuda=13.0, nccl=2.30.7`, each column the mean of 2 sweeps. The `slowdown` column is the price of leaving the node, and the last one is the algorithm the 4-node run used at that payload, read from `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`:
+The following table aggregates the `busbw` measurements for `all_reduce` measured with [torch-dist-bench.py](benchmarks/torch-dist-bench.py) on 1x and 4x P6-B200 nodes - 8x B200 per node, NVLink 5 inside, 8x 50GBps EFA v4 out - on `torch=2.14.0+cu130, cuda=13.0, nccl=2.30.7`, each column the mean of 2 sweeps, the rows sorted by payload, ascending. The `slowdown` column is the price of leaving the node, and the last one is the algorithm the 4-node run used at that payload, read from `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=TUNING`:
 
 | payload | 1 node     | 4 nodes    | slowdown | 4-node algorithm |
 | ------: | ---------: | ---------: | -------: | :--------------- |
@@ -1601,7 +1598,7 @@ footnote: this is the one place in this section where the `GiB` vs `GBps` base t
 
 Two things to keep in mind about the resulting number. It is comparable to a spec figure, whereas `busbw` is not comparable to anything. And it is a floor rather than a wire measurement, because it charges the whole elapsed time to the NICs, including the ring's fill and drain and any time they wait on NVLink - the true wire rate is somewhat higher than what comes out.
 
-It also only reaches its plateau at large payloads. The same 4-node measurements converted, sorted by payload ascending - only the `Ring` rows, because the `Tree` and `NVLSTree` rows would each need their own derivation:
+It also only reaches its plateau at large payloads. The same 4-node measurements converted, sorted by payload, ascending - only the `Ring` rows, because the `Tree` and `NVLSTree` rows would each need their own derivation:
 
 | payload | algorithm | 4-node<br>`busbw`<br>GBps | per-accel.<br>GBps | % of spec |
 | ------: | :-------- | ------------------------: | -----------------: | --------: |
@@ -1653,7 +1650,7 @@ Typically the more "hops" the message has to travel, the bigger the latency. 2 a
 
 For small payloads the latency is the number that matters, as they move next to nothing: on an 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`) an 8B all-reduce still takes 15µs in [torch-dist-bench.py](benchmarks/README.md#latency), and every payload up to 512KiB takes 15-23µs, so a faster link wouldn't help them - fewer calls or cheaper ones would. This adds up fast in inference: a model served with tensor parallelism over 8 accelerators does 2 all-reduces per layer for every generated token, and with a hidden size of 8192 in bf16 a batch of up to 32 tokens makes each a 16-512KiB all-reduce, right in that flat range - so an 80-layer model waits at least 160 x 15µs = 2.4ms per token on all-reduces alone, however fast its links. Training has small all-reduces too, to sync flags, scalars or loss values across ranks, and MoE pays the same toll on the [all-to-all](#collectives-other-than-all-reduce) of its token routing.
 
-Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the [example output of torch-dist-bench.py](benchmarks/README.md#torch-dist-bench):
+Here is the all-reduce latency on one 8x B200 node and on 4 of them, from the same run as the [example output of torch-dist-bench.py](benchmarks/README.md#torch-dist-bench), sorted by payload, ascending:
 
 | payload | 8 ranks<br>median | 8 ranks<br>p99 | 32 ranks<br>median | 32 ranks<br>p99 | 32 / 8<br>median |
 | ------: | ----------------: | -------------: | -----------------: | --------------: | ---------------: |
@@ -1747,7 +1744,7 @@ If you use a shared HPC environment, or even if you have your own cluster but sh
 
 This situation unfortunately makes it extremely difficult to finetune the performance of your training setup. Since every time you run a test the TFLOPS will vary, so how do you do the optimization? This is at least the situation with SLURM-based clusters. Apparently when Kubernetes is used, one can use cluster namespaces to segregate the network.
 
-case study: we had this issue at JeanZay HPC when we were doing preliminary experiments before we started training BLOOM-176B. As that HPC has many users it was pretty much impossible to do speed optimizations, as even running the exact same setup again and again gave different throughput results. Luckily just before we launched BLOOM-176B training we were given an exclusive access to the new at that time A100 partition so we were the only users and we were able to greatly optimize the throughput.
+case study: we had this issue at JeanZay HPC when we were doing [preliminary experiments](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide) before we started training BLOOM-176B. As that HPC has many users it was pretty much impossible to do speed optimizations, as even running the exact same setup again and again gave different throughput results. Luckily just before we launched BLOOM-176B training we were given an exclusive access to the new at that time A100 partition so we were the only users and we were able to greatly optimize the throughput.
 
 
 ## Disable Access Control Services

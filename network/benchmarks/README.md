@@ -125,7 +125,7 @@ By default each trial keeps the GPU busy for ~2ms, queues up to 10 back-to-back 
 
 These bandwidth trials record a CUDA event only before the first call and after the last. The [latency](#latency) is measured by separate trials with an event after every call, because an event recorded between two queued calls slows them down: on an 8x B200 node a 1MiB all-reduce takes 35µs with one and 30µs without, and `nccl-tests` shows the same difference between its `-I 1` and its default timing. Timing the bandwidth with the per-call events would cost an all-reduce 9-13% of its bandwidth from 8KiB to 2MiB there, and the [other collectives](#other-collectives) up to 35%.
 
-Here are the measurements on the same 8x H200 node as the plot in [torch-dist-bench](#torch-dist-bench), next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - which is what code calling the NCCL API directly gets:
+Here are the measurements on the same 8x H200 node as the plot in [torch-dist-bench](#torch-dist-bench), next to [nccl-tests](#nccl-tests)' run built against the same NCCL version - which is what code calling the NCCL API directly gets - sorted by payload, ascending:
 
 | payload | default    | nccl-tests | difference |
 | ------: | ---------: | ---------: | ---------: |
@@ -174,7 +174,7 @@ Other collectives can take longer than all-reduce at the same payload - see [whi
 - Median and p99 rather than the mean, because one slow call moves the mean but not the median, and the p99 shows how slow the slow calls get. The mean is printed too.
 - A rank's Python thread occasionally pauses for a few milliseconds. When that happens while it queues a trial's calls, its GPU runs out of queued work before the 2ms busy wait is over, and the trial times the pause rather than the all-reduce. Such trials are left out on all ranks, and the report says how many: on the 8x H200 node it was 50-60 of 1904 trials per run. Without this, the p99 at small payloads read anywhere from 19µs to 380µs and changed from run to run.
 
-On the same 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), compared with `nccl-tests` timing 1000 calls per payload one by one (`-n 1000 -w 200 -I 1`, in-place):
+On the same 8x H200 node (`torch=2.14.0+cu130`, `nccl=2.30.7`), compared with `nccl-tests` timing 1000 calls per payload one by one (`-n 1000 -w 200 -I 1`, in-place), sorted by payload, ascending:
 
 | payload | median | p99    | sym-mem<br>median | sym-mem<br>p99 | host<br>overhead<br>median | host<br>overhead<br>p99 | nccl-tests<br>`time` | nccl-tests<br>p99 |
 | ------: | -----: | -----: | ----------------: | -------------: | -------------------------: | ----------------------: | -------------------: | ----------------: |
@@ -390,7 +390,7 @@ The [EAI cookbook](https://github.com/EleutherAI/cookbook) contains a set of [co
 
 Symmetric memory can speed up NCCL comms significantly at lower payloads. See [Symmetric memory](../README.md#symmetric-memory) for details.
 
-To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. `register_mem_pool(..., symm=True)` arrived in torch 2.9. torch 2.9.1 (NCCL 2.27.7), 2.10.0 and 2.11.0 (both NCCL 2.28.9) hang in `broadcast` on that path. torch 2.12.0 with NCCL 2.29.7 is the oldest cu130 release that finishes it, so the benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29. Run the benchmark with and without it to see what symmetric memory gains on your setup. Use it only if the workload you're benchmarking for runs them on symmetric memory buffers too, otherwise its numbers won't reflect what that workload will get. [Collectives other than all-reduce](../README.md#collectives-other-than-all-reduce) shows which collectives it speeds up on a B200 node, and which it slows down.
+To run the collectives on buffers registered as an NCCL symmetric memory window, add `--sym-mem` (similar to `nccl-tests -R 2`), which lets NCCL>=2.27 use its symmetric kernels for the collectives that have them. The benchmark refuses `--sym-mem` below torch 2.12 and NCCL 2.29, since every earlier release tested hangs in `broadcast` with it. Run the benchmark with and without it to see what symmetric memory gains on your setup. [Collectives other than all-reduce](../README.md#collectives-other-than-all-reduce) shows which collectives it speeds up on a B200 node, and which it slows down.
 
 #### CTA policy
 
@@ -642,4 +642,4 @@ The most important requirements for a series of successful experiments is to be 
 
 Therefore when you try to figure out whether some change will improve performance or make it worse, you must figure out how to keep things stable.
 
-For example, you need to find a way to prevent the network usage from fluctuations. When we were doing performance optimizations for [108B pre-BLOOM experiments](https://github.com/bigscience-workshop/bigscience/tree/master/train/tr8-104B-wide) it was close to impossible to perform, since we were on a shared internode network and the exact same setup would yield different throughput depending on how many other users used the network. It was not working. During BLOOM-176B we were given a dedicated SLURM partition with an isolated network where the only traffic was ours. Doing the performance optimization in such environment was just perfect.
+For example, you need to find a way to keep the network usage from fluctuating. On a shared internode network the exact same setup yields different throughput depending on how many other users are using the network, so benchmark on a network nobody else is using, e.g. a dedicated partition with an isolated network - [Shared internode network](../README.md#shared-internode-network) tells how this stalled the optimizations before BLOOM-176B training.
