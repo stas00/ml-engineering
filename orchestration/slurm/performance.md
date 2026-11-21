@@ -4,7 +4,7 @@ Here you will find discussions of SLURM-specific settings that impact performanc
 
 ## srun's `--cpus-per-task` may need to be explicit
 
-You need to make sure that the launched by `srun` program receives as many cpu-cores as intended. For example, in a typical case of a ML training program, each gpu needs at least one cpu-core for the process driving it plus a few more cores for the `DataLoader`. You need multiple cores so that each task can be performed in parallel. If you have 8 gpus and 2 `DataLoader` workers per gpu, you need at least `3*8=24` cpu-cores per node.
+You need to make sure that the launched by `srun` program receives as many CPU cores as intended. For example, in a typical case of a ML training program, each GPU needs at least one CPU core for the process driving it plus a few more cores for the `DataLoader`. You need multiple cores so that each task can be performed in parallel. If you have 8 GPUs and 2 `DataLoader` workers per GPU, you need at least `3*8=24` CPU cores per node.
 
 The number of cpus per task is defined by `--cpus-per-task`, which is passed to `sbatch` or `salloc` and originally `srun` would inherit this setting. However, recently this behavior has changed:
 

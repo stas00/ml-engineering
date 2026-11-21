@@ -241,7 +241,7 @@ Therefore once you know the MFU you can now adjust the cost estimate from the pr
 
 ### Moving bits
 
-Why can't the advertised TFLOPS be achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disk and other gpus to the accelerator's memory.
+Why can't the advertised TFLOPS be achieved? It's because it takes time to move data between accelerator memory and compute and additionally it takes even more time to move data from disk and other GPUs to the accelerator's memory.
 
 - There is not much that can be done about the accelerator memory since its bandwidth is what it is - one can only write more efficient software to make data move faster to/from the accelerator - hint: fused and custom written kernels (like [torch.compile](https://docs.pytorch.org/docs/stable/generated/torch.compile.html) and [flash attention](https://github.com/Dao-AILab/flash-attention))
 
@@ -405,7 +405,7 @@ This is probably the least worrisome component.
 
 - Most clouds provide beefy CPUs with plenty of cpu cores
 
-- You need to have enough cores to run 2-3 DL workers +1 per gpu - so at least 30 cores
+- You need to have enough cores to run 2-3 DL workers +1 per GPU - so at least 30 cores
 
 - Even more cores for DL workers if you have complex and/or slow DL transforms (CV)
 

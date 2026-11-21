@@ -14,7 +14,7 @@ Often you don't need to be a network engineer to figure out networking issues. S
 - RDMA: Remote Direct Memory Access
 
 
-## How to diagnose NCCL multi-gpu and multi-node connectivity issues
+## How to diagnose NCCL multi-GPU and multi-node connectivity issues
 
 See also [Debugging multi-node training](../../debug/pytorch.md#debugging-multi-node-training) for debugging multi-node issues at the PyTorch level.
 
@@ -349,7 +349,7 @@ export NCCL_IB_HCA==mlx5_0:1,mlx5_1:1  # exactly port 1 of mlx5_0 and of mlx5_1
 export NCCL_IB_HCA=^=mlx5_1,mlx5_4     # everything except mlx5_1 and mlx5_4
 ```
 
-A worked example of using the exclusion form to route around a single problem adapter is in [How to diagnose NCCL multi-gpu and multi-node connectivity issues](#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues). The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
+A worked example of using the exclusion form to route around a single problem adapter is in [How to diagnose NCCL multi-GPU and multi-node connectivity issues](#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues). The full doc is [here](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-ib-hca).
 
 
 ### `NCCL_P2P_DISABLE`

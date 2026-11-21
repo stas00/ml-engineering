@@ -88,7 +88,7 @@ So the `3*2` is often called "model FLOPs" and `4*2` - "hardware FLOPs", correla
 ```bash
 perl -le '$ng=64; $ms=52; $gbs=1024; $sp=127; $seqlen=2048; print $ms*4*2*$seqlen*$gbs / ( $sp * $ng * 1e3)'
 ```
-(ng = total gpus, ms = model size in B, gbs = global batch size, sp = seconds per iteration)
+(ng = total GPUs, ms = model size in B, gbs = global batch size, sp = seconds per iteration)
 
 Here is the same formula using `bash` env vars and which breaks down GBS into `MBS*DP*GAS` (GAS in this case corresponded to `pp_chunks` which was the number of chunks in the pipeline, but normally GAS just stands for Gradient Accumulation Steps):
 ```bash
@@ -466,11 +466,11 @@ Environment variable `PYTORCH_ALLOC_CONF` comes to help and allows you to replac
 
 First, there are usually two batch sizes:
 
-1. micro batch size (MBS), also known as batch size per gpu - this is how many samples a single gpu consumes during a model's single `forward` call.
+1. micro batch size (MBS), also known as batch size per GPU - this is how many samples a single GPU consumes during a model's single `forward` call.
 
 2. global batch size (GBS) - this is the total amount of samples consumed between two optimizer steps across all participating GPUs.
 
-Model replica is how many gpus are needed to fit the full model.
+Model replica is how many GPUs are needed to fit the full model.
 
 - If the model fits into a single GPU a model replica takes 1 GPU. Usually then one can use multiple GPUs to perform  [Data Parallelism](../../training/model-parallelism/README.md#data-parallelism)
 - If the model doesn't fit into a single GPU, it'd usually require some sort of sharding technique - it can be
@@ -486,13 +486,13 @@ Going back to our global batch size (GBS) it's calculated as:
 GBS = MBS*DP
 ```
 
-So if you have 8 gpus (N_GPUS=8) and your MBS=4 and you do DP you end up with having GBS=32 because:
+So if you have 8 GPUs (N_GPUS=8) and your MBS=4 and you do DP you end up with having GBS=32 because:
 
 ```
 GBS = MBS*DP = 4*8 = 32
 ```
 
-If you use TP with a degree of 2 (TP=2) and PP with a degree of 2 (PP=2) this means each model replica takes 4 gpus (`TP*PP`), and thus with N_GPUS=8
+If you use TP with a degree of 2 (TP=2) and PP with a degree of 2 (PP=2) this means each model replica takes 4 GPUs (`TP*PP`), and thus with N_GPUS=8
 
 ```
 DP = N_GPUS/(TP*PP) = 8 / (2*2) = 2
@@ -550,7 +550,7 @@ This methodology is only relevant for training, and not during inference.
 
 Enabling gradient checkpointing allows one to trade training throughput for accelerator memory. When this feature is activated instead of remembering the outputs of, say, transformer blocks until the `backward` pass is done, these outputs are dropped. This frees up huge amounts of accelerator memory. But, of course, a `backward` pass is not possible without having the outputs of `forward` pass, and thus they have to be recalculated.
 
-This, of course, can vary from model to model, but typically one pays with about 20-25% decrease in throughput, but since a huge amount of gpu memory is liberated, one can now increase the batch size per gpu and thus overall improve the effective throughput of the system. In some cases this allows you to double or quadruple the batch size if you were already able to do a small batch size w/o OOM. (Recent papers report as high as 30-40% additional overhead.)
+This, of course, can vary from model to model, but typically one pays with about 20-25% decrease in throughput, but since a huge amount of GPU memory is liberated, one can now increase the batch size per GPU and thus overall improve the effective throughput of the system. In some cases this allows you to double or quadruple the batch size if you were already able to do a small batch size w/o OOM. (Recent papers report as high as 30-40% additional overhead.)
 
 For example, in HF Transformers models you do `model.gradient_checkpointing_enable()` to activate it in your custom Trainer or if you use the HF Trainer then you'd activate it with `--gradient_checkpointing 1`.
 
@@ -801,7 +801,7 @@ GPU5    NV18    NV18    NV18    NV18    NV18     X      NV18    NV18    52-103,1
 GPU6    NV18    NV18    NV18    NV18    NV18    NV18     X      NV18    52-103,156-207  1
 GPU7    NV18    NV18    NV18    NV18    NV18    NV18    NV18     X      52-103,156-207  1
 ```
-On this 8-gpu node you can see the `CPU Affinity` column which tells you which cores reside together with the first and the second group of GPUs, and the `NUMA Affinity` column.
+On this 8-GPU node you can see the `CPU Affinity` column which tells you which cores reside together with the first and the second group of GPUs, and the `NUMA Affinity` column.
 
 Now that it's clear that the various compute components are placed in 2 or more groups, to achieve the best performance we need to ensure that the components communicate within the group they belong to, and avoid any cross-talk. For example, if gpu0 belong to NUMA node 0, then the process that drives this GPU should only use cpu-cores from NUMA node 0.
 
@@ -876,7 +876,7 @@ So now we just need to figure out how to programmatically get the right cpu sets
 
 #### pynvml
 
-If you're using NVIDIA GPUs, `pynvml` (`pip install nvidia-ml-py` - the module is still imported as `pynvml`) can be very helpful to get all sorts of information about the gpu and not needing to call `nvidia-smi` - in this situation we are going to use it to tell us the correct CPU affinity given a GPU index.
+If you're using NVIDIA GPUs, `pynvml` (`pip install nvidia-ml-py` - the module is still imported as `pynvml`) can be very helpful to get all sorts of information about the GPU and not needing to call `nvidia-smi` - in this situation we are going to use it to tell us the correct CPU affinity given a GPU index.
 
 In [numa-set-pynvml.py](benchmarks/numa/numa-set-pynvml.py) you will find a working helper function that you could call at the very top of your training loop like so:
 ```python
@@ -886,7 +886,7 @@ set_numa_affinity(gpu_index, verbose=True)
 ```
 call it before `DataLoader` is initialized to get the workers use the right cpu-cores!
 
-Normally, the local process rank equals the gpu index, but if one uses `CUDA_VISIBLE_DEVICES` - this might not be true any longer - if you use it, you will need to remap the process rank to the actual index:
+Normally, the local process rank equals the GPU index, but if one uses `CUDA_VISIBLE_DEVICES` - this might not be true any longer - if you use it, you will need to remap the process rank to the actual index:
 
 ```python
 gpu_index = int(os.environ.get("LOCAL_RANK", 0))

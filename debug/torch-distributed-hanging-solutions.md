@@ -6,7 +6,7 @@
 
 **Moved to [Debugging PyTorch Programs](./pytorch.md#helper-tools).**
 
-## Approaches to diagnosing multi-gpu hanging / deadlocks
+## Approaches to diagnosing multi-GPU hanging / deadlocks
 
 **Moved to [Debugging PyTorch Programs](./pytorch.md#approaches-to-diagnosing-multi-gpu-hanging--deadlocks).**
 

@@ -570,6 +570,10 @@ When the GPU runs a step faster than the host can queue it, the compute alone me
 
 nsys traces of the other patterns of [Other parallelism patterns](../exposed-communication.md#other-parallelism-patterns), each at its smallest token count, had the compute stream idle for 1.3-6.4% of the compute alone, except `ep` with Qwen3-30B-A3B and 2 microbatches at 4096 tokens, at 11.9-22.7%. That wait came from the tracing: untraced, its compute alone took 94.47ms, against 88.79-89.53ms of kernels in the trace, about as far above its kernels as the other patterns' compute alone.
 
+#### Drawing the figures
+
+[comm-compute-overlap-plot.py](comm-compute-overlap-plot.py) draws the figures of [Exposed Communication by Parallelism Pattern](../exposed-communication.md), each run's step as a bar of its compute alone and its exposed communication. It doesn't read the benchmark's output: the numbers the benchmark printed for each run are typed into its `FIGURES` dictionary, so to redraw a figure after re-running a measurement, or to draw your own runs, edit the numbers there and run it again. It needs matplotlib.
+
 #### Sources and further reading
 
 The patterns follow DeepSpeed's, PyTorch's, Megatron-LM's and Transformer Engine's code as of 2026-10, which in places differs from the papers below, e.g. FSDP2 shards each parameter on its own, rather than the flat buffer of a layer's parameters that the FSDP paper describes.
@@ -590,7 +594,7 @@ Further reading:
 
 ### all_gather_object vs all_reduce
 
-[all_gather_object_vs_all_reduce.py](all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the process group. e.g. when implementing some sort of all-processes-are-done flag. This technique is usually used for synchronizing gpus when they may complete at different number of iterations - which one needs for inference over multiple DP channels, or when one wants to sync a `StopIteration` event in `DataLoader`. See also [all_gather_object_vs_all_gather.py](./all_gather_object_vs_all_gather.py).
+[all_gather_object_vs_all_reduce.py](all_gather_object_vs_all_reduce.py) - a quick benchmark showing 23x speed up when moving from `all_gather_object` to `all_reduce` when collecting completion status from the process group. e.g. when implementing some sort of all-processes-are-done flag. This technique is usually used for synchronizing GPUs when they may complete at different number of iterations - which one needs for inference over multiple DP channels, or when one wants to sync a `StopIteration` event in `DataLoader`. See also [all_gather_object_vs_all_gather.py](./all_gather_object_vs_all_gather.py).
 
 ### all_reduce latency comparison
 

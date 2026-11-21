@@ -349,7 +349,7 @@ srun pkill python
 
 So this is a great tool for analyzing past events.
 
-For example, to see which nodes were used to run recent gpu jobs:
+For example, to see which nodes were used to run recent GPU jobs:
 
 ```bash
 sacct -u `whoami` --partition=dev --format=jobid,start,end,state,exitcode,nodelist%300
@@ -820,7 +820,7 @@ and to only report the nodes that fail:
 python -c 'import torch, socket; torch.cuda.is_available() or print(f"Broken node: {socket.gethostname()}") '
 ```
 
-Of course, the issue could be different - e.g. gpu can't allocate memory, so change the test script to do a small allocation on cuda. Here is one way:
+Of course, the issue could be different - e.g. GPU can't allocate memory, so change the test script to do a small allocation on cuda. Here is one way:
 
 ```bash
 python -c "import torch; torch.ones(1000,1000).cuda()"
@@ -1025,7 +1025,7 @@ though most likely `--nodes=40` is redundant since `salloc` already knows the nu
 
 Now all `py-spy` traces go into the `trace-$nodename.out` files under `cwd`.
 
-The key is to use `--gres=gpu:0` or otherwise the 2nd `srun` will block waiting for the first one to release the gpus.
+The key is to use `--gres=gpu:0` or otherwise the 2nd `srun` will block waiting for the first one to release the GPUs.
 
 Also the assumption is that some conda env that has `py-spy` installed got activated in `~/.bashrc`. If yours doesn't already do that, add the instruction to load the env to the above command, before the `py-spy` command - it'll fail to find it otherwise.
 
@@ -1176,7 +1176,7 @@ There are several ways to gracefully handle time- and QoS-based SLURM pre-emptio
 
 ## How many GPUs a job uses
 
-To figure out how many gpus are used by an already running job, parse the `JOB_GRES=gpu:` entry in `show job -d` output. For example, if the job was started with:
+To figure out how many GPUs are used by an already running job, parse the `JOB_GRES=gpu:` entry in `show job -d` output. For example, if the job was started with:
 
 ```bash
 srun --pty --partition=dev --nodes=2 --ntasks-per-node=1 --gres=gpu:8 --time=8:00:00 bash

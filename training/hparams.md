@@ -6,7 +6,7 @@ The easiest way to find a good hparam and model init starter set is to steal it 
 
 Training jargon uses a multitude of abbreviations and terms, so here are some important for this chapter.
 
-- BS: Batch Size - here we mean batch size per gpu, often it is also referred to as MBS (micro-batch-size)
+- BS: Batch Size - here we mean batch size per GPU, often it is also referred to as MBS (micro-batch-size)
 - GAS: Gradient Accumulation Steps - how many forward/backward cycles to perform before one full iteration is complete
 - GBS: Global Batch Size - total batch size per iteration - may include gradient accumulation
 - PP: Pipeline Parallelism

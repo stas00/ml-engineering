@@ -301,7 +301,7 @@ On a GPU-enabled setup, to test in CPU-only mode add `CUDA_VISIBLE_DEVICES=""`:
 CUDA_VISIBLE_DEVICES="" pytest tests/utils/test_logging.py
 ```
 
-or if you have multiple gpus, you can specify which one is to be used by `pytest`. For example, to use only the second gpu if you have gpus `0` and `1`, you can run:
+or if you have multiple GPUs, you can specify which one is to be used by `pytest`. For example, to use only the second GPU if you have GPUs `0` and `1`, you can run:
 
 ```bash
 CUDA_VISIBLE_DEVICES="1" pytest tests/utils/test_logging.py
@@ -321,7 +321,7 @@ Some tests must be run on CPU-only, others on either CPU or GPU or TPU, yet othe
 Let's depict the GPU requirements in the following table:
 
 
-| n gpus | decorator                      |
+| n GPUs | decorator                      |
 |--------|--------------------------------|
 | `>= 0` | `@require_torch`               |
 | `>= 1` | `@require_torch_gpu`           |

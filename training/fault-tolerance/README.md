@@ -131,11 +131,11 @@ Please review the various [model parallelism](../model-parallelism) techniques f
 - If some variation of 3D model parallelism is used, that is you have either Tensor Parallelism (TP) and/or Pipeline Parallelism (PP) and/or Data Parallelism (DP), the number of replicas is equal to the DP degree.
 - If Hybrid ZeRO-DP parallelism is used, then the number of replicas is equal to the degree of hybrid replicas.
 
-For example, say you have a training setup that uses a 3D parallelism of TP=4, PP=2, DP=2 - so then you have 2 replicas, each using 8 gpus `node0` and `node1` (TP=4, PP=2 => `4*2=8`) - practically, each replica uses a whole 8-GPU node.
+For example, say you have a training setup that uses a 3D parallelism of TP=4, PP=2, DP=2 - so then you have 2 replicas, each using 8 GPUs `node0` and `node1` (TP=4, PP=2 => `4*2=8`) - practically, each replica uses a whole 8-GPU node.
 
 Additionally you have a standby back up node `node2` with 8 GPUs idling but ready to be used at a moment's notice.
 
-Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with intact data, you switch over to the standby 8GPU node, RDMA copy the data from the gpus of the 2nd replica and you can continue training where you left off. This is a very simplistic explanation since there are multiple nuances to figuring out such recovery depending at which stage of the iteration loop the failure occurred. It other words there is a complex algorithm to implement.
+Now, say, during training `node0.gpu0` fails. Since you have a 2nd replica with intact data, you switch over to the standby 8-GPU node, RDMA copy the data from the GPUs of the 2nd replica and you can continue training where you left off. This is a very simplistic explanation since there are multiple nuances to figuring out such recovery depending at which stage of the iteration loop the failure occurred. It other words there is a complex algorithm to implement.
 
 Of course, on a large scale training you're likely to have a hundred active nodes and a small handful of back up node.
 

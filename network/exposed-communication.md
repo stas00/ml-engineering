@@ -680,5 +680,5 @@ More such solutions keep appearing, so look for one that fits your stack, and un
 
 ## Further reading
 
-- [Characterizing Compute-Communication Overlap in GPU-Accelerated Distributed Deep Learning](https://arxiv.org/abs/2507.03114) - measured overlapped compute running 18.9% slower on average than alone, and up to 40% slower, on A100, H100, MI250 and MI210 GPUs.
+- [Characterizing Compute-Communication Overlap in GPU-Accelerated Distributed Deep Learning: Performance and Power Implications](https://arxiv.org/abs/2507.03114) - measured overlapped compute running 18.9% slower on average than alone, and up to 40% slower, on A100, H100, MI250 and MI210 GPUs.
 - [Optimizing ML Concurrent Computation and Communication with GPU DMA Engines](https://arxiv.org/abs/2412.14335) - runs `all_gather` and `all_to_all` on the copy engines of AMD MI300X GPUs, leaving the SMs to the compute, as NCCL's [CTA policy](README.md#cta-policy) `zero` does on NVIDIA GPUs.

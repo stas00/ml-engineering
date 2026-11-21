@@ -821,7 +821,7 @@ footnote: the original env var name was `PYTORCH_CUDA_ALLOC_CONF`, but it got re
 
 ### Discovering how many GBs is allocatable before OOM for CPU and GPU
 
-Here are 2 simple one-liners that can tell you how much memory you can allocate on cpu and gpu. We will be using an H200 node with ~2TiB of CPU RAM and GPUs of 144GiB of HBM memory.
+Here are 2 simple one-liners that can tell you how much memory you can allocate on CPU and GPU. We will be using an H200 node with ~2TiB of CPU RAM and GPUs of 144GiB of HBM memory.
 
 On CPU:
 
@@ -953,7 +953,7 @@ torch.cuda.memory._dump_snapshot("/tmp/mem.pickle")
 
 Here we just allocate a small tensor of zeros.
 
-If you're on a multi-gpu setup you'd want to write a profile dump per rank to an individual file:
+If you're on a multi-GPU setup you'd want to write a profile dump per rank to an individual file:
 ```python
 rank = torch.distributed.get_rank() # assuming torch.dist has already been initialized
 torch.cuda.memory._dump_snapshot(f"/tmp/mem-{rank}.pickle")
@@ -976,17 +976,17 @@ You can click on all those bars and the profiler will show you the traceback to 
 
 As long as you're in the `forward` function it's relatively easy to find where in the code leaks comes from. But if it's a `backward` it becomes much more complicated unless you're debugging a custom autograd function. Still it should give you enough information to be able to ask for help if you can't figure it out yourself. The best recourse in that situation is to try to reduce the code to the minimal size reproducible Python script that others can reproduce the problem with and then ask at some place where PyTorch developers hang out - for example I find `#questions` at the PyTorch Slack workspace to be an invaluable resource. If you don't have access to that Slack workspace, fear not, https://discuss.pytorch.org/ should work just as well. Even better, using the latter will help others to find answers to the same question down the road.
 
-Besides profiling memory leaks, this functionality is also useful for showing how different implementations of the same algorithm use a different amount of gpu memory. For example, the following visualization I prepared for the [Arctic Long Sequence Training paper](https://arxiv.org/abs/2506.13996):
+Besides profiling memory leaks, this functionality is also useful for showing how different implementations of the same algorithm use a different amount of GPU memory. For example, the following visualization I prepared for the [Arctic Long Sequence Training paper](https://arxiv.org/abs/2506.13996):
 
 ![Arctic long sequence training](images/mem-profiler-llama-8b-ckpt-offload-cpu.png)
 
 This visualization depicts a PyTorch memory profile over a single `forward`-`backward` iteration. Left: normal setup. Right: with activation checkpoint offloading to CPU enabled.
 
-The left side visualization is very telling to how gpu memory is used in the `forward` and `backward` calls, you can see how the left side, which is about 1/3 of the plot, is the layer-by-layer `forward` calls, and the right side, which is the remaining 2/3 of the plot, is layer-by-layer `backward` calls. You can also see that `backward` takes 2x longer than `forward` because it has do to compute gradients wrt weights and inputs. You can also see that typically `forward` allocates a lot of memory, which `backward` then gradually releases, while also doing small allocations of its own.
+The left side visualization is very telling to how GPU memory is used in the `forward` and `backward` calls, you can see how the left side, which is about 1/3 of the plot, is the layer-by-layer `forward` calls, and the right side, which is the remaining 2/3 of the plot, is layer-by-layer `backward` calls. You can also see that `backward` takes 2x longer than `forward` because it has do to compute gradients wrt weights and inputs. You can also see that typically `forward` allocates a lot of memory, which `backward` then gradually releases, while also doing small allocations of its own.
 
-The right side visualization shows how very different memory usage pattern is, if we don't store any intermediary tensors on the gpu and offload them to cpu memory. You can see the same `forward` and `backward` calls but now the memory plot is flat, so you can add many more layers and it'll still use the same amount of gpu memory, whereas the image on left shows that if there are too many layers one will run into OOM, as the hill will continue to climb. If you're curious, the big spikes during `backward` in both images are gradient reductions across gpus.
+The right side visualization shows how very different memory usage pattern is, if we don't store any intermediary tensors on the GPU and offload them to CPU memory. You can see the same `forward` and `backward` calls but now the memory plot is flat, so you can add many more layers and it'll still use the same amount of GPU memory, whereas the image on left shows that if there are too many layers one will run into OOM, as the hill will continue to climb. If you're curious, the big spikes during `backward` in both images are gradient reductions across GPUs.
 
-This shows that even if you don't suspect a memory leak in your code it might still be a good idea to run it through memory profiler and you might get ideas to how to reduce memory usage or at the very least you will have a better feel for what your code is doing with the gpu memory.
+This shows that even if you don't suspect a memory leak in your code it might still be a good idea to run it through memory profiler and you might get ideas to how to reduce memory usage or at the very least you will have a better feel for what your code is doing with the GPU memory.
 
 Additional important notes:
 - Try to limit the profiler dump to just a few iterations, otherwise when you try to render the results in the browser it's likely to crash. You always want at least 2 iterations since the first one is always an outlier. I usually do 3 iterations.
@@ -1002,13 +1002,13 @@ While external memory profilers can be very useful, often having control over wh
 
 [see-mem-usage.py](code/see-mem-usage.py)
 
-You want to make sure `pip install nvidia-ml-py` is run once, so that the report includes not only the CUDA memory report but the total gpu memory usage, since CUDA memory allocator is not always used. e.g., NCCL memory allocations aren't visible by CUDA and thus aren't accounted for, but can consume GBs of gpu memory. The total memory usage identical to what `nvidia-smi` reports is the `NV` column in the report.
+You want to make sure `pip install nvidia-ml-py` is run once, so that the report includes not only the CUDA memory report but the total GPU memory usage, since CUDA memory allocator is not always used. e.g., NCCL memory allocations aren't visible by CUDA and thus aren't accounted for, but can consume GBs of GPU memory. The total memory usage identical to what `nvidia-smi` reports is the `NV` column in the report.
 
 A critical nuance when tracing GPU memory usage is that if you released a python variable containing a tensor it doesn't necessarily mean the tensor gets immediately freed. Python's garbage collection is run on a schedule and thus it's critical to run `gc.collect()` after releasing critical large environment variables (while debugging!) and only then sampling memory usage, which is what this library does for you behind the scenes.
 
 Needless to say you will not want to use this library in production, since the overhead of frequent `gc.collect` calls and nvml sampling adds a non-trivial runtime overhead. So remember to flip `force=True` to `force=False` and then you can leave the debug code in your production code if desired.
 
-So let's run a little program that allocates a tensor, copies it to cpu, frees it on gpu and then frees the cpu copy.
+So let's run a little program that allocates a tensor, copies it to CPU, frees it on GPU and then frees the CPU copy.
 
 ```python
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -1058,7 +1058,7 @@ Now that we know what each column stands for let's analyze the output of the pro
 [0] mp: MA 0.00 GiB | Max_MA 0.00 GiB | CA 0.00 GiB | Max_CA 0.00 GiB | NV 0.71 GiB | CPU mem: proc 0.51 GiB / node 84.09 GiB (4.2%)
 ```
 
-If you look at the `NV` column you can see the gpu was already using 0.71GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros. On the CPU side `proc` is 0.51GiB, which is just the resident memory of the Python process after `import torch`.
+If you look at the `NV` column you can see the GPU was already using 0.71GiB of memory, even though no tensor has been allocated yet. This is because CUDA loads compute kernels the first time you call `import torch` - note that `torch.cuda` is not reporting that! all its columns are zeros. On the CPU side `proc` is 0.51GiB, which is just the resident memory of the Python process after `import torch`.
 
 Then we execute:
 ```
@@ -1088,7 +1088,7 @@ to prevent caching getting in the way of accounting, but this one is definitely 
 
 But caching will lead to `nvidia-smi` or the `NV` column in this report to reporting cached memory. In the `after alloc` row above you can see that while `torch.cuda` reports only 3.73GiB of actively allocated memory (`MA`), `NV` is 8.87GiB, because some of the memory got cached (`CA` 7.45GiB), but even that doesn't fully check out.
 
-`8.87-7.45=1.42` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.71GiB, in other words some other gpu memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
+`8.87-7.45=1.42` GiB, whereas the previous `see_mem_usage` before tensor allocation reported `NV` 0.71GiB, in other words some other GPU memory allocations that `torch.cuda` hasn't accounted for have happened and we have no idea what they are! Watch that delta between what CUDA columns and the NV column, sometimes you might find many GiBs are unaccounted for.
 
 What happened here is most likely PyTorch `torch.zeros` call loaded some additional CUDA kernels which took another half GB of GPU memory (again unaccounted for). `torch.distributed` with NCCL is another large source of "lost" GPU memory.
 
@@ -1105,7 +1105,7 @@ which gives us:
 ```
 we see the `torch.cuda` and NV counters remain the same but the CPU `proc` reading jumped from 0.70GiB to 4.42GiB - a delta of ~3.73GiB, exactly the size of the tensor we just copied to CPU (`100_000*10_000*4 bytes = 3.73GiB` in fp32). This is the payoff of tracking process RSS rather than host-wide memory: the delta is your program's own allocation, clean of whatever else is running on the node. The `node` column moved too (84.26 -> 88.02GiB), but it's noisier - it drifts with every other process on the box.
 
-One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on gpu at this step.
+One other thing to observe here is that `MA 3.73 GiB | Max_MA 3.73 GiB` - current and peak memory usage are the same, since there were no memory allocations or freeing on GPU at this step.
 
 Next we delete the remaining tensor on CUDA (`t1`):
 
@@ -1562,7 +1562,7 @@ Moving both devices to save device - `cuda` in this case solves the problem:
 $ python -c "import torch; x=torch.ones(2,3); y=x.T.clone().cuda(); x=x.cuda(); x@y"
 ```
 
-It's a good practice to create the device you want to work with ahead of time and then create all your tensors on that device. For example, to create a `device` variable on the first gpu and then to directly allocate a tensor on it:
+It's a good practice to create the device you want to work with ahead of time and then create all your tensors on that device. For example, to create a `device` variable on the first GPU and then to directly allocate a tensor on it:
 
 ```python
 import torch
@@ -1576,15 +1576,15 @@ $ python -c "import torch; x=torch.ones(2,3); print(x.device)"
 cpu
 ```
 
-There are various devices depending on the hardware you use, `cpu` is always there, `meta` is a special device that requires no hardware and which uses no storage, but only stores the tensor metadata, `cuda` is for gpus, and there are many others.
+There are various devices depending on the hardware you use, `cpu` is always there, `meta` is a special device that requires no hardware and which uses no storage, but only stores the tensor metadata, `cuda` is for GPUs, and there are many others.
 
-if there are multiple devices of the same type, they can be indexed in via the `:index` - for example, `cuda:2` - typically means the 3rd gpu (though `CUDA_VISIBLE_DEVICES` environment variable can alter the physical order of GPUs).
+if there are multiple devices of the same type, they can be indexed in via the `:index` - for example, `cuda:2` - typically means the 3rd GPU (though `CUDA_VISIBLE_DEVICES` environment variable can alter the physical order of GPUs).
 
 Probably the most common line in ML code you have seen is:
 ```
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ```
-which automatically picks the first gpu if it's available otherwise falls back to cpu.
+which automatically picks the first GPU if it's available otherwise falls back to CPU.
 
 
 #### dtype
@@ -2302,7 +2302,7 @@ If the failure is instant and can be reproduced on CPU (not all programs work on
 CUDA_VISIBLE_DEVICES="" python my-pytorch-program.py
 ```
 
-The env var `CUDA_VISIBLE_DEVICES` is used to manually limit the visibility of GPUs to the executed program. So for example if you have 8 gpus and you want to run program1.py with first 4 gpus and program2.py with the remaining 2 gpus you can do:
+The env var `CUDA_VISIBLE_DEVICES` is used to manually limit the visibility of GPUs to the executed program. So for example if you have 8 GPUs and you want to run program1.py with first 4 GPUs and program2.py with the remaining 2 GPUs you can do:
 
 ```bash
 CUDA_VISIBLE_DEVICES="0,1,2,3" python my-pytorch-program1.py
@@ -2623,7 +2623,7 @@ ls -l /proc/PID/fd
 ```
 where PID is the pid of the currently running program you're trying to investigate.
 
-For example, when I run the above while running a pytest test with gpus, I got (partial output):
+For example, when I run the above while running a pytest test with GPUs, I got (partial output):
 ```
 l-wx------ 1 stas stas 64 Mar  1 17:22 5 -> /dev/null
 lr-x------ 1 stas stas 64 Mar  1 17:22 6 -> /dev/urandom
@@ -2779,17 +2779,17 @@ But if you want separate logs per process, then use `-ff` instead of `-f`.
 
 The `strace` manpage has a ton of other useful options.
 
-While the methodologies found in this article were developed while working with multi-node multi-gpu pytorch-based training, they, of course, can help with any multi-process multi-node Python programs.
+While the methodologies found in this article were developed while working with multi-node multi-GPU pytorch-based training, they, of course, can help with any multi-process multi-node Python programs.
 
 ### Helper tools
 
 Try to use the following script [torch-distributed-gpu-test.py](torch-distributed-gpu-test.py) to diagnose the situation.
 
-This will help primarily with discovering network-related issues. And also to quickly understand how multi-gpu communications work.
+This will help primarily with discovering network-related issues. And also to quickly understand how multi-GPU communications work.
 
 For code-related issues read the rest of this document.
 
-### Approaches to diagnosing multi-gpu hanging / deadlocks
+### Approaches to diagnosing multi-GPU hanging / deadlocks
 
 #### py-spy
 
@@ -2879,7 +2879,7 @@ pgrep -P $(pgrep -o accelerate) | xargs -I {} py-spy dump --pid {}
 
 you get the idea.
 
-This particular approach will only analyze the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 gpus and 8 processes, the above will generate 8 stack traces.
+This particular approach will only analyze the main processes and not various other sub-processes/threads spawned by these processes. So if you have 8 GPUs and 8 processes, the above will generate 8 stack traces.
 
 Then you can pipe the output into this additional useful filter:
 ```bash
@@ -3033,7 +3033,7 @@ print map { "$_ slots=$slots\n" } @nodes'
 }
 makehostfile > hostfile
 ```
-Adapt `$slots` to the number of gpus per node. You may have to adapt this script if your `scontrol` produces a different output.
+Adapt `$slots` to the number of GPUs per node. You may have to adapt this script if your `scontrol` produces a different output.
 
 Now run the `py-spy` extraction command over all participating nodes:
 ```
@@ -3174,7 +3174,7 @@ It's currently using `enp67s0` in the above example.
 
 You can also try to see if only some GPUs fail
 
-For example, does it work if you use the first 2 or the last 2 gpus:
+For example, does it work if you use the first 2 or the last 2 GPUs:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node 2 --nnodes 1 torch-distributed-gpu-test.py
@@ -3434,7 +3434,7 @@ See [Troubleshooting AMD GPUs](../compute/accelerator/amd/debug.md#hangs-or-slow
 
 ## Debugging multi-node training
 
-For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-gpu and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
+For diagnosing NCCL connectivity problems between GPUs and nodes (the layer below PyTorch), see also [How to diagnose NCCL multi-GPU and multi-node connectivity issues](../network/debug/README.md#how-to-diagnose-nccl-multi-gpu-and-multi-node-connectivity-issues).
 
 ### Getting nodes to talk to each other
 
@@ -3603,7 +3603,7 @@ If you have more than 2 nodes you just need to change the number of nodes and th
 
 Another popular way is to use [Message Passing Interface (MPI)](https://en.wikipedia.org/wiki/Message_Passing_Interface). There are a few open source implementations of it available.
 
-To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 gpus each it'd be:
+To use this tool you first create a `hostfile` that contains your target nodes and the number of processes that should be run on each host. In the example of this section, with 2 nodes and 8 GPUs each it'd be:
 
 ```bash
 $ cat hostfile

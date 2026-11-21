@@ -87,7 +87,7 @@ ECC page retirement or row remapping recording event
 
 which may have 3 causes: HW Error / Driver Error / FrameBuffer (FB) Corruption
 
-This error means that one of the memory rows is malfunctioning and that upon either reboot and/or a gpu reset one of the 640 spare memory rows (in A100) will be used to replace the bad row. Therefore we see in the report above that only 639 banks remain (out of 640).
+This error means that one of the memory rows is malfunctioning and that upon either reboot and/or a GPU reset one of the 640 spare memory rows (in A100) will be used to replace the bad row. Therefore we see in the report above that only 639 banks remain (out of 640).
 
 The Volatile section of the `ECC Errors` report above refers to the errors recorded since last reboot/GPU reset. The Aggregate section records the same error since the GPU was first used.
 
@@ -140,7 +140,7 @@ As mentioned earlier to reset a GPU you can either simply reboot the machine, or
 nvidia-smi -r -i gpu_id
 ```
 
-where `gpu_id` is the sequential number of the gpu you want to reset, e.g. `0` for the first GPU. Without `-i` all GPUs will be reset.
+where `gpu_id` is the sequential number of the GPU you want to reset, e.g. `0` for the first GPU. Without `-i` all GPUs will be reset.
 
 #### uncorrectable ECC error encountered
 
@@ -447,9 +447,9 @@ Note: the GPU index that `nvidia-smi` prints counts from 0, and so does `CUDA_VI
 
 ### How to get the real GPU utilization metrics
 
-As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a very high gpu util, while most of the GPU isn't doing anything.
+As explained [here](https://arthurchiao.art/blog/understanding-gpu-performance/) the `GPU-Util` column in the `nvidia-smi` output isn't really telling you the GPU Utilization. What it's telling you is the percentage of time during which one or more kernels were executing on the GPU. It's not telling you whether a single SM is being used or all of them. So even if you run a tiny `matmul` all the time, you may get a very high GPU utilization, while most of the GPU isn't doing anything.
 
-footnote: I have seen GPU util column showing 100% on all gpus when one GPU would stop responding and then whole machinery was blocked waiting for that gpu to respond. Which is how I discovered that it couldn't be showing the real GPU utilization in the first place.
+footnote: I have seen the `GPU-Util` column showing 100% on all GPUs when one GPU would stop responding and then whole machinery was blocked waiting for that GPU to respond. Which is how I discovered that it couldn't be showing the real GPU utilization in the first place.
 
 What you want to measure instead is GPU's utilization of the available capacity, otherwise known as "saturation". Alas, this information isn't provided by `nvidia-smi`. In order to get this information you need to install [dcgm-exporter](https://github.com/NVIDIA/dcgm-exporter) (which in turn currently requires a recent golang and DCGM (`datacenter-gpu-manager`) and a root access).
 
@@ -497,7 +497,7 @@ This is a quick way of doing that, but the intention is to use it with [Promethe
 
 ([source](https://arthurchiao.art/blog/understanding-gpu-performance/))
 
-For completion here is an example from the same article showing a 100% gpu util with a CUDA kernel that is doing absolutely nothing compute-wise other than occupying a single Streaming Multiprocessor (SM):
+For completion here is an example from the same article showing a 100% GPU utilization with a CUDA kernel that is doing absolutely nothing compute-wise other than occupying a single Streaming Multiprocessor (SM):
 
 ```bash
 $ cat << EOT > 1_sm_kernel.cu

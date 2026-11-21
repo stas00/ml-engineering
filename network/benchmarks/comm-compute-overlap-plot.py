@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 """
-Draws the figures of comm-compute-overlap-bench.py's results in network/README.md: each run's overlapped step as a
-horizontal bar of its forward and backward compute alone, with the communication exposed in each phase and after
-the optimizer step stacked after the phase it belongs to.
+Draws the figures of comm-compute-overlap-bench.py's results in network/exposed-communication.md: each run's overlapped
+step as a horizontal bar of its forward and backward compute alone, with the communication exposed in each phase and
+after the optimizer step stacked after the phase it belongs to.
 
 Each figure only puts together runs of the same model with the same tokens and sequence length, so that every bar
 of a figure does the same work. Where the compute alone is the same in every row, each bar is labeled with its

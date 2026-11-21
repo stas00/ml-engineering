@@ -6,7 +6,7 @@ The intention of this chapter is not to show code examples and explain APIs for 
 
 Point-to-point communications are the simplest type of communication where there is always a single sender and a single receiver.
 
-For example, [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) performs a point-to-point communication where the activations from the current vertical stage is sent to the next stage. So the current gpu performs `send` and the gpu holding the next stage performs `recv`.
+For example, [Pipeline Parallelism](../training/model-parallelism/README.md#pipeline-parallelism) performs a point-to-point communication where the activations from the current vertical stage is sent to the next stage. So the current GPU performs `send` and the GPU holding the next stage performs `recv`.
 
 PyTorch has `send` and `recv` for blocking, `isend` and `irecv` for non-blocking p2p comms. [more](https://docs.pytorch.org/tutorials/intermediate/dist_tuto.html#id1).
 

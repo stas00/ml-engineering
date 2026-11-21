@@ -94,7 +94,7 @@ On ROCm, `--search auto` prints a note that it was checked against an exhaustive
 **Intel dGPUs (A770, A750, B580, etc.)**
 - Follow Intel Extension for PyTorch [installation steps](https://pytorch-extension.intel.com/installation?platform=gpu)
 
-**Telemetry on NVIDIA, AMD and Gaudi:** the SM clock certifies that a MAMF iteration ran at boost, power ranks the scouted shapes, and both are printed next to each number; MSMF is judged on throughput alone. `mamf-finder.py` refuses to start if the telemetry package is missing (`nvidia-ml-py`, `amdsmi`, `habana-pyhlml` correspondingly) or can't read power/clock; `--telemetry off` runs anyway, with MAMF not boost-validated. The `amdsmi` reads are confirmed on MI300X and as of this writing the `pyhlml` reads are untested on hardware. On MI300X the card hits its 750 W cap within one BF16 kernel and bursts after an idle start *slower*, not faster, so on this particular gpu MAMF is less reliable than MSMF.
+**Telemetry on NVIDIA, AMD and Gaudi:** the SM clock certifies that a MAMF iteration ran at boost, power ranks the scouted shapes, and both are printed next to each number; MSMF is judged on throughput alone. `mamf-finder.py` refuses to start if the telemetry package is missing (`nvidia-ml-py`, `amdsmi`, `habana-pyhlml` correspondingly) or can't read power/clock; `--telemetry off` runs anyway, with MAMF not boost-validated. The `amdsmi` reads are confirmed on MI300X and as of this writing the `pyhlml` reads are untested on hardware. On MI300X the card hits its 750 W cap within one BF16 kernel and bursts after an idle start *slower*, not faster, so on this particular GPU MAMF is less reliable than MSMF.
 
 ### Examples of usage
 
