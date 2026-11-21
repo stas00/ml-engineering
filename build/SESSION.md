@@ -201,6 +201,8 @@ When a proposed block is itself Markdown that contains fenced code, do not wrap 
 
 The user cannot read long unwrapped lines in chat. Treat this as a hard pre-send gate, not a preference: before sending any reply that shows proposed file text, scan the drafted message and hard-wrap every line inside code fences and block quotes to <=72 characters, rewrapping any that exceed it. This is independent of how the text lands in the file - file content stays one line per paragraph per [Source line layout](#source-line-layout), while the chat *preview* of that same text must be wrapped. Conflating the two (sending the file's one-line-per-paragraph form verbatim into chat) is the recurring failure.
 
+**Never present a proposal that needs horizontal scrolling.** Show CURRENT and PROPOSED prose as block quotes (`> `), which the chat renders wrapped to the screen, never in a code fence, which doesn't wrap. A code fence is only for code and commands, and every line in it is hard-wrapped to <=72 characters before sending. Before sending, check every fence in the message for a line over 72 characters. Concrete failure, 2026-11-21: the one-line `ddp` pattern-link example was shown as a CURRENT and a PROPOSED code fence, each a single ~300-character line, and the author couldn't read it - after having asked for this "1000 times".
+
 ## Update opportunities report
 
 1. Maintain a separate file for opportunities to extend the book when new accelerators, networking cards, switches, specifications, or standards become available.
@@ -407,6 +409,13 @@ Cross-chapter:
 3. A list whose order is deliberately pedagogical rather than alphabetical, such as one introducing `Unidirectional` before `Bi-directional`, may keep that order. Say so in a note, otherwise the next pass will "fix" it.
 4. When adding an abbreviation to a chapter, add it to that chapter's glossary in the same edit. This applies to anything a reader can't expand on sight - a `GA` table column, `busbw`, `SuperNIC` - and not to vendor names, product model numbers, or terms as widely known as `GPU` or `CPU`.
 5. Periodically check both directions: abbreviations used in the body but missing from the glossary, and glossary entries no longer used anywhere in the chapter. Neither is fatal, but the first hurts readers and the second is dead weight.
+
+## Scripts with a book section: the book is the single source of truth
+
+1. A script that has its own section in the book keeps a minimal docstring: what it does in a sentence or two, the usage examples, and the URL of its book section for the full details. Everything else - how it works, what each pattern or mode models, citations, papers, results, caveats - lives in the book section, never in the script too. The same thing written in two places drifts apart, and the author doesn't want to maintain it twice.
+2. Don't propose additions to such a script's docstring or comments that explain, cite or document; propose them for its book section, at the spot where the reader meets the thing they're about, e.g. a paper link at a pattern's entry in its chapter's pattern list. Code fixes to the script itself are unaffected.
+3. This applies to every script with a dedicated section: `comm-compute-overlap-bench.py`, `torch-dist-bench.py`, `all_reduce_bench.py`, `mamf-finder.py`, `gpu-straggler-finder.py` and the rest.
+4. Concrete failure, 2026-11-21: after the author had already said to leave the scripts alone, a `### References` block of 17 papers was proposed for `comm-compute-overlap-bench.py`'s docstring, and then, when the author asked instead for a link where each pattern is presented in its context, a `Paper:` line in each pattern's `Step` class docstring. Both put the citations in the script rather than at the patterns' entries in `network/exposed-communication.md`.
 
 ## Source line layout
 
