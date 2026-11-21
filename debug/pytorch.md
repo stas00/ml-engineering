@@ -4064,6 +4064,66 @@ For more options please refer to the [`torch.profiler` doc](https://docs.pytorch
 
 Additionally, here is [an excellent introduction to `torch.profiler` from the HuggingFace team](https://huggingface.co/blog/torch-profiler).
 
+#### NVIDIA Nsight Systems
+
+Unlike `torch.profiler`, which runs inside the program it profiles, [NVIDIA Nsight Systems](https://developer.nvidia.com/nsight-systems) (`nsys`) can wrap a launcher and put every process it starts on one timeline. The timeline shows each GPU's kernels and memory copies on the CUDA stream they ran on - a stream is a queue of GPU work - so you can see whether communication overlapped with compute, and whether one GPU ran the same kernels slower than its peers. It can also sample hardware metrics of each GPU, such as its clock. [Exposed Communication by Parallelism Pattern](../network/exposed-communication.md) and [How one straggler was found](../compute/accelerator/benchmarks/README.md#how-one-straggler-was-found) show what such traces found.
+
+To profile one node, put `nsys profile` in front of that node's `torchrun`. In a single-node session, nsys placed before a launcher records "all processes ... into the same report file", as [NVIDIA's guide](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#handling-application-launchers-mpirun-deepspeed-etc) puts it, so you get one report with all of the node's ranks, which you can open in the Nsight Systems GUI:
+
+```bash
+nsys profile --trace=cuda,nvtx -o trace-%h \
+  torchrun --nproc_per_node 8 train.py
+```
+
+- `--trace=cuda,nvtx` records the CUDA API calls, kernels and memory copies, and NVTX (NVIDIA Tools Extension) ranges, which are named spans a program marks around its code. NCCL marks each of its calls, so ranges such as `ncclAllReduce` appear with no change to the program, and you can mark your own code with `with torch.cuda.nvtx.range("name"):`.
+- `-o` names the report. nsys replaces `%h` with the hostname, so on a node called `node-0` the report is `trace-node-0.nsys-rep`.
+
+Over several nodes, put the same prefix in front of each node's `torchrun`, launched as in [Getting nodes to talk to each other](#getting-nodes-to-talk-to-each-other), and you get one report per node, named after its host. `pdsh` replaces `%h` itself before nsys sees it, with the host name or IP address it was given in `-w`, which still names each report after its node; write `%%h` to leave the `%h` to nsys.
+
+Here is one step of the `ddp` pattern of [comm-compute-overlap-bench.py](../network/benchmarks/README.md#comm-compute-overlap-bench) over 4 8x H200 nodes, in node 0's report, as the Nsight Systems GUI shows it, zoomed in to ~13ms where the first all-reduces start, so that the names of the compute kernels running next to them can be read:
+
+![nsys timeline zoomed in to where the all-reduces start next to the compute](images/nsys-timeline-ddp-4node-h200-zoom.png)
+
+The `CUDA HW` row of the first process's GPU splits its work by stream: NCCL's all-reduces run on `Stream 35` and the compute on `Default stream 7`. While `ncclDevKernel_AllReduce_Sum_bf16_RING_LL` runs, the compute stream runs the backward's matmuls, `nvjet_sm90_tst_*`, and its attention backward, `cudnn_generated_*_sdpa_sm90_flash_bprop_*`. Hovering over a kernel shows its full name, start, duration, grid and block sizes, and stream.
+
+To get the same view, start this command at the same time on each of 4 nodes, from the benchmark's directory, as in [Getting nodes to talk to each other](#getting-nodes-to-talk-to-each-other), with `node-0` replaced by the host name or IP address of the first node:
+
+```bash
+nsys profile --trace=cuda,nvtx -o trace-%h \
+  torchrun --nproc_per_node 8 --nnodes 4 \
+  --rdzv_backend c10d --rdzv_endpoint node-0:9700 \
+  comm-compute-overlap-bench.py --pattern ddp --layers 8 \
+  --tokens 8192 --num-iterations 3 --num-warmup-iterations 1
+```
+
+Once the program completes, each node has its own `trace-<hostname>.nsys-rep` in that directory. Open the first node's report in the GUI with `nsys-ui trace-<hostname>.nsys-rep`, expand the first `python` process under `Processes` and its `CUDA HW` row, and collapse its `Threads` row. To zoom in, drag across part of the timeline to select it and press Shift+Z, and repeat to zoom in further; Backspace undoes a zoom. The GUI refuses a report recorded by a newer nsys, as the 2025.1.3 GUI does one recorded by nsys 2025.5.1.
+
+Keep the capture to a few steps after the warmup, since a trace grows fast: 1.5 minutes on an 8x B200 node, with GPU metrics sampled 1000 times a second, made a ~146MiB report, ~426MiB once exported to SQLite, and NVIDIA warns that exporting a large report can take several minutes. Tracing also adds host time to each kernel launch, which slows down a program whose GPU waits for the host, as in [How the step is measured](../network/benchmarks/README.md#how-the-step-is-measured), so take step times from an untraced run.
+
+Add `--gpu-metrics-devices=all` to sample every GPU of the node, `--gpu-metrics-frequency` times a second, 10000 by default. On B200 and H200 the metrics include the GPC clock, which is the graphics clock `nvidia-smi` reports, how busy the SMs (streaming multiprocessors) and Tensor Cores were, and the DRAM, NVLink and PCIe throughput. The metrics need [elevated permissions](https://docs.nvidia.com/nsight-systems/UserGuide/index.html#gpu-metrics-overview).
+
+To script the analysis, export the report to SQLite, or add `--export=sqlite` to `nsys profile`. The kernels are in the `CUPTI_ACTIVITY_KIND_KERNEL` table, with each one's `deviceId` and `streamId`, and the GPU metric samples are in `GPU_METRICS`, with their names in `TARGET_INFO_GPU_METRICS`. This prints each GPU's average clock over the trace:
+
+```bash
+nsys export --type sqlite --output trace-node-0.sqlite \
+  trace-node-0.nsys-rep
+sqlite3 trace-node-0.sqlite "
+  SELECT g.typeId, g.typeId & 255 AS gpu,
+         round(avg(g.value) / 1e6) AS mhz
+  FROM GPU_METRICS AS g JOIN TARGET_INFO_GPU_METRICS AS m
+    ON g.typeId = m.typeId AND g.metricId = m.metricId
+  WHERE m.metricName = 'GPC Clock Frequency [MHz]'
+  GROUP BY g.typeId"
+```
+
+With nsys 2025.5.1, on B200 and H200 nodes, three things about these tables aren't in NVIDIA's guide:
+
+- Each GPU has a `typeId` of its own, whose lowest 8 bits match `nvidia-smi`'s GPU index, hence the `gpu` column.
+- `TARGET_INFO_GPU_METRICS` lists each metric once per GPU, so the query joins on both `typeId` and `metricId`. NVIDIA's example joins on `metricId` alone, which on an 8-GPU node returns every sample 8 times.
+- The clock values are in Hz despite the `[MHz]` in the metric's name: one B200 sample read 1965129750, which is ~1965MHz.
+
+For just a table, `nsys stats --report cuda_gpu_trace --format csv --output gpu-trace trace-node-0.nsys-rep` writes every kernel and copy, with its start, duration, GPU and stream, to `gpu-trace_cuda_gpu_trace.csv`.
+
 #### When torch.profiler isn't enough
 
 In the introduction it was stated that cProfile is the wrong profiler for PyTorch code, however there are situations where you want to use cProfile with PyTorch code.

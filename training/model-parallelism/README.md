@@ -427,7 +427,19 @@ Colossal-AI's SP implementation uses ring self-attention, a ring-like communicat
 
 Paper: [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198)
 
-Megatron-LM's SP is tightly integrated with its TP. Megatron-LM partitions sequence along sequence dimensions and applies allgather and reduce scatter collective to aggregate QKV projections for attention computation. Its communication volume increases linearly with message size (M) regardless of number of compute devices.
+Megatron-LM's SP is tightly integrated with its TP. Unlike the other SPs in this section, it shards only the parts of a transformer layer that [TP](#tensor-parallelism) leaves replicated, and only over the TP group.
+
+Under TP, the activations inside the attention and MLP blocks are sharded, but every GPU of the group stores the full inputs of these blocks and runs the LayerNorms and the dropouts after the attention and MLP blocks on the whole sequence. These regions need little compute but a lot of activation memory, and they're independent along the sequence, so with a TP size of `t`, SP keeps and processes only `1/t` of the sequence in them on each GPU.
+
+SP replaces TP's all-reduces with the paper's `g` and `ḡ` operations, drawn in its Figure 5. In forward, `g` all-gathers the sequence-sharded LayerNorm output before each attention or MLP block's first matmul, and `ḡ` reduce-scatters the partial outputs of its last matmul back along the sequence. In backward, `g` reduce-scatters and `ḡ` all-gathers. A layer's 4 all-reduces in forward and backward become 4 all-gathers and 4 reduce-scatters, and as a ring all-reduce is a [reduce-scatter](../../network/comms.md#reduce-scatter) followed by an all-gather, these move the same data. As the [DeepSpeed-Ulysses](#deepspeed-ulysses-sp) paper points out, Megatron-LM SP's per-link communication volume grows linearly with message size `M` rather than falling as the TP group grows.
+
+To avoid storing the whole LayerNorm output for backward, each GPU keeps only its share of the sequence and all-gathers it again in backward. This extra all-gather is communication that TP alone doesn't do, and the paper overlaps it with the computation of the gradients with respect to that output to reduce its overhead.
+
+With sizes in bytes for 16-bit activations, the paper gives the activation memory per layer as `sbh(10 + 24/t + 5as/(ht))` with TP (its Equation 2) and `sbh(10/t + 24/t + 5as/(ht)) = (sbh/t)(34 + 5as/h)` with TP and SP (Equation 4), where `s` is the sequence length, `b` the micro-batch size, `h` the hidden size, `a` the number of attention heads and `t` the TP size. SP thus divides the replicated `10sbh` term by `t` as well, so all of a layer's activations are split `t` ways.
+
+Megatron-LM turns it on with `--sequence-parallel`, and turns it off, with a warning, when the TP size is 1.
+
+For one layer of its 22B model on 8 A100 GPUs, the paper measured forward and backward together at 19.0ms with SP and 19.6ms without. It attributes the gain to the LayerNorms and dropouts processing `1/t` of the data, partly offset by all-gather plus reduce-scatter running slower than all-reduce for the same data, and calls it secondary to the memory saving.
 
 See [Other parallelism patterns](../../network/exposed-communication.md#other-parallelism-patterns) for how much of the communication of Megatron-LM's TP with SP overlaps with the compute, and how much it slows a training step down, next to TP alone.
 
@@ -478,7 +490,7 @@ LoongTrain's 2D-Attention likewise splits the sequence-parallel GPUs into a head
 
 ## TP+SP
 
-TP can be combined with SP in the same process group to minimize communication costs as explained in [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198). For example in LLMs, TP is used for embedding, attention and linear layers and when dropout and layer norm are reached SP is used instead.
+TP can be combined with SP in the same process group to cut the activation memory by the TP size, as explained in [Reducing Activation Recomputation in Large Transformer Models](https://arxiv.org/abs/2205.05198) and in [Megatron-LM's SP](#megatron-lms-sp). Within each transformer layer, TP shards the attention and MLP blocks, while SP shards the LayerNorm and dropout regions along the sequence dimension.
 
 
 
