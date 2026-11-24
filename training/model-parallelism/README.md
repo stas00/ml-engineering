@@ -638,16 +638,17 @@ Here is how much data each rank sends for each parallelism, per optimizer step f
 
 The data-parallel patterns send the model's weights or gradients, so the Sent columns are in bytes per parameter in bf16, with `G` micro-batches per optimizer step:
 
-| Pattern                             | Forward            | Backward                                     | After the<br>optimizer<br>step | Sent,<br>`G`=1 | Sent,<br>`G`<br>micro-batches |
-| :---------------------------------- | :----------------- | :------------------------------------------- | :----------------------------- | -------------: | ----------------------------: |
-| DDP                                 | none               | all-reduce gradients                         | none                           |              4 |                             4 |
-| ZeRO-1 (DeepSpeed)                  | none               | all-reduce gradients                         | all-gather weights             |              6 |                             6 |
-| ZeRO-2 (DeepSpeed)                  | none               | all-reduce gradients                         | all-gather weights             |              6 |                       `4*G+2` |
-| ZeRO-3 (DeepSpeed), FSDP2           | all-gather weights | all-gather weights, reduce-scatter gradients | none                           |              6 |                         `6*G` |
-| FSDP2 `reshard_after_forward=False` | all-gather weights | reduce-scatter gradients                     | none                           |              4 |                         `4*G` |
+| Pattern                                 | Forward            | Backward                                     | After the<br>optimizer<br>step | Sent,<br>`G`=1 | Sent,<br>`G`<br>micro-batches |
+| :-------------------------------------- | :----------------- | :------------------------------------------- | :----------------------------- | -------------: | ----------------------------: |
+| DDP                                     | none               | all-reduce gradients                         | none                           |              4 |                             4 |
+| ZeRO-1 (DeepSpeed)                      | none               | all-reduce gradients                         | all-gather weights             |              6 |                             6 |
+| ZeRO-2 (DeepSpeed)                      | none               | all-reduce gradients                         | all-gather weights             |              6 |                       `4*G+2` |
+| ZeRO-3 (DeepSpeed), FSDP2 (ZeRO-3 mode) | all-gather weights | all-gather weights, reduce-scatter gradients | none                           |              6 |                         `6*G` |
+| FSDP2 (ZeRO-2 mode)                     | all-gather weights | reduce-scatter gradients                     | none                           |              4 |                         `4*G` |
 
 Notes:
 
+- FSDP2 (ZeRO-3 mode) is FSDP2 with its default `reshard_after_forward=True`, the counterpart of FSDP1's `ShardingStrategy.FULL_SHARD`: each layer frees its gathered weights after its forward, and backward all-gathers them again. FSDP2 (ZeRO-2 mode) is FSDP2 with `reshard_after_forward=False`, the counterpart of FSDP1's `ShardingStrategy.SHARD_GRAD_OP`: each layer keeps its gathered weights from its forward until its backward, so backward doesn't all-gather them again, and by the end of forward every rank holds all the weights.
 - DDP's 4 holds for any `G` with `no_sync()` on all the micro-batches but the last, as HF Trainer and Accelerate run it.
 - With their default settings, DeepSpeed's ZeRO-1 and ZeRO-2 all-reduce the gradients and each rank keeps its partition of the result, even though one of those defaults is named `reduce_scatter: true`. The reduce-scatter that the [ZeRO paper](https://arxiv.org/abs/1910.02054) describes would make both 4.
 - ZeRO-1 reduces only in the last micro-batch's backward and ZeRO-2 in each one's, while ZeRO-3 and FSDP2 gather the weights anew in each micro-batch.

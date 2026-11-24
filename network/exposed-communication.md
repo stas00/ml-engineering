@@ -25,7 +25,7 @@ The benchmark has a pattern for each parallelism it measures, which the tables b
 The data-parallel patterns:
 
 - **`ddp`** - PyTorch's [DDP](../training/model-parallelism/README.md#ddp) ([paper](https://arxiv.org/abs/2006.15704)): backward all-reduces the gradients in buckets of whole parameters, each as soon as it reaches the size in MiB that the `bucket_cap_mb` argument sets, while it goes on computing the gradients of the earlier layers.
-- **`fsdp`** - PyTorch's [FSDP2](../training/model-parallelism/README.md#zero-data-parallelism) ([paper](https://arxiv.org/abs/2304.11277)), with `fully_shard()` on each transformer layer: each layer's parameters are all-gathered a layer ahead of its compute, in forward and again in backward unless `reshard_after_forward` is `False`, and backward reduce-scatters each layer's gradients. The reduce-scatters share the all-gathers' NCCL communicator, which runs its collectives one at a time, unless `separate_rs_group=1` gives them one of their own, as FSDP2's `set_separate_reduce_scatter_group()` method does.
+- **`fsdp`** - PyTorch's [FSDP2](../training/model-parallelism/README.md#zero-data-parallelism) ([paper](https://arxiv.org/abs/2304.11277)), with `fully_shard()` on each transformer layer: each layer's parameters are all-gathered a layer ahead of its compute, in forward and again in backward unless `reshard_after_forward` is `False`, and backward reduce-scatters each layer's gradients. With `reshard_after_forward=False`, `reshard_after_forward=0` in the benchmark, each layer keeps its gathered parameters from its forward until its backward, as FSDP1's `ShardingStrategy.SHARD_GRAD_OP` does. The tables call this setting `fsdp` (ZeRO-2 mode), a name for its memory: unlike `ds-zero2` it all-gathers in forward, not after the optimizer step. The reduce-scatters share the all-gathers' NCCL communicator, which runs its collectives one at a time, unless `separate_rs_group=1` gives them one of their own, as FSDP2's `set_separate_reduce_scatter_group()` method does.
 - **`ds-zero2`** - DeepSpeed's [ZeRO-2](../training/model-parallelism/README.md#zero-data-parallelism) ([paper](https://arxiv.org/abs/1910.02054)): backward all-reduces the gradients in buckets of as many elements as the `reduce_bucket_size` config key sets, and after the optimizer step the updated parameters are all-gathered in one call. With the `overlap_comm` config key at its default, `overlap_comm=0`, the all-reduces run on the compute stream, so backward waits for each, and with `overlap_comm=1` they run on a stream of their own while backward goes on. With `overlap_comm=1` ZeRO-1 makes the same collectives, and the benchmark's `ds-zero1` pattern came within 0.2ms of `ds-zero2`, so the tables show only `ds-zero2`.
 - **`ds-zero3`** - DeepSpeed's [ZeRO-3](../training/model-parallelism/README.md#zero-data-parallelism) ([paper](https://arxiv.org/abs/1910.02054)): each linear layer's weight is all-gathered when its module needs it, with a prefetch of the next weights of up to as many elements as the `stage3_prefetch_bucket_size` config key sets, and backward reduce-scatters the gradients in buckets of `reduce_bucket_size` elements on a stream of its own.
 
@@ -37,7 +37,7 @@ Here is each pattern with the defaults of its framework unless the row names a s
 
 | pattern                               | compute<br>slowdown | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | ------------------: | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` |                6.4% |             47.28ms |               25.02ms |          53% |
+| `fsdp` (ZeRO-2 mode)                  |                6.4% |             47.28ms |               25.02ms |          53% |
 | `ddp`                                 |                7.0% |             54.16ms |               27.42ms |          51% |
 | `fsdp`                                |                8.8% |             66.92ms |               34.17ms |          51% |
 | `fsdp` with `separate_rs_group=1`     |                9.5% |             64.59ms |               37.18ms |          58% |
@@ -45,14 +45,14 @@ Here is each pattern with the defaults of its framework unless the row names a s
 | `ds-zero3`                            |               10.6% |             69.49ms |               41.18ms |          59% |
 | `ds-zero2`                            |               16.1% |             57.88ms |               62.53ms |         108% |
 
-`ddp` communicates only in backward. The FSDP2 rows and ZeRO-3 all-gather the parameters in forward as well, and all but `fsdp` with `reshard_after_forward=0` all-gather them again in backward. ZeRO-2 all-gathers them after the optimizer step, where no compute overlaps with it.
+`ddp` communicates only in backward. The FSDP2 rows and ZeRO-3 all-gather the parameters in forward as well, and all but `fsdp` (ZeRO-2 mode) all-gather them again in backward. `ds-zero2` all-gathers them after the optimizer step, where no compute overlaps with it.
 
 Here is each pattern's step split into its phases, in the order of the table above: the communication in forward, then in backward, then after the optimizer step, leaving out the phases that communicate nothing. Each phase is timed by its slowest rank, which isn't the same rank in every phase, so the phases add up to a little more than the step:
 
 | pattern                               | phase                    | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | :----------------------- | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` | forward                  |             22.30ms |               11.44ms |          51% |
-| `fsdp` with `reshard_after_forward=0` | backward                 |             24.98ms |               14.99ms |          60% |
+| `fsdp` (ZeRO-2 mode)                  | forward                  |             22.30ms |               11.44ms |          51% |
+| `fsdp` (ZeRO-2 mode)                  | backward                 |             24.98ms |               14.99ms |          60% |
 | `ddp`                                 | backward                 |             54.06ms |               30.87ms |          57% |
 | `fsdp`                                | forward                  |             22.37ms |               11.80ms |          53% |
 | `fsdp`                                | backward                 |             44.61ms |               23.19ms |          52% |
@@ -69,13 +69,13 @@ And drawn by [comm-compute-overlap-plot.py](benchmarks/comm-compute-overlap-plot
 
 ![comm-compute-overlap-bench data-parallel patterns with 8192 tokens per GPU](benchmarks/images/comm-compute-overlap-dp-seqlen8192-8xb200.png)
 
-The phases of `ddp` and the ZeRO rows added up to 3.5ms to 4.0ms more than their steps, and those of the FSDP2 rows 1.3ms to 1.7ms more, as FSDP2 [keeps the ranks closer together](#fsdp2s-exposed-communication).
+The phases of `ddp` and the DeepSpeed rows added up to 3.5ms to 4.0ms more than their steps, and those of the FSDP2 rows 1.3ms to 1.7ms more, as FSDP2 [keeps the ranks closer together](#fsdp2s-exposed-communication).
 
 Here are the same patterns with 16384 tokens per GPU, from the same run as the table above, sorted by compute slowdown, ascending:
 
 | pattern                               | compute<br>slowdown | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | ------------------: | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` |                2.5% |             47.22ms |               22.25ms |          47% |
+| `fsdp` (ZeRO-2 mode)                  |                2.5% |             47.22ms |               22.25ms |          47% |
 | `fsdp`                                |                3.1% |             66.91ms |               27.88ms |          42% |
 | `ddp`                                 |                3.3% |             54.15ms |               29.85ms |          55% |
 | `ds-zero2` with `overlap_comm=1`      |                3.6% |             55.56ms |               31.97ms |          58% |
@@ -89,8 +89,8 @@ Here are their steps split into phases, as with 8192 tokens, in the order of the
 
 | pattern                               | phase                    | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | :----------------------- | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` | forward                  |             22.26ms |               11.43ms |          51% |
-| `fsdp` with `reshard_after_forward=0` | backward                 |             24.97ms |               12.04ms |          48% |
+| `fsdp` (ZeRO-2 mode)                  | forward                  |             22.26ms |               11.43ms |          51% |
+| `fsdp` (ZeRO-2 mode)                  | backward                 |             24.97ms |               12.04ms |          48% |
 | `fsdp`                                | forward                  |             22.42ms |               10.63ms |          47% |
 | `fsdp`                                | backward                 |             44.59ms |               17.79ms |          40% |
 | `ddp`                                 | backward                 |             54.05ms |               36.81ms |          68% |
@@ -117,7 +117,7 @@ Here are the data-parallel patterns over 4 nodes with 8192 tokens per GPU, sorte
 
 | pattern                               | compute<br>slowdown | exposed<br>comm<br>ms | comm<br>alone |
 | :------------------------------------ | ------------------: | --------------------: | ------------: |
-| `fsdp` with `reshard_after_forward=0` |                8.4% |               32.75ms |      121.09ms |
+| `fsdp` (ZeRO-2 mode)                  |                8.4% |               32.75ms |      121.09ms |
 | `fsdp` with `separate_rs_group=1`     |               11.5% |               44.91ms |      138.75ms |
 | `fsdp`                                |               12.3% |               48.36ms |      165.63ms |
 | `ddp`                                 |               16.1% |               62.80ms |      140.72ms |
@@ -129,8 +129,8 @@ Here is each pattern's step over 4 nodes split into its phases, in the order of 
 
 | pattern                               | phase                    | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | :----------------------- | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` | forward                  |             50.52ms |               13.94ms |          28% |
-| `fsdp` with `reshard_after_forward=0` | backward                 |             70.62ms |               19.55ms |          28% |
+| `fsdp` (ZeRO-2 mode)                  | forward                  |             50.52ms |               13.94ms |          28% |
+| `fsdp` (ZeRO-2 mode)                  | backward                 |             70.62ms |               19.55ms |          28% |
 | `fsdp` with `separate_rs_group=1`     | forward                  |             50.08ms |               14.17ms |          28% |
 | `fsdp` with `separate_rs_group=1`     | backward                 |             88.69ms |               32.23ms |          36% |
 | `fsdp`                                | forward                  |             50.49ms |               14.42ms |          29% |
@@ -153,7 +153,7 @@ Here they are with 16384 tokens per GPU, from the same run as the table above, s
 
 | pattern                               | compute<br>slowdown | exposed<br>comm<br>ms | comm<br>alone |
 | :------------------------------------ | ------------------: | --------------------: | ------------: |
-| `fsdp` with `reshard_after_forward=0` |                3.1% |               27.74ms |      121.21ms |
+| `fsdp` (ZeRO-2 mode)                  |                3.1% |               27.74ms |      121.21ms |
 | `fsdp`                                |                4.1% |               37.24ms |      166.45ms |
 | `fsdp` with `separate_rs_group=1`     |                4.6% |               41.69ms |      139.56ms |
 | `ds-zero2` with `overlap_comm=1`      |                6.5% |               58.29ms |      114.77ms |
@@ -165,8 +165,8 @@ Here are their steps over 4 nodes split into phases, in the order of the table a
 
 | pattern                               | phase                    | comm<br>alone<br>ms | exposed<br>comm<br>ms | comm<br>cost |
 | :------------------------------------ | :----------------------- | ------------------: | --------------------: | -----------: |
-| `fsdp` with `reshard_after_forward=0` | forward                  |             50.69ms |               12.57ms |          25% |
-| `fsdp` with `reshard_after_forward=0` | backward                 |             70.68ms |               17.21ms |          24% |
+| `fsdp` (ZeRO-2 mode)                  | forward                  |             50.69ms |               12.57ms |          25% |
+| `fsdp` (ZeRO-2 mode)                  | backward                 |             70.68ms |               17.21ms |          24% |
 | `fsdp`                                | forward                  |             50.70ms |               13.48ms |          27% |
 | `fsdp`                                | backward                 |            115.75ms |               26.62ms |          23% |
 | `fsdp` with `separate_rs_group=1`     | forward                  |             50.86ms |               12.24ms |          24% |
@@ -183,7 +183,7 @@ And the corresponding plot, with each pattern's 1-node step above its 4-node one
 
 ![comm-compute-overlap-bench data-parallel patterns over 1 and 4 nodes with 16384 tokens per GPU](benchmarks/images/comm-compute-overlap-dp-1-vs-4-nodes-seqlen16384-8xb200.png)
 
-The compute alone took ~894ms to ~903ms in every row, over 1 node and over 4, and every compute slowdown was 33% to 56% of that with 8192 tokens. `ddp` fell to sixth, as it exposed 50.9ms more than over 1 node, against 5.5ms to 9.4ms more for the FSDP2 rows. As over 1 node, the phases of `ddp` and the ZeRO rows overshot their steps by more than those of the FSDP2 rows, 9.5ms to 13.2ms against 4.1ms to 4.3ms.
+The compute alone took ~894ms to ~903ms in every row, over 1 node and over 4, and every compute slowdown was 33% to 56% of that with 8192 tokens. `ddp` fell to sixth, as it exposed 50.9ms more than over 1 node, against 5.5ms to 9.4ms more for the FSDP2 rows. As over 1 node, the phases of `ddp` and the DeepSpeed rows overshot their steps by more than those of the FSDP2 rows, 9.5ms to 13.2ms against 4.1ms to 4.3ms.
 
 ### DDP's exposed communication
 
@@ -199,9 +199,9 @@ Over 4 nodes the all-reduces ran twice as long during backward as in the comm al
 
 ### FSDP2's exposed communication
 
-FSDP2 exposed the least communication over 4 nodes, and `fsdp` with `reshard_after_forward=0`, which takes more memory, exposed the least over 1 node too.
+FSDP2 exposed the least communication over 4 nodes, and `fsdp` (ZeRO-2 mode), which takes more memory, exposed the least over 1 node too.
 
-`reshard_after_forward=0` keeps the gathered parameters from forward to backward, 13GiB for 32 layers of Llama-3.1-8B, so backward only reduce-scatters, while the default `fsdp` all-gathers them again in backward.
+ZeRO-2 mode keeps the gathered parameters from forward to backward, 13GiB for 32 layers of Llama-3.1-8B, so backward only reduce-scatters, while the default `fsdp` all-gathers them again in backward.
 
 About 40% of what `fsdp`'s forward exposed isn't communication: FSDP2 copies each layer's gathered parameters out of the all-gather's buffer on the compute stream, 0.14ms per layer in an `nsys` trace. The copies don't depend on the token count, so forward exposed about as much with 16384 tokens per GPU.
 
@@ -270,35 +270,35 @@ With gradient accumulation each optimizer step runs several micro-batches, each 
 - `ddp` all-reduces the gradients only in the last micro-batch's backward: DDP's [`no_sync()`](https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel.no_sync) context manager skips it in the others.
 - `ds-zero1` also reduces the gradients only in the last micro-batch, while `ds-zero2`, which keeps only its shard of the gradients, reduces them in every micro-batch, as [DeepSpeed's ZeRO-1 and ZeRO-2 code](https://github.com/deepspeedai/DeepSpeed/blob/master/deepspeed/runtime/zero/stage_1_and_2.py) does. Both all-gather the updated parameters once per step. As they differ here, the tables below show both, each with `overlap_comm=1`.
 - `ds-zero3` and `fsdp` all-gather the parameters in every micro-batch's forward and backward, and reduce-scatter the gradients in every backward.
-- FSDP2 can skip some of that in all the micro-batches but the last: [`set_requires_gradient_sync(False)`](https://docs.pytorch.org/docs/stable/distributed.fsdp.fully_shard.html#torch.distributed.fsdp.FSDPModule.set_requires_gradient_sync), `fsdp`'s `requires_gradient_sync=0`, accumulates the gradients unsharded instead of reduce-scattering them, and [`set_reshard_after_backward(False)`](https://docs.pytorch.org/docs/stable/distributed.fsdp.fully_shard.html#torch.distributed.fsdp.FSDPModule.set_reshard_after_backward), `reshard_after_backward=0`, keeps the parameters gathered after backward, so the next forward doesn't all-gather them again. Backward still does, unless `reshard_after_forward=0` as well: then FSDP2 all-gathers the parameters only once per step.
+- FSDP2 can skip some of that in all the micro-batches but the last: [`set_requires_gradient_sync(False)`](https://docs.pytorch.org/docs/stable/distributed.fsdp.fully_shard.html#torch.distributed.fsdp.FSDPModule.set_requires_gradient_sync), `fsdp`'s `requires_gradient_sync=0`, accumulates the gradients unsharded instead of reduce-scattering them, and [`set_reshard_after_backward(False)`](https://docs.pytorch.org/docs/stable/distributed.fsdp.fully_shard.html#torch.distributed.fsdp.FSDPModule.set_reshard_after_backward), `reshard_after_backward=0`, keeps the parameters gathered after backward, so the next forward doesn't all-gather them again. Backward still does, unless FSDP2 runs in ZeRO-2 mode as well: then it all-gathers the parameters only once per step.
 
 Here is each pattern's compute slowdown over 1 node with `gas=1` and `gas=8`, 8192 tokens per GPU in each micro-batch, sorted by the compute slowdown with `gas=8`, ascending:
 
-| pattern                                                                                                | `gas=1` | `gas=8` |
-| :----------------------------------------------------------------------------------------------------- | ------: | ------: |
-| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`,<br>`reshard_after_forward=0` |    6.4% |    0.6% |
-| `ddp`                                                                                                  |    7.0% |    0.9% |
-| `ds-zero1` with `overlap_comm=1`                                                                       |   10.5% |    1.1% |
-| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`                               |    8.6% |    3.7% |
-| `ds-zero2` with `overlap_comm=1`                                                                       |   10.5% |    5.1% |
-| `fsdp`                                                                                                 |    8.9% |    8.6% |
-| `ds-zero3`                                                                                             |   10.7% |   10.5% |
+| pattern                                                                                | `gas=1` | `gas=8` |
+| :------------------------------------------------------------------------------------- | ------: | ------: |
+| `fsdp` (ZeRO-2 mode) with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0` |    6.4% |    0.6% |
+| `ddp`                                                                                  |    7.0% |    0.9% |
+| `ds-zero1` with `overlap_comm=1`                                                       |   10.5% |    1.1% |
+| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`               |    8.6% |    3.7% |
+| `ds-zero2` with `overlap_comm=1`                                                       |   10.5% |    5.1% |
+| `fsdp`                                                                                 |    8.9% |    8.6% |
+| `ds-zero3`                                                                             |   10.7% |   10.5% |
 
-And over 4 nodes, sorted the same way. With `gas=1` the FSDP2 settings for accumulation change nothing, so the first `fsdp` row's `gas=1` cell comes from `fsdp` with only `reshard_after_forward=0`, and the second's from `fsdp`:
+And over 4 nodes, sorted the same way. With `gas=1` the FSDP2 settings for accumulation change nothing, so the first `fsdp` row's `gas=1` cell comes from the `fsdp` (ZeRO-2 mode) row above, and the second's from `fsdp`:
 
-| pattern                                                                                                | `gas=1` | `gas=8` |
-| :----------------------------------------------------------------------------------------------------- | ------: | ------: |
-| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`,<br>`reshard_after_forward=0` |    8.4% |    0.9% |
-| `ddp`                                                                                                  |   16.1% |    1.8% |
-| `ds-zero1` with `overlap_comm=1`                                                                       |   18.4% |    2.1% |
-| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`                               |   12.3% |    4.6% |
-| `ds-zero2` with `overlap_comm=1`                                                                       |   18.7% |    7.1% |
-| `fsdp`                                                                                                 |   12.3% |   11.8% |
-| `ds-zero3`                                                                                             |   17.1% |   16.4% |
+| pattern                                                                                | `gas=1` | `gas=8` |
+| :------------------------------------------------------------------------------------- | ------: | ------: |
+| `fsdp` (ZeRO-2 mode) with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0` |    8.4% |    0.9% |
+| `ddp`                                                                                  |   16.1% |    1.8% |
+| `ds-zero1` with `overlap_comm=1`                                                       |   18.4% |    2.1% |
+| `fsdp` with<br>`requires_gradient_sync=0`,<br>`reshard_after_backward=0`               |   12.3% |    4.6% |
+| `ds-zero2` with `overlap_comm=1`                                                       |   18.7% |    7.1% |
+| `fsdp`                                                                                 |   12.3% |   11.8% |
+| `ds-zero3`                                                                             |   17.1% |   16.4% |
 
-The patterns that communicate once per step, `ddp`, `ds-zero1` and `fsdp` with all 3 settings at 0, exposed about as much with `gas=8` as with `gas=1`, so with 8.3 times the compute alone their compute slowdown fell to about a tenth. `fsdp` and `ds-zero3` communicate in every micro-batch, so their communication grew with the compute, and their compute slowdown hardly changed. `ds-zero2` and `fsdp` with 2 of the settings landed in between, as each still repeats part of its communication in every micro-batch: ZeRO-2 its gradient all-reduces, and that `fsdp` row its all-gathers in backward.
+The patterns that communicate once per step, `ddp`, `ds-zero1` and `fsdp` (ZeRO-2 mode) with both accumulation settings at 0, exposed about as much with `gas=8` as with `gas=1`, so with 8.3 times the compute alone their compute slowdown fell to about a tenth. `fsdp` and `ds-zero3` communicate in every micro-batch, so their communication grew with the compute, and their compute slowdown hardly changed. `ds-zero2` and `fsdp` with the 2 accumulation settings at 0 but not in ZeRO-2 mode landed in between, as each still repeats part of its communication in every micro-batch: `ds-zero2` its gradient all-reduces, and that `fsdp` row its all-gathers in backward.
 
-So gradient accumulation reverses how ZeRO-1 and ZeRO-2 compare with the default `fsdp`: with `gas=1` `fsdp` added less than both, and with `gas=8` more. FSDP2 with all 3 settings at 0 added the least either way, by trading memory for communication: the gradients accumulate unsharded, and the parameters stay gathered from the first forward to the optimizer step.
+So gradient accumulation reverses how `ds-zero1` and `ds-zero2` compare with the default `fsdp`: with `gas=1` `fsdp` added less than both, and with `gas=8` more. FSDP2 in ZeRO-2 mode with both accumulation settings at 0 added the least either way, by trading memory for communication: the gradients accumulate unsharded, and the parameters stay gathered from the first forward to the last backward.
 
 ## Other parallelism patterns
 

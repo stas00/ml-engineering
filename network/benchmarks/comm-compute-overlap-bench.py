@@ -498,7 +498,7 @@ PATTERNS = {
         settings=dict(
             reshard_after_forward=("1", bool_setting, "1 frees the gathered parameters after forward, so backward "
                                    "all-gathers them again, 0 keeps them until the end of backward, as FSDP1's "
-                                   "ShardingStrategy.SHARD_GRAD_OP does"),
+                                   "ShardingStrategy.SHARD_GRAD_OP does - FSDP2's ZeRO-2 mode"),
             forward_prefetch=("1", count_setting, "how many layers ahead forward all-gathers - 1 is FSDP2's "
                               "default, in which each layer's all-gather waits for the compute to start on the layer "
                               "2 before it, FSDP2's set_modules_to_forward_prefetch() method prefetches more"),
