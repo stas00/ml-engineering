@@ -634,16 +634,43 @@ Here is a useful tidbit: the all-reduce collective can be decomposed into two se
 ![all-reduce = reduce-scatter and all-gather](images/all-reduce-reduce-scatter-all-gather.png)
 ([source](https://engineering.fb.com/2021/07/15/open-source/fsdp/attachment/fsdp-graph-2a/))
 
-Here is the breakdown of which collectives are used for which parallelization strategies:
+Here is how much data each rank sends for each parallelism, per optimizer step for the data-parallel patterns and per layer for the model-parallel ones. A ring all-gather, reduce-scatter or all-to-all over `n` ranks sends `(n-1)/n` of its payload out of each rank. An all-reduce is a reduce-scatter followed by an all-gather, so it sends `2*(n-1)/n` of it, and an all-reduce of bf16 gradients sends each 2-byte element twice. The tables leave out the `(n-1)/n`: multiply by it for a group of `n` ranks, e.g. by 7/8 for 8 ranks.
 
-- DDP: 1x all-reduce for the gradients - ideally overlapping with compute - total volume: 2x model params comms
-- ZeRO-DP ZeRO-1/ZeRO-2: 1x reduce-scatter for gradients plus 1x all-gather to collect all the updated parameters- total volume: 2x model params comms
-- ZeRO-DP ZeRO-3: 2x all-gather for weights (before `forward` + before `backward`) plus 1x reduce-scatter for gradients - total volume: 3x model params comms (1.5x more than DDP and ZeRO-1/ZeRO-2)
-- TP: 2x all-gather and 2x reduce-scatter
-- PP: 2x send + 2x recv - overlapping with compute in the steady phase
-- SP: depends on implementation: with hidden size h, sequence length of N, and parallelism degree of P
-  * Megatron-LM: 2x all-gather and 2x reduce-scatter with volume `4*N*h` per transformers layer [section 3.2 in paper](https://arxiv.org/abs/2309.14509)
-  * DeepSpeed Ulysses: 2x all-to-all with volume `4*N*h/P` per transformers layer [section 3.2 in paper](https://arxiv.org/abs/2309.14509)
+The data-parallel patterns send the model's weights or gradients, so the Sent columns are in bytes per parameter in bf16, with `G` micro-batches per optimizer step:
+
+| Pattern                             | Forward            | Backward                                     | After the<br>optimizer<br>step | Sent,<br>`G`=1 | Sent,<br>`G`<br>micro-batches |
+| :---------------------------------- | :----------------- | :------------------------------------------- | :----------------------------- | -------------: | ----------------------------: |
+| DDP                                 | none               | all-reduce gradients                         | none                           |              4 |                             4 |
+| ZeRO-1 (DeepSpeed)                  | none               | all-reduce gradients                         | all-gather weights             |              6 |                             6 |
+| ZeRO-2 (DeepSpeed)                  | none               | all-reduce gradients                         | all-gather weights             |              6 |                       `4*G+2` |
+| ZeRO-3 (DeepSpeed), FSDP2           | all-gather weights | all-gather weights, reduce-scatter gradients | none                           |              6 |                         `6*G` |
+| FSDP2 `reshard_after_forward=False` | all-gather weights | reduce-scatter gradients                     | none                           |              4 |                         `4*G` |
+
+Notes:
+
+- DDP's 4 holds for any `G` with `no_sync()` on all the micro-batches but the last, as HF Trainer and Accelerate run it.
+- With their default settings, DeepSpeed's ZeRO-1 and ZeRO-2 all-reduce the gradients and each rank keeps its partition of the result, even though one of those defaults is named `reduce_scatter: true`. The reduce-scatter that the [ZeRO paper](https://arxiv.org/abs/1910.02054) describes would make both 4.
+- ZeRO-1 reduces only in the last micro-batch's backward and ZeRO-2 in each one's, while ZeRO-3 and FSDP2 gather the weights anew in each micro-batch.
+- Gradients reduced in fp32 double the bytes of the gradient reductions.
+
+The model-parallel patterns send activations, so the payload is in `A` = `micro_batch_size * seqlen * hidden_size * 2` bytes, where `seqlen` is the full sequence length under TP, Megatron-LM SP, EP and PP, and the rank's share of it, `seqlen/sp` or `seqlen/cp`, under Ulysses and CP:
+
+| Pattern                | Forward                                           | Backward                                               | `A`s sent<br>per layer         |
+| :--------------------- | :------------------------------------------------ | :----------------------------------------------------- | -----------------------------: |
+| TP (Megatron-LM)       | 2 all-reduces                                     | 2 all-reduces                                          |                              8 |
+| SP (Megatron-LM)       | 2 all-gathers, 2 reduce-scatters                  | 4 all-gathers, 2 reduce-scatters                       |                             10 |
+| SP (DeepSpeed-Ulysses) | 4 all-to-alls: q, k, v and attention's output     | 4 all-to-alls                                          |                              8 |
+| CP (ring attention)    | k and v, `cp-1` times                             | k and v, `cp-1` times, and their gradients, `cp` times |                       `6*cp-4` |
+| EP                     | 2 all-to-alls per MoE layer: dispatch and combine | 2 all-to-alls per MoE layer                            |                      `4*top_k` |
+| PP                     | 1 send per stage boundary                         | 1 send per stage boundary                              | 2 per boundary per micro-batch |
+
+Notes:
+
+- Megatron-LM SP's 2 extra all-gathers in backward gather again the LayerNorm output it keeps only a share of, as [Megatron-LM's SP](#megatron-lms-sp) explains.
+- With grouped-query attention, k and v are smaller than `A` by the ratio of key-value heads to query heads, which makes Ulysses and CP send less.
+- CP's gradients of k and v take one more step than k and v, back to the rank that holds them.
+- EP's count is for each token routed to `top_k` experts, with the tokens spread evenly over the experts.
+- PP's count is per stage boundary per micro-batch, not per layer: a pipeline of `pp` ranks with `v` virtual stages each has `pp*v-1` boundaries.
 
 It's possible that you will find different implementations that may use different communication patterns.
 
