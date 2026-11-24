@@ -716,12 +716,31 @@ def vs_reference(series, reference):
     return [[x / ref for x, ref in zip(s, refs)] for s in series]
 
 
+def banner(text):
+    """`text` in a frame of asterisks, so that the outcome stands out in the report"""
+    rule = "*" * (len(text) + 6)
+    return f"\n{rule}\n*  {text}  *\n{rule}\n"
+
+
+def counted(n, noun):
+    return f"{n} {noun}{'' if n == 1 else 's'}"
+
+
+def found(parts, where=""):
+    """The outcome banner's text, given what was flagged, e.g. ["1 GPU", "1 slow node"]"""
+    return f"Stragglers Found{where}: " + ", ".join(parts) if parts else f"No Stragglers Found{where}"
+
+
 def report(results, args):
     def pct(v, ref):
         return 100 * (v / ref - 1)
 
+    # with --repeat the banner comes once, with the outcome of all the runs
+    final = args.repeat == 1
     bad = [r for r in results if not r["finite"]]
     if bad:
+        if final:
+            print(banner("Invalid Results: inf/NaN"))
         for r in bad:
             print(f"error: {r['host']} GPU {r['index']} computed inf/NaN, so its time is meaningless")
         return 2
@@ -953,10 +972,14 @@ def report(results, args):
                 n = max(nodes.values(), key=lambda n: n["vs_baseline"][w])
                 part += f", node vs baseline {n['host']} {n['vs_baseline'][w]:+.1f}%"
             parts.append(part)
-        print("\nno straggler - per workload, the slowest 90th percentile window, and the largest gap between a GPU's "
+        print((banner(found([])) + "\n" if final else "\nno straggler - ") +
+              "per workload, the slowest 90th percentile window, and the largest gap between a GPU's "
               "90th percentile and median windows:\n  " + "\n  ".join(parts) + "\na straggler is any of\n  " + "\n  ".join(rules) + caveat)
         return 0
 
+    if final:
+        print(banner(found([counted(n, noun) for n, noun in ((len(flagged), "GPU"),
+                                                            (len(flagged_nodes), "slow node")) if n])), end="")
     if flagged_nodes:
         print(f"\n{len(flagged_nodes)} slow node(s) - report them by their GPUs' serials, which don't change with the "
               f"node name:")
@@ -1135,10 +1158,19 @@ def worker(local_rank, args, world_size, init_method):
             if any(s["slower_than_itself"] for s in stragglers.values()):
                 rc = 3
         if args.repeat > 1:
-            print(f"\n######## all {args.repeat} runs\n")
-            if not stragglers and not slow_nodes:
-                print("no straggler in any run, and no GPU more than "
-                      f"{args.threshold:g}% slower in a run than in its fastest one")
+            print(f"\n######## all {args.repeat} runs")
+            if rc == 2:
+                print(banner("Invalid Results: inf/NaN") + "a GPU computed inf/NaN - see the run it was in")
+            else:
+                every = sum(len(s["runs"]) == args.repeat for s in stragglers.values())
+                some = len(stragglers) - every
+                parts = ([f"{counted(every, 'GPU')} in all {args.repeat}"] * bool(every) +
+                         [f"{counted(some, 'GPU')} in some"] * bool(some) +
+                         [counted(len(slow_nodes), "slow node")] * bool(slow_nodes))
+                print(banner(found(parts, f" in {args.repeat} Runs")))
+                if not parts:
+                    print("no straggler in any run, and no GPU more than "
+                          f"{args.threshold:g}% slower in a run than in its fastest one")
             for n in slow_nodes.values():
                 print(f"  {n['host']}: a slow node in {len(n['runs'])} of {args.repeat} runs "
                       f"(run {', '.join(map(str, n['runs']))}) - GPU serials "

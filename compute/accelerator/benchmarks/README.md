@@ -317,6 +317,10 @@ cluster-a-2      5    400.18   -0.8/ -0.2%   -0.4/ -0.1%   -0.4/ -0.4%   -0.4/ -
 cluster-a-0      5    399.34   -1.3/ -1.0%   -1.1/ -0.4%   -0.9/ -0.8%   -0.5/ -0.5%      1620        1177      890     58          100%
 ... and 20 more GPUs, step -0.7 to +1.0% in their 90th percentile windows (--unflagged-rows -1 prints them)
 
+*****************************
+*  Stragglers Found: 1 GPU  *
+*****************************
+
 1 straggler(s) - report them by UUID and serial, which don't change with the node name or the GPU's index:
   cluster-a-3 GPU 3: unsteady in step: its 90th percentile window 2.3% slower than its median one (z 17.6) - uuid GPU-00000000-1111-2222-3333-444444444444, serial 1650000000001, pci 00000000:63:00.0
 a straggler is any of
@@ -340,7 +344,11 @@ GPU 3 of `cluster-a-3` is flagged as unsteady: its step's 90th percentile window
 On 4 healthy nodes, `cluster-a-0` to `cluster-a-2` with `cluster-a-4` in place of `cluster-a-3`, its report ends instead with:
 
 ```
-no straggler - per workload, the slowest 90th percentile window, and the largest gap between a GPU's 90th percentile and median windows:
+*************************
+*  No Stragglers Found  *
+*************************
+
+per workload, the slowest 90th percentile window, and the largest gap between a GPU's 90th percentile and median windows:
   step: slowest cluster-a-4 GPU 7 +1.9% (z 2.1), least steady cluster-a-0 GPU 5 +0.5% (z 1.5), slowest node cluster-a-0 +0.7%
   matmul: slowest cluster-a-0 GPU 1 +3.4% (z 3.2), least steady cluster-a-4 GPU 3 +0.7% (z 2.4), slowest node cluster-a-0 +0.9%
   copy: slowest cluster-a-0 GPU 0 +0.8% (z 1.7), least steady cluster-a-0 GPU 5 +0.2% (z 9.6), slowest node cluster-a-1 +0.3%
