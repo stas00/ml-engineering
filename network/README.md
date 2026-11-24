@@ -578,65 +578,52 @@ Sorted by Total unidirectional bandwidth descending, then Rate/interface descend
 
 **Generally available:**
 
-| Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | Notes   |
-| :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :------ |
-| NVIDIA DGX B300 XDR          |                   8 |                          800 |                         800 | 1,19    |
-| AWS EFA v4 (P6-B300)         |                  16 |                          400 |                         800 | 2,20,31 |
-| Intel Gaudi3                 |                  24 |                          200 |                         600 | 3,21    |
-| NVIDIA DGX H100 NDR          |                   8 |                          400 |                         400 | 4,22    |
-| Omni-Path CN5000 example     |                   8 |                          400 |                         400 | 17,18   |
-| AWS EFA v4 (P6-B200)         |                   8 |                          400 |                         400 | 2,30,31 |
-| AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 | 2,23,31 |
-| AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 | 2,23,31 |
-| Intel Gaudi2                 |                  24 |                          100 |                         300 | 5,21    |
-| InfiniBand XDR example       |                   2 |                          800 |                         200 | 9,11    |
-| GCP A3 Mega TCPXO            |                   8 |                          200 |                         200 | 6,24,29 |
-| GCP A3 High TCPX             |                   4 |                          200 |                         100 | 6,25,29 |
-| HPE Slingshot example        |                   4 |                          200 |                         100 | 7,26    |
-| Omni-Path CN100 example      |                   8 |                          100 |                         100 | 8,27    |
-| InfiniBand NDR example       |                   1 |                          400 |                          50 | 10,12   |
-| AWS EFA v1 (P4d)             |                   4 |                          100 |                          50 | 2,28,31 |
+| Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | Notes |
+| :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :---- |
+| NVIDIA DGX B300 XDR          |                   8 |                          800 |                         800 | 1     |
+| AWS EFA v4 (P6-B300)         |                  16 |                          400 |                         800 | 2     |
+| Intel Gaudi3                 |                  24 |                          200 |                         600 | 3,14  |
+| NVIDIA DGX H100 NDR          |                   8 |                          400 |                         400 | 4     |
+| Omni-Path CN5000 example     |                   8 |                          400 |                         400 | 13    |
+| AWS EFA v4 (P6-B200)         |                   8 |                          400 |                         400 | 2,16  |
+| AWS EFA v3 (P5en/Trn2)       |                  16 |                          200 |                         400 | 2,15  |
+| AWS EFA v2 (P5/P5e)          |                  32 |                          100 |                         400 | 2,15  |
+| Intel Gaudi2                 |                  24 |                          100 |                         300 | 5,14  |
+| InfiniBand XDR example       |                   2 |                          800 |                         200 | 9     |
+| GCP A3 Mega TCPXO            |                   8 |                          200 |                         200 | 6     |
+| GCP A3 High TCPX             |                   4 |                          200 |                         100 | 6     |
+| HPE Slingshot example        |                   4 |                          200 |                         100 | 7     |
+| Omni-Path CN100 example      |                   8 |                          100 |                         100 | 8     |
+| InfiniBand NDR example       |                   1 |                          400 |                          50 | 10    |
+| AWS EFA v1 (P4d)             |                   4 |                          100 |                          50 | 2     |
 
 **Announced, availability not confirmed:**
 
-| Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | Notes   |
-| :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :------ |
-| Omni-Path CN6000 example     |                   8 |                          800 |                         800 | 13,14   |
-| InfiniBand GDR example       |                   2 |                         1600 |                         400 | 15,16   |
+| Platform/<br>example<br>node | NICs<br>per<br>node | Rate/<br>interface<br>(Gbps) | Total<br>Uni-dir.<br>(GBps) | Notes |
+| :--------------------------- | ------------------: | ---------------------------: | --------------------------: | :---- |
+| Omni-Path CN6000 example     |                   8 |                          800 |                         800 | 11    |
+| BXI V3 example               |                  16 |                          400 |                         800 | 17    |
+| InfiniBand GDR example       |                   2 |                         1600 |                         400 | 12    |
 
 Notes:
 
-1. [NVIDIA DGX B300 specifications](https://www.nvidia.com/en-us/data-center/dgx-b300/)
-2. [AWS EC2 accelerated-computing network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html)
+1. [NVIDIA DGX B300 specifications](https://www.nvidia.com/en-us/data-center/dgx-b300/) - eight single-port ConnectX-8 adapters.
+2. [AWS EC2 accelerated-computing network specifications](https://docs.aws.amazon.com/ec2/latest/instancetypes/ac.html) - the `v1`-`v4` EFA generation labels are AWS's own, taken from the [supported instance types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html#efa-instance-types) tables, which group instances under `Nitro v3 (EFA v1)` through `Nitro v6 (EFA v4)` headings. The generation follows the Nitro version, not the accelerator - see [EFA](#efa).
 3. [Intel Gaudi3 white paper](https://www.intel.com/content/www/us/en/content-details/817486/intel-gaudi-3-ai-accelerator-white-paper.html)
-4. [NVIDIA DGX H100/H200 user guide](https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html)
+4. [NVIDIA DGX H100/H200 user guide](https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html) - eight single-port ConnectX-7 adapters.
 5. [Intel Gaudi2 data sheet](https://habana.ai/wp-content/uploads/2023/10/HLS-Gaudi2_Datasheet_10_23.pdf)
-6. [Google Cloud GPUDirect-TCPX/TCPXO](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx)
-7. [HPE Slingshot 11 QuickSpecs](https://www.hpe.com/us/en/collaterals/collateral.a50002546enw.html)
-8. [Cornelis CN-100HFA specifications](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa)
-9. [InfiniBand Trade Association XDR specification release](https://infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/)
-10. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html)
-11. 2 ports of 4 XDR lanes each (4x200Gbps = 800Gbps per port); a node with this layout is illustrative, not a documented product.
-12. 1 port of 4 NDR lanes (4x100Gbps = 400Gbps).
-13. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series)
-14. 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative.
-15. [InfiniBand Trade Association roadmap](https://infinibandta.org/infiniband-roadmap/)
-16. GDR is on the InfiniBand Trade Association roadmap; no GDR product has shipped. The 2-port node is illustrative.
-17. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network)
-18. 400Gbps family began shipping in June 2025 and broadly available from Q3 2025; eight-adapter node remains illustrative. The original roadmap target was Q2-2025.
-19. Eight single-port ConnectX-8 adapters.
-20. Sixteen fabric-facing EFA interfaces.
-21. Integrated RoCEv2 interfaces.
-22. Eight single-port ConnectX-7 adapters.
-23. Common 3.2Tbps configuration.
-24. Eight accelerator-fabric interfaces.
-25. Four accelerator-fabric interfaces.
-26. Illustrative four-interface node.
-27. Illustrative eight-adapter node.
-28. Four fabric-facing EFA interfaces.
-29. Google publishes a higher headline number for these machine types - 1800Gbps max network bandwidth for A3 Mega and 1000Gbps for A3 High. Those totals include the VPC/frontend NIC; the figures above count only the accelerator fabric, so `8x200=1600Gbps` and `4x200=800Gbps` respectively. The ~200Gbps difference in each case is the general-purpose network interface, which doesn't carry collectives.
-30. Eight fabric-facing EFA interfaces at 400Gbps each, device-reported via `/sys/class/infiniband/rdmap*/ports/1/rate`, for the 3.2Tbps AWS publishes per P6-B200 instance.
-31. The `v1`-`v4` EFA generation labels are AWS's own, taken from the [supported instance types](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa.html#efa-instance-types) tables, which group instances under `Nitro v3 (EFA v1)` through `Nitro v6 (EFA v4)` headings. The generation follows the Nitro version, not the accelerator - see [EFA](#efa).
+6. [Google Cloud GPUDirect-TCPX/TCPXO](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/gpu-bandwidth-gpudirect-tcpx) - Google publishes a higher headline number for these machine types - 1800Gbps max network bandwidth for A3 Mega and 1000Gbps for A3 High. Those totals include the VPC/frontend NIC; the figures above count only the accelerator fabric, so `8x200=1600Gbps` and `4x200=800Gbps` respectively. The ~200Gbps difference in each case is the general-purpose network interface, which doesn't carry collectives.
+7. [HPE Slingshot 11 QuickSpecs](https://www.hpe.com/us/en/collaterals/collateral.a50002546enw.html) - illustrative four-interface node.
+8. [Cornelis CN-100HFA specifications](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) - illustrative eight-adapter node.
+9. [InfiniBand Trade Association XDR specification release](https://infinibandta.org/ibta-unveils-xdr-infiniband-specification-to-enable-the-next-generation-of-ai-and-scientific-computing/) - 2 ports of 4 XDR lanes each (4x200Gbps = 800Gbps per port); a node with this layout is illustrative, not a documented product.
+10. [NVIDIA NDR cabling guide](https://docs.nvidia.com/dgx-superpod/design-guide-cabling-data-centers/latest/ndr-overview.html) - 1 port of 4 NDR lanes (4x100Gbps = 400Gbps).
+11. Cornelis [CN6000 product page](https://www.cornelis.com/products/cn6000?product_range=supernics) and [AMD MI400 reference architecture](https://www.cornelis.com/stories/cornelis-announces-new-reference-architecture-for-ai-inference-training-and-hpc-built-for-amd-6th-gen-epycsupsup-and-amd-instinctsupsup-mi400-series) - 800Gbps product sampling in 2026; GA target Q4-2026; eight-adapter node remains illustrative.
+12. [InfiniBand Trade Association roadmap](https://infinibandta.org/infiniband-roadmap/) - GDR is on it, but no GDR product has shipped; the 2-port node is illustrative.
+13. [Cornelis CN5000 launch](https://www.cornelis.com/stories/cornelis-launches-cn5000-industry-leading-ai-and-hpc-scale-out-network) - 400Gbps family began shipping in June 2025 and broadly available from Q3 2025; eight-adapter node remains illustrative. The original roadmap target was Q2-2025.
+14. Integrated RoCEv2 interfaces.
+15. Common 3.2Tbps configuration.
+16. Eight fabric-facing EFA interfaces at 400Gbps each, device-reported via `/sys/class/infiniband/rdmap*/ports/1/rate`, for the 3.2Tbps AWS publishes per P6-B200 instance.
+17. [Bull BXI V3 datasheet](https://www.bull.com/hubfs/Documents/Factsheets/Bull-BXI-V3-Datasheet.pdf) - eight two-port mezzanine cards; the node is illustrative. No shipment announced as of 2026-11.
 
 These are common/popular node setups - some custom nodes may have a different configuration more often with less NICs and rarely with more NICs. And, yes, AWS EFA v2 puts 32 NICs on each node - that must be a lot of wires.
 
@@ -650,31 +637,31 @@ The tables in this chapter mostly count node-level bandwidth, but you buy adapte
 
 **Generally available:**
 
-| Adapter              | Vendor | Protocol                 | Throughput<br>per adapter<br>(Gbps) | Notes |
-| :------------------- | :----- | :----------------------- | ----------------------------------: | :---- |
-| ConnectX-8 SuperNIC  | NVIDIA | InfiniBand XDR, Ethernet |                                 800 | 1,4   |
-| ConnectX-7 HCA       | NVIDIA | InfiniBand NDR, Ethernet |                                 400 | 1,4   |
+| Adapter             | Vendor | Protocol                 | Throughput<br>per adapter<br>(Gbps) | Notes |
+| :------------------ | :----- | :----------------------- | ----------------------------------: | :---- |
+| ConnectX-8 SuperNIC | NVIDIA | InfiniBand XDR, Ethernet |                                 800 | 1,3   |
+| ConnectX-7 HCA      | NVIDIA | InfiniBand NDR, Ethernet |                                 400 | 1,3   |
 
 **Announced, availability not confirmed:**
 
-| Adapter              | Vendor   | Protocol                          | Throughput<br>per adapter<br>(Gbps) | Notes |
-| :------------------- | :------- | :-------------------------------- | ----------------------------------: | :---- |
-| ConnectX-9 SuperNIC  | NVIDIA   | Ethernet                          |                                1600 | 1,7   |
-| CN6000 SuperNIC      | Cornelis | Omni-Path, RoCEv2, Ultra Ethernet |                                 800 | 8,9   |
-| Pensando Vulcano     | AMD      | Ultra Ethernet                    |                                 800 | 2,5,6 |
-| Pensando Pollara 400 | AMD      | Ethernet                          |                                 400 | 2,3,7 |
+| Adapter               | Vendor   | Protocol                          | Throughput<br>per adapter<br>(Gbps) | Notes |
+| :-------------------- | :------- | :-------------------------------- | ----------------------------------: | :---- |
+| ConnectX-9 SuperNIC   | NVIDIA   | Ethernet                          |                                1600 | 1,5   |
+| BXI V3 mezzanine card | Bull     | Portals 4 over Ethernet           |                                 800 | 7     |
+| CN6000 SuperNIC       | Cornelis | Omni-Path, RoCEv2, Ultra Ethernet |                                 800 | 6     |
+| Pensando Vulcano      | AMD      | Ultra Ethernet                    |                                 800 | 2,4   |
+| BXI V3 PCIe NIC       | Bull     | Portals 4 over Ethernet           |                                 400 | 7     |
+| Pensando Pollara 400  | AMD      | Ethernet                          |                                 400 | 2,5   |
 
 Notes:
 
 1. [NVIDIA InfiniBand adapters](https://www.nvidia.com/en-us/networking/infiniband-adapters/) - NVIDIA states "up to 1.6 terabits per second (Tb/s) throughput" for ConnectX-9, "up to 800 gigabits per second (Gb/s) of data throughput" for ConnectX-8 and "400Gb/s throughput" for ConnectX-7. Port counts and PCIe generations aren't published there, so per-port rates can't be derived from this source.
 2. [AMD Pensando networking](https://www.amd.com/en/products/network-interface-cards/pensando.html) - "up to 800 Gbps of Ethernet connectivity" for Vulcano and "up to 400 Gbps Ethernet speeds" for Pollara 400.
-3. Pollara 400 has a partner platform catalog, which implies it ships, but AMD doesn't state availability on that page.
-4. The InfiniBand generation pairing isn't on NVIDIA's adapter page - it's taken from the platform rows in the [node table above](#inter-node-networking), where DGX B300 XDR uses eight ConnectX-8 at 800Gbps and DGX H100 NDR uses eight ConnectX-7 at 400Gbps.
-5. Pre-release as of 2026-07-30. AMD's Vulcano numbers come from "AMD Engineering silicon modeling and AMD synthetic benchmark simulation" and "may vary when actual product(s) are released in market".
-6. AMD advertises "up to 2.4 Tbps of scale-out bandwidth per GPU" for Vulcano. That's three 800Gbps NICs attached to one GPU - a platform configuration, not a single faster NIC. Same trap as the node-aggregate columns elsewhere in this chapter.
-7. These two sit under `Announced, availability not confirmed` because the vendor page names the product but states no availability, not because the vendor says it is unreleased. NVIDIA lists ConnectX-9 in its adapter portfolio without a ship date; AMD gives Pollara 400 a partner platform catalog, which implies it ships, but says so nowhere. Neither is claimed here as available or unavailable.
-8. [Cornelis CN6000 SuperNIC adapters](https://www.cornelis.com/product/cornelis-cn6000-omni-path-adapters) - Bandwidth `800G`; Performance `1.6Tbps bidirectional (800Gbps Tx and 800Gbps Rx)`; Dual QSFP-DD (`x4` @ 112 Gbps/lane); PCIe 6.0 x16. The throughput column is unidirectional, same convention as CN5000 / ConnectX.
-9. Pre-GA; see [inter-node](#inter-node-networking) notes 13-14 (product sampling in 2026, GA target Q4-2026).
+3. The InfiniBand generation pairing isn't on NVIDIA's adapter page - it's taken from the platform rows in the [node table above](#inter-node-networking), where DGX B300 XDR uses eight ConnectX-8 at 800Gbps and DGX H100 NDR uses eight ConnectX-7 at 400Gbps.
+4. Pre-release as of 2026-07-30. AMD's Vulcano numbers come from "AMD Engineering silicon modeling and AMD synthetic benchmark simulation" and "may vary when actual product(s) are released in market". AMD advertises "up to 2.4 Tbps of scale-out bandwidth per GPU" for Vulcano. That's three 800Gbps NICs attached to one GPU - a platform configuration, not a single faster NIC. Same trap as the node-aggregate columns elsewhere in this chapter.
+5. These two sit under `Announced, availability not confirmed` because the vendor page names the product but states no availability, not because the vendor says it is unreleased. NVIDIA lists ConnectX-9 in its adapter portfolio without a ship date; AMD gives Pollara 400 a partner platform catalog, which implies it ships, but says so nowhere. Neither is claimed here as available or unavailable.
+6. [Cornelis CN6000 SuperNIC adapters](https://www.cornelis.com/product/cornelis-cn6000-omni-path-adapters) - Bandwidth `800G`; Performance `1.6Tbps bidirectional (800Gbps Tx and 800Gbps Rx)`; Dual QSFP-DD (`x4` @ 112 Gbps/lane); PCIe 6.0 x16. The throughput column is unidirectional, same convention as CN5000 / ConnectX. Pre-GA; see [inter-node](#inter-node-networking) note 11.
+7. [Bull BXI V3 datasheet](https://www.bull.com/hubfs/Documents/Factsheets/Bull-BXI-V3-Datasheet.pdf) - `QSFP-DD / 1x 400 Gb/s` for the PCIe card, `QSFP-DD / 2x 400 Gb/s` for the mezzanine card, which holds [two NICs](https://www.nextplatform.com/connect/2024/12/10/eviden-mainstreams-bxi-interconnect-thanks-to-ultra-ethernet-and-ai-boom/1637936). No shipment announced as of 2026-11.
 
 
 ### InfiniBand
@@ -883,7 +870,7 @@ case study: I used this technology at JeanZay HPC in France in 2022. It was only
 
 [Cornelis Omni-Path Accelerated Host Fabric Adapter CN-100HFA](https://www.cornelis.com/product/cornelis-omni-path-accelerated-host-fabric-adapter-cn-100hfa) 100Gbps NICs have been around for many years now - and until 2025 this was the only Omni-Path generation that shipped, since Intel canceled the planned 200Gbps `OPA 200` series in July 2019. At 100Gbps per NIC you were unlikely to see Omni-Path offered for ML workloads unless someone installed many NICs per node.
 
-[CN5000](https://www.cornelis.com/product/cornelis-cn5000-omni-path-adapters) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 18 under the [inter-node networking](#inter-node-networking) table. One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
+[CN5000](https://www.cornelis.com/product/cornelis-cn5000-omni-path-adapters) 400Gbps NICs began shipping in June 2025 and have been broadly available since Q3-2025 - see note 13 under the [inter-node networking](#inter-node-networking) table. One MI300X setup uses 8x of these for 3200Gbps of total unidirectional inter-node bandwidth.
 
 footnote: Cornelis's marketing pages sometimes say "400Gbps bidirectional", but the [product-family docs](http://docs.cornelis.com/en/cn5000-product-family-descriptions/fabric-hardware-components/cn5000-supernic.html) state "400 Gbps (4 x 100 Gbps) bandwidth **in each direction**" - so this chapter treats 400Gbps as unidirectional, the same way it treats ConnectX-7 NDR / EFA 400G.
 
@@ -892,6 +879,13 @@ footnote: Cornelis's marketing pages sometimes say "400Gbps bidirectional", but 
 footnote: Cornelis also writes "800 Gbps of bidirectional bandwidth" in marketing copy; the adapter page's own Performance line is `1.6Tbps bidirectional (800Gbps Tx and 800Gbps Rx)`, so this chapter treats 800Gbps as unidirectional - same call as the CN5000 footnote above.
 
 Omni-Path provides [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access).
+
+
+### BXI
+
+[BullSequana eXascale Interconnect (BXI)](https://www.bull.com/en/products/hpc/bullsequana-exascale-interconnect) is Bull's inter-node network. Its NIC implements the [Portals 4](https://www.sandia.gov/app/uploads/sites/144/2023/03/portals43.pdf) interface in hardware, so message matching, atomics and the point-to-point steps of a collective run on the NIC instead of the host CPU.
+
+[BXI V3](https://www.bull.com/hubfs/Documents/Factsheets/Bull-BXI-V3-Datasheet.pdf) runs on Ethernet: 400Gbps per NIC on PCIe 5.0 x16, a mezzanine card with two NICs for 800Gbps, and a switch with 64 800Gbps ports. Bull lists NCCL and RCCL plugins, but as of 2026-11 they aren't public. BXI V4 is to reach [1.6Tbps per port](https://www.nextplatform.com/connect/2024/12/10/eviden-mainstreams-bxi-interconnect-thanks-to-ultra-ethernet-and-ai-boom/1637936), with products [expected at scale in 2028](https://www.bull.com/en/press-releases/bull-and-kalray-partner-to-develop-the-next-generation-of-high-speed-networks-at-the-heart-of-the-ai-revolution).
 
 
 ### Ultra Accelerator Link (UALink)
