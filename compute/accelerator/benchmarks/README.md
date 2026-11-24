@@ -258,8 +258,15 @@ A straggler is a GPU that works correctly but slower than its peers. It throws n
 
 [gpu-straggler-finder.py](gpu-straggler-finder.py) finds them in one run. It runs the same training step, by default a Llama-3.1-8B one - its 32 decoder layers, forward and backward, on one 8192-token sequence - on every GPU at once, with no communication between them, then a matmul and two memory-bandwidth workloads, compares each GPU with its node's median GPU and each node with the median node in the same 2-second windows, and flags every GPU that is slower than its peers, or than itself the rest of the time, in its slowest stretches of any of them, with the UUID, serial and PCI bus id to report it by. [How one straggler was found](#how-one-straggler-was-found) walks through the case it was written for: a B200 GPU that neither `mamf-finder.py` nor DCGM flagged, yet it made the compute part of every step of a 32-GPU job 3-4% slower. It is one of the compute passes of [How to evaluate the cluster](../../../insights/how-to-choose-cloud-provider.md#how-to-evaluate-the-cluster), which runs it on every GPU of every node of a trial allocation.
 
+To check the GPUs of one node:
+
 ```bash
-python gpu-straggler-finder.py  # all the GPUs of one node
+python gpu-straggler-finder.py
+```
+
+To check several nodes, run this on every node at once, here for 4 nodes of 8 GPUs, with `$MASTER_ADDR` set to the same node's address on every node:
+
+```bash
 torchrun --nnodes 4 --nproc_per_node 8 --rdzv_backend c10d \
     --rdzv_endpoint $MASTER_ADDR:29500 gpu-straggler-finder.py
 ```
