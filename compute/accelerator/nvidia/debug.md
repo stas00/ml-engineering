@@ -396,14 +396,14 @@ Before discarding the current node, run and log:
 
 ```bash
 $ nvidia-smi -q | grep UUID
-    GPU UUID                              : GPU-2b416d09-4537-ecc1-54fd-c6c83a764be9
-    GPU UUID                              : GPU-0309d0d1-8620-43a3-83d2-95074e75ec9e
-    GPU UUID                              : GPU-4fa60d47-b408-6119-cf63-a1f12c6f7673
-    GPU UUID                              : GPU-fc069a82-26d4-4b9b-d826-018bc040c5a2
-    GPU UUID                              : GPU-187e8e75-34d1-f8c7-1708-4feb35482ae0
-    GPU UUID                              : GPU-43bfd251-aad8-6e5e-ee31-308e4292bef3
-    GPU UUID                              : GPU-213fa750-652a-6cf6-5295-26b38cb139fb
-    GPU UUID                              : GPU-52c408aa-3982-baa3-f83d-27d047dd7653
+    GPU UUID                              : GPU-cc3cfbe5-9997-8c31-edca-44de7bc13bb3
+    GPU UUID                              : GPU-b123c201-8e4c-077a-5bf3-61a2635fd45a
+    GPU UUID                              : GPU-45a8c5bc-f385-00c7-c5f2-6157ec37b6a8
+    GPU UUID                              : GPU-be939ce4-47ee-6de4-83c4-6b7689382530
+    GPU UUID                              : GPU-604ca786-e1ca-ae0a-e4e8-731631f352eb
+    GPU UUID                              : GPU-65373a34-0d7f-2015-c569-d7a195fc65fc
+    GPU UUID                              : GPU-87640e78-f2ac-f1be-bfc1-4cf34d8948eb
+    GPU UUID                              : GPU-9aea36a4-ba14-5fa9-9237-f42f53faca2f
 ```
 
 These UUIDs are unique to each GPU.
