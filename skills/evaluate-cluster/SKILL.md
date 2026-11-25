@@ -115,15 +115,22 @@ NCCL env is **not** a user question if you can exec: dump `env | grep -E '^NCCL_
 As soon as you have the hostfile/IPs, prove the nodes can see each other. **Do not** run `torch-dist-bench.py` or any GPU collective yet. This is seconds of TCP/SSH.
 
 ```bash
-# 1. Launch node → every peer (BatchMode: fail fast if keys/port are wrong)
+# 1. Launch node → every peer (BatchMode: fail fast if keys/port are wrong). Without -n, ssh reads the rest of the
+#    hostfile from the loop's stdin and only the first peer is probed.
+: > hostfile-map.txt
+i=0
 while read -r ip rest; do
   [[ "$ip" =~ ^# ]] || [[ -z "$ip" ]] && continue
-  ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$ip" hostname
+  host=$(ssh -n -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$ip" hostname -s) \
+    || { echo "FAIL: ssh $ip" >&2; break; }
+  echo "node$i $ip $host" | tee -a hostfile-map.txt
+  i=$((i + 1))
 done < "$HOSTFILE"
 
 # 2. Same via pdsh if that is the launcher
 HOSTS=$(grep -v '^#' "$HOSTFILE" | grep -v '^$' | cut -d' ' -f1 | tr '\n' ',' | sed 's/,*$//g')
-PDSH_RCMD_TYPE=ssh pdsh -w "$HOSTS" hostname
+export PDSH_RCMD_TYPE=ssh   # every later pdsh call needs it too
+pdsh -w "$HOSTS" hostname
 
 # 3. Peer → peer TCP (rdzv will need this). From node 1, hit node 0's IP:22 or the container sshd port.
 MASTER_ADDR=$(grep -v '^#' "$HOSTFILE" | grep -v '^$' | head -1 | cut -d' ' -f1)
@@ -134,6 +141,8 @@ On Kubernetes, `ssh` may be `kubectl exec` per pod — still loop **every** sibl
 
 **Pass:** every hostname comes back, TCP to `MASTER_ADDR` is OPEN. **Fail:** ask the user (hostfile IPs, SSH port, keys, `pdsh` args) and wait. Do not start MAMF “in the meantime.”
 
+Keep `hostfile-map.txt` in the eval directory, and copy it into `raw/` when you create the report: every `<host>(node<I>)` in the report comes from it, `node<I>` from its first column and `<host>` from its last. **Pass** also needs one row in it per hostfile line; a `FAIL: ssh <ip>` line names the peer the loop stopped at. With `kubectl exec` instead of `ssh`, write the same file from each pod's `hostname -s`, in hostfile order. On 1 node there is no hostfile, and the node is `node0`.
+
 After the eval venv exists (loop step 2), add one more cheap check **before** GPU inter-node all-reduce: CPU-only, 1-process-per-node PyTorch `gloo` backend, `init_process_group` + `all_reduce` (see Network). Still not `torch-dist-bench.py`.
 
 ## Loop
@@ -143,7 +152,7 @@ After the eval venv exists (loop step 2), add one more cheap check **before** GP
 2. Isolated venv on the **newest** released torch (do **not** mutate or benchmark the node’s preinstalled Python).
 3. If ≥2 nodes: CPU gloo 1-process-per-node across the hostfile (connectivity + rdzv). Fix `is_host` / `local_addr` here if needed. **Skip this step on 1 node.**
 4. Connectivity: `torch-distributed-gpu-test.py` — one process per GPU; ranks must see each other and complete a collective. **The scope is whatever you launch it on**: across all nodes it is an inter-node check, on a single node it is only intra-node. With **≥2 nodes, run it across all of them** — a 1-node run does not test the fabric and must never be labelled inter-node.
-5. **Compute:** the lemon GEMM first, on **every GPU of every given node** — it takes seconds and is a gate: a dead or grossly slow card stops the Compute phase there (see **Lemon GEMM**). Then `dcgmi diag -r 2` (hardware health), `mamf-finder-all-gpus.py` (one GPU at a time while every other GPU runs a continuous matmul), then `gpu-straggler-finder.py` on all of them at once.
+5. **Compute:** the lemon GEMM first, on **every GPU of every given node** — it takes seconds and is a gate: a dead or grossly slow card stops the Compute phase there (see **Lemon GEMM**). Then `dcgmi diag -r 2` (hardware health), `mamf-finder-all-gpus.py` (one GPU at a time while every other GPU runs a continuous matmul), then, after 2 minutes with every GPU idle, `gpu-straggler-finder.py` on all of them at once.
 6. **Network:** intra-node `torch-dist-bench.py --collectives all --separate-tables` — all-reduce bandwidth plus the per-call latency of every collective, in one run. Then, if **≥2 nodes**, the same on **all** of them (not a fixed 4). If **1 node**, stop after intra-node — no Inter-node heading.
 7. **Storage:** `fio-scan` on local disk and on every unique shared partition (one per type and size, see **Storage**). With ≥2 nodes, on each partition scanned, a 1 GiB `dd` from node0 alone and then from every given node at once; skip the `dd` on 1 node.
 8. Write `reports/<cluster>-<YYYY-MM-DD-HHMM>.md` next to this skill (or in the working directory), with `reports/raw-<name>/` beside it and **plots inlined**. Write it for a reader who knows nothing you learned on the node: every tool and term gets defined where it is first used. End with **## Findings**, split into **### Healthy subsystems**, **### Underperforming subsystems**, and **### Needs operator input** — the last for subsystems measured cleanly but with no known target to judge them against; keep only the headings that have bullets. Compute may use % of official TFLOPS. Intra-node all-reduce may use % of NVLink spec (note NVLS). Latency has no vendor target, so it goes under **Needs operator input** (see **Latency**). Storage: measured vs vendor advertised. **Never** flag multi-node all-reduce as “X% of NIC / rail spec.” Do not repeat the tables.
@@ -238,7 +247,7 @@ nproc; grep MemTotal /proc/meminfo
 . /etc/os-release; echo "$PRETTY_NAME"
 "$PY" -V
 "$PY" -c "import torch; print(torch.__version__, torch.version.cuda); print(torch.cuda.nccl.version())"
-nvidia-smi --query-gpu=index,name,uuid,driver_version,memory.total,power.limit,power.max_limit,clocks.max.sm,clocks.sm,power.draw,pcie.link.gen.current,pcie.link.gen.max --format=csv
+nvidia-smi --query-gpu=index,name,uuid,serial,pci.bus_id,driver_version,memory.total,power.limit,power.max_limit,clocks.max.sm,clocks.sm,power.draw,pcie.link.gen.current,pcie.link.gen.max --format=csv
 nvidia-smi topo -m
 # fabric (install infiniband-diags / iproute2 first — see Isolated install):
 ibstat
@@ -248,6 +257,8 @@ cat /sys/class/infiniband/*/ports/1/rate
 nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv
 sha256sum mamf-finder.py mamf-finder-all-gpus.py torch-dist-bench.py gpu-straggler-finder.py
 ```
+
+On ≥2 nodes, also save every node's GPU identities, since the UUIDs and serials that the lemon gate and **Findings** ask for may be on any node: `pdsh -w "$HOSTS" "nvidia-smi --query-gpu=index,uuid,serial,pci.bus_id --format=csv,noheader" > gpus.csv`, copied into `raw/` with the report. On 1 node the `--query-gpu` line above has them.
 
 Classify intra-node (NVLink vs PCIe from `topo`) and inter-node (InfiniBand / RoCE / EFA / Ethernet). HBM = `memory.total` reported in **GiB** (not MiB). SM clocks in the Environment GPU table: **boost** = `clocks.max.sm` (spec / short burst); **saturated** = SM clock at ~TDP under a dense GEMM (a range is fine; not a single nvidia-smi field); **parked idle** = `clocks.sm` when no compute. Do not label boost as “loaded” — a power-saturated GEMM sits well below boost. Do **not** name MAMF/MSMF in Environment — those terms start in Compute. Write the dump as **five tables** in the report: Host / GPU / Fabric / Filesystems / Software. Never one mega-table. **Software:** OS is **not** here — it is Host row 1. Python version + torch/NCCL. **Never** the eval venv path (temporal artifact). Tool versions (`mamf-finder`, …) belong under Compute.
 
@@ -305,6 +316,8 @@ An under-performing GPU, a **straggler**, works correctly but runs slower than i
 
 The 3 passes overlap but answer different questions: the GPU performance pass measures whether the GPU model delivers its spec, in absolute TFLOPS; the straggler finder compares each GPU with its peers, so it would call 32 GPUs that are all 20% under spec healthy; the lemon GEMM finds in seconds what would otherwise surface only 15 minutes later, as a failed MAMF or finder run.
 
+A GPU goes to **Findings** when any of the 3 confirms it: the lemon GEMM's gate (dead, or more than 5% below its node's median in 3 runs), the GPU performance pass (more than 5% below its node's median MSMF in 3 passes), or the finder (flagged in all 4 runs, in the same workload). The bars differ because the noise does: a single MSMF or lemon number moves by a few percent between passes, while the finder divides each GPU's time by its node's median GPU's in the same 2-second window, which cancels what the node's GPUs share, and on 4 nodes of 8× B200 no healthy GPU's 90th percentile step window went above 1.9% in 5 runs - the finder also requires a modified z-score above 3.5, which such a GPU doesn't reach. A GPU that two passes confirm gets one bullet naming both. One that only the finder flags is still under-performing: that is the straggler the other two miss.
+
 Open with **TLDR: no under-performing or dead GPUs**, or name each one: **TLDR: under-performing: `<host>(node<I>):gpu<N>`**, `dead: <host>(node<I>):gpu<N>`, `slow node: <host>(node<I>)`.
 
 #### Lemon GEMM
@@ -313,7 +326,7 @@ Same large `matmul` on every GPU, siblings idle. Run it on 1 node or 16.
 
 Fixed **16384³ bf16**. Compute SM coverage from **this** GPU’s SM count (`torch.cuda.get_device_properties(0).multi_processor_count`) — never reuse an SM count from another GPU family. At 128×256 output tiles that is **8192** CTAs (`16384/128 × 16384/256`; a CTA is one CUDA thread block). Full waves = `8192 // SMs`, tail = `8192 % SMs`, wave efficiency = `1 - tail/8192`. Example only: 132 SMs → 62 waves + 8 CTA tail (**99.9%**).
 
-Report it in one sentence when nothing trips the gate: the median of all the GPUs' TFLOPS, the range, and the lowest GPU with how far below its node's median it is. A GPU that trips the gate gets a row with its TFLOPS in each of its 3 runs and its node's median. The per-GPU scores stay in `raw/lemon.console`. A card is under-performing when it lands well below its node median (>5%); the min of a tight pack is noise.
+Report it in one sentence when nothing trips the gate: the median of all the GPUs' TFLOPS, the range, and the lowest GPU with how far below its node's median it is. A GPU that trips the gate gets a row with its TFLOPS in each of its 3 runs and its node's median. The per-GPU scores stay in `raw/lemon.console`. A card more than 5% below its node median goes to **The gate** below, which decides it; the min of a tight pack is noise.
 
 **The gate.** A GPU whose run errors, hangs or prints `inf`/`nan` is dead. One more than 5% below its node's median GPU is grossly slow if it stays there when the script is run twice more, which takes seconds. Either one stops the Compute phase: put it under **Underperforming subsystems**, and tell the user which `<host>(node<I>):gpu<N>` it is, with its UUID and serial from the environment dump, so the node can be fixed or replaced before the long passes. Continue with Network and Storage, which don't depend on it. If nothing trips the gate, go on to DCGM.
 
@@ -323,21 +336,71 @@ Passing the gate doesn't clear a GPU: on 4 nodes of 8× B200 the GPU the finder 
 
 `gpu-straggler-finder.py` runs 4 workloads on every GPU of every node at once, with no communication between the GPUs while it times them: a Llama-3.1-8B training step (its 32 decoder layers on one 8192-token sequence, forward and backward, each step followed by a 100 ms idle) for 60 s, then for 30 s each a back-to-back matmul (8192³ bf16), a device-to-device `cudaMemcpy` and a kernel adding 2 HBM buffers into a third. It cuts each workload into 2 s windows and divides every GPU's time by its node's median GPU's in the same window, and compares each node's median GPU with the median node's. `pip install nvidia-ml-py` in the eval venv first, for its clock, power and temperature columns; without it only the timings are reported.
 
+On ≥2 nodes, set up first, from the shared directory the scripts are in. `MASTER_ADDR`, `HOSTS` and `HOSTFILE` are the ones from **Inter-node reachability**; in a new shell, derive them again the same way.
+
 ```bash
-# 1 node; --unflagged-rows -1 keeps every GPU's row in the console, the raw record the report links to
-"$PY" gpu-straggler-finder.py --unflagged-rows -1 --json straggler.json > straggler.console 2>&1
-# ≥2 nodes: the same command on every node at once, under torchrun; it gathers the results on rank 0 over gloo
-pdsh -w "$HOSTS" "cd $EVAL && GLOO_SOCKET_IFNAME=<iface> $PY -m torch.distributed.run --nnodes $NNODES \
-  --nproc_per_node $G --rdzv_backend c10d --rdzv_endpoint $MASTER_ADDR:$PORT gpu-straggler-finder.py \
-  --unflagged-rows -1 --json $EVAL/straggler.json" > straggler.console 2>&1
+export PDSH_RCMD_TYPE=ssh
+EVAL=$(pwd -P)
+NGPU=$(nvidia-smi -L | wc -l)
+NNODES=$(grep -v '^#' "$HOSTFILE" | grep -vc '^$')
+# gloo's interface: the one that carries each node's hostfile IP. If its name differs between nodes, ask the user.
+pdsh -w "$HOSTS" "ip -o -4 addr show"
+[ -n "$GLOO_IFACE" ] || echo "STOP: set GLOO_IFACE to the interface the line above shows the hostfile IPs on"
+# --hostfile-to-sort writes <file>-fast-to-slow next to the file it is given: give it a copy, never the platform's hostfile
+cp "$HOSTFILE" "$EVAL/hostfile"
 ```
+
+Don't go on until `GLOO_IFACE` is set. Then run one of the 2 forms below. Each starts with 2 minutes with every GPU idle, right before the launch, as a straggler can be slow only in the first 20-25 s after the load starts from idle:
+
+```bash
+# 1 node; --unflagged-rows -1 keeps every GPU's row in the console, the raw record the report links to.
+# Without torchrun it exits 3 if it flagged a GPU and 2 on inf/NaN: that is its verdict, not a failed run.
+sleep 120
+"$PY" gpu-straggler-finder.py --unflagged-rows -1 --json straggler.json > straggler.console 2>&1
+```
+
+```bash
+# ≥2 nodes: the same command on every node at once, under torchrun; it gathers the results on rank 0 over gloo
+sleep 120
+pdsh -w "$HOSTS" "cd $EVAL && GLOO_SOCKET_IFNAME=$GLOO_IFACE $PY -m torch.distributed.run --nnodes $NNODES \
+  --nproc_per_node $NGPU --rdzv_backend c10d --rdzv_endpoint $MASTER_ADDR:29500 --max_restarts 0 \
+  gpu-straggler-finder.py --unflagged-rows -1 --json $EVAL/straggler.json --hostfile-to-sort $EVAL/hostfile" \
+  > straggler.console 2>&1
+```
+
+If any node's own hostname resolves to `127.0.1.1` (`getent hosts $(hostname)` on it), add `--rdzv_conf is_host=… --local_addr …` as in **`is_host` / `local_addr`**.
+
+Each verdict line names a GPU as `<host> GPU <N>`, and the table rows give the host and the index in their own columns: `<host>` is the node's hostname, to match against `hostfile-map.txt` up to the first `.`, which gives its `node<I>`, and `<N>` is the `nvidia-smi` index, since the finder matches GPUs by UUID. After a run on ≥2 nodes in which no GPU returned inf/NaN, it ends with the nodes ranked by the pace of a job that runs their GPUs in lockstep: the nodes that passed, fastest first, then every node with a flagged GPU, or flagged itself. It writes the hostfile's lines in that order to `$EVAL/hostfile-fast-to-slow`, so its first N lines are the N fastest nodes that passed, if at least N passed. Copy that file into `raw/` with `straggler.json` and `straggler.console`. Two messages mean that the hostfile and the nodes the finder measured disagree - a node missing from the run, or a hostfile IP that no node owns: `left out N line(s) of <file> that name no node measured, ...` and `no line of <file> names <host>, ...`. Put each in **Gaps**. The stall lines' "left out of that node's comparisons" is not one of them.
 
 One run took 3 min 10 s on 4 nodes of 8× B200. Under torchrun its exit code is always 0; the verdict is the framed banner in the report it prints: `No Stragglers Found`, or `Stragglers Found:` with the number of flagged GPUs and slow nodes, followed by one line per flagged GPU or node, with what it was flagged for, its numbers, and its UUID, serial and PCI bus id. A GPU is flagged when its 90th percentile window in a workload is above a modified z-score of 3.5 among all the GPUs and more than 1% slower than its node's median GPU, (**slow**), or when its 90th percentile window is more than 1.25% slower than its own median window, also above a modified z-score of 3.5 (**unsteady**: slow only some of the time); a node when its median GPU is more than 3% slower than the median node's.
 
-**One run cannot call a GPU under-performing either.** If the first run flags anything, run it again with `--repeat 3 --repeat-idle 120`, 12 minutes on 4 nodes of 8× B200. A GPU or node is under-performing only if it was flagged in **all 4** runs, in the same workload; report it in **Findings** as described there. One flagged in some of the runs goes in this section only, in one sentence with the runs it was flagged in and its numbers in each. On 4 nodes of 8× B200 a GPU 3.3% slow in the matmul alone, at the lowest matmul clock of the 32 under the power cap and normal in the step, was flagged in 2 runs of 4.
+**One run cannot call a GPU under-performing either.** If the first run flags anything, run it again with `--repeat 3`, 12 minutes on 4 nodes of 8× B200, writing its own files so that the first run's survive: the verdict needs all 4 runs. `--repeat-idle` idles only between its runs, so idle before the first one too. With ≥2 nodes:
+
+```bash
+sleep 120
+pdsh -w "$HOSTS" "cd $EVAL && GLOO_SOCKET_IFNAME=$GLOO_IFACE $PY -m torch.distributed.run --nnodes $NNODES \
+  --nproc_per_node $NGPU --rdzv_backend c10d --rdzv_endpoint $MASTER_ADDR:29500 --max_restarts 0 \
+  gpu-straggler-finder.py --unflagged-rows -1 --repeat 3 --repeat-idle 120 --json $EVAL/straggler-repeat3.json \
+  --hostfile-to-sort $EVAL/hostfile" > straggler-repeat3.console 2>&1
+```
+
+On 1 node: `sleep 120; "$PY" gpu-straggler-finder.py --unflagged-rows -1 --repeat 3 --repeat-idle 120 --json straggler-repeat3.json > straggler-repeat3.console 2>&1`. Copy both files into `raw/`. Instead of a banner per run it prints one, `Stragglers Found in 3 Runs:` with the GPUs flagged in all 3 and in some, or `No Stragglers Found in 3 Runs`. Its "in some" also counts the GPUs that were only slower than in their own fastest run, and its "all 3" leaves out the first run, so take the 4-run verdict from `straggler.json` and `straggler-repeat3.json` together. Its sorted hostfile ranks each node by its slowest of the 3 repeat runs and overwrites `$EVAL/hostfile-fast-to-slow`; copy it over the one in `raw/`. A GPU or node is under-performing only if it was flagged in **all 4** runs, in the same workload; report it in **Findings** as described there. One flagged in some of the runs goes in this section only, in one sentence with the runs it was flagged in and its numbers in each. On 4 nodes of 8× B200 a GPU 3.3% slow in the matmul alone, at the lowest matmul clock of the 32 under the power cap and normal in the step, was flagged in 2 runs of 4.
 
 - A run that stops early or prints `inf or NaN` is a dead or broken card: name it from the console and put it under **Underperforming subsystems**.
 - `stall` lines name windows in which all of a node's GPUs slowed at once, which the comparisons leave out; report them per node, as they slow a job too, but they are not a GPU's fault.
+- The `--repeat` summary also lists a GPU whose median in a run was more than 1% slower than in its own fastest run. That is not one of the 4 runs' flags: one sentence in this section, with the runs, and nothing in **Findings** unless the GPU was flagged in all 4.
+- On 1 node the finder can't compare nodes, and on 2 it can tell them apart but not which one is normal: it flags a node whose median GPU's 90th percentile window is more than 3% slower than the faster node's. Say so in one sentence; if the user has the `--json` of a run on known-good nodes of the same GPU, rerun with `--baseline <file>` to compare against them.
+- A GPU flagged in all 4 runs: record its node's SM clock with Nsight Systems, which samples it far more often than the finder's 10 ms NVML samples, between which a dip can hide. On that node alone:
+
+  ```bash
+  report=straggler-$(hostname -s)
+  sleep 120
+  nsys profile --trace=cuda,nvtx --gpu-metrics-devices=all -o "$report" "$PY" gpu-straggler-finder.py \
+    --unflagged-rows -1 > "$report.console" 2>&1
+  nsys export --type sqlite --output "$report.sqlite" "$report.nsys-rep"
+  ```
+
+  The `GPU_METRICS` clock values in the `.sqlite` are in Hz despite the `[MHz]` in their name. Copy the `.nsys-rep`, the `.sqlite` and the `.console` into `raw/`. If `nsys` says the GPU performance counters are in use, stop `nv-hostengine`, which DCGM may have left running, and run it again. If `nsys` isn't installed, put it in **Gaps**.
 
 ## Network
 
@@ -706,7 +769,7 @@ Up to three headings, in this order — **### Healthy subsystems**, **### Underp
 
 Healthy subsystems: fabric and GPUs that met spec. Network headline is **fabric** (intra vs NVLink spec + NVLS; inter busbw + path + vs 1-node all-reduce) — **never** “X% of NIC/rail,” and **not** a launcher. Do not credit DeepSpeed / torchrun / srun in busbw or Findings.
 
-**Under-performing and dead GPUs** get one bullet each under Underperforming subsystems, from either GPU pass. Name each as `<host>(node<I>):gpu<N>`, e.g. `blah-176(node0):gpu7`: `<host>` is the hostname the Environment Host table uses, which an operator needs to drain or replace the card; `node<I>` is the node's 0-based position in the hostfile (the order the user gave the nodes), which stays readable when hostnames are cryptic; `<N>` is the GPU index `nvidia-smi` shows. Follow it with the pass that found it and its numbers against its node's median, e.g. "`blah-176(node0):gpu7` — MSMF 701 / 698 / 704 TFLOPS in three passes, 6.8–7.2% below the node median each time". For a GPU `gpu-straggler-finder.py` found, add its UUID and serial, which the finder prints: the serial is what an operator replaces the card by, and the UUID stays the same when the node is renamed or re-imaged, while the hostname and index may not — e.g. "`blah-176(node0):gpu7` — training step 3.4% / 4.1% / 3.2% / 3.8% slower than its node's median GPU in 4 runs, UUID `GPU-…`, serial `…`". A slow node gets its own bullet, `<host>(node<I>)`, with its median GPU against the median node's in each run. List every one; never summarize as "two slow GPUs".
+**Under-performing and dead GPUs** get one bullet each under Underperforming subsystems, from any of the 3 passes (the lemon gate, the GPU performance pass, the finder). Name each as `<host>(node<I>):gpu<N>`, e.g. `blah-176(node0):gpu7`: `<host>` is the hostname the Environment Host table uses, which an operator needs to drain or replace the card; `node<I>` is the node's 0-based position in the hostfile (the order the user gave the nodes, from `raw/hostfile-map.txt`; `node0` on a 1-node eval, which has no hostfile), which stays readable when hostnames are cryptic; `<N>` is the GPU index `nvidia-smi` shows. Follow it with the pass that found it and its numbers against its node's median, e.g. "`blah-176(node0):gpu7` — MSMF 701 / 698 / 704 TFLOPS in three passes, 6.8–7.2% below the node median each time". Add every such GPU's UUID and serial, which `gpu-straggler-finder.py` prints on its line, and which the environment dump's `uuid` and `serial` columns give for a GPU another pass found: the serial is what an operator replaces the card by, and the UUID stays the same when the node is renamed or re-imaged, while the hostname and index may not — e.g. "`blah-176(node0):gpu7` — training step 3.4% / 4.1% / 3.2% / 3.8% slower than its node's median GPU in 4 runs, UUID `GPU-…`, serial `…`". A slow node gets its own bullet, `<host>(node<I>)`, with its median GPU against the median node's in each run and its GPUs' serials, which the finder prints. List every one; never summarize as "two slow GPUs".
 
 Underperforming subsystems: measured vs **vendor advertised** for **this** product; not good enough for code (16 KiB) / checkpoint (1 GiB → 1 TiB) / dataloader; torchrun/rdzv if it failed; leftover Gaps. A broken launcher is **not** “the network is unhealthy.” Do not name a network FS this allocation does not use.
 

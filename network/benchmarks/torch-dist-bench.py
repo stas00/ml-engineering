@@ -118,6 +118,7 @@ import datetime
 import gc
 import math
 import os
+import re
 import signal
 import socket
 import sys
@@ -300,7 +301,9 @@ class CudaLikeArch(Arch):
 
     @property
     def device_info(self):
-        return repr(torch.cuda.get_device_properties('cuda'))
+        props = repr(torch.cuda.get_device_properties('cuda'))
+        # strip private uuids
+        return re.sub(r", uuid=[^,]+", "", props)
 
     def busy_wait(self, ms):
         """Keep the GPU busy for `ms` milliseconds. torch.cuda._sleep spins for a number of device clock cycles, which
