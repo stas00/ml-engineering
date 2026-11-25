@@ -154,9 +154,7 @@ Use `torchft` when the job has at least two replica groups and can train for a w
 
 Related research systems attack the same problem from other angles. [`Oobleck`](https://github.com/SymbioticLab/Oobleck) (SOSP'23) keeps logically equivalent pipeline replicas and recovers by re-instantiating precomputed pipeline templates after failures, again without a full checkpoint restart. Earlier spot-instance work such as [Bamboo](https://www.usenix.org/system/files/nsdi23-thorpe.pdf) (redundant computation scheduled into pipeline bubbles; NSDI'23) and [Varuna](https://github.com/microsoft/varuna) (elastic PP+DP reconfiguration) is in the same family; those codebases are largely dormant now and are useful mainly as design references. Commercial infrastructure layers also exist that migrate a failed GPU onto a spare without changing the training script - a different trade-off (per-GPU failure domain, outside the framework) rather than another torchft clone.
 
-
-
-
+A node that is failing but still works, for example one whose rate of correctable ECC errors keeps rising or one with a [straggler](../../compute/accelerator/nvidia/debug.md#how-to-find-a-straggler-gpu) GPU, can be moved to the standby node even without a second replica: each of the leaving node's processes is captured together with its GPU memory, copied to the standby node and restored there, while the NCCL communicators that involve the leaving node are released before the capture and rebuilt after it. The whole job waits while this happens. [Singularity](https://arxiv.org/abs/2202.07848) describes such transparent migration of training jobs, and [CRIUgpu](https://arxiv.org/abs/2502.16631) measures the capture with [CRIU](https://github.com/checkpoint-restore/criu) and NVIDIA's [cuda-checkpoint](https://github.com/NVIDIA/cuda-checkpoint): 28s for ~58GB of GPU state on one H100. For a node that has already failed, the standby-node recovery described above still needs the second replica, and [Just-In-Time Checkpointing](https://dl.acm.org/doi/10.1145/3627703.3650085) (EuroSys'24) describes taking the surviving replicas' state after a failure instead of before it.
 
 ## Kill switch
 
