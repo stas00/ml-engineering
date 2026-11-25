@@ -985,6 +985,8 @@ For the baseline prices it should be easy to find a few good sites that provide 
 
 Also Lantern Works tracks [on-demand GPU cloud rental prices](https://thelanternworks.com/gpu/price-comparison/) across multiple providers.
 
+If you're a researcher or an early startup, free and funded routes (national allocations, research credits, startup programmes) can beat any discount. [ComputeFinder](https://computefinder.net/free-compute) lists free and funded compute programmes with eligibility and links to the official pages.
+
 When shopping for a solution please remember that it's not enough to rent the most powerful accelerator. You also need fast [intra-node](../../network/README.md#intra-node-networking) and [inter-node](../../network/README.md#inter-node-networking) connectivity and sufficiently fast [storage](../../storage) - without which the expensive accelerators will idle waiting for data to arrive and you could be wasting a lot money and losing time.
 
 
