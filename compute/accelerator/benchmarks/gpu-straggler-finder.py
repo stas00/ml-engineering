@@ -51,11 +51,12 @@ workloads, which between them stand in for training and inference - a training s
          wherever it stands among the others. The straggler's step was 2.3-2.7% slower in its 90th percentile
          window than in its median one in the 6 runs in which it was slow for its first 20-25s, while no healthy
          GPU's went above 0.76% in 16 runs
-       - below baseline, with --baseline, the --json files of earlier runs on known-good nodes: its median time is
-         more than --threshold slower than its own there. This catches a GPU that slowed by less than the healthy
-         GPUs differ - on a node whose healthy GPUs ran 0.8% faster to 1.7% slower than their median, a GPU had to
-         slow down by 1-4%, depending on how fast it was to begin with, to be flagged, while a healthy GPU repeats
-         its median time within 0.2%
+       - below baseline, with --baseline, the --json files of earlier runs on known-good nodes: its median time in
+         the step, the copy or the stream is more than --threshold slower than its own there. This catches a GPU
+         that slowed by less than the healthy GPUs differ - on a node whose healthy GPUs ran 0.8% faster to 1.7%
+         slower than their median, a GPU had to slow down by 1-4%, depending on how fast it was to begin with, to
+         be flagged, while a healthy GPU's median time in these 3 moved by at most 0.6% between runs. The matmul
+         isn't compared, as a healthy GPU's median matmul time moved by up to 1.2% between runs at the power cap
      and flags as slow every node whose median GPU in any of the 4 workloads is:
        - slower than the other nodes': its 90th percentile window is more than --slow-node (3%) slower than
          the median node's in the same windows, or the faster node's if there are only 2. Of 2 nodes whose matmul
@@ -67,8 +68,9 @@ workloads, which between them stand in for training and inference - a training s
      PCI bus id to report it by, and a flagged node with its GPUs' serials
   8. with --repeat N runs it all N times, --repeat-idle (120s) apart so that each run starts from idle, reports each
      run as it ends, and then lists every GPU flagged in any run, and every GPU more than --threshold slower in a
-     run than in its own fastest one: a straggler that is slow some of the time may be slow for minutes or hours
-     and then not, so a single 3-minute run can miss it
+     run than in its own fastest one in the step, the copy or the stream (not the matmul, as with --baseline): a
+     straggler that is slow some of the time may be slow for minutes or hours and then not, so a single 3-minute
+     run can miss it
   9. on 2 or more nodes it lists the nodes fastest first, by their pace in a job that runs the GPUs in lockstep:
      the slowest GPU's step in each --window, at the 90th percentile window, in the slowest of the --repeat runs.
      A node with a flagged GPU, or flagged itself, goes after the others. With --hostfile-to-sort it writes that
@@ -258,8 +260,8 @@ def get_args():
     p.add_argument("--unsteady", type=float, default=1.25, help="also flag GPUs whose 90th percentile window is more than this many %% slower than their own median window, if an outlier by --outlier (default: 1.25)")
     p.add_argument("--stall", type=float, default=5, help="leave out of a node's comparisons, and report as a stall, every window in which its median GPU is more than this many %% slower than in its median window (default: 5)")
     p.add_argument("--slow-node", type=float, default=3, help="flag nodes whose median GPU is more than this many %% slower than the median node's, or the faster node's of 2, or than the baseline's median node's (default: 3)")
-    p.add_argument("--baseline", nargs="+", default=None, help="the --json files of runs on known-good nodes: also flag GPUs whose median time in a workload is more than --threshold slower than their own in them, and nodes whose median GPU's is more than --slow-node slower than their median node's")
-    p.add_argument("--repeat", type=int, default=1, help="run all the workloads this many times, with --repeat-idle between, report each run, and flag GPUs more than --threshold slower in a run than in their fastest (default: 1)")
+    p.add_argument("--baseline", nargs="+", default=None, help="the --json files of runs on known-good nodes: also flag GPUs whose median time in the step, copy or stream is more than --threshold slower than their own in them, and nodes whose median GPU's is more than --slow-node slower than their median node's")
+    p.add_argument("--repeat", type=int, default=1, help="run all the workloads this many times, with --repeat-idle between, report each run, and flag GPUs more than --threshold slower in a run than in their fastest, in the step, copy or stream (default: 1)")
     p.add_argument("--repeat-idle", type=float, default=120, help="seconds idle between the repeats, so that each starts from idle (default: 120)")
     p.add_argument("--sample-interval", type=float, default=0.01, help="telemetry sampling period in seconds (default: 0.01)")
     p.add_argument("--json", default=None, help="also write every GPU's results, with each step's time, to this file")
@@ -811,16 +813,18 @@ def report(results, args):
         # vs runs on known-good nodes, which catches what comparing the GPUs with each other can't: a GPU slower
         # than it was by less than the healthy GPUs differ - on a node whose healthy GPUs were 0.8% faster to 1.7%
         # slower than their median, a GPU had to slow down by 1-4% to be flagged, while a healthy one repeats its
-        # median within 0.2% - and a whole node slow, on its own or with all the nodes measured with it. A GPU is
+        # median within 0.6% - and a whole node slow, on its own or with all the nodes measured with it. A GPU is
         # compared with itself and a node with the baseline's median node: a single GPU vs the baseline's median
-        # GPU would flag healthy ones, which on one node ran up to 2.3% slower than its median GPU in the matmul
+        # GPU would flag healthy ones, which on one node ran up to 2.3% slower than its median GPU in the matmul.
+        # A GPU's matmul isn't compared with its own, as a healthy GPU's moved by up to 1.2% between runs at the
+        # power cap
         if base and w in base["node"]:
             for r in results:
                 own = base["own"].get(r["uuid"], {})
                 r["vs_itself"] = w in own
                 if w in own:
                     r["vs_baseline"][w] = pct(r[key], own[w])
-                    if r["vs_baseline"][w] > args.threshold:
+                    if w != "matmul" and r["vs_baseline"][w] > args.threshold:
                         r["below_baseline"].append(w)
             for n in nodes.values():
                 n["vs_baseline"][w] = pct(statistics.median(r[key] for r in n["gpus"]), base["node"][w])
@@ -947,8 +951,8 @@ def report(results, args):
              f"unsteady: a 90th percentile window more than {args.unsteady:g}% slower than its own median window, "
              f"above a modified z-score of {args.outlier:g} among {among} (--unsteady)"]
     if base:
-        rules.append(f"below baseline: a median time more than {args.threshold:g}% slower than its own in the "
-                     f"baseline (--threshold)")
+        rules.append(f"below baseline: a median time in the step, copy or stream more than {args.threshold:g}% "
+                     f"slower than its own in the baseline (--threshold)")
     if len(nodes) > 1:
         rules.append(f"slow node: its median GPU's 90th percentile window more than {args.slow_node:g}% slower "
                      f"than {node_ref_name} (--slow-node)")
@@ -1152,10 +1156,13 @@ def worker(local_rank, args, world_size, init_method):
                     for k in ("slow_in", "below_baseline"):
                         n[k] += [w for w in r[f"node_{k}"] if w not in n[k]]
         # each GPU vs its own fastest run, which catches one that slowed between runs by less than the healthy GPUs
-        # differ from each other, and which a healthy GPU repeats within 0.2% of
+        # differ from each other, and which a healthy GPU repeats within 0.6% of - in all but the matmul, as with
+        # --baseline
         if args.repeat > 1 and rc != 2:
             for rank in range(len(repeats[0])):
                 for w, key in MEDIAN_KEYS.items():
+                    if w == "matmul":
+                        continue
                     medians = [results[rank][key] for results in repeats]
                     slower = [i + 1 for i, m in enumerate(medians) if 100 * (m / min(medians) - 1) > args.threshold]
                     if slower:
@@ -1175,7 +1182,7 @@ def worker(local_rank, args, world_size, init_method):
                 print(banner(found(parts, f" in {args.repeat} Runs")))
                 if not parts:
                     print("no straggler in any run, and no GPU more than "
-                          f"{args.threshold:g}% slower in a run than in its fastest one")
+                          f"{args.threshold:g}% slower in a run than in its fastest one in the step, copy or stream")
             for n in slow_nodes.values():
                 print(bullets([f"{n['host']}: a slow node in {len(n['runs'])} of {args.repeat} runs "
                                f"(run {', '.join(map(str, n['runs']))}) - GPU serials "

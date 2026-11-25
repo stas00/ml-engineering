@@ -132,9 +132,12 @@ HOSTS=$(grep -v '^#' "$HOSTFILE" | grep -v '^$' | cut -d' ' -f1 | tr '\n' ',' | 
 export PDSH_RCMD_TYPE=ssh   # every later pdsh call needs it too
 pdsh -w "$HOSTS" hostname
 
-# 3. Peer → peer TCP (rdzv will need this). From node 1, hit node 0's IP:22 or the container sshd port.
+# 3. Peer → peer TCP (rdzv will need this). From node 1, hit node 0's sshd at the port ssh uses, which `ssh -G`
+#    reads from ~/.ssh/config: it's often not 22 in a container (7878 on one Kubernetes cluster).
 MASTER_ADDR=$(grep -v '^#' "$HOSTFILE" | grep -v '^$' | head -1 | cut -d' ' -f1)
-timeout 5 bash -c "echo >/dev/tcp/$MASTER_ADDR/${SSH_PORT:-22}" && echo OPEN
+PEER=$(grep -v '^#' "$HOSTFILE" | grep -v '^$' | sed -n 2p | cut -d' ' -f1)
+SSH_PORT=$(ssh -G "$MASTER_ADDR" | awk '$1 == "port" {print $2}')
+ssh -n "${PEER:-$MASTER_ADDR}" "timeout 5 bash -c 'echo >/dev/tcp/$MASTER_ADDR/$SSH_PORT' && echo OPEN"
 ```
 
 On Kubernetes, `ssh` may be `kubectl exec` per pod — still loop **every** sibling, not only the first (`-0`). Probe `sshd` listen port (`ss -ltnp | grep sshd`) and `ssh -p <port> <ip> hostname`. Do **not** assume port 22 or 2222. If PATH has a cluster SSH wrapper, use it; otherwise `ssh` / `pdsh`.
@@ -388,7 +391,7 @@ On 1 node: `sleep 120; "$PY" gpu-straggler-finder.py --unflagged-rows -1 --repea
 
 - A run that stops early or prints `inf or NaN` is a dead or broken card: name it from the console and put it under **Underperforming subsystems**.
 - `stall` lines name windows in which all of a node's GPUs slowed at once, which the comparisons leave out; report them per node, as they slow a job too, but they are not a GPU's fault.
-- The `--repeat` summary also lists a GPU whose median in a run was more than 1% slower than in its own fastest run. That is not one of the 4 runs' flags: one sentence in this section, with the runs, and nothing in **Findings** unless the GPU was flagged in all 4.
+- The `--repeat` summary also lists a GPU whose median in the step, the copy or the stream was more than 1% slower in a run than in its own fastest run; not in the matmul, which moved by up to 1.2% between runs on healthy GPUs. That is not one of the 4 runs' flags: one sentence in this section, with the runs, and nothing in **Findings** unless the GPU was flagged in all 4.
 - On 1 node the finder can't compare nodes, and on 2 it can tell them apart but not which one is normal: it flags a node whose median GPU's 90th percentile window is more than 3% slower than the faster node's. Say so in one sentence; if the user has the `--json` of a run on known-good nodes of the same GPU, rerun with `--baseline <file>` to compare against them.
 - A GPU flagged in all 4 runs: record its node's SM clock with Nsight Systems, which samples it far more often than the finder's 10 ms NVML samples, between which a dip can hide. On that node alone:
 
@@ -400,7 +403,7 @@ On 1 node: `sleep 120; "$PY" gpu-straggler-finder.py --unflagged-rows -1 --repea
   nsys export --type sqlite --output "$report.sqlite" "$report.nsys-rep"
   ```
 
-  The `GPU_METRICS` clock values in the `.sqlite` are in Hz despite the `[MHz]` in their name. Copy the `.nsys-rep`, the `.sqlite` and the `.console` into `raw/`. If `nsys` says the GPU performance counters are in use, stop `nv-hostengine`, which DCGM may have left running, and run it again. If `nsys` isn't installed, put it in **Gaps**.
+  The `GPU_METRICS` clock values in the `.sqlite` are in Hz despite the `[MHz]` in their name. Use this run for the clocks only, not for its verdict: nsys slows the GPUs unevenly, and on a node of 8× H200 that passed 4 runs without it, its step was 2% slower and 3 GPUs were flagged slow in it at +1.3-1.7%. Copy the `.nsys-rep`, the `.sqlite` and the `.console` into `raw/`; for 8 GPUs they were 0.6 GB and 19 GB, and the export took 6 minutes. If `nsys` says the GPU performance counters are in use, stop `nv-hostengine`, which DCGM may have left running, and run it again. If `nsys` isn't installed, put it in **Gaps**.
 
 ## Network
 
